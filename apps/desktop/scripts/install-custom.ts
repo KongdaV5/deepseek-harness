@@ -54,7 +54,9 @@ function main(): void {
   verifySignature(source)
   if (existsSync(destination)) assertVerifiedCustomBundle(destination, 'existing installation')
   if (existsSync(staging)) throw new Error(`DS Harness install: stale staging application exists: ${staging}`)
-  cpSync(source, staging, { recursive: true, preserveTimestamps: true, errorOnExist: true })
+  // Electron Framework embeds symlinked versioned resources. Dereferencing them
+  // changes the sealed bundle tree and makes the staging signature unverifiable.
+  cpSync(source, staging, { recursive: true, preserveTimestamps: true, verbatimSymlinks: true, errorOnExist: true })
   try {
     assertVerifiedCustomBundle(staging, 'staging copy')
     verifySignature(staging)
