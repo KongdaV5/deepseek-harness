@@ -53,7 +53,7 @@ function parseConcurrency(raw: string | undefined): number {
 async function main(): Promise<void> {
   const { values } = parseArgs({
     options: {
-      family: { type: 'string' }, out: { type: 'string' }, concurrency: { type: 'string' }, clientTitle: { type: 'string' },
+      family: { type: 'string' }, out: { type: 'string' }, concurrency: { type: 'string' }, 'client-title': { type: 'string' },
     },
     allowPositionals: false,
   })
@@ -64,7 +64,7 @@ async function main(): Promise<void> {
   const root = process.cwd()
   const destination = resolve(root, values.out ?? DEFAULT_OUTPUT)
   const members = family.publishOrder(family.members(root)).order
-  family.verifyBuildArtifacts(root, values.clientTitle)
+  family.verifyBuildArtifacts(root, values['client-title'])
   family.verifyVersions(members)
 
   rmSync(destination, { recursive: true, force: true })
