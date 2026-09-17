@@ -6,7 +6,6 @@ import { appendFile, mkdir, rename, rm } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { dirname, isAbsolute, join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { createRequire } from 'node:module'
 import { parseArgs } from 'node:util'
 
 import { writeFileAtomic } from '../packages/util/atomic-write/src/index.ts'
@@ -76,6 +75,11 @@ export interface SchedulerRuntime {
   tsxCliPath: string
 }
 
+export interface VerifiedSchedulerRuntime extends SchedulerRuntime {
+  nodeVersion: string
+  architecture: string
+}
+
 export interface SchedulerOptions {
   hour?: number
   minute?: number
@@ -90,7 +94,7 @@ export interface SchedulerDependencies {
   monitor?: (root: string) => Promise<MonitorResult>
   notify?: (event: NotificationEvent) => void
   command?: (program: string, args: string[]) => CommandResult
-  runtime?: () => SchedulerRuntime
+  runtime?: (paths: SchedulerPaths) => SchedulerRuntime
 }
 
 export interface CommandResult {
@@ -333,9 +337,14 @@ export async function runScheduled(
   return { exitCode, monitor, notification: event, notificationDelivered: delivered, state }
 }
 
-function runtime(): SchedulerRuntime {
-  const require = createRequire(import.meta.url)
-  return { nodePath: process.execPath, tsxCliPath: require.resolve('tsx/cli') }
+function runtime(paths: SchedulerPaths, deps: SchedulerDependencies): SchedulerRuntime {
+  if (deps.runtime !== undefined) return deps.runtime(paths)
+  const prefix = requiredCommand(deps, 'brew', ['--prefix', 'node@24'], 'cannot discover stable Homebrew node@24 prefix').stdout.trim()
+  if (prefix === '' || prefix.includes('/Cellar/')) throw new Error('Homebrew did not return a stable node@24 formula prefix')
+  return {
+    nodePath: join(prefix, 'bin', 'node'),
+    tsxCliPath: join(paths.root, 'node_modules', 'tsx', 'dist', 'cli.mjs'),
+  }
 }
 
 function xml(value: string): string {
@@ -392,13 +401,20 @@ function isLoaded(deps: SchedulerDependencies): boolean {
   return (deps.command ?? command)('/bin/launchctl', ['print', `${launchDomain()}/${LABEL}`]).status === 0
 }
 
-function verifyRuntime(paths: SchedulerPaths, deps: SchedulerDependencies): SchedulerRuntime {
-  const value = (deps.runtime ?? runtime)()
+function verifyRuntime(paths: SchedulerPaths, deps: SchedulerDependencies): VerifiedSchedulerRuntime {
+  const value = runtime(paths, deps)
+  if (value.nodePath.includes('/Cellar/')) throw new Error('refusing to persist a version-pinned Homebrew Cellar Node path')
+  if (value.tsxCliPath.includes('/node_modules/.pnpm/')) throw new Error('refusing to persist a version-pinned pnpm internal tsx path')
   accessSync(value.nodePath)
   accessSync(value.tsxCliPath)
   accessSync(paths.script)
+  const version = requiredCommand(deps, value.nodePath, ['--version'], 'maintenance Node version probe failed').stdout.trim()
+  const major = /^v(\d+)\./u.exec(version)?.[1]
+  if (major !== '24') throw new Error(`maintenance Node major must be 24, got ${version || 'unknown'}`)
+  const architecture = requiredCommand(deps, value.nodePath, ['-p', 'process.arch'], 'maintenance Node architecture probe failed').stdout.trim()
+  if (architecture !== 'arm64') throw new Error(`maintenance Node architecture must be arm64, got ${architecture || 'unknown'}`)
   requiredCommand(deps, value.nodePath, [value.tsxCliPath, paths.script, 'runtime-probe'], 'LaunchAgent runtime probe failed')
-  return value
+  return { ...value, nodeVersion: version, architecture }
 }
 
 /** Install or safely reload only the owned user-level LaunchAgent. */
@@ -444,10 +460,13 @@ export function schedulerStatus(cwd: string, options: SchedulerOptions = {}, dep
   let state: SchedulerState | null = null
   let stateError: string | null = null
   try { state = readState(paths.state) } catch (error) { stateError = (error as Error).message }
+  let maintenanceRuntime: VerifiedSchedulerRuntime | null = null
+  let maintenanceRuntimeError: string | null = null
+  try { maintenanceRuntime = verifyRuntime(paths, deps) } catch (error) { maintenanceRuntimeError = (error as Error).message }
   return {
     label: LABEL, installed, ownership, loaded: isLoaded(deps), schedule: installed ? plistValue(readFileSync(paths.plist, 'utf8'), 'DSHSchedule') : null,
     repository: root, repositoryExists: existsSync(root), plist: paths.plist, logs: [paths.log, paths.errorLog], statePath: paths.state,
-    state, stateError,
+    state, stateError, maintenanceRuntime, maintenanceRuntimeError,
   }
 }
 
