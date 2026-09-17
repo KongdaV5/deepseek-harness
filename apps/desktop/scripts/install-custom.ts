@@ -29,7 +29,7 @@ function readJson(path: string): unknown {
 }
 
 /** Require the specific Custom product before replacing anything in /Applications. */
-function assertVerifiedCustomBundle(path: string, role: 'source' | 'existing installation'): void {
+function assertVerifiedCustomBundle(path: string, role: 'source' | 'staging copy' | 'existing installation'): void {
   if (!existsSync(path)) throw new Error(`DS Harness install: ${role} is absent: ${path}`)
   // plutil emits JSON for an Apple plist without changing the source application.
   const plist = JSON.parse(execFileSync('plutil', ['-convert', 'json', '-o', '-', join(path, 'Contents', 'Info.plist')], { encoding: 'utf8' })) as BundleInfo
