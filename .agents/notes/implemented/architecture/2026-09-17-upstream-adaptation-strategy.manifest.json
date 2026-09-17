@@ -1,0 +1,407 @@
+{
+  "formatVersion": 1,
+  "phase": "8C.1",
+  "status": "strategy-locked",
+  "generatedAt": "2026-09-17T23:25:13+08:00",
+  "target": {
+    "remote": "https://github.com/deepseek-ai/deepseek-harness.git",
+    "branch": "origin/master",
+    "sha": "ddefc45fbc7f8e46dd73185e68295696d1297887",
+    "version": "0.1.6-alpha.2",
+    "fetchedAt": "2026-09-17T23:25:13+08:00"
+  },
+  "source": {
+    "productBaselineTag": "ds-harness-product-baseline-2026-09-17",
+    "productBaselineSha": "bfba98b9bd9390735242ad57840050850a3c11b5",
+    "technicalBaselineTag": "dsh-custom-baseline-2026-09-17",
+    "technicalBaselineSha": "9d9762e7d2567248050559f2ac1b04e9f2a766f2",
+    "mergeBase": "c291e7961a515f6d7af9304e7fd1d257929aef26",
+    "baselineOnlyCommits": 12,
+    "upstreamOnlyCommits": 1548
+  },
+  "isolation": {
+    "worktree": "/tmp/ds-harness-upstream-adaptation-ddefc45f",
+    "branch": "adapt/ds-harness-upstream-ddefc45f",
+    "baseCommit": "ddefc45fbc7f8e46dd73185e68295696d1297887",
+    "stableAppsModified": false,
+    "candidateInstalled": false,
+    "realUserDataRead": false,
+    "mainBranchIntegrated": false
+  },
+  "upstreamHealth": {
+    "install": "PASS",
+    "build": "PASS",
+    "test": "KNOWN_UPSTREAM_FAILURES",
+    "testFiles": { "passed": 1511, "failed": 4, "skipped": 14, "total": 1529 },
+    "tests": { "passed": 25845, "failed": 260, "expectedFail": 1, "skipped": 176, "total": 26282 },
+    "environment": {
+      "os": "macOS",
+      "architecture": "arm64",
+      "node": "24.21.0",
+      "declaredPackageManager": "pnpm@11.7.0",
+      "executedPnpm": "11.19.0",
+      "defaultPython": "/usr/bin/python3 3.9.6"
+    },
+    "knownFailures": [
+      {
+        "id": "python-minimum-version",
+        "count": 245,
+        "classification": "environment-prerequisite",
+        "evidence": "The upstream Python PTC runner resolves the default python3, while this host's /usr/bin/python3 is CPython 3.9.6 and the suite requires Python 3.10 or newer."
+      },
+      {
+        "id": "desktop-main-startup-fixture-identity",
+        "count": 15,
+        "classification": "upstream-test-fixture-regression",
+        "evidence": "main-startup.spec.ts stubs process.platform to win32 while retaining the arm64 host architecture; the new installed-client guard correctly rejects desktop-win plus arm64, causing one identity failure and fourteen dependent timeouts."
+      }
+    ]
+  },
+  "oldCustomSurface": {
+    "trackedFiles": 256,
+    "insertions": 19967,
+    "deletions": 163,
+    "capabilityFocusedFiles": 136,
+    "measurement": "git diff --stat and capability-path filtering from merge base c291e796 to product baseline bfba98b9"
+  },
+  "statusValues": [
+    "UPSTREAM_NATIVE",
+    "UNCHANGED_PORTABLE",
+    "PORT_WITH_ADAPTATION",
+    "REWRITE_REQUIRED",
+    "OBSOLETE",
+    "UNKNOWN"
+  ],
+  "actionValues": ["KEEP_UPSTREAM", "PORT", "REIMPLEMENT", "DROP", "REVIEW"],
+  "capabilities": [
+    {
+      "id": "product-identity",
+      "capability": "Product identity and coexistence",
+      "oldImplementation": "Custom Electron app name, dev.dsh.desktop.custom, isolated userData and desktop-custom profile, startup branding, and independent single-instance ownership.",
+      "upstreamEquivalent": "DSH_DESKTOP_APP_ID configures appId, but productName remains hard-coded, Desktop profile remains desktop, and startup/update identity was redesigned.",
+      "status": "REWRITE_REQUIRED",
+      "action": "REIMPLEMENT",
+      "risk": "CRITICAL",
+      "validation": ["bundle identity inspection", "isolated userData/profile assertion", "dual-app single-instance coexistence", "startup/window/client branding"]
+    },
+    {
+      "id": "packaging-daily-install",
+      "capability": "macOS arm64 package and safe daily install",
+      "oldImplementation": "Custom package/install scripts staged the bundled Node Host, signed the app, verified native modules, and installed beside official Desktop.",
+      "upstreamEquivalent": "A signed primary-runtime tree now bundles Node, Python, pnpm, payload digests, updater policy, and qualification stages.",
+      "status": "REWRITE_REQUIRED",
+      "action": "REIMPLEMENT",
+      "risk": "HIGH",
+      "validation": ["staged runtime manifest", "codesign deep verification", "native module smoke", "candidate-only install rehearsal"]
+    },
+    {
+      "id": "run-state",
+      "capability": "Truthful Run State and identity",
+      "oldImplementation": "Agent Run State projected session/run/attempt identity and terminal-safe phases from durable and transient sources.",
+      "upstreamEquivalent": "Upstream has turn/step lifecycle, LlmAttemptId, transient assistant stream, and durable retry events, but no DS Harness RunId projection.",
+      "status": "PORT_WITH_ADAPTATION",
+      "action": "PORT",
+      "risk": "HIGH",
+      "validation": ["new lifecycle fixture matrix", "retry remains same run", "terminal state ignores late observation", "Unknown remains explicit"]
+    },
+    {
+      "id": "backend-observation",
+      "capability": "Backend observation and health",
+      "oldImplementation": "Replaceable MLX/GGUF observers, prefill activity, independent process/model/generation health, and attribution confidence.",
+      "upstreamEquivalent": "No equivalent backend health or prefill observer was found.",
+      "status": "PORT_WITH_ADAPTATION",
+      "action": "PORT",
+      "risk": "HIGH",
+      "validation": ["replayed backend fixtures", "long prefill is not stalled", "health 200 plus worker fatal", "unattributed observation isolation"]
+    },
+    {
+      "id": "error-classification",
+      "capability": "Primary/secondary error classification",
+      "oldImplementation": "Classified resource limits, worker crashes, cancellation, and secondary stream failures without replacing the root cause.",
+      "upstreamEquivalent": "LlmFailure now carries provider-neutral code/status/requestId facts but does not implement DS Harness backend-root-cause precedence.",
+      "status": "PORT_WITH_ADAPTATION",
+      "action": "PORT",
+      "risk": "HIGH",
+      "validation": ["RESOURCE_LIMIT remains primary", "cancel then BrokenPipe", "fatal evidence threshold", "unknown errors do not become fatal"]
+    },
+    {
+      "id": "run-policy",
+      "capability": "Approved retry and run policy",
+      "oldImplementation": "Fatal-aware bounded retries, cancellation acknowledgement, and no retry after terminal/fatal states.",
+      "upstreamEquivalent": "llm-retry provides durable same-turn retries and backoff, but normal mode defaults to five retries and its generic retryable classes do not encode DS Harness fatal backend evidence.",
+      "status": "REWRITE_REQUIRED",
+      "action": "REIMPLEMENT",
+      "risk": "CRITICAL",
+      "validation": ["retry count at most two", "Metal fatal has no retry", "cancel acknowledgement", "no duplicate retry engines"]
+    },
+    {
+      "id": "task-checkpoint",
+      "capability": "Task checkpoint, result manifest, and pending-only resume",
+      "oldImplementation": "Custom durable TaskCheckpoint/Result Manifest tracked objective, steps, outputs, failures, and resume eligibility.",
+      "upstreamEquivalent": "session-checkpoint-policy now flushes before model requests, side-effecting tools, and next steps; repair distinguishes TOOL_NOT_STARTED and TOOL_OUTCOME_UNKNOWN, but there is no domain TaskCheckpoint/Result Manifest.",
+      "status": "REWRITE_REQUIRED",
+      "action": "REIMPLEMENT",
+      "risk": "CRITICAL",
+      "validation": ["v3 event compatibility", "completed/pending preservation", "TOOL_OUTCOME_UNKNOWN blocks resume", "crash/resume pending-only"]
+    },
+    {
+      "id": "crash-durability-foundation",
+      "capability": "Crash durability and generic session resume foundation",
+      "oldImplementation": "Custom hooks forced durable boundaries and repaired interrupted runs.",
+      "upstreamEquivalent": "Native session-checkpoint-policy, resume registry, interrupted turn closure, lease verification, and repair semantics now provide the generic foundation.",
+      "status": "UPSTREAM_NATIVE",
+      "action": "KEEP_UPSTREAM",
+      "risk": "MEDIUM",
+      "validation": ["native checkpoint policy tests", "crash recovery E2E", "session lease/generation tests"]
+    },
+    {
+      "id": "reasoning",
+      "capability": "IQ3_S xhigh-first reasoning policy",
+      "oldImplementation": "Request-scoped xhigh-first classification, high to xhigh, off to none, benchmark lock, and auxiliary compaction scope isolation.",
+      "upstreamEquivalent": "llm-pi-ai supports request-level reasoningEffort, model-advertised effort values, strict unsupported errors, and request override, but does not encode the audited IQ3_S policy.",
+      "status": "PORT_WITH_ADAPTATION",
+      "action": "PORT",
+      "risk": "HIGH",
+      "validation": ["IQ3_S capability matrix", "request overrides launcher default", "high resolves xhigh", "continuous complex work stays xhigh"]
+    },
+    {
+      "id": "compaction",
+      "capability": "Task-aware, fail-closed compaction",
+      "oldImplementation": "Pressure/eligibility separation, low then medium compaction, deterministic task-fact validation, atomic apply, and main-reasoning isolation.",
+      "upstreamEquivalent": "compaction-basic now provides token-meter thresholds, automatic/manual/overflow triggers, atomic brackets, shrink validation, cache-prefix reuse, image offload, and tool-result pruning.",
+      "status": "PORT_WITH_ADAPTATION",
+      "action": "REIMPLEMENT",
+      "risk": "HIGH",
+      "validation": ["adopt native transaction", "task facts survive", "low then medium only", "failure retains old surface", "main xhigh remains xhigh"]
+    },
+    {
+      "id": "large-tool-results",
+      "capability": "Large tool-result governance",
+      "oldImplementation": "Custom summary/key-line/reference retention reduced long-lived tool output.",
+      "upstreamEquivalent": "Native compaction tool-result pruner and image offload cover the generic surface reduction mechanism.",
+      "status": "UPSTREAM_NATIVE",
+      "action": "KEEP_UPSTREAM",
+      "risk": "MEDIUM",
+      "validation": ["error root cause retention", "artifact references remain durable", "surface shrink tests"]
+    },
+    {
+      "id": "diagnostics-ui",
+      "capability": "Run Details diagnostics and idle closure",
+      "oldImplementation": "Read-only diagnostics remote plus RunStatusDock displayed run/backend/context facts and returned run=null when idle.",
+      "upstreamEquivalent": "Client modules, generated catalogs, scoped slots, and ui-dockkit replace the old renderer surface; runtime invariants do not provide Run State UI.",
+      "status": "REWRITE_REQUIRED",
+      "action": "REIMPLEMENT",
+      "risk": "HIGH",
+      "validation": ["new remote contract", "dockkit/layout integration", "idle run=null occupies no composer space", "read-only behavior"]
+    },
+    {
+      "id": "data-boundaries",
+      "capability": "Shared settings/sessions with isolated Electron state/profile",
+      "oldImplementation": "DS Harness isolated userData and desktop-custom profile while intentionally sharing approved settings/session stores.",
+      "upstreamEquivalent": "Desktop and Host still default to desktop, while profile resolution and session v0-to-v3 migrations, generations, and leases are substantially newer.",
+      "status": "REWRITE_REQUIRED",
+      "action": "REIMPLEMENT",
+      "risk": "CRITICAL",
+      "validation": ["temporary copied fixtures only", "migration dry run", "path identity assertions", "official profile remains untouched"]
+    },
+    {
+      "id": "maintenance-plane",
+      "capability": "Phase 8B read-only upstream maintenance plane",
+      "oldImplementation": "Auditor, incremental monitor, daily scheduler, material-change notification, and stable maintenance runtime.",
+      "upstreamEquivalent": "Repository maintenance is independent of the product runtime; only workspace scripts, package commands, and documentation wiring may differ.",
+      "status": "UNCHANGED_PORTABLE",
+      "action": "PORT",
+      "risk": "MEDIUM",
+      "validation": ["Phase 8B regression", "read-only dry run", "state/cursor hash unchanged", "stable Homebrew Node and repo-local tsx"]
+    }
+  ],
+  "upstreamNativeCapabilities": [
+    "session checkpoint flush before model request, side-effecting tool, and next step",
+    "TOOL_NOT_STARTED and TOOL_OUTCOME_UNKNOWN repair facts",
+    "generic agent resume and interrupted turn closure",
+    "request-level reasoning effort with model-advertised capabilities and strict unsupported behavior",
+    "provider-neutral LlmFailure facts and request identity",
+    "durable same-turn retry events and backoff mechanism, excluding DS Harness policy values",
+    "token meter and pressure inputs",
+    "atomic compaction transaction, shrink validation, tool-result pruning, and image offload",
+    "runtime invariant registry",
+    "session v0-to-v3 migration, generation, lease, projection, and assistant-stream foundations"
+  ],
+  "requiredNewCustomSurface": [
+    { "domain": "product-flavor", "requirement": "Minimal product identity/profile/userData/branding configuration compatible with the new Desktop release pipeline." },
+    { "domain": "data-boundary", "requirement": "Explicit desktop-custom isolation and fixture-only migration qualification." },
+    { "domain": "composition", "requirement": "A current package-set/Cordis composition containing only retained DS Harness capabilities." },
+    { "domain": "run-observability", "requirement": "RunId projection, backend observers, health/error precedence, and read-only diagnostics transport." },
+    { "domain": "safety-policy", "requirement": "Bounded fatal-aware retry/cancel policy integrated once with upstream llm-retry." },
+    { "domain": "task-continuity", "requirement": "TaskCheckpoint/Result Manifest v3 events, projections, guards, and pending-only resume." },
+    { "domain": "reasoning", "requirement": "IQ3_S capability mapping and xhigh-first request policy on upstream reasoningEffort." },
+    { "domain": "compaction", "requirement": "Thin task-aware eligibility, reasoning scope, and deterministic validation around upstream compaction." },
+    { "domain": "client-diagnostics", "requirement": "Run Details rebuilt for current remote/module/scoped-slot/dockkit contracts." },
+    { "domain": "maintenance", "requirement": "Phase 8B tooling ported after product contracts stabilize, without joining runtime composition." }
+  ],
+  "seams": [
+    {
+      "id": "desktop-product-identity-isolation",
+      "oldContract": "Custom appId, productName, desktop-custom profile, isolated userData, startup title, and single-instance identity.",
+      "newContract": "appId is environment-resolved; productName and Desktop profile are fixed upstream; mandatory-update identity and startup shell are new.",
+      "breakage": "The old patch locations and startup renderer contract no longer map one-to-one.",
+      "migration": "Create a reviewed upstream-style product flavor seam before any candidate launch.",
+      "risk": "CRITICAL",
+      "validation": ["identity manifest", "path isolation", "two-app coexistence", "branding snapshot"]
+    },
+    {
+      "id": "desktop-packaging-runtime-tree",
+      "oldContract": "Custom scripts staged a Node Host/runtime descriptor and signed one macOS app.",
+      "newContract": "Primary runtime bundles pinned Node/Python/pnpm with payload hashes, update qualification, signing, and mandatory policy metadata.",
+      "breakage": "Old package/install scripts would bypass the new runtime and release closure.",
+      "migration": "Extend current packaging inputs; do not replay the old staging implementation.",
+      "risk": "HIGH",
+      "validation": ["runtime lock", "payload digests", "codesign", "native smoke", "safe coexistence"]
+    },
+    {
+      "id": "package-set-custom-composition",
+      "oldContract": "desktop-custom-composition patched the then-current base/web Cordis graph.",
+      "newContract": "The package/module graph and generated catalogs have expanded and changed ownership.",
+      "breakage": "Old patch entries can reference removed packages or duplicate new native services.",
+      "migration": "Rebuild a minimal composition from the current package graph after identity/data gates.",
+      "risk": "HIGH",
+      "validation": ["composition resolution", "startup without missing services", "capability inventory equality"]
+    },
+    {
+      "id": "client-package-export-loader",
+      "oldContract": "Custom client packages were loaded through the old export/slot conventions.",
+      "newContract": "Generated client catalogs, module packages, scoped slots, factory slots, and dockkit drive loading.",
+      "breakage": "Old package exports and renderer entry assumptions are not valid.",
+      "migration": "Create current-format exports and generated-catalog entries; keep transport read-only.",
+      "risk": "HIGH",
+      "validation": ["client catalog generation", "module load", "production renderer build"]
+    },
+    {
+      "id": "profile-settings-session-boundary",
+      "oldContract": "desktop-custom isolated profile/userData while approved settings and sessions were shared.",
+      "newContract": "Desktop and Host default to desktop; profile resolution, primary runtime installation, and automatic session migrations are new.",
+      "breakage": "An unqualified launch could use the official profile or migrate shared stores under unreviewed assumptions.",
+      "migration": "Implement and test explicit paths against copied fixtures before any real profile access.",
+      "risk": "CRITICAL",
+      "validation": ["temporary home path audit", "fixture migrations", "official/profile sentinel hashes"]
+    },
+    {
+      "id": "agent-run-event-contract",
+      "oldContract": "Run projection consumed older agent/session/tool/retry events with custom attempt correlation.",
+      "newContract": "Turn/step lifecycle, LlmAttemptId, compact assistant streams, durable retry waterfall, and structured terminal reasons are canonical.",
+      "breakage": "The old projection would misinterpret or miss new events and cannot invent RunId semantics.",
+      "migration": "Define an explicit new-event-to-RunId projection adapter and replay fixtures before integrating policy.",
+      "risk": "HIGH",
+      "validation": ["event fixture matrix", "retry same run", "cancel/fatal terminal immutability"]
+    },
+    {
+      "id": "llm-provider-stream-contract",
+      "oldContract": "Custom policy observed provider errors, request attempts, reasoning, usage, and streams through older hooks.",
+      "newContract": "LlmFailure, LlmAttemptId, reasoningEffort capabilities, disjoint usage fields, transient streams, and provider-owned retry are explicit.",
+      "breakage": "Old error/retry and reasoning adapters would duplicate or conflict with provider behavior.",
+      "migration": "Reuse upstream facts/mechanism and add one DS Harness policy layer for IQ3_S and fatal evidence.",
+      "risk": "CRITICAL",
+      "validation": ["provider contract tests", "IQ3_S audit fixtures", "retry at most two", "fatal no retry"]
+    },
+    {
+      "id": "session-projection-persistence-contract",
+      "oldContract": "Custom durable events/projections targeted the older Session envelope.",
+      "newContract": "Session format v3, static migrations, generation/lease verification, known-event catalog, and ignorable unknown-event rules apply.",
+      "breakage": "Directly writing old custom envelopes can be rejected or make cross-version persistence unsafe.",
+      "migration": "Design TaskCheckpoint/Run durable facts for v3 and register or safely mark extension events according to upstream rules.",
+      "risk": "CRITICAL",
+      "validation": ["format/schema tests", "round trip", "migration fixtures", "corruption/future-version refusal"]
+    },
+    {
+      "id": "compaction-token-surface-contract",
+      "oldContract": "Custom pressure policy and compaction modified the old compaction-basic flow.",
+      "newContract": "Upstream owns token thresholds, atomic brackets, replacement generations, pruning, offload, and overflow recovery.",
+      "breakage": "Replaying the old engine would create two compaction systems and discard new safety behavior.",
+      "migration": "Keep upstream executor; add thin task-aware eligibility, low/medium scope, and deterministic fact validation.",
+      "risk": "HIGH",
+      "validation": ["atomic failure", "task facts", "low-medium fallback", "xhigh main scope restored"]
+    },
+    {
+      "id": "diagnostics-remote-ui-contract",
+      "oldContract": "A custom remote exposed Run State to RunStatusDock and closed the idle composer gap.",
+      "newContract": "Session controller transport, generated client APIs, scoped modules, and dockkit own current UI composition.",
+      "breakage": "RunStatusDock has no guaranteed matching insertion point or transport shape.",
+      "migration": "Rebuild transport and UI against current module/dock contracts after the Run projection is stable.",
+      "risk": "HIGH",
+      "validation": ["transport reconnect", "UI render", "idle run=null", "read-only enforcement"]
+    },
+    {
+      "id": "native-runtime-abi-closure",
+      "oldContract": "Electron 44, Node 24.17, node-pty, koffi, sharp, and fs-ext were qualified in the Custom package.",
+      "newContract": "Electron 44 remains; primary Node is 24.21, Python 3.12 is added, node-pty/koffi/sharp versions remain, and native/system N-API now owns locking while fs-ext is legacy-only.",
+      "breakage": "Old runtime smoke and copied binary assumptions omit Python/payload signatures and the new native/system boundary.",
+      "migration": "Use upstream runtime lock and add product-specific packaged ABI smoke after packaging is restored.",
+      "risk": "HIGH",
+      "validation": ["architecture scan", "native/system load", "node-pty/koffi/sharp load", "Python runtime", "codesign"]
+    }
+  ],
+  "strategy": {
+    "chosen": "B",
+    "name": "Fresh latest-upstream branch plus semantic capability port",
+    "rationale": "All eleven registered seams changed, the histories diverge by 1548 upstream commits versus 12 baseline-only commits, and upstream now natively owns several foundations that old patches would duplicate.",
+    "rejected": {
+      "A": "Rebase would replay obsolete implementation assumptions across every changed seam and make conflict resolution look like semantic validation.",
+      "C": "Full or broad cherry-pick preserves historical file-level patches rather than current capability contracts; only isolated commits may later be mined as evidence.",
+      "D": "A hybrid integration strategy obscures the single source of truth. Selective source reuse is allowed inside strategy B, but the branch and architecture remain latest-upstream-first."
+    }
+  },
+  "portOrder": [
+    { "stage": 1, "goal": "Reconfirm locked upstream health and toolchain", "dependencies": [], "tests": ["install", "build", "classified upstream tests"], "stopGate": "Target SHA or health classification differs without explanation." },
+    { "stage": 2, "goal": "Product identity and process isolation", "dependencies": [1], "tests": ["bundle/profile/userData/single-instance contracts"], "stopGate": "Any path can collide with official Desktop or Stable DS Harness." },
+    { "stage": 3, "goal": "Profile, settings, sessions, and migration boundary", "dependencies": [2], "tests": ["temp-home paths", "copied-fixture migrations", "sentinel hashes"], "stopGate": "Any real-data path is touched or migration semantics remain unresolved." },
+    { "stage": 4, "goal": "Packaging and primary-runtime closure", "dependencies": [2, 3], "tests": ["runtime lock", "native ABI", "codesign", "candidate staging"], "stopGate": "Runtime payload/signature/native closure fails." },
+    { "stage": 5, "goal": "Minimal current Cordis/package-set composition", "dependencies": [3, 4], "tests": ["composition resolution", "host startup in temp profile"], "stopGate": "Composition duplicates upstream-native services or cannot start isolated." },
+    { "stage": 6, "goal": "Session v3 and Agent lifecycle adapters", "dependencies": [5], "tests": ["schema", "projection", "turn/step/attempt fixtures"], "stopGate": "Run identity or durable-event compatibility is ambiguous." },
+    { "stage": 7, "goal": "Run State, backend health, and error classification", "dependencies": [6], "tests": ["Phase 2/3 observability and policy fixtures"], "stopGate": "Unknown is guessed, fatal evidence is weak, or terminal state can regress." },
+    { "stage": 8, "goal": "TaskCheckpoint, Result Manifest, and guarded resume", "dependencies": [6, 7], "tests": ["crash/resume", "pending-only", "outcome-unknown block"], "stopGate": "Authoritative task facts can be lost or duplicated." },
+    { "stage": 9, "goal": "IQ3_S reasoning and bounded run policy", "dependencies": [7, 8], "tests": ["xhigh-first matrix", "fatal no retry", "retry at most two"], "stopGate": "A second retry engine appears or request reasoning cannot be proven." },
+    { "stage": 10, "goal": "Task-aware compaction adapter", "dependencies": [8, 9], "tests": ["facts", "atomic apply", "low-medium", "scope isolation"], "stopGate": "Compaction can mutate checkpoints, delete evidence, or lower main reasoning." },
+    { "stage": 11, "goal": "Current-client Run Details integration", "dependencies": [7, 10], "tests": ["remote", "dockkit", "idle closure", "renderer build"], "stopGate": "Diagnostics can mutate runtime or idle UI regresses." },
+    { "stage": 12, "goal": "Phase 8B maintenance plane port", "dependencies": [2, 5], "tests": ["B8 regression", "read-only dry run", "state hashes"], "stopGate": "Maintenance joins product runtime or changes cursor/debt." },
+    { "stage": 13, "goal": "Full isolated regression and candidate qualification", "dependencies": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], "tests": ["full product matrix", "packaged smoke", "coexistence", "data safety"], "stopGate": "Any baseline invariant or safety sentinel fails; no install or new baseline." }
+  ],
+  "contractEvidencePaths": [
+    "apps/desktop/src/main.ts",
+    "apps/desktop/src/paths.ts",
+    "apps/desktop/src/single-instance.ts",
+    "apps/desktop/electron-builder.config.mjs",
+    "apps/desktop-host/src/index.ts",
+    "apps/desktop/scripts/primary-runtime-lock.json",
+    "packages/core/agent-loop/src",
+    "packages/api/session-controller/src",
+    "packages/session/session-checkpoint-policy/src/index.ts",
+    "packages/session/session-format/src/index.ts",
+    "packages/session/session-format-v2-to-v3/src/index.ts",
+    "packages/session/session-persistence/src/storage-contract.ts",
+    "packages/llm/llm-pi-ai/src/index.ts",
+    "packages/llm/llm-retry/src/index.ts",
+    "packages/llm/token-meter/src",
+    "packages/compaction/compaction-basic/src/index.ts",
+    "packages/runtime-diagnostics/invariants/src",
+    "packages/client/ui-dockkit/src"
+  ],
+  "safety": {
+    "dataPlan": "Use temporary DSH_HOME/userData/profile roots and copied synthetic/released fixtures only. Never point the adaptation build or migration code at the user's settings, sessions, profiles, or Application Support.",
+    "nativePlan": "Adopt the upstream primary-runtime lock, then verify architecture, payload hashes, codesign, Node/Python execution, native/system, node-pty, koffi, sharp, Host startup, and renderer loading in an isolated candidate.",
+    "maintenancePlan": "Port Phase 8B scripts late as a repository-only plane, adapt package/docs wiring, preserve cursor and scheduler state, and keep notifications material-change-only.",
+    "candidateInstallAllowed": false
+  },
+  "compatibilityDebt": {
+    "severity": "CRITICAL",
+    "impact": "BLOCKING_CHANGE",
+    "resolution": "UNRESOLVED",
+    "reason": "Reconnaissance and a strategy lock do not prove a port, packaged candidate, data migration, or new product baseline."
+  },
+  "knownUnknowns": [
+    "The exact upstream-style configuration API for a second product flavor must be designed and reviewed in Stage 2.",
+    "The precise v3 extension-event registration versus ignorable-envelope choice for TaskCheckpoint and Run State durable facts needs a focused schema prototype in Stage 6.",
+    "The local IQ3_S route's final mapping into the current pi-ai model catalog must be proven without reading real settings in Stage 9.",
+    "The current dockkit/scoped-slot insertion contract for Run Details needs a minimal renderer prototype after its remote contract stabilizes.",
+    "Packaged primary-runtime and native ABI behavior for the DS Harness flavor remains unproven until Stage 4 candidate qualification."
+  ]
+}

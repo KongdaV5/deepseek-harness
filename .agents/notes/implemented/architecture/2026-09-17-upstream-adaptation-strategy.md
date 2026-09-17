@@ -1,0 +1,139 @@
+# Agent Note: Phase 8C.1 locks a latest-upstream semantic-port strategy
+
+Status: implemented
+
+English | [中文](2026-09-17-upstream-adaptation-strategy.zh.md)
+
+## Problem
+
+Phase 8C.1 is reconnaissance, not an implementation or release. The adaptation target is the fetched `origin/master` commit `ddefc45fbc7f8e46dd73185e68295696d1297887` (`0.1.6-alpha.2`). It is evaluated in `/tmp/ds-harness-upstream-adaptation-ddefc45f` on `adapt/ds-harness-upstream-ddefc45f`, created directly from that commit. The source product baseline remains `ds-harness-product-baseline-2026-09-17` at `bfba98b9bd9390735242ad57840050850a3c11b5`; the technical recovery baseline remains `dsh-custom-baseline-2026-09-17` at `9d9762e7d2567248050559f2ac1b04e9f2a766f2`. The merge base is `c291e7961a515f6d7af9304e7fd1d257929aef26`, with 12 baseline-only and 1,548 target-only commits.
+
+No candidate was installed or launched. Neither installed application, the main worktree, the two baseline tags, monitor cursor/state, scheduler state, nor real settings, sessions, profiles, or Application Support data was modified or used. All source work and tests stayed in the isolated worktree or test-created temporary directories.
+
+The machine-readable contract is [`2026-09-17-upstream-adaptation-strategy.manifest.json`](2026-09-17-upstream-adaptation-strategy.manifest.json). It is authoritative for the exact capability rows, seam records, port stages, evidence paths, and status/action enum values summarized here.
+
+## Pure upstream health
+
+`pnpm install --frozen-lockfile` and the complete `pnpm run build` pass on macOS arm64 with Node 24.21.0. The repository declares pnpm 11.7.0; the available CLI used for this run is 11.19.0. The build compiles the native darwin-arm64 system module, Host/client libraries, the web renderer, and 248 client artifacts.
+
+The unmodified target test suite completes with 1,511 passed, 4 failed, and 14 skipped files; at test level it reports 25,845 passed, 260 failed, 1 expected failure, and 176 skipped. The 260 failures have two upstream/environment causes:
+
+- 245 Python PTC failures use the source default `python3`, which resolves to `/usr/bin/python3` 3.9.6 on this host, below upstream's Python 3.10 minimum. The packaged upstream primary runtime itself pins Python 3.12.14.
+- 15 `apps/desktop/tests/main-startup.spec.ts` failures are one upstream fixture mismatch plus 14 dependent timeouts. The fixture stubs `process.platform` to Windows but retains the arm64 host architecture; the new installed-client policy correctly refuses the impossible `desktop-win + arm64` identity.
+
+These are recorded known upstream failures, not Custom regressions. They do not prevent architectural reconnaissance because the clean build passes and both failure classes have direct, reproducible causes. They must be rechecked with Python 3.10+ and a corrected upstream test fixture before a release qualification can pass.
+
+## Material architecture changes
+
+### Desktop and product identity
+
+Desktop now includes mandatory-update identity and policy, update qualification, a changed startup shell, and a simple single-instance lock. `DSH_DESKTOP_APP_ID` supplies the bundle identifier, but `productName` remains hard-coded and Desktop and Host still select the `desktop` profile. The old Custom `startup-renderer.ts` seam is absent. Product identity therefore requires an explicit current-architecture flavor seam; replaying the old main/paths/renderer patches would be unsafe.
+
+### Packaging and build
+
+The release pipeline now stages a signed primary runtime with locked Node 24.21.0, Python 3.12.14, pnpm 11.7.0, Python wheels, payload digests, updater inputs, and qualification stages. Old package/install scripts do not represent this closure. The current builder factory and runtime lock must remain upstream-owned while DS Harness adds only reviewed product-flavor inputs and candidate verification.
+
+### Profile, data, and Session
+
+Profile resolution, isolated module fallbacks, cleanup behavior, and runtime installation changed, while default Desktop identity remains `desktop`. Session persistence is now format v3 with explicit v0-to-v1, v1-to-v2, and v2-to-v3 migrations, generation/lease checks, corruption/future-version refusal, and a known-event catalog. Unknown extension events are rejected unless registered or safely marked ignorable. Automatic migration makes profile/data isolation the first product stop gate; it may be tested only against copied fixtures under temporary roots.
+
+### Agent, run lifecycle, and retry
+
+`AgentStatus` remains `idle | running`, but lifecycle evidence is substantially richer: durable turn/step boundaries, `LlmAttemptId`, compact transient assistant streams with committed settlement, retry events, structured terminal reasons, and interrupted-turn closure. There is still no DS Harness `RunId`, backend health, or truthful Run State projection. Upstream retry provides durable same-turn backoff, but normal mode defaults to five retries and lacks DS Harness fatal-backend evidence. The mechanism can be adopted; the approved `retry <= 2`, cancellation acknowledgement, and fatal-no-retry policy must be integrated once, without a second retry engine.
+
+### LLM and reasoning
+
+`LlmFailure` now carries provider-neutral code, status, retry-after, request ID, and related facts. Streaming exposes reasoning, tool deltas, and disjoint input/cache/output/reasoning usage. `llm-pi-ai` supports request-level `reasoningEffort`, model-advertised levels, strict unsupported-value errors, and request override over profile defaults. Those are upstream-native foundations. The audited IQ3_S behavior—`none`, `low`, `medium`, `xhigh`; `high -> xhigh`; `off -> none`; xhigh-first task policy and stable segments—remains a backend-specific DS Harness mapping.
+
+### Compaction and token surface
+
+`compaction-basic` now owns token-meter thresholds, automatic/manual/context-overflow triggers, bracketed atomic summaries, replacement generations, shrink validation, prompt-cache prefix reuse, tool-result pruning, and image offload. The old modified executor must not be replayed. DS Harness still needs a thin task-aware layer for eligibility, TaskCheckpoint fact preservation, deterministic validation, low-to-medium-only auxiliary reasoning, fail-closed application, and restoration of the main xhigh scope.
+
+### Client and diagnostics
+
+Client composition moved to generated catalogs, module packages, scoped/factory slots, and `ui-dockkit`. The old `RunStatusDock.tsx` insertion model has no stable one-to-one counterpart. Upstream runtime invariants validate many contracts but do not supply Run State, backend process/model/generation health, prefill observation, primary/secondary error precedence, or the read-only Run Details experience. Transport and UI must be rebuilt after the Run projection stabilizes, retaining `run = null` with no idle composer gap.
+
+### Native runtime
+
+Electron remains 44.0.0; Node moves from the Custom baseline's 24.17.0 to 24.21.0. `node-pty` 1.2.0-beta.15, `koffi` 3.1.1, and `sharp` 0.35.3 remain. The current primary runtime adds Python and signed payload closure. Locking has moved to upstream `native/system` stable N-API; `fs-ext` is legacy policy surface rather than the current runtime lock dependency. The adapted product must validate the entire packaged closure, not copy old binary assumptions.
+
+## Capability adaptation matrix
+
+| Capability | Old DS Harness implementation | Current upstream equivalent | Status | Required action | Risk | Validation |
+| --- | --- | --- | --- | --- | --- | --- |
+| Product identity/coexistence | Custom app ID/name, userData/profile, branding, single instance | Partial appId input; fixed product/profile plus new startup/update identity | REWRITE_REQUIRED | REIMPLEMENT minimal product flavor | CRITICAL | Identity, paths, branding, dual-app coexistence |
+| Packaging/daily install | Custom staging, Node Host, signing, native smoke | Signed primary runtime and release qualification | REWRITE_REQUIRED | Extend current pipeline | HIGH | Runtime manifest, codesign, ABI, candidate rehearsal |
+| Run State/identity | Session/run/attempt projection | Turn/step and LlmAttemptId, no RunId | PORT_WITH_ADAPTATION | Port against new events | HIGH | Lifecycle fixtures, retry same run, terminal immutability |
+| Backend observation/health | MLX/GGUF observers and three-layer health | None found | PORT_WITH_ADAPTATION | Port behind observer contract | HIGH | Long prefill, worker fatal, attribution Unknown |
+| Error classification | Strong-evidence fatal and primary/secondary precedence | Structured LlmFailure facts only | PORT_WITH_ADAPTATION | Reuse facts, port precedence | HIGH | Resource limit, cancel/BrokenPipe, weak evidence |
+| Run/retry policy | Bounded, fatal-aware, cancellation-safe | Durable provider retry defaults to five | REWRITE_REQUIRED | One policy integration on native mechanism | CRITICAL | Retry at most two; fatal no retry |
+| Task checkpoint/result manifest | Domain task facts and pending-only resume | Generic checkpoint/repair/resume foundation | REWRITE_REQUIRED | Reimplement v3 domain events/projection | CRITICAL | Crash, pending-only, outcome-unknown block |
+| Generic crash durability | Custom flush/repair hooks | Native checkpoint policy, lease, repair, interrupted closure | UPSTREAM_NATIVE | KEEP_UPSTREAM | MEDIUM | Native E2E and persistence tests |
+| IQ3_S reasoning | xhigh-first and backend aliases | Request effort and capability plumbing | PORT_WITH_ADAPTATION | Port backend policy only | HIGH | Audited matrix and scope stability |
+| Task-aware compaction | Pressure, validation, low/medium, atomic apply | Strong native executor/pruner/offload | PORT_WITH_ADAPTATION | Thin adapter; keep native engine | HIGH | Facts, fail closed, scope isolation |
+| Large tool results | Custom summaries/key lines/references | Native pruner and offload | UPSTREAM_NATIVE | KEEP_UPSTREAM | MEDIUM | Root cause and artifact retention |
+| Run Details | Remote plus old dock | New module/catalog/dockkit client | REWRITE_REQUIRED | Rebuild current transport/UI | HIGH | Reconnect, read-only, idle closure |
+| Data boundary | Shared settings/sessions; isolated Electron/profile | New resolution and v3 automatic migration | REWRITE_REQUIRED | Explicit boundary and fixture qualification | CRITICAL | Temp roots, migrations, sentinels |
+| Phase 8B maintenance | Auditor/monitor/scheduler/notification | Product-independent repository plane | UNCHANGED_PORTABLE | Port late; adapt wiring only | MEDIUM | B8 regression and unchanged state hashes |
+
+## Upstream-native reduction and required Custom surface
+
+The new branch must adopt upstream checkpoint flush, generic resume and interrupted-turn closure, TOOL_NOT_STARTED/TOOL_OUTCOME_UNKNOWN repair facts, request-level reasoning plumbing, `LlmFailure`, same-turn retry events/backoff, token meter, atomic compaction, tool-result pruning/image offload, runtime invariants, and session migration/generation/lease/projection foundations. Duplicating these would enlarge risk without preserving a distinct user invariant.
+
+The old baseline changes 256 tracked files (19,967 insertions, 163 deletions); 136 files fall within the primary capability paths. Phase 8C.1 does not invent a misleading future file count. The required new Custom surface is instead bounded to ten semantic domains: product flavor, data boundary, minimal composition, run observability, safety policy, task continuity, IQ3_S reasoning, task-aware compaction, client diagnostics, and the repository-only maintenance plane. Every domain must remain smaller than a replacement upstream subsystem and must justify each hook.
+
+## Eleven compatibility seams
+
+| Seam | Old contract -> new contract and breakage | Required migration | Risk | Mapped validation |
+| --- | --- | --- | --- | --- |
+| desktop-product-identity-isolation | Old main/paths/renderer flavor -> environment appId plus fixed product/profile and new update identity; no one-to-one patch | Reviewed current product-flavor seam before launch | CRITICAL | Identity, isolation, coexistence, branding |
+| desktop-packaging-runtime-tree | Custom Node staging -> signed Node/Python/pnpm primary runtime; old scripts bypass closure | Extend current runtime/builder inputs | HIGH | Locks, digests, codesign, native smoke |
+| package-set-custom-composition | Old Cordis patch -> changed package/module catalogs; entries may be gone or native | Rebuild minimal composition | HIGH | Resolution, isolated Host startup, inventory equality |
+| client-package-export-loader | Old exports/slots -> generated catalogs and scoped/factory slots | Current exports/catalog integration | HIGH | Catalog generation, module and renderer build |
+| profile-settings-session-boundary | desktop-custom plus shared stores -> default desktop plus new resolution/migrations; collision/migration risk | Explicit paths and copied-fixture qualification | CRITICAL | Temp-home audit and sentinel hashes |
+| agent-run-event-contract | Older events -> turn/step/LlmAttemptId/compact streams/terminal reasons; old projection is incomplete | New-event-to-RunId adapter | HIGH | Event matrix, same-run retry, terminal stability |
+| llm-provider-stream-contract | Older hooks -> LlmFailure/reasoning/usage/provider retry; old adapters duplicate behavior | One DS Harness policy over native facts | CRITICAL | Provider contracts, IQ3_S, retry/fatal |
+| session-projection-persistence-contract | Older custom envelopes -> v3 catalog/migrations/leases; old events may be refused | v3 event and projection design | CRITICAL | Schema, round trip, migration, refusal behavior |
+| compaction-token-surface-contract | Modified old executor -> mature native transaction/pruner/offload; replay creates two engines | Thin eligibility/reasoning/validation adapter | HIGH | Atomic failure, facts, fallback, main scope |
+| diagnostics-remote-ui-contract | Old remote/dock -> session transport/module/dockkit; insertion point changed | Rebuild after projection | HIGH | Reconnect, read-only, idle run=null |
+| native-runtime-abi-closure | Node 24.17 and old smoke -> Node 24.21/Python/native-system/signed payload; old assumptions incomplete | Use runtime lock and qualify packaged flavor | HIGH | Architecture, modules, Python, codesign |
+
+## Decision
+
+The single selected strategy is **B: fresh latest-upstream branch plus semantic capability port**. The adaptation branch already starts at the exact locked target. Each Custom capability will be reintroduced only after comparing its invariant with the current upstream owner. Existing source may be reused as tested domain logic, but historical patches are not integration units.
+
+## Alternatives considered
+
+- **Rebase the existing Custom branch.** Rejected because all 11 seams changed and conflict resolution would not establish semantic safety.
+- **Full or broad cherry-pick.** Rejected because it would replay old file and ownership assumptions, including duplicated native capabilities.
+- **Hybrid as the primary strategy.** Rejected because it creates ambiguous architecture and provenance. Selective code reuse inside strategy B does not change the latest-upstream-first branch model.
+
+## Phase 8C.2 port order and stop gates
+
+1. Reconfirm target/toolchain health. Stop on unexplained target or health drift.
+2. Add product identity/process isolation. Stop on any collision with official Desktop or Stable DS Harness.
+3. Establish profile/settings/session/userData boundaries with temporary copied fixtures. Stop on any real-data access or unresolved migration.
+4. Restore packaging and primary-runtime closure. Stop on payload, signing, or native failure.
+5. Build the minimal current Cordis/package-set composition. Stop on duplicate native services or isolated startup failure.
+6. Adapt Session v3 and Agent lifecycle contracts. Stop if Run identity or durable event semantics are ambiguous.
+7. Port Run State, observers, health, and error precedence. Stop if Unknown is guessed or terminal state can regress.
+8. Reimplement TaskCheckpoint, Result Manifest, and guarded pending-only resume. Stop if authoritative task facts can be lost or duplicated.
+9. Integrate IQ3_S reasoning and bounded fatal-aware policy once. Stop on double retry or unproven wire reasoning.
+10. Add task-aware compaction around the native engine. Stop if it can mutate task authority, delete evidence, or lower main reasoning.
+11. Rebuild Run Details on current client contracts. Stop if it is mutating or reintroduces idle layout cost.
+12. Port the Phase 8B repository maintenance plane. Stop if it joins runtime composition or changes monitor state/debt.
+13. Run full isolated regression and packaged candidate qualification. Any failed invariant prevents install, tag, or new baseline.
+
+## Consequences
+
+### Safety, native, maintenance, and unresolved contracts
+
+Every data/migration test must set temporary `DSH_HOME`, profile, userData, and Application Support equivalents and use synthetic or copied released fixtures. Real user data stays out of scope through Phase 8C.2 until a separately authorized migration rehearsal. Settings and sessions may be intentionally shared only after path contracts and migration behavior pass sentinel tests; `desktop-custom` and Electron state remain isolated.
+
+Native qualification adopts the upstream runtime lock and verifies architecture, payload hashes, deep codesign, Node and Python execution, `native/system`, `node-pty`, `koffi`, `sharp`, Host startup, and renderer loading. It occurs on a candidate path only, never the installed stable applications.
+
+The Phase 8B auditor, monitor, scheduler, notification, and maintenance runtime remain a repository-only plane. They port after product composition stabilizes, adapting package scripts and documentation paths while preserving cursor, state, daily schedule, material-change-only notification, and stable Homebrew Node/repository tsx entrypoints.
+
+Five contracts intentionally remain for the relevant Phase 8C.2 gates: the exact upstream-style product flavor API; v3 registration versus ignorable semantics for Custom durable events; final IQ3_S mapping into the current pi-ai catalog; the current dockkit/scoped-slot Run Details insertion contract; and packaged DS Harness primary-runtime/ABI behavior. None requires real user data or stable-App mutation to resolve.
+
+Compatibility debt remains **CRITICAL / BLOCKING_CHANGE / UNRESOLVED**. A strategy lock proves how to port; it does not prove the port, packaged candidate, data migration, or a new product baseline.
