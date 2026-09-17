@@ -24,7 +24,9 @@ import { desktopErrorState } from './startup-error.ts'
 import { startupFailureDocument } from './startup-document.ts'
 
 const SCHEME = 'dsh-app'
-const CUSTOM_DESKTOP_NAME = 'DSH Desktop Custom'
+// This is intentionally user-facing only. The stable Custom profile, Bundle ID,
+// and composition package continue to use their existing desktop-custom identity.
+const CUSTOM_DESKTOP_NAME = 'DS Harness'
 const CUSTOM_DESKTOP_BUNDLE = '@deepseek-ai/dsh-desktop-custom-composition'
 const customDesktopBuild = basename(process.execPath) === CUSTOM_DESKTOP_NAME
 if (customDesktopBuild) {

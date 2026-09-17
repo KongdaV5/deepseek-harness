@@ -57,7 +57,7 @@ export function createElectronBuilderConfig(
   const buildPaths = desktopTargetBuildPaths(resolveDesktopBuildTarget(env, hostPlatform, hostArch))
   return {
     appId,
-    productName: custom ? 'DSH Desktop Custom' : 'DeepSeek Harness',
+    productName: custom ? 'DS Harness' : 'DeepSeek Harness',
     artifactName: custom ? 'dsh-desktop-custom-${version}-${os}-${arch}.${ext}' : 'deepseek-harness-${version}-${os}-${arch}.${ext}',
     directories: { output: custom ? join(buildPaths.root, 'custom-artifacts') : unsigned ? join(buildPaths.root, 'unsigned-artifacts') : buildPaths.artifacts },
     asar: true,

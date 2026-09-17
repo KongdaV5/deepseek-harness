@@ -1,5 +1,5 @@
 ---
-summary: "独立标识的本地 DSH Desktop Custom artifact 组合已批准的 Phase 2–7 bundle，但不修改正式 Desktop。"
+summary: "独立标识的本地 DS Harness 产品组合已批准的 Phase 2–7 bundle，但不修改正式 Desktop。"
 kind: "architecture"
 ---
 
@@ -9,7 +9,7 @@ kind: "architecture"
 
 ## Decision
 
-保持正式 DSH Desktop release path 不变。`custom` Desktop build flavor 会封装匹配的 runtime 与 `@deepseek-ai/dsh-desktop-custom-composition`，使用 bundle identifier `dev.dsh.desktop.custom`，并生成 ad-hoc-signed、本地 artifact `DSH Desktop Custom.app`。
+保持正式 DSH Desktop release path 不变。内部 `custom` Desktop flavor 会封装匹配的 runtime 与 `@deepseek-ai/dsh-desktop-custom-composition`，继续使用 bundle identifier `dev.dsh.desktop.custom`，并生成 ad-hoc-signed、本地 app **DS Harness.app**。`desktop-custom` 及其 composition package 仍是内部技术 identity；**DS Harness** 是用户可见的产品 identity。
 
 ## Composition and state boundaries
 
@@ -19,7 +19,11 @@ Custom 使用隔离的 Electron user-data profile 与 `~/.dsh/profiles/desktop-c
 
 ## Packaging constraints
 
-`package-custom.ts` 提供 Custom bundle closure，并在 `Contents/Resources/custom-build.json` 写入本地 provenance。该 flavor 使用 ad-hoc signing、禁用 updater/notarization configuration，且绝不读取、patch、签名或覆盖 `/Applications/DSH Desktop.app`。它是本地 development artifact，不是可分发的签名 release。
+`package-custom.ts` 提供 Custom bundle closure，并在 `Contents/Resources/custom-build.json` 写入本地 provenance，其中包含 `productName: "DS Harness"`。该 flavor 使用 ad-hoc signing、禁用 updater/notarization configuration，且绝不读取、patch、签名或覆盖 `/Applications/DSH Desktop.app`。它是本地 development artifact，不是可分发的签名 release。
+
+日常本地使用可执行 `pnpm --filter @deepseek-ai/dsh-desktop run package-and-install:custom:mac:arm64`，先 package 再安装 `/Applications/DS Harness.app`。install step 会通过 Bundle ID、可见名称、provenance 与 ad-hoc signature 验证 source app 以及任何已存在 target，之后才替换 target。它绝不写入正式 Desktop application、`desktop-custom` profile、Electron user-data identity、settings 或 sessions。
+
+历史 `dsh-custom-baseline-2026-09-17` tag 仍是不可变的 rename 前技术恢复锚点。它有意保留原始 `DSH Desktop Custom` build provenance；不会因为 DS Harness 产品 rename 而移动。
 
 ## Known boundary
 

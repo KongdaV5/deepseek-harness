@@ -146,9 +146,14 @@ describe('desktop macOS release signature', () => {
     expect(config.extraResources.at(-1)).toMatchObject({ to: 'custom-build.json' })
     expect(config).toMatchObject({
       appId: 'dev.dsh.desktop.custom',
-      productName: 'DSH Desktop Custom',
+      productName: 'DS Harness',
       mac: { identity: '-', forceCodeSigning: true, hardenedRuntime: false, notarize: false },
       publish: null,
+    })
+    const official = createElectronBuilderConfig(RELEASE_ENVIRONMENT, 'darwin', 'arm64')
+    expect(official).toMatchObject({
+      appId: RELEASE_ENVIRONMENT.DSH_DESKTOP_APP_ID,
+      productName: 'DeepSeek Harness',
     })
   })
 

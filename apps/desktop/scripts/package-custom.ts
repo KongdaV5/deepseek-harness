@@ -23,7 +23,8 @@ function writeBuildMetadata(): void {
   }
   writeFileSync(join(buildRoot, 'custom-build.json'), `${JSON.stringify({
     schemaVersion: 1,
-    product: 'DSH Desktop Custom',
+    product: 'DS Harness',
+    productName: 'DS Harness',
     buildFlavor: 'custom',
     desktopVersion: desktopManifest.version,
     runtime: runtimeVersions,
