@@ -15,6 +15,7 @@ import {
   repositoryGitDirty,
   repositoryVersion,
   resolveClientBuildEnvironment,
+  withClientBuildTitle,
   writeClientBuildRecord,
 } from './client-build-environment.ts'
 import { clientBundle } from '../packages/client/tsdown.client.ts'
@@ -82,7 +83,7 @@ describe('client build environment', () => {
   it('requires an exact public environment for a named artifact profile', () => {
     const expected = {
       DSH_CLIENT_BUILD_PROFILE: 'official',
-      DSH_CLIENT_COMMIT_HASH: COMMIT_HASH.slice(0, 7),
+      DSH_CLIENT_COMMIT_HASH: COMMIT_HASH,
       DSH_CLIENT_TITLE: 'DeepSeek Harness',
       DSH_CLIENT_VERSION: '1.2.3',
     } as const
@@ -139,6 +140,20 @@ describe('client build environment', () => {
       DSH_CLIENT_VERSION: '1.2.3',
     })
     expect(repositoryCommitHash('/unused', { DSH_CLIENT_COMMIT_HASH: COMMIT_HASH })).toBe(COMMIT_HASH.slice(0, 7))
+  })
+
+  it('changes only the explicit browser title of an otherwise fixed profile', () => {
+    const official = resolveClientBuildEnvironment({
+      DSH_CLIENT_COMMIT_HASH: COMMIT_HASH,
+      DSH_CLIENT_VERSION: '1.2.3',
+    }, 'official')
+    expect(withClientBuildTitle(official, 'DS Harness')).toEqual({
+      DSH_CLIENT_BUILD_PROFILE: 'official',
+      DSH_CLIENT_COMMIT_HASH: COMMIT_HASH,
+      DSH_CLIENT_TITLE: 'DS Harness',
+      DSH_CLIENT_VERSION: '1.2.3',
+    })
+    expect(() => { withClientBuildTitle(official, '  ') }).toThrow(/must not be empty/u)
   })
 
   it('owns repository version, commit, and dirty metadata for complete builds', () => {

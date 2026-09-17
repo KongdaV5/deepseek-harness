@@ -206,6 +206,22 @@ export function resolveClientBuildEnvironment(
 }
 
 /**
+ * Apply one explicitly selected, non-empty user-facing title to a complete
+ * client artifact environment without changing its capability profile.
+ *
+ * @param environment - complete profile values selected by the build.
+ * @param title - product title embedded into the browser document.
+ * @returns the same profile with its public product title replaced.
+ */
+export function withClientBuildTitle(
+  environment: ClientBuildEnvironment,
+  title: string,
+): ClientBuildEnvironment {
+  if (title.trim() === '') throw new Error('client build title must not be empty')
+  return { ...environment, DSH_CLIENT_TITLE: title }
+}
+
+/**
  * Construct a subprocess environment containing exactly the selected public values.
  * @param environment - parent process environment.
  * @param clientEnvironment - complete public environment selected for the build.

@@ -10,6 +10,7 @@ import {
   clientBuildProcessEnvironment,
   repositoryClientBuildEnvironment,
   resolveClientBuildEnvironment,
+  withClientBuildTitle,
   writeClientBuildRecord,
 } from './client-build-environment.ts'
 import { pnpmInvocation } from './pnpm-invocation.ts'
@@ -31,13 +32,16 @@ function runScript(script: string, environment: NodeJS.ProcessEnv): void {
 /** Run the full build selected by `--profile` or `DSH_BUILD_CLIENT_PROFILE`. */
 function main(): void {
   const { values } = parseArgs({
-    options: { profile: { type: 'string' } },
+    options: { profile: { type: 'string' }, title: { type: 'string' } },
     allowPositionals: false,
   })
   const root = resolve(import.meta.dirname, '..')
   const repositoryEnvironment = repositoryClientBuildEnvironment(root, process.env)
   const profile = values.profile ?? process.env[CLIENT_BUILD_PROFILE_SELECTOR]
-  const clientEnvironment = resolveClientBuildEnvironment(repositoryEnvironment, profile)
+  const selectedEnvironment = resolveClientBuildEnvironment(repositoryEnvironment, profile)
+  const clientEnvironment = values.title === undefined
+    ? selectedEnvironment
+    : withClientBuildTitle(selectedEnvironment, values.title)
   const buildEnvironment = clientBuildProcessEnvironment(process.env, clientEnvironment)
 
   rmSync(resolve(root, CLIENT_BUILD_RECORD_PATH), { force: true })

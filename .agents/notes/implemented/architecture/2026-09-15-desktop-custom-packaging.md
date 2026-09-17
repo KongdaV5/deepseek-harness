@@ -21,6 +21,8 @@ Custom uses an isolated Electron user-data profile and `~/.dsh/profiles/desktop-
 
 `package-custom.ts` supplies the Custom bundle closure and writes `Contents/Resources/custom-build.json` with local provenance, including `productName: "DS Harness"`. The flavor is ad-hoc signed, disables updater/notarization configuration, and never reads, patches, signs, or copies over `/Applications/DSH Desktop.app`. It is a local development artifact, not a distributable signed release.
 
+The Custom package uses the same official client capability profile as the formal Desktop, but passes the build's narrow title override as `--title "DS Harness"`. The generic client-build helper changes only the public `DSH_CLIENT_TITLE`; it leaves the official capability profile and the formal release title untouched.
+
 For daily local use, `pnpm --filter @deepseek-ai/dsh-desktop run package-and-install:custom:mac:arm64` packages then installs `/Applications/DS Harness.app`. The install step verifies the source app and any pre-existing target through its Bundle ID, visible name, provenance, and ad-hoc signature before replacing the target. It never writes the formal Desktop application, the `desktop-custom` profile, Electron user-data identity, settings, or sessions.
 
 The historical `dsh-custom-baseline-2026-09-17` tag remains the immutable pre-rename technical recovery anchor. It intentionally retains the original `DSH Desktop Custom` build provenance; it is not moved for the DS Harness product rename.

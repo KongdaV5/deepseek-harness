@@ -66,7 +66,7 @@ function run(args: readonly string[], cwd = repositoryRoot, extra: NodeJS.Proces
 async function main(): Promise<void> {
   rmSync(packedCustom, { recursive: true, force: true })
   mkdirSync(packedCustom, { recursive: true })
-  await run(['run', 'build:official'])
+  await run(['run', 'build:official', '--', '--title', 'DS Harness'])
   await run(['run', 'release:pack', '--family', 'dsh', '--out', join(buildRoot, 'packed', 'dsh')])
   await run(['--dir', 'apps/desktop-host', 'pack', '--pack-destination', join(buildRoot, 'packed', 'dsh')])
   await run(['run', 'release:pack', '--family', 'vendor', '--out', join(buildRoot, 'packed', 'vendor')])

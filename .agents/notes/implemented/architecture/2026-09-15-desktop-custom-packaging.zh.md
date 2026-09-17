@@ -21,6 +21,8 @@ Custom 使用隔离的 Electron user-data profile 与 `~/.dsh/profiles/desktop-c
 
 `package-custom.ts` 提供 Custom bundle closure，并在 `Contents/Resources/custom-build.json` 写入本地 provenance，其中包含 `productName: "DS Harness"`。该 flavor 使用 ad-hoc signing、禁用 updater/notarization configuration，且绝不读取、patch、签名或覆盖 `/Applications/DSH Desktop.app`。它是本地 development artifact，不是可分发的签名 release。
 
+Custom package 使用与正式 Desktop 相同的 official client capability profile，但通过 `--title "DS Harness"` 传入 narrow build title override。通用 client-build helper 只改变公开的 `DSH_CLIENT_TITLE`；它不改变 official capability profile，也不改变正式 release title。
+
 日常本地使用可执行 `pnpm --filter @deepseek-ai/dsh-desktop run package-and-install:custom:mac:arm64`，先 package 再安装 `/Applications/DS Harness.app`。install step 会通过 Bundle ID、可见名称、provenance 与 ad-hoc signature 验证 source app 以及任何已存在 target，之后才替换 target。它绝不写入正式 Desktop application、`desktop-custom` profile、Electron user-data identity、settings 或 sessions。
 
 历史 `dsh-custom-baseline-2026-09-17` tag 仍是不可变的 rename 前技术恢复锚点。它有意保留原始 `DSH Desktop Custom` build provenance；不会因为 DS Harness 产品 rename 而移动。
