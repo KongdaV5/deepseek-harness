@@ -178,6 +178,12 @@ describe('client build environment', () => {
       DSH_CLIENT_TITLE: 'DeepSeek Harness',
       DSH_CLIENT_VERSION: '1.2.3-rc.4',
     })
+    expect(officialClientBuildEnvironment(fixtureRoot, undefined, 'DS Harness')).toEqual({
+      DSH_CLIENT_BUILD_PROFILE: 'official',
+      DSH_CLIENT_COMMIT_HASH: commit,
+      DSH_CLIENT_TITLE: 'DS Harness',
+      DSH_CLIENT_VERSION: '1.2.3-rc.4',
+    })
 
     write(join(fixtureRoot, '.gitignore'), 'ignored.txt\n')
     git(fixtureRoot, ['add', '.gitignore'])

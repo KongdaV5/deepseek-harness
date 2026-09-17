@@ -139,12 +139,13 @@ export function repositoryClientBuildEnvironment(
 export function officialClientBuildEnvironment(
   root: string,
   environment: NodeJS.ProcessEnv = process.env,
+  title: string = OFFICIAL_CLIENT_BUILD_ENVIRONMENT.DSH_CLIENT_TITLE,
 ): Readonly<Record<`DSH_CLIENT_${string}`, string>> {
-  return {
+  return withClientBuildTitle({
     DSH_CLIENT_COMMIT_HASH: repositoryCommitHash(root, environment),
     DSH_CLIENT_VERSION: repositoryVersion(root),
     ...OFFICIAL_CLIENT_BUILD_ENVIRONMENT,
-  }
+  }, title)
 }
 
 /** Digest of every client artifact produced by the complete root build. */

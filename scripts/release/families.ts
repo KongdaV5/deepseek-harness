@@ -113,7 +113,7 @@ export abstract class ReleaseFamily {
    * Families without environment-selected artifacts accept every build tree.
    * @param _root - repository root containing generated artifacts.
    */
-  verifyBuildArtifacts(_root: string): void {}
+  verifyBuildArtifacts(_root: string, _clientTitle?: string): void {}
 
   /**
    * Discover this family's members.
@@ -330,8 +330,8 @@ class DshFamily extends ReleaseFamily {
   readonly tagPrefix = 'dsh-v'
 
   /** Require current artifacts from a complete official client build. */
-  override verifyBuildArtifacts(root: string): void {
-    readClientBuildRecord(root, officialClientBuildEnvironment(root))
+  override verifyBuildArtifacts(root: string, clientTitle?: string): void {
+    readClientBuildRecord(root, officialClientBuildEnvironment(root, process.env, clientTitle))
   }
 
   /**

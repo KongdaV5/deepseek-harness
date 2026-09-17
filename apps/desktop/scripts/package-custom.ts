@@ -67,7 +67,7 @@ async function main(): Promise<void> {
   rmSync(packedCustom, { recursive: true, force: true })
   mkdirSync(packedCustom, { recursive: true })
   await run(['run', 'build:official', '--title', 'DS Harness'])
-  await run(['run', 'release:pack', '--family', 'dsh', '--out', join(buildRoot, 'packed', 'dsh')])
+  await run(['run', 'release:pack', '--family', 'dsh', '--client-title', 'DS Harness', '--out', join(buildRoot, 'packed', 'dsh')])
   await run(['--dir', 'apps/desktop-host', 'pack', '--pack-destination', join(buildRoot, 'packed', 'dsh')])
   await run(['run', 'release:pack', '--family', 'vendor', '--out', join(buildRoot, 'packed', 'vendor')])
   await run(['--dir', 'native/system', 'run', 'build:ts'])
