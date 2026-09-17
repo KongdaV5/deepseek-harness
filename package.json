@@ -43,6 +43,7 @@
     "clean": "tsx scripts/clean.ts",
     "change-scope": "tsx scripts/change-scope.ts",
     "upstream:audit": "tsx scripts/upstream-audit.ts",
+    "upstream:monitor": "tsx scripts/upstream-monitor.ts",
     "typecheck": "npm run build:lib:host && npm run typecheck:contracts-ready",
     "typecheck:contracts-ready": "tsc -b tsconfig.client.json",
     "lint": "npm run build:lib:host && npm run lint:contracts-ready",
