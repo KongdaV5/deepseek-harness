@@ -33,6 +33,14 @@ if (customDesktopBuild) {
   app.setName(CUSTOM_DESKTOP_NAME)
   app.setPath('userData', join(app.getPath('appData'), '@deepseek-ai', 'dsh-desktop-custom'))
 }
+
+/** Substitute only the visible product token for the local Custom flavor. */
+function productMessages<T extends Record<string, string>>(messages: T, productName: string): T {
+  return Object.fromEntries(Object.entries(messages).map(([key, value]) => [
+    key,
+    value.replaceAll('DeepSeek Harness', productName),
+  ])) as T
+}
 let focusPrimaryWindow = (): void => {}
 type RecoveryAction = 'restart' | 'plugins' | 'reset'
 let profileRecoveryAvailable = (): boolean => false
@@ -176,7 +184,7 @@ async function main(): Promise<void> {
   let shellInstallerOwnsQuit = false
   let updateState: DesktopUpdateState = { phase: 'idle' }
   const locale = resolveDesktopLocale(app.getLocale())
-  const messages = locale.messages
+  const messages = custom ? productMessages(locale.messages, CUSTOM_DESKTOP_NAME) : locale.messages
   const appPreload = fileURLToPath(new URL('./preload-app.cjs', import.meta.url))
   const managementPreload = fileURLToPath(new URL('./preload.cjs', import.meta.url))
   const startupUrl = `${SCHEME}://shell/startup.html`
