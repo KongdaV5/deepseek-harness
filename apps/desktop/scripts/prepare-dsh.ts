@@ -22,6 +22,7 @@ import {
   resolveMacOSSigningEnvironment,
 } from './desktop-release-environment.mjs'
 import {
+  signMacOSRuntimeAdHoc,
   signMacOSRuntime,
 } from './macos-runtime.ts'
 import { resolveDesktopBuildTarget, resolveDesktopTargetBuildPaths } from './desktop-build-paths.mjs'
@@ -37,6 +38,8 @@ const PNPM_BUILD_STATE = BUILD_PATHS.dshPnpm
 const PACKAGE_SET_ROOT = BUILD_PATHS.packageSet
 const NODE = join(RUNTIME_ROOT, 'node', process.platform === 'win32' ? 'node.exe' : 'node')
 const PNPM = join(RUNTIME_ROOT, 'pnpm', 'bin', 'pnpm.mjs')
+const CUSTOM_BUNDLE = process.env.DSH_DESKTOP_CUSTOM_BUNDLE
+const CUSTOM_BUILD = process.env.DSH_DESKTOP_BUILD_FLAVOR === 'custom'
 
 function manifestVersion(path: string, subject: string): string {
   const manifest = JSON.parse(readFileSync(path, 'utf8')) as { version?: unknown }
@@ -108,7 +111,9 @@ async function main(): Promise<void> {
     const release = desktopRelease()
     copyFileSync(join(PACKAGE_SET_ROOT, DESKTOP_PACKAGE_SET_FILE), join(BUILD_ROOT, DESKTOP_PACKAGE_SET_FILE))
     cpSync(join(PACKAGE_SET_ROOT, DESKTOP_PACKAGES_DIR), join(BUILD_ROOT, DESKTOP_PACKAGES_DIR), { recursive: true })
-    createRuntimeProjectMetadata(BUILD_ROOT, release)
+    createRuntimeProjectMetadata(BUILD_ROOT, release, CUSTOM_BUNDLE === undefined
+      ? undefined
+      : ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app', CUSTOM_BUNDLE])
     await runPnpm(['install', '--lockfile-only'])
     verifyDesktopCoreLockfile(
       readFileSync(join(BUILD_ROOT, 'pnpm-lock.yaml'), 'utf8'),
@@ -134,7 +139,11 @@ async function main(): Promise<void> {
       }
     }
     if (process.platform === 'darwin') {
-      await signMacOSRuntime(DSH_OUTPUT_ROOT, resolveDesktopAppId(process.env), resolveMacOSSigningEnvironment(process.env))
+      if (CUSTOM_BUILD) {
+        await signMacOSRuntimeAdHoc(DSH_OUTPUT_ROOT, 'dev.dsh.desktop.custom')
+      } else {
+        await signMacOSRuntime(DSH_OUTPUT_ROOT, resolveDesktopAppId(process.env), resolveMacOSSigningEnvironment(process.env))
+      }
     }
     writeDesktopRuntime(DSH_OUTPUT_ROOT, release, packageSet.packages.map(entry => entry.name), target)
     const descriptor = await verifyDesktopRuntime(DSH_OUTPUT_ROOT, release.version, target)

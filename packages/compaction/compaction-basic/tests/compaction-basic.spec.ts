@@ -316,6 +316,7 @@ describe('compact configuration and defaults', () => {
       maxTokens: 8192,
       compactionRetries: 1,
       maxOverflowRetries: 1,
+      maxSummaryValidationRetries: 0,
       modelPolicies: [],
       auto: true,
     })
@@ -435,6 +436,7 @@ describe('compact configuration and defaults', () => {
       [{ maxTokens: 0 }, /maxTokens/],
       [{ compactionRetries: -1 }, /compactionRetries/],
       [{ maxOverflowRetries: -1 }, /maxOverflowRetries/],
+      [{ maxSummaryValidationRetries: -1 }, /maxSummaryValidationRetries/],
       [{ auto: 'yes' }, /auto must be a boolean/],
       [{ summarizationProvider: 1 }, /summarizationProvider must be a string/],
       [{ summarizationModel: 1 }, /summarizationModel must be a string/],

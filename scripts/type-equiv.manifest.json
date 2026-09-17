@@ -1328,6 +1328,21 @@
     },
     {
       "doc": "docs/subsystems/compaction.md",
+      "symbol": "CompactionRequestPolicyContext",
+      "source": "packages/compaction/compaction-basic/src/types.ts"
+    },
+    {
+      "doc": "docs/subsystems/compaction.md",
+      "symbol": "CompactionSummaryValidationContext",
+      "source": "packages/compaction/compaction-basic/src/types.ts"
+    },
+    {
+      "doc": "docs/subsystems/compaction.md",
+      "symbol": "CompactionSummaryValidationDecision",
+      "source": "packages/compaction/compaction-basic/src/types.ts"
+    },
+    {
+      "doc": "docs/subsystems/compaction.md",
       "symbol": "ManualCompactionErrorCode",
       "source": "packages/compaction/compaction/src/index.ts"
     },

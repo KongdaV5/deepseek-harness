@@ -161,6 +161,81 @@ export type PresetTrust = 'system' | 'user'
 
 来源：[`packages/preset/agent-presets/src/preset.ts:52`](../packages/preset/agent-presets/src/preset.ts)
 
+<a id="deepseek-aidsh-agent-run-policy"></a>
+
+## `@deepseek-ai/dsh-agent-run-policy`
+
+需要：`agentRunState`
+
+```ts config-catalog
+/** Deployment-owned bounded retry and cancellation acknowledgement settings. */
+export interface Config {
+  /** Unique transient control-observer identity. */
+  readonly observerId: string
+  /** Exact provider routes governed by this policy. */
+  readonly providers: string[]
+  /** Maximum same-Run retries for eligible transient failures. */
+  readonly maxRetryCount: number
+  /** Time allowed for confirmed backend generation disappearance after cancellation. */
+  readonly cancellationConfirmationMs: number
+}
+```
+
+来源：[`packages/guard/agent-run-policy/src/index.ts:36`](../packages/guard/agent-run-policy/src/index.ts)
+
+<a id="deepseek-aidsh-agent-run-state"></a>
+
+## `@deepseek-ai/dsh-agent-run-state`
+
+需要：`sessionProjections`
+
+```ts config-catalog
+/** Deployment-owned elapsed-time thresholds. */
+export interface Config {
+  /** Run age after which continuing activity is classified as slow. */
+  readonly slowAfterMs: number
+  /** Inactivity duration after which an active run is classified as stalled. */
+  readonly stalledAfterMs: number
+}
+```
+
+来源：[`packages/runtime-diagnostics/agent-run-state/src/index.ts:40`](../packages/runtime-diagnostics/agent-run-state/src/index.ts)
+
+<a id="deepseek-aidsh-agent-run-state-mlx"></a>
+
+## `@deepseek-ai/dsh-agent-run-state-mlx`
+
+需要：`agentRunState`
+
+```ts config-catalog
+/** Deployment-owned observer inputs. */
+export interface Config {
+  /** Unique observer identity within one Agent Run State service. */
+  readonly observerId: string
+  /** Absolute MLX stdout/stderr log path followed from its current end. */
+  readonly logPath: string
+  /** File-stat interval used to read appended log records. */
+  readonly logPollIntervalMs: number
+  /** Optional MLX HTTP health endpoint. */
+  readonly healthUrl?: string
+  /** Health-probe interval; required even when probing is disabled. */
+  readonly healthPollIntervalMs: number
+  /** Per-probe timeout before process health becomes degraded. */
+  readonly healthTimeoutMs: number
+  /** Correlation policy for unstructured request logs. */
+  readonly requestAttribution: MlxRequestAttributionMode
+  /** Exact DSH provider accepted for lifecycle correlation. */
+  readonly provider: string
+  /** Exact MLX model ids accepted for lifecycle correlation. */
+  readonly models: string[]
+}
+
+/** Request attribution remains unknown unless an operator declares an exclusive single-flight endpoint. */
+export type MlxRequestAttributionMode = 'unknown' | 'exclusive-single-flight'
+```
+
+来源：[`packages/runtime-diagnostics/agent-run-state-mlx/src/types.ts:9`](../packages/runtime-diagnostics/agent-run-state-mlx/src/types.ts)
+
 <a id="deepseek-aidsh-agent-tool-presentation"></a>
 
 ## `@deepseek-ai/dsh-agent-tool-presentation`
@@ -473,6 +548,8 @@ export interface CompactionPolicyConfig {
   compactionRetries?: number
   /** Maximum retries after canonical context overflow; `0` disables recovery. Defaults to `1`. */
   maxOverflowRetries?: number
+  /** Extra summary generations allowed only after a registered semantic validator requests another candidate. Defaults to `0`. */
+  maxSummaryValidationRetries?: number
 }
 
 /** Exact provider/model override merged over the default compaction policy. */
@@ -1750,6 +1827,123 @@ export type Config = LocalConfig
 依赖：[`LocalConfig`](#deepseek-aidsh-pwsh-local)
 
 来源：[`packages/shell/pwsh-sandbox/src/index.ts:40`](../packages/shell/pwsh-sandbox/src/index.ts)
+
+<a id="deepseek-aidsh-reasoning-policy"></a>
+
+## `@deepseek-ai/dsh-reasoning-policy`
+
+需要：`agentRunState` · `llm` · `sessionProjections` · `tokenMeter`
+
+```ts config-catalog
+/** Complete configuration for the opt-in reasoning and pressure policy service. */
+export interface ReasoningPolicyConfig {
+  /** Unique owner id for this process-local diagnostics observer. */
+  readonly observerId: string
+  /** Provider routes that require an audited exact-model capability declaration. */
+  readonly governedProviders: readonly string[]
+  /** Backend-specific reasoning capability declarations keyed by provider and model. */
+  readonly capabilities: readonly ModelReasoningCapability[]
+  /** Canonical fallback policy when no higher-priority selection applies. */
+  readonly globalDefault: CanonicalReasoningLevel
+  /** Optional exact route defaults indexed by the internal provider/model key. */
+  readonly profileDefaults?: Readonly<Record<string, CanonicalReasoningLevel>>
+  /** Optional deterministic selections for recognized current-text task classes. */
+  readonly taskPolicies?: Readonly<Partial<Record<ReasoningTaskClass, CanonicalReasoningLevel>>>
+  /** Read-only context-pressure reserves, margin, and classification thresholds. */
+  readonly contextPressure: ContextPressureConfig
+  /** Optional compaction-only auxiliary-request policy. Omission preserves the base compactor behavior. */
+  readonly compaction?: CompactionReasoningPolicyConfig
+  /** Explicit reproducibility locks for hidden or otherwise non-routine benchmark presets. */
+  readonly benchmarkPresets?: readonly BenchmarkPresetPolicy[]
+}
+
+/** Stable, exact-model reasoning declaration supplied by an audited backend capability. */
+export interface ModelReasoningCapability {
+  /** Exact provider route that owns this capability declaration. */
+  readonly provider: string
+  /** Exact model identifier accepted by that provider route. */
+  readonly model: string
+  /** Canonical policy levels proven acceptable for this exact route. */
+  readonly supported: readonly CanonicalReasoningLevel[]
+  /** Optional policy aliases accepted before a backend request is formed. */
+  readonly aliases?: Readonly<Partial<Record<ReasoningLevel, CanonicalReasoningLevel>>>
+  /** Explicit allowed policy fallback when the backend lacks a selected level. */
+  readonly fallbacks?: Readonly<Partial<Record<CanonicalReasoningLevel, CanonicalReasoningLevel>>>
+  /** Exact wire spelling for every canonical policy level. */
+  readonly wireValues: Readonly<Record<CanonicalReasoningLevel, string>>
+  /** Whether a request value can override the backend's configured default. */
+  readonly requestOverrideSupported: boolean
+  /** Backend default when the request omits a supported value. */
+  readonly backendDefault?: CanonicalReasoningLevel
+  /** Audit certainty for this declared provider/model capability. */
+  readonly confidence: 'confirmed' | 'provisional'
+  /** Evidence source that established this capability declaration. */
+  readonly source: string
+}
+
+/** Canonical policy levels which may become an exact backend request value. */
+export type CanonicalReasoningLevel = Exclude<ReasoningLevel, 'off'>
+
+/** Deterministic request classes; none requires an LLM classification call. */
+export type ReasoningTaskClass = 'simple' | 'normal' | 'complex' | 'long-output'
+
+/** Deterministic output reserve and provider safety configuration. */
+export interface ContextPressureConfig {
+  /** Tokens retained outside the estimated prompt budget for provider/template uncertainty. */
+  readonly providerSafetyMargin: number
+  /** Base expected output reserve for each resolved reasoning level. */
+  readonly reserve: Readonly<Record<CanonicalReasoningLevel, number>>
+  /** Additional reserve for deterministic complex-work classification. */
+  readonly complexReserve: number
+  /** Additional reserve for deterministic long-output classification. */
+  readonly longOutputIncrement: number
+  /** Maximum total expected output reserve after increments. */
+  readonly maxReserve: number
+  /** Strictly ascending read-only projected-prompt ratios. */
+  readonly thresholds: ContextPressureThresholds
+}
+
+/** Deployment controls for the optional compaction auxiliary-request policy. */
+export interface CompactionReasoningPolicyConfig {
+  /** Enable explicit low/medium compaction reasoning and semantic validation. */
+  readonly enabled: boolean
+  /** Let this capability invoke the existing compaction executor at compact or critical pressure. */
+  readonly autoTrigger: boolean
+  /** Preserve benchmark runs' original context by refusing automatic compaction while a benchmark lock is set. */
+  readonly preserveBenchmarkContext: boolean
+}
+
+/** One explicitly named benchmark preset's fixed execution requirements. */
+export interface BenchmarkPresetPolicy {
+  /** Agent-preset id; ordinary Profile names have no inherent reasoning meaning. */
+  readonly preset: string
+  /** Exact fixed reasoning policy for this benchmark condition. */
+  readonly reasoning: CanonicalReasoningLevel
+  /** Optional route that must match rather than being silently rewritten. */
+  readonly provider?: string
+  /** Optional exact model id paired with `provider`. */
+  readonly model?: string
+  /** Whether this run requires its original model-visible context and therefore rejects automatic compaction. */
+  readonly preserveRawContext: boolean
+}
+
+/** Policy vocabulary before one backend maps it to its supported request values. */
+export type ReasoningLevel = 'none' | 'off' | 'low' | 'medium' | 'high' | 'xhigh'
+
+/** Configurable state boundaries over projected prompt pressure. */
+export interface ContextPressureThresholds {
+  /** Ratio at which diagnostics first report `watch`. */
+  readonly watch: number
+  /** Ratio at which diagnostics report `prepare`. */
+  readonly prepare: number
+  /** Ratio at which diagnostics report `compact`. */
+  readonly compact: number
+  /** Ratio at which diagnostics report `critical`. */
+  readonly critical: number
+}
+```
+
+来源：[`packages/runtime-diagnostics/reasoning-policy/src/types.ts:90`](../packages/runtime-diagnostics/reasoning-policy/src/types.ts)
 
 <a id="deepseek-aidsh-repeat-tool-reminder"></a>
 
@@ -3519,6 +3713,7 @@ export interface Config {
 - `@deepseek-ai/dsh-storage`（[`packages/storage/storage/src/index.ts`](../packages/storage/storage/src/index.ts)）
 - `@deepseek-ai/dsh-subagent`（[`packages/subagent/subagent/src/index.ts`](../packages/subagent/subagent/src/index.ts)）
 - `@deepseek-ai/dsh-subprocess-local`（[`packages/subprocess/subprocess-local/src/index.ts`](../packages/subprocess/subprocess-local/src/index.ts)）
+- `@deepseek-ai/dsh-task-checkpoint` — 需要 `sessionProjections` · `sessions`（[`packages/session/task-checkpoint/src/index.ts`](../packages/session/task-checkpoint/src/index.ts)）
 - `@deepseek-ai/dsh-terminal`（[`packages/terminal/terminal/src/index.ts`](../packages/terminal/terminal/src/index.ts)）
 - `@deepseek-ai/dsh-tool-ask-user` — 需要 `tools` · `userInteraction`（[`packages/interaction/tool-ask-user/src/index.ts`](../packages/interaction/tool-ask-user/src/index.ts)）
 - `@deepseek-ai/dsh-tool-call-timeout-policy` — 需要 `tools`（[`packages/guard/timeout-policy/src/index.ts`](../packages/guard/timeout-policy/src/index.ts)）

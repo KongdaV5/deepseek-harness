@@ -21,6 +21,22 @@ declare module '@deepseek-ai/cordis' {
      * @mode emit
      */
     'llm/adapters-updated'(): void
+    /**
+     * Publish attributed request progress that occurs outside the provider
+     * response stream. Adapters may use this signal to rearm an outstanding
+     * idle read, but it carries no response content and changes no request.
+     * @param payload.sessionId - Session identity stamped on the active request.
+     * @param payload.observedAt - timestamp of the external progress fact.
+     * @param payload.source - provider-neutral source category.
+     * @param payload.confidence - strength of the activity attribution.
+     * @mode emit
+     */
+    'llm/request-activity'(payload: {
+      readonly sessionId: Branded<'SessionId'>
+      readonly observedAt: number
+      readonly source: 'backend-observer'
+      readonly confidence: 'confirmed' | 'provisional'
+    }): void
   }
 }
 

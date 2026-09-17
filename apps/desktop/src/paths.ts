@@ -23,13 +23,13 @@ export interface DesktopPaths {
  * @param dshHome - Harness home shared with npm-installed dsh.
  * @returns immutable desktop path set.
  */
-export function resolveDesktopPaths(dshHome: string = resolveDshHome()): DesktopPaths {
+export function resolveDesktopPaths(dshHome: string = resolveDshHome(), profileName = 'desktop'): DesktopPaths {
   const root = join(dshHome, 'desktop')
   const pnpm = join(root, 'pnpm')
   return {
     root,
-    profile: join(dshHome, 'profiles', 'desktop'),
-    lock: join(dshHome, 'profiles', 'desktop', 'lock'),
+    profile: join(dshHome, 'profiles', profileName),
+    lock: join(dshHome, 'profiles', profileName, 'lock'),
     pnpm: {
       root: pnpm,
       store: join(pnpm, 'store'),

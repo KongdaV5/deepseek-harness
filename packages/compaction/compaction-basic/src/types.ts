@@ -4,7 +4,9 @@
  * @module @deepseek-ai/dsh-compaction-basic/types
  */
 
-import type { LlmCallConfig } from '@deepseek-ai/dsh-llm'
+import type { Agent } from '@deepseek-ai/dsh-agent'
+import type { CompactionId } from '@deepseek-ai/dsh-compaction'
+import type { ContentBlock, GenerateOptions, LlmCallConfig } from '@deepseek-ai/dsh-llm'
 
 /** Policy fields shared by the default policy and exact model overrides. */
 export interface CompactionPolicyConfig {
@@ -24,7 +26,42 @@ export interface CompactionPolicyConfig {
   compactionRetries?: number
   /** Maximum retries after canonical context overflow; `0` disables recovery. Defaults to `1`. */
   maxOverflowRetries?: number
+  /** Extra summary generations allowed only after a registered semantic validator requests another candidate. Defaults to `0`. */
+  maxSummaryValidationRetries?: number
 }
+
+/**
+ * Immutable request facts passed to the optional compaction-only request-policy waterfall.
+ * Listeners may retain the original request fields and insert model-visible runtime facts
+ * immediately before the final compaction instruction, or set an adapter-supported
+ * `reasoningEffort`. They cannot redirect the provider, mutate the Session, or execute a
+ * compaction operation.
+ */
+export interface CompactionRequestPolicyContext {
+  /** Live Agent whose Session owns the selected history. */
+  readonly agent: Agent
+  /** One-based candidate generation ordinal within this compaction transaction. */
+  readonly attempt: number
+  /** Fully formed auxiliary request; its final message is the compaction instruction. */
+  readonly options: GenerateOptions
+}
+
+/** Immutable candidate facts passed to the optional semantic-validation waterfall. */
+export interface CompactionSummaryValidationContext {
+  /** Live Agent whose Session would receive the replacement checkpoint. */
+  readonly agent: Agent
+  /** Durable identity of the enclosing compaction transaction. */
+  readonly compactionId: CompactionId
+  /** One-based candidate generation ordinal within this compaction transaction. */
+  readonly attempt: number
+  /** Text-only candidate summary before durable framing and surface replacement. */
+  readonly summary: readonly ContentBlock[]
+}
+
+/** Result of one optional semantic validation. */
+export type CompactionSummaryValidationDecision =
+  | { readonly kind: 'accept' }
+  | { readonly kind: 'retry'; readonly reason: string }
 
 /** Exact provider/model override merged over the default compaction policy. */
 export interface ModelCompactPolicyConfig extends CompactionPolicyConfig {
@@ -55,6 +92,7 @@ interface ResolvedPolicyFields {
   readonly maxTokens: number
   readonly compactionRetries: number
   readonly maxOverflowRetries: number
+  readonly maxSummaryValidationRetries: number
 }
 
 /** Validated immutable config whose target-specific defaults remain unresolved. */

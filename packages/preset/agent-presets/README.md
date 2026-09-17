@@ -33,7 +33,7 @@ The shipped Web `standard`, `ptc`, and `cordis` presets include [explicit file d
 
 A session composed from a preset runs the plugins that preset's `agent.cordis.yml` names: its tools, prompt sections, and skills. Sessions joined to the same preset share one installed composition, and each session's state stays separate. A child agent (subagent) joins its parent's composition, so it sees the same tools and prompt sections as the agent that spawned it.
 
-The presets you can choose from come from three sources: the presets shipped inside this package under `presets/`, configured roots, and your own presets under `<dshHome>/.agent-presets`. The picker shows each preset's display name and description; a preset whose composition cannot load is listed with the reason rather than hidden, so you can see what to fix or delete.
+The presets you can choose from come from three sources: the presets shipped inside this package under `presets/`, configured roots, and your own presets under `<dshHome>/.agent-presets`. The picker shows each visible preset's display name and description; a preset whose composition cannot load is listed with the reason rather than hidden, so you can see what to fix or delete. An operational preset may instead be explicitly marked hidden: it remains resolvable by id for an empty-session caller, but is absent from the interactive roster. Hidden is a roster-visibility control, not a security boundary or a change to the preset's composition.
 
 ### Minimal configuration
 
@@ -80,6 +80,17 @@ A copy is refused when the id is not `[a-z0-9][a-z0-9-]*` (the id becomes a dire
 ### Switching a session's preset
 
 A session can switch to a different preset only while it has produced nothing — no messages or tool calls. After that, the composition is fixed for the session's life, because swapping tools mid-conversation would leave logged tool calls the new composition cannot make. A committed switch emits `tools/change` because the resolved tool set changed without a registry edit. The switch is also recorded in the session log, so a resumed or forked session rebuilds under the composition it ran.
+
+### Hiding an operational preset
+
+`preset.yml` accepts an optional visibility field. Omit it for an ordinary visible preset; set it to `hidden` only when the deployment intentionally exposes the preset through an explicit, reproducible entry point rather than the daily picker:
+
+```yaml
+name: Benchmark
+visibility: hidden
+```
+
+`remoteExportList()` excludes hidden rows, while `list()` and `resolve('benchmark')` retain them so a Host or controlled test entry point can select the exact id on an empty session. This supports a Benchmark that must not be accidentally chosen as a daily Profile without making its configuration inaccessible to its owner. Unknown visibility spellings deliberately degrade to the visible default for forward-compatible metadata reads.
 
 ### Failures and recovery
 
@@ -173,6 +184,7 @@ These limits define when the roster is a poor fit or needs special operational c
 
 - **A preset outside the writable root is discoverable but not deletable** — `remove()` refuses anything that does not live under the first `user` root, so a deployment that configures its own writable root while leaving `includeUserRoot` on lists the harness-home presets, mounts them, and answers "it does not live under the writable preset root" for every delete. A deployment that wants only its own presets sets `includeUserRoot: false`.
 - **A session cannot change preset once it has produced anything** — switching re-links a blank session's parent scope to another standing mount, and only a blank one: swapping tools mid-conversation would strand tools the model has called.
+- **Hidden only removes an interactive roster row** — it does not prevent an explicit empty-session selection, revoke a capability, or protect a secret. A deployment that needs authorization must enforce it at its Host entry point.
 - **A generation is keyed on the composition file alone** — the stamp check notices `agent.cordis.yml` changing, not an edit to a skill file or asset beside it; those reach new sessions only once the composition file itself moves or the process restarts.
 - **A superseded generation is never reclaimed** — sessions already joined keep the generation they run on, and the roster holds no join count that could tell when the last one left, so the whole subtree stays mounted until the process ends. The cost is per generation rather than per session, but it is not free: `dsh-skill-filesystem` watches its roots by default, so each edit-then-create cycle adds a live watcher set.
 - **A copy is never mounted to validate** — it is byte-identical to its source, so a source broken on disk yields a copy exactly as broken as the source; discovery's health check marks both rows on the next roster read rather than deferring the failure to a session start.

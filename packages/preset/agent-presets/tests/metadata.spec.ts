@@ -80,6 +80,16 @@ describe('reading display metadata', () => {
     expect(await readPresetMetadata(dir)).toEqual({ name: '标准模式', order: 1 })
   })
 
+  it('reads the explicit hidden visibility used by operational presets', async () => {
+    const dir = await presetDir('name: Benchmark\nvisibility: hidden\n')
+
+    expect(await readPresetMetadata(dir)).toEqual({ name: 'Benchmark', visibility: 'hidden' })
+  })
+
+  it('treats any unrecognized visibility as the ordinary visible default', async () => {
+    expect(await readPresetMetadata(await presetDir('visibility: archived\n'))).toEqual({})
+  })
+
   it('ignores an order that is not a finite number', async () => {
     expect(await readPresetMetadata(await presetDir('order: first\n'))).toEqual({})
     expect(await readPresetMetadata(await presetDir('order: .inf\n'))).toEqual({})
@@ -104,6 +114,11 @@ describe('rendering display metadata', () => {
 
   it('stores a declared order', () => {
     expect(renderPresetMetadata({ name: '标准模式', order: 1 })).toBe('name: 标准模式\norder: 1\n')
+  })
+
+  it('stores a hidden operational preset without inventing a visible-mode category', () => {
+    expect(renderPresetMetadata({ name: 'Benchmark', visibility: 'hidden' }))
+      .toBe('name: Benchmark\nvisibility: hidden\n')
   })
 
   it('omits an absent field rather than writing it blank', () => {

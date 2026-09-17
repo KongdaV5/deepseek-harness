@@ -116,6 +116,14 @@ flowchart LR
   svc_commands["ctx.commands<br/>Human command registry"]
   pkg_session_projection["session-projection"]
   svc_sessionProjections["ctx.sessionProjections<br/>Session projection units"]
+  pkg_agent_run_state["agent-run-state"]
+  svc_agentRunState["ctx.agentRunState<br/>Read-only agent run diagnostics"]
+  pkg_reasoning_policy["reasoning-policy"]
+  svc_reasoningPolicy["ctx.reasoningPolicy<br/>Audited reasoning request policy"]
+  pkg_task_checkpoint["task-checkpoint"]
+  svc_taskCheckpoints["ctx.taskCheckpoints<br/>Task progress and resume-safety records"]
+  pkg_agent_run_state_mlx["agent-run-state-mlx"]
+  svc_mlxBackendObserver["ctx.mlxBackendObserver<br/>MLX backend observation provider"]
   pkg_session_projection_cache["session-projection-cache"]
   svc_sessionProjectionCache["ctx.sessionProjectionCache<br/>Persisted projection cache"]
   pkg_subagent["subagent"]
@@ -228,6 +236,8 @@ flowchart LR
   pkg_agent_default_model --> svc_agentDefaultModel
   pkg_agent_loop --> svc_agentLoop
   pkg_agent_presets --> svc_agentPresets
+  pkg_agent_run_state --> svc_agentRunState
+  pkg_agent_run_state_mlx --> svc_mlxBackendObserver
   pkg_api_gateway --> svc_typertGateway
   pkg_api_session_controller --> svc_sessionController
   pkg_api_session_controller --> svc_sessionFileReferences
@@ -285,6 +295,7 @@ flowchart LR
   pkg_plan_mode --> svc_planMode
   pkg_plugin_package_inventory_deepseek --> svc_deepseekLlmApiExtensions
   pkg_pwsh_local --> svc_shell
+  pkg_reasoning_policy --> svc_reasoningPolicy
   pkg_sandbox --> svc_sandbox
   pkg_sandbox_local --> svc_sandbox
   pkg_sandbox_policy --> svc_sandboxPolicy
@@ -326,6 +337,7 @@ flowchart LR
   pkg_subprocess_e2b --> svc_subprocess
   pkg_subprocess_local --> svc_subprocess
   pkg_system_prompt --> svc_systemPrompt
+  pkg_task_checkpoint --> svc_taskCheckpoints
   pkg_terminal --> svc_terminals
   pkg_terminal_bash --> svc_terminals
   pkg_token_meter --> svc_tokenMeter
@@ -386,6 +398,9 @@ flowchart LR
   svc_llm --> pkg_agent_loop
   svc_llm --> pkg_compaction_basic
   svc_lsp --> pkg_tool_lsp
+  svc_mlxBackendObserver --> pkg_agent_run_state
+  svc_reasoningPolicy --> pkg_agent_loop
+  svc_reasoningPolicy --> pkg_agent_run_state
   svc_sandbox --> pkg_bash_sandbox
   svc_sandbox --> pkg_terminal_bash
   svc_sandboxPolicy --> pkg_bash_sandbox
@@ -514,6 +529,10 @@ flowchart LR
 | `ctx.agentPresets` | `core` | [`agent-presets`](../packages/preset/agent-presets) | - | - | - | Discovers preset directories over trusted and user-authored roots and mounts one preset cordis.yml under an agent scope during creation, rejecting a row that never activates or that publishes into the root service realm. |
 | `ctx.commands` | `core` | [`commands`](../packages/interaction/commands) | - | - | - | Plugins register direct human commands without sending invocations to the model. |
 | `ctx.sessionProjections` | `core` | [`session-projection`](../packages/session/session-projection) | - | [`api-session-controller`](../packages/api/session-controller), [`tool-todo`](../packages/todo/tool-todo), [`session-title`](../packages/session/session-title) | - | Domains register state-driven fold units; the eager drive keeps per-session watermark states and the Session controller serves baselines and pushes changed values. |
+| `ctx.agentRunState` | `core` | [`agent-run-state`](../packages/runtime-diagnostics/agent-run-state) | - | - | - | Folds durable Session lifecycle events, overlays attributed transient stream/backend/policy observations, and exposes health/error diagnostics without changing runtime policy. |
+| `ctx.reasoningPolicy` | `core` | [`reasoning-policy`](../packages/runtime-diagnostics/reasoning-policy) | - | [`agent-loop`](../packages/core/agent-loop), [`agent-run-state`](../packages/runtime-diagnostics/agent-run-state) | - | Normalizes a declared exact backend reasoning capability in the request waterfall and publishes read-only Context Pressure facts without changing compaction or recovery. |
+| `ctx.taskCheckpoints` | `core` | [`task-checkpoint`](../packages/session/task-checkpoint) | - | - | - | Stores whole Task Checkpoint and Result Manifest revisions, projects Session Repair hazards, and exposes read-only resume classification without executing recovery. |
+| `ctx.mlxBackendObserver` | `seam` | [`agent-run-state-mlx`](../packages/runtime-diagnostics/agent-run-state-mlx) | - | [`agent-run-state`](../packages/runtime-diagnostics/agent-run-state) | - | Follows MLX logs and optional HTTP process health, then emits backend-neutral transient observations with provisional progress and attribution evidence. |
 | `ctx.sessionProjectionCache` | `core` | [`session-projection-cache`](../packages/session/session-projection-cache) | - | [`api-session-controller`](../packages/api/session-controller), [`session-query`](../packages/session-query/session-query), [`session-reference`](../packages/context/session-reference), [`subagent`](../packages/subagent/subagent) | - | Durably checkpoints projection unit states per session (throttled + turn/end/detach mandatory points) and serves the cold-read ladder: cache row + persistence tail replay, so listings never load full logs. |
 | `ctx.skills` | `seam` | [`skill`](../packages/skill/skill) | [`skill-badge`](../packages/skill/skill-badge), [`skill-filesystem`](../packages/skill/skill-filesystem) | [`tool-skill`](../packages/skill/tool-skill) | - | Merges provider skill catalogs; tool-skill renders the session-prefix catalog and loads complete skill bodies. |
 | `ctx.agents` | `core` | [`agent`](../packages/core/agent) | - | [`agent-loop`](../packages/core/agent-loop), [`acp`](../packages/acp/acp), [`subagent-in-process-driver`](../packages/subagent/subagent-in-process-driver) | - | Owns live Agent handles, the create/resume factory seam, and process-local initiator propagation. |

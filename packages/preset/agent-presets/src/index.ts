@@ -77,7 +77,7 @@ export const AgentPresetSettingsSchema: z<AgentPresetSettings> = z.object({
 
 export { COMPOSITION_FILE, discoverPresets, scanRoot, SHIPPED_PRESET_ROOT } from './discovery.ts'
 export {
-  METADATA_FILE, readPresetMetadata, renderPresetMetadata, type PresetMetadata,
+  METADATA_FILE, readPresetMetadata, renderPresetMetadata, type PresetMetadata, type PresetVisibility,
 } from './metadata.ts'
 export {
   inactiveRows, leakedServices, livePresetMounts, mountPreset, serviceForAgent, standingMountFor,
@@ -280,7 +280,7 @@ export class AgentPresets extends TypertRemoteService {
     // Keep the visible policy and marked default from the same settings
     // snapshot even when discovery yields while settings are hot-reloaded.
     const policy = this.selectionPolicy()
-    const presets = await this.list()
+    const presets = (await this.list()).filter(preset => preset.visibility !== 'hidden')
     return {
       presets: presets.map(preset => ({
         id: preset.id,

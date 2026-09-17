@@ -1,0 +1,90 @@
+# Explicit development-only phase 2–6 composition. The Desktop development
+# launcher is the sole code path allowed to link this bundle into its disposable
+# project. Production profiles never carry this layer.
+
+- insert:
+    - id: agent-run-state
+      name: '@deepseek-ai/dsh-agent-run-state'
+      config:
+        slowAfterMs: 60000
+        stalledAfterMs: 180000
+
+    - id: agent-run-policy
+      name: '@deepseek-ai/dsh-agent-run-policy'
+      config:
+        observerId: desktop-dev-run-policy
+        providers: [local-qwen-dev]
+        maxRetryCount: 2
+        cancellationConfirmationMs: 5000
+
+    - id: desktop-run-diagnostics
+      name: '@deepseek-ai/dsh-desktop-run-diagnostics'
+      config:
+        coalesceMs: 150
+        elapsedRefreshMs: 1000
+        maxResumeContextTokens: 8192
+
+    - id: desktop-run-diagnostics-remote
+      name: '@deepseek-ai/dsh-client-desktop-run-diagnostics-remote'
+
+    - id: ui-run-details
+      name: '@deepseek-ai/dsh-client-ui-run-details'
+
+    - id: task-checkpoint
+      name: '@deepseek-ai/dsh-task-checkpoint'
+
+    # The MLX observer remains composed for capability validation. It follows
+    # an inert Dev-owned file until a separate MLX test supplies real evidence.
+    - id: mlx-backend-observer
+      name: '@deepseek-ai/dsh-agent-run-state-mlx'
+      config:
+        observerId: desktop-dev-mlx
+        logPath: /dev/null
+        logPollIntervalMs: 1000
+        healthPollIntervalMs: 30000
+        healthTimeoutMs: 1000
+        requestAttribution: unknown
+        provider: local-qwen-dev
+        models:
+          - /Users/kongda/Models/Qwen3.8-27B-GSQ-RCO-GGUF/Qwen3.8-27B-GSQ-RCO-IQ3_S.gguf
+
+    - id: reasoning-policy
+      name: '@deepseek-ai/dsh-reasoning-policy'
+      config:
+        observerId: desktop-dev-iq3s
+        governedProviders: [local-qwen-dev]
+        capabilities:
+          - provider: local-qwen-dev
+            model: /Users/kongda/Models/Qwen3.8-27B-GSQ-RCO-GGUF/Qwen3.8-27B-GSQ-RCO-IQ3_S.gguf
+            supported: [none, low, medium, xhigh]
+            aliases: { off: none }
+            fallbacks: { high: xhigh }
+            wireValues: { none: none, low: low, medium: medium, high: high, xhigh: xhigh }
+            requestOverrideSupported: true
+            backendDefault: xhigh
+            confidence: confirmed
+            source: gguf-live-audit
+        globalDefault: xhigh
+        taskPolicies: { simple: low, normal: medium, complex: xhigh, long-output: xhigh }
+        contextPressure:
+          providerSafetyMargin: 4096
+          reserve: { none: 1024, low: 2048, medium: 6144, high: 8192, xhigh: 12288 }
+          complexReserve: 2048
+          longOutputIncrement: 4096
+          maxReserve: 16384
+          thresholds: { watch: 0.55, prepare: 0.7, compact: 0.8, critical: 0.9 }
+        compaction: { enabled: true, autoTrigger: false, preserveBenchmarkContext: true }
+        benchmarkPresets:
+          - preset: benchmark
+            reasoning: xhigh
+            provider: local-qwen-dev
+            model: /Users/kongda/Models/Qwen3.8-27B-GSQ-RCO-GGUF/Qwen3.8-27B-GSQ-RCO-IQ3_S.gguf
+            preserveRawContext: true
+
+    - id: command-agent-run-state
+      name: '@deepseek-ai/dsh-agent-run-state/command'
+
+- id: compaction-basic
+  config:
+    auto: false
+    maxSummaryValidationRetries: 1

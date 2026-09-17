@@ -154,6 +154,10 @@
       "@deepseek-ai/dsh-host-plugin-inventory": ["./packages/host/plugin-inventory/src"],
       "@deepseek-ai/dsh-host-plugin-inventory/types": ["./packages/host/plugin-inventory/src/types.ts"],
       "@deepseek-ai/dsh-client-ui-slots": ["./packages/client/ui-slots/src"],
+      "@deepseek-ai/dsh-client-desktop-run-diagnostics-remote": ["./packages/client/desktop-run-diagnostics-remote/src"],
+      "@deepseek-ai/dsh-client-desktop-run-diagnostics-remote/client": ["./packages/client/desktop-run-diagnostics-remote/src/client"],
+      "@deepseek-ai/dsh-client-ui-run-details": ["./packages/client/ui-run-details/src"],
+      "@deepseek-ai/dsh-client-ui-run-details/client": ["./packages/client/ui-run-details/src/client"],
       "@deepseek-ai/dsh-client-ui-attachment": ["./packages/client/ui-attachment/src"],
       "@deepseek-ai/dsh-client-ui-primitives": ["./packages/client/ui-primitives/src"],
       "@deepseek-ai/dsh-client-ui-dockkit": ["./packages/client/ui-dockkit/src"],
@@ -252,6 +256,19 @@
       // session-log-export lives under session-query/, so the generated aliases map only its
       // bare name; the browser half needs this explicit subpath for source-mode dynamic imports.
       "@deepseek-ai/dsh-session-log-export/client": ["./packages/session-query/session-log-export/src/client"],
+      // agent-run-state publishes pure contracts and controlled fixtures as explicit subpaths.
+      "@deepseek-ai/dsh-agent-run-state/types": ["./packages/runtime-diagnostics/agent-run-state/src/types.ts"],
+      "@deepseek-ai/dsh-agent-run-state/testing": ["./packages/runtime-diagnostics/agent-run-state/src/testing.ts"],
+      "@deepseek-ai/dsh-agent-run-state/command": ["./packages/runtime-diagnostics/agent-run-state/src/command.ts"],
+      "@deepseek-ai/dsh-reasoning-policy/types": ["./packages/runtime-diagnostics/reasoning-policy/src/types.ts"],
+      // desktop-run-diagnostics has explicit client-safe contracts; the Remote
+      // artifact itself remains generated under ./remote after the host build.
+      "@deepseek-ai/dsh-desktop-run-diagnostics/client": ["./packages/runtime-diagnostics/desktop-run-diagnostics/src/client.ts"],
+      "@deepseek-ai/dsh-desktop-run-diagnostics/types": ["./packages/runtime-diagnostics/desktop-run-diagnostics/src/types.ts"],
+      // task-checkpoint keeps client-safe contracts and deterministic fixtures on explicit outlets.
+      "@deepseek-ai/dsh-task-checkpoint/types": ["./packages/session/task-checkpoint/src/types.ts"],
+      "@deepseek-ai/dsh-task-checkpoint/client": ["./packages/session/task-checkpoint/src/client.ts"],
+      "@deepseek-ai/dsh-task-checkpoint/testing": ["./packages/session/task-checkpoint/src/testing.ts"],
       // BEGIN generated package aliases — pnpm run gen-tsconfig-paths
       "@deepseek-ai/dsh-acp": ["./packages/acp/acp/src"],
       "@deepseek-ai/dsh-acp-app": ["./packages/bundle/acp-app/src"],
@@ -262,6 +279,9 @@
       "@deepseek-ai/dsh-agent-loop-testkit": ["./packages/test-support/agent-loop-testkit/src"],
       "@deepseek-ai/dsh-agent-presets": ["./packages/preset/agent-presets/src"],
       "@deepseek-ai/dsh-agent-presets/invariant": ["./packages/preset/agent-presets/src/invariant.ts"],
+      "@deepseek-ai/dsh-agent-run-policy": ["./packages/guard/agent-run-policy/src"],
+      "@deepseek-ai/dsh-agent-run-state": ["./packages/runtime-diagnostics/agent-run-state/src"],
+      "@deepseek-ai/dsh-agent-run-state-mlx": ["./packages/runtime-diagnostics/agent-run-state-mlx/src"],
       "@deepseek-ai/dsh-agent-tool-presentation": ["./packages/core/agent-tool-presentation/src"],
       "@deepseek-ai/dsh-anonymous-user-id": ["./packages/identity/anonymous-user-id/src"],
       "@deepseek-ai/dsh-app-boot": ["./packages/boot/app-boot/src"],
@@ -292,6 +312,7 @@
       "@deepseek-ai/dsh-credentials-local": ["./packages/credentials/credentials-local/src"],
       "@deepseek-ai/dsh-deepseek-llm-api-extensions": ["./packages/llm/deepseek-llm-api-extensions/src"],
       "@deepseek-ai/dsh-deque": ["./packages/util/deque/src"],
+      "@deepseek-ai/dsh-desktop-run-diagnostics": ["./packages/runtime-diagnostics/desktop-run-diagnostics/src"],
       "@deepseek-ai/dsh-e2b": ["./packages/e2b/e2b/src"],
       "@deepseek-ai/dsh-file-reference": ["./packages/context/file-reference/src"],
       "@deepseek-ai/dsh-file-reference-local": ["./packages/context/file-reference-local/src"],
@@ -339,6 +360,7 @@
       "@deepseek-ai/dsh-plan-mode/invariant": ["./packages/plan/plan-mode/src/invariant.ts"],
       "@deepseek-ai/dsh-plugin-package-inventory-deepseek": ["./packages/llm/plugin-package-inventory-deepseek/src"],
       "@deepseek-ai/dsh-pwsh-sandbox": ["./packages/shell/pwsh-sandbox/src"],
+      "@deepseek-ai/dsh-reasoning-policy": ["./packages/runtime-diagnostics/reasoning-policy/src"],
       "@deepseek-ai/dsh-remote-mock": ["./packages/test-support/remote-mock/src"],
       "@deepseek-ai/dsh-repeat-tool-reminder": ["./packages/guard/repeat-tool-reminder/src"],
       "@deepseek-ai/dsh-sandbox": ["./packages/sandbox/sandbox/src"],
@@ -407,6 +429,7 @@
       "@deepseek-ai/dsh-subprocess-local": ["./packages/subprocess/subprocess-local/src"],
       "@deepseek-ai/dsh-system-prompt": ["./packages/core/system-prompt/src"],
       "@deepseek-ai/dsh-system-prompt/invariant": ["./packages/core/system-prompt/src/invariant.ts"],
+      "@deepseek-ai/dsh-task-checkpoint": ["./packages/session/task-checkpoint/src"],
       "@deepseek-ai/dsh-terminal": ["./packages/terminal/terminal/src"],
       "@deepseek-ai/dsh-terminal-bash": ["./packages/terminal/terminal-bash/src"],
       "@deepseek-ai/dsh-time-context": ["./packages/context/time-context/src"],

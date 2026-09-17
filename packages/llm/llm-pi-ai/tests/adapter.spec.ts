@@ -428,6 +428,34 @@ describe('PiAiAdapter provider routing', () => {
     expect(server.paths).toEqual(['/chat/completions'])
     expect(server.closedResponses).toBe(1)
   })
+
+  it('keeps the SDK request alive while attributed backend progress advances', async () => {
+    const server = await mockServer([{ events: textEvents, delayMs: 40 }])
+    const ctx = await harness(server.url, { streamIdleTimeoutMs: 55 })
+    const sessionId = 'external-activity-session' as never
+    const pulse = setInterval(() => {
+      ctx.emit('llm/request-activity', {
+        sessionId: 'other-session' as never,
+        observedAt: Date.now(),
+        source: 'backend-observer',
+        confidence: 'confirmed',
+      })
+      ctx.emit('llm/request-activity', {
+        sessionId,
+        observedAt: Date.now(),
+        source: 'backend-observer',
+        confidence: 'provisional',
+      })
+    }, 25)
+
+    try {
+      const result = await assemble(ctx, { model: 'deepseek-v4-flash', messages: [], sessionId })
+      expect(result.finish).toEqual({ kind: 'stop' })
+      expect(result.message.content).toEqual([{ type: 'text', text: 'hello' }])
+    } finally {
+      clearInterval(pulse)
+    }
+  })
 })
 
 describe('provider profile lifecycle', () => {

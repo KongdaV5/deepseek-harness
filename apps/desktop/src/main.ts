@@ -1,7 +1,7 @@
 /** Electron shell: desktop project ownership, custom protocol, windows, and lifecycle. */
 
 import { readFile, writeFile } from 'node:fs/promises'
-import { extname, join, normalize, resolve, sep } from 'node:path'
+import { basename, extname, join, normalize, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
   app,
@@ -24,6 +24,13 @@ import { desktopErrorState } from './startup-error.ts'
 import { startupFailureDocument } from './startup-document.ts'
 
 const SCHEME = 'dsh-app'
+const CUSTOM_DESKTOP_NAME = 'DSH Desktop Custom'
+const CUSTOM_DESKTOP_BUNDLE = '@deepseek-ai/dsh-desktop-custom-composition'
+const customDesktopBuild = basename(process.execPath) === CUSTOM_DESKTOP_NAME
+if (customDesktopBuild) {
+  app.setName(CUSTOM_DESKTOP_NAME)
+  app.setPath('userData', join(app.getPath('appData'), '@deepseek-ai', 'dsh-desktop-custom'))
+}
 let focusPrimaryWindow = (): void => {}
 type RecoveryAction = 'restart' | 'plugins' | 'reset'
 let profileRecoveryAvailable = (): boolean => false
@@ -149,10 +156,15 @@ async function serveShellAsset(request: Request): Promise<Response> {
 
 async function main(): Promise<void> {
   const resources = runtimeResources()
-  const paths = resolveDesktopPaths()
+  // Electron's `getName()` is sourced from the packaged JavaScript manifest on
+  // some macOS builds, not necessarily the Finder product name. The packaged
+  // executable name is the stable local identity for this macOS-only flavor.
+  const custom = customDesktopBuild
+  const paths = resolveDesktopPaths(undefined, custom ? 'desktop-custom' : 'desktop')
   const development = app.isPackaged ? undefined : join(app.getAppPath(), '.desktop-build', 'development', 'project')
   const activeProject = development ?? paths.profile
-  const manager = new DesktopProjectManager(paths, resources)
+  const manager = new DesktopProjectManager(paths, resources,
+    custom ? ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app', CUSTOM_DESKTOP_BUNDLE] : undefined)
   profileRecoveryAvailable = () => development === undefined && manager.canRecoverProfile()
   let pageError: Extract<DesktopBackendState, { phase: 'error' }> | undefined
   let quitting = false

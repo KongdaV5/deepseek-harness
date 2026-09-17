@@ -146,6 +146,23 @@ describe('the roster a client reads', () => {
     expect(roster.presets.find(row => row.id === 'damaged')?.broken).toEqual(expect.any(String))
   })
 
+  it('keeps a hidden preset explicitly resolvable while omitting it from the interactive roster', async () => {
+    const userRoot = await mkdtemp(join(tmpdir(), 'dsh-preset-remote-'))
+    roots.push(userRoot)
+    await mkdir(join(userRoot, 'benchmark'), { recursive: true })
+    await writeFile(join(userRoot, 'benchmark', COMPOSITION_FILE), VALID)
+    await writeFile(join(userRoot, 'benchmark', METADATA_FILE), 'name: Benchmark\nvisibility: hidden\n')
+    const ctx = await harness({
+      default: 'standard',
+      roots: [{ path: join(FIXTURES, 'system'), trust: 'system' }, { path: userRoot, trust: 'user' }],
+      includeShippedRoot: false,
+      includeUserRoot: false,
+    })
+
+    expect((await ctx.agentPresets.remoteExportList()).presets.map(preset => preset.id)).not.toContain('benchmark')
+    expect((await ctx.agentPresets.resolve('benchmark')).visibility).toBe('hidden')
+  })
+
   it('answers an empty roster with nothing authorable', async () => {
     const ctx = await harness({ default: 'standard', roots: [], includeShippedRoot: false, includeUserRoot: false })
 

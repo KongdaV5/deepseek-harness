@@ -293,7 +293,7 @@ Every adapter MUST obey these, and every consumer may rely on them:
 - **Tool-call `arguments` stay raw JSON strings end-to-end.** Partial fragments stream via `argumentsDelta`; a provider that hands back parsed objects re-stringifies at `block-end`.
 - **Two sanctioned error paths, one `LlmFailure` type.** A failure may either THROW from `stream()` (transport/protocol errors) **or** end the stream with `finish {kind:'error'|'aborted', failure}` (provider in-band errors, for adapters that can't throw mid-stream). `LlmError.failure` carries the same `LlmFailure`. After the call selects its adapter, the stream preserves the exact thrown `Error` object and associates immutable facts plus the serving registration's immutable retry policy with that call; the agent loop commits the attempt stream as `assistant/attempt`, closes the failed step, and offers the error, facts, immutable prior-retried facts, serving policy, and turn signal to `agent/request-error`. A handling listener returns `{ kind: 'retry' }` after its awaited repair; absent recovery the structured failure becomes the turn error, and no surface Assistant message or tool side effect is committed for that attempt.
 - **One adapter call is one provider attempt.** Adapters disable library retries. Agent-level recovery opens another durable numbered turn; direct `ctx.llm.stream()` callers remain single-attempt.
-- **Provider stalls are bounded at the transport.** Both shipping remote adapters expose positive finite `streamIdleTimeoutMs` with a five-minute default. The watchdog arms only while iterator `next()` is outstanding, uses one stable signal for the whole request, maps its own expiry to `TIMEOUT`, and keeps an earlier caller abort as `ABORTED`.
+- **Provider stalls are bounded at the transport.** Both shipping remote adapters expose positive finite `streamIdleTimeoutMs` with a five-minute default. The watchdog arms only while iterator `next()` is outstanding, uses one stable signal for the whole request, maps its own expiry to `TIMEOUT`, and keeps an earlier caller abort as `ABORTED`. The pi-ai adapter can additionally rearm that outstanding demand from a matching Session's provider-neutral `llm/request-activity` event, so attributed local-backend prefill counts as progress while health polling and other Sessions do not.
 - **Context overflow has one canonical code.** Both DeepSeek adapters classify explicit provider detail through `isContextWindowExceededError()` and surface `CONTEXT_WINDOW_EXCEEDED`, whether the failure arrives as a thrown HTTP `LlmError` or an in-band finish error. Consumers route on the code, never provider text.
 - **An empty completion is a retryable error, not a silent success.** Both adapters map a terminal `stop` finish that carried no content blocks to `finish {kind:'error'}` with the canonical `EMPTY_RESPONSE` code, and `dsh-llm-retry` retries it by default.
 - **Every provider HTTP request carries the app-attribution header.** Adapters send `attributionHeaders()` (below) - the `User-Agent` baseline - and prove it with a wire-level test.
@@ -1061,6 +1061,30 @@ The provider topology changed: an adapter registered or unregistered routes, or 
  */
 'llm/adapters-updated'(): void
 ```
+
+Source: [`packages/llm/llm/src/types.ts`](../../packages/llm/llm/src/types.ts)
+
+<a id="llmrequest-activity--emit"></a>
+
+#### `llm/request-activity` — emit
+
+Publish attributed request progress that occurs outside the provider response stream. Adapters may use this signal to rearm an outstanding idle read, but it carries no response content and changes no request.
+
+```ts cordis-catalog
+/**
+ * Publish attributed request progress that occurs outside the provider
+ * response stream. Adapters may use this signal to rearm an outstanding
+ * idle read, but it carries no response content and changes no request.
+ * @param payload.sessionId - Session identity stamped on the active request.
+ * @param payload.observedAt - timestamp of the external progress fact.
+ * @param payload.source - provider-neutral source category.
+ * @param payload.confidence - strength of the activity attribution.
+ * @mode emit
+ */
+'llm/request-activity'(payload: { readonly sessionId: Branded<'SessionId'> readonly observedAt: number readonly source: 'backend-observer' readonly confidence: 'confirmed' | 'provisional' }): void
+```
+
+Types: [Branded](core.md) · [SessionId](core.md)
 
 Source: [`packages/llm/llm/src/types.ts`](../../packages/llm/llm/src/types.ts)
 

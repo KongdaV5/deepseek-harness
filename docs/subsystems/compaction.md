@@ -66,6 +66,51 @@ Automatic callers state why policy is running; implementations may treat confirm
 type CompactionTrigger = 'pressure' | 'context-overflow'
 ```
 
+## Basic-backend request and validation policy hooks
+
+`dsh-compaction-basic` keeps the compaction transaction, model route, and atomic surface replacement under its own control, but exposes two optional typed waterfalls for a capability to decorate a candidate request and validate its uncommitted summary. A listener may set an adapter-supported `reasoningEffort` and insert compact runtime facts immediately before the final instruction. It cannot redirect the route, mutate the Session, or apply a replacement. The default retry budget is zero; a validator can request an additional candidate only when the configured `maxSummaryValidationRetries` permits it.
+
+```ts type-equiv
+/**
+ * Immutable request facts passed to the optional compaction-only request-policy waterfall.
+ * Listeners may retain the original request fields and insert model-visible runtime facts
+ * immediately before the final compaction instruction, or set an adapter-supported
+ * `reasoningEffort`. They cannot redirect the provider, mutate the Session, or execute a
+ * compaction operation.
+ */
+interface CompactionRequestPolicyContext {
+  /** Live Agent whose Session owns the selected history. */
+  readonly agent: Agent
+  /** One-based candidate generation ordinal within this compaction transaction. */
+  readonly attempt: number
+  /** Fully formed auxiliary request; its final message is the compaction instruction. */
+  readonly options: GenerateOptions
+}
+```
+
+```ts type-equiv
+/** Immutable candidate facts passed to the optional semantic-validation waterfall. */
+interface CompactionSummaryValidationContext {
+  /** Live Agent whose Session would receive the replacement checkpoint. */
+  readonly agent: Agent
+  /** Durable identity of the enclosing compaction transaction. */
+  readonly compactionId: CompactionId
+  /** One-based candidate generation ordinal within this compaction transaction. */
+  readonly attempt: number
+  /** Text-only candidate summary before durable framing and surface replacement. */
+  readonly summary: readonly ContentBlock[]
+}
+```
+
+```ts type-equiv
+/** Result of one optional semantic validation. */
+type CompactionSummaryValidationDecision =
+  | { readonly kind: 'accept' }
+  | { readonly kind: 'retry'; readonly reason: string }
+```
+
+These are extension contracts, not an alternate compaction executor. A rejected final candidate throws before the existing atomic commit, so the prior model-visible surface stays intact. Source: [`packages/compaction/compaction-basic/src/types.ts`](../../packages/compaction/compaction-basic/src/types.ts).
+
 `CompactionEngine` exposes `compactIfNeeded(agent, trigger, signal)` for automatic `pressure` or `context-overflow` policy, `compactNow(agent, signal)` for one useful idle-session reduction even below pressure, and `compactRegion(...)` for an explicit inclusive surface range. `compactNow()` runs as agent maintenance between turns, returns `null` without writing when no useful range exists, records a standalone `turn: null` bracket before summarization, and flushes a closed attempt before later queued prompts may derive from the new surface. Every backend creates its replacement `user/message` source with `compactCheckpointSource(compactionId, sourceCommandId?)`; client and wire consumers import that constructor, `CompactionCheckpointSource`, and `isCompactCheckpointSource()` from the cordis-free `@deepseek-ai/dsh-compaction/checkpoint` subpath, while the package root re-exports them for host consumers. The required transaction identity correlates the replacement checkpoint, while the predicate keeps recognition independent of any one backend. Implementations must forward the supplied signal to summarization. The seam owns no pricing API: the singleton [`ctx.tokenMeter`](token-meter.md) directly owns estimation and replay, while `dsh-compaction-basic` owns retention, event sequencing, routed summarization calls, and their configuration.
 
 Expected manual failures use `ManualCompactionErrorCode`:
@@ -235,4 +280,56 @@ pruneSession(session: Session): PruneResult
 Types: [ContentBlock](llm-streaming.md) · [Session](session.md)
 
 Source: [`packages/compaction/compaction-tool-result-pruner/src/index.ts`](../../packages/compaction/compaction-tool-result-pruner/src/index.ts)
+
+<a id="compaction-events"></a>
+
+### `compaction/*` events
+
+<a id="compactionrequest-policy--waterfall"></a>
+
+#### `compaction/request-policy` — waterfall
+
+Decorate one fully formed compaction auxiliary request before it reaches the LLM adapter. With no listener the original request reaches the adapter unchanged. A listener may set an adapter-supported `reasoningEffort` and insert runtime-fact messages immediately before the fixed final compaction instruction; changing route, tools, caps, purpose, Session identity, cancellation, or existing replay messages rejects the attempt before backend I/O.
+
+```ts cordis-catalog
+/**
+ * Decorate one fully formed compaction auxiliary request before it reaches
+ * the LLM adapter. With no listener the original request reaches the
+ * adapter unchanged. A listener may set an adapter-supported
+ * `reasoningEffort` and insert runtime-fact messages immediately before the
+ * fixed final compaction instruction; changing route, tools, caps, purpose,
+ * Session identity, cancellation, or existing replay messages rejects the
+ * attempt before backend I/O.
+ * @param context - immutable Agent, attempt, and baseline request facts.
+ * @param next - delegates to the remaining decorators or returns the baseline request.
+ * @mode waterfall
+ */
+'compaction/request-policy'(context: CompactionRequestPolicyContext, next: () => Promise<GenerateOptions>): Promise<GenerateOptions>
+```
+
+Types: [GenerateOptions](llm-streaming.md)
+
+Source: [`packages/compaction/compaction-basic/src/index.ts`](../../packages/compaction/compaction-basic/src/index.ts)
+
+<a id="compactionsummary-validation--waterfall"></a>
+
+#### `compaction/summary-validation` — waterfall
+
+Validate a text-only compaction candidate after token-shrink validation and before any durable replacement. With no listener the candidate is accepted. A listener may request another candidate within the configured `maxSummaryValidationRetries`; it cannot mutate the Session or commit a replacement itself.
+
+```ts cordis-catalog
+/**
+ * Validate a text-only compaction candidate after token-shrink validation
+ * and before any durable replacement. With no listener the candidate is
+ * accepted. A listener may request another candidate within the configured
+ * `maxSummaryValidationRetries`; it cannot mutate the Session or commit a
+ * replacement itself.
+ * @param context - immutable candidate summary and transaction facts.
+ * @param next - delegates to the remaining validators or accepts the candidate.
+ * @mode waterfall
+ */
+'compaction/summary-validation'(context: CompactionSummaryValidationContext, next: () => Promise<CompactionSummaryValidationDecision>): Promise<CompactionSummaryValidationDecision>
+```
+
+Source: [`packages/compaction/compaction-basic/src/index.ts`](../../packages/compaction/compaction-basic/src/index.ts)
 <!-- END GENERATED cordis-surface -->

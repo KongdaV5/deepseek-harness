@@ -135,6 +135,23 @@ describe('desktop macOS release signature', () => {
     })
   })
 
+  it('builds a local Custom macOS app without release identifiers, update configuration, or notarization', async () => {
+    const { createElectronBuilderConfig } = await import('../electron-builder.config.mjs')
+    const config = createElectronBuilderConfig({
+      DSH_DESKTOP_BUILD_FLAVOR: 'custom',
+      DSH_DESKTOP_TARGET_PLATFORM: 'darwin',
+      DSH_DESKTOP_TARGET_ARCH: 'arm64',
+    }, 'darwin', 'arm64')
+    expect(portablePath(config.directories.output)).toContain('/.desktop-build/targets/mac-arm64/custom-artifacts')
+    expect(config.extraResources.at(-1)).toMatchObject({ to: 'custom-build.json' })
+    expect(config).toMatchObject({
+      appId: 'dev.dsh.desktop.custom',
+      productName: 'DSH Desktop Custom',
+      mac: { identity: '-', forceCodeSigning: true, hardenedRuntime: false, notarize: false },
+      publish: null,
+    })
+  })
+
   it('rejects unsigned macOS builds and malformed signing modes', async () => {
     const { createElectronBuilderConfig } = await import('../electron-builder.config.mjs')
     expect(() => createElectronBuilderConfig({ ...RELEASE_ENVIRONMENT, DSH_DESKTOP_UNSIGNED: '1' }))

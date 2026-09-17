@@ -250,6 +250,48 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
+    key: 'agentRunState',
+    summary: 'Read-only projection and observer registry for run diagnostics.',
+    description: 'Read-only projection and observer registry for run diagnostics.',
+    methods: [
+      {
+        signature: 'registerObserver(observer: LocalBackendObserver): () => void',
+        description: 'Register one replaceable backend observer. Duplicate ids fail loud.',
+        parameters: [{ name: 'observer', description: 'backend-neutral observation provider.' }],
+        returns: 'idempotent disposer that unsubscribes and releases its identity.',
+      },
+      {
+        signature: 'registerControlObserver(observer: LocalRunControlObserver): () => void',
+        description: 'Register one policy-fact observer. Duplicate ids fail loud.',
+        parameters: [{ name: 'observer', description: 'run-control observation provider.' }],
+        returns: 'idempotent disposer that removes its transient overlays.',
+      },
+      {
+        signature: 'registerDiagnosticsObserver(observer: LocalRunDiagnosticsObserver): () => void',
+        description: 'Register an external read-only diagnostics overlay. The overlay is merged only into current diagnostics; it is never durable Run State and cannot alter terminal lifecycle, health, retry, or cancellation facts.',
+        parameters: [{ name: 'observer', description: 'provider of one Run-correlated diagnostic fact stream.' }],
+        returns: 'idempotent disposer that removes this observer\'s transient facts.',
+      },
+      {
+        signature: 'async probe(session: Session): Promise<void>',
+        description: 'Ask every registered backend observer to refresh immediately available evidence. Observer failures are logged and do not fabricate health or activity.',
+        parameters: [{ name: 'session', description: 'Session whose policy decision is waiting for current evidence.' }],
+      },
+      {
+        signature: 'diagnostics(session: Session, now: number = Date.now()): AgentRunDiagnostics',
+        description: 'Read a detached current diagnostic snapshot without mutating run state.',
+        parameters: [{ name: 'session', description: 'Session whose latest run is read.' }, { name: 'now', description: 'timestamp used only for elapsed health classification.' }],
+        returns: 'durable Run State merged with attributed transient observations.',
+      },
+      {
+        signature: 'subscribe(session: Session, listener: DiagnosticsListener): () => void',
+        description: 'Subscribe to activity-driven changes. Elapsed-only health changes are visible when diagnostics is polled.',
+        parameters: [{ name: 'session', description: 'Session whose latest diagnostics are observed.' }, { name: 'listener', description: 'receiver of detached merged diagnostic cuts.' }],
+        returns: 'idempotent listener disposer.',
+      },
+    ],
+  },
+  {
     key: 'agents',
     summary: 'Agent service (`ctx.agents`): tracks live agents and carries the initiating Agent through one process-local asynchronous driver chain.',
     description: 'Agent service (`ctx.agents`): tracks live agents and carries the initiating Agent through one process-local asynchronous driver chain. Agent *creation* is provided by whichever plugin implements the AgentFactory (`@deepseek-ai/dsh-agent-loop`), registered via setFactory.\n\nInitiator methods provide same-process causal attribution only. Ambient presence is neither liveness proof nor authorization; subjects and owners remain explicit, as does identity at worker, process, persistence, and wire boundaries. Returned Promise boundaries drain during teardown, except a nested lineage that starts an owning-fiber unload is excluded from its own drain.',
@@ -1342,6 +1384,44 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
+    key: 'mlxBackendObserver',
+    summary: 'Real MLX observation provider over a followed log and optional HTTP health endpoint.',
+    description: 'Real MLX observation provider over a followed log and optional HTTP health endpoint.',
+    methods: [
+      {
+        signature: 'subscribe(listener: (observation: BackendObservation) => void): () => void',
+        description: 'Subscribe to normalized MLX observations until the returned disposer is called.',
+        parameters: [{ name: 'listener', description: 'contained receiver for each backend-neutral observation.' }],
+        returns: 'idempotent disposer that removes the listener.',
+      },
+      {
+        signature: 'ingestLogLine(line: string, observedAt: number = Date.now()): void',
+        description: 'Parse one complete MLX log line and publish only recognized backend facts.',
+        parameters: [{ name: 'line', description: 'one complete log record without its line terminator.' }, { name: 'observedAt', description: 'fallback timestamp when the record contains no recognized time.' }],
+      },
+      {
+        signature: 'observeProcessExit(exit: MlxProcessExit): void',
+        description: 'Publish a process exit only when the process owner directly observed settlement.',
+        parameters: [{ name: 'exit', description: 'direct child-process settlement evidence and its observation time.' }],
+      },
+      {
+        signature: 'async pollHealth(): Promise<void>',
+        description: 'Probe the configured health endpoint once; failure degrades process health but is never fatal evidence.',
+        parameters: [],
+      },
+      {
+        signature: 'async pollLog(): Promise<void>',
+        description: 'Force one file poll for deterministic source tests and manual diagnostics.',
+        parameters: [],
+      },
+      {
+        signature: 'async probe(): Promise<void>',
+        description: 'Refresh appended MLX failure/progress evidence before a policy decision.',
+        parameters: [],
+      },
+    ],
+  },
+  {
     key: 'permissionPresets',
     summary: 'Owns the deployment\'s permission presets and their write path.',
     description: 'Owns the deployment\'s permission presets and their write path. Requires a confining `ctx.shell` executor and `ctx.approval`; unmatched knob values are reported as CUSTOM_PRESET, not an error.',
@@ -1395,6 +1475,46 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         description: 'Select whether plan mode should be active. Between turns the method appends the change immediately because no in-turn pre-step will run until another prompt starts a turn. The open-turn fold is the idle signal: agent status stays `running` through post-turn checkpointing, when no further in-turn pre-step runs. During an open turn the selection remains pending until the next accepted in-turn pre-step. Repeated selection of the current or already-pending state is a no-op.',
         parameters: [{ name: 'agent', description: 'The agent to switch.' }, { name: 'active', description: 'Whether plan mode should be active.' }],
         returns: 'what happened: `committed` (logged now), `queued` (awaiting the next accepted in-turn pre-step), `cancelled` (an opposite pending selection was cleared; the logged state already matches), or `noop` (already in that state).',
+      },
+    ],
+  },
+  {
+    key: 'reasoningPolicy',
+    summary: 'Opt-in service whose one exact-model capability declaration drives policy normalization.',
+    description: 'Opt-in service whose one exact-model capability declaration drives policy normalization. It owns no durable state and emits no model-visible message.',
+    methods: [
+      {
+        signature: 'subscribe(listener: (observation: RunDiagnosticsObservation) => void): () => void',
+        description: 'Subscribe to detached transient diagnostics emitted after each governed request decision.',
+        parameters: [{ name: 'listener', description: 'receiver for an immutable per-Run policy and pressure cut.' }],
+        returns: 'idempotent disposer that stops delivery to the listener.',
+      },
+      {
+        signature: 'setUserOverride(agent: Agent, level: ReasoningLevel | undefined): void',
+        description: 'Set the highest-priority explicit user request for one live Agent.',
+        parameters: [{ name: 'agent', description: 'live Agent whose subsequent request proposal is governed.' }, { name: 'level', description: 'requested policy vocabulary, or undefined to clear the override.' }],
+      },
+      {
+        signature: 'setBenchmarkLock(agent: Agent, level: CanonicalReasoningLevel | undefined): void',
+        description: 'Set or clear a benchmark lock; an unsupported lock fails before the backend call.',
+        parameters: [{ name: 'agent', description: 'live Agent whose subsequent request proposal is governed.' }, { name: 'level', description: 'exact benchmark condition, or undefined to clear the lock.' }],
+      },
+      {
+        signature: 'setTaskPolicy(agent: Agent, level: CanonicalReasoningLevel | undefined): void',
+        description: 'Set or clear one entry-point-provided task policy without changing durable Task state.',
+        parameters: [{ name: 'agent', description: 'live Agent whose subsequent request proposal is governed.' }, { name: 'level', description: 'entry-point policy value, or undefined to clear it.' }],
+      },
+      {
+        signature: 'decisionFor(agent: Agent): ResolvedReasoningDecision | undefined',
+        description: 'Return the last detached policy decision seen for an Agent, if any.',
+        parameters: [{ name: 'agent', description: 'live Agent whose most recent decision is read.' }],
+        returns: 'immutable decision or undefined before the first governed request.',
+      },
+      {
+        signature: 'compactionDiagnostics(session: Session): CompactionPolicyDiagnostics | undefined',
+        description: 'Read the latest optional compaction auxiliary policy fact without changing a Run, Session, compaction transaction, or main-request reasoning segment.',
+        parameters: [{ name: 'session', description: 'Session whose latest transient compaction fact is read.' }],
+        returns: 'the fact, or `undefined` before an enabled policy sees a compaction request.',
       },
     ],
   },
@@ -2458,6 +2578,55 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
+    key: 'taskCheckpoints',
+    summary: 'Cordis service for explicit safe-boundary writes and read-only task diagnostics.',
+    description: 'Cordis service for explicit safe-boundary writes and read-only task diagnostics.',
+    methods: [
+      {
+        signature: 'saveCheckpoint(session: Session, candidate: TaskCheckpoint): TaskCheckpoint',
+        description: 'Commit one whole checkpoint at a runtime-confirmed safe boundary. Completion evidence is resolved against durable Session/result facts.',
+        parameters: [{ name: 'session', description: 'Session that owns the durable Task.' }, { name: 'candidate', description: 'complete next checkpoint revision.' }],
+        returns: 'validated checkpoint after its event commits.',
+      },
+      {
+        signature: 'saveResultManifest(session: Session, candidate: ResultManifest): ResultManifest',
+        description: 'Commit one whole, separately versioned result manifest.',
+        parameters: [{ name: 'session', description: 'Session that owns the Task and result.' }, { name: 'candidate', description: 'complete next result-manifest revision.' }],
+        returns: 'validated manifest after its event commits.',
+      },
+      {
+        signature: 'get(session: Session, taskId: TaskId): TaskCheckpoint | undefined',
+        description: 'Read one task checkpoint by stable task identity.',
+        parameters: [{ name: 'session', description: 'Session whose projection is read.' }, { name: 'taskId', description: 'stable Task identity to select.' }],
+        returns: 'latest checkpoint or `undefined` when the Task is absent.',
+      },
+      {
+        signature: 'getResult(session: Session, outputId: TaskOutputId): ResultManifest | undefined',
+        description: 'Read the latest durable manifest for one governed output identity.',
+        parameters: [{ name: 'session', description: 'Session whose durable result projection is read.' }, { name: 'outputId', description: 'stable output identity to select.' }],
+        returns: 'latest manifest or `undefined` when the output is absent.',
+      },
+      {
+        signature: 'resultPublisher(session: Session): TaskResultPublisher',
+        description: 'Create a local Result Publisher bound to one Session.',
+        parameters: [{ name: 'session', description: 'Session that receives published result-manifest revisions.' }],
+        returns: 'publisher that uses atomic write, reread, checksum, and validation ordering.',
+      },
+      {
+        signature: 'resume(agent: Agent, request: TaskResumeRequest): Promise<TaskResumeExecutionResult>',
+        description: 'Explicitly validate and queue one safe resume Run in a live idle Agent.',
+        parameters: [{ name: 'agent', description: 'live Agent whose current provider/model and ordering are revalidated.' }, { name: 'request', description: 'user-authorized Task identity and maximum Resume Context budget.' }],
+        returns: 'started Run/reservation details or a no-side-effect refusal decision.',
+      },
+      {
+        signature: 'diagnostics( session: Session, options: { readonly taskId?: TaskId readonly requestedExecution?: TaskExecutionMetadata readonly trigger?: \'automatic\' | \'user\' } = {}, ): TaskDiagnostics',
+        description: 'Return the diagnostics/read transport for the latest or selected task. This method classifies only; it never schedules resume execution.',
+        parameters: [{ name: 'session', description: 'Session whose durable Task state is read.' }, { name: 'options', description: 'optional Task selection, proposed execution, and trigger authority.' }],
+        returns: 'detached Task, checkpoint, resume, output, and repair-hazard view.',
+      },
+    ],
+  },
+  {
     key: 'terminals',
     summary: 'In-process registry for replaceable PTY backends and exact-Agent sessions.',
     description: 'In-process registry for replaceable PTY backends and exact-Agent sessions.',
@@ -3203,6 +3372,22 @@ export const EVENT_API: readonly EventApiEntry[] = [
     parameters: [],
   },
   {
+    name: 'compaction/request-policy',
+    mode: 'waterfall',
+    signature: '\'compaction/request-policy\'(context: CompactionRequestPolicyContext, next: () => Promise<GenerateOptions>): Promise<GenerateOptions>',
+    summary: 'Decorate one fully formed compaction auxiliary request before it reaches the LLM adapter.',
+    description: 'Decorate one fully formed compaction auxiliary request before it reaches the LLM adapter. With no listener the original request reaches the adapter unchanged. A listener may set an adapter-supported `reasoningEffort` and insert runtime-fact messages immediately before the fixed final compaction instruction; changing route, tools, caps, purpose, Session identity, cancellation, or existing replay messages rejects the attempt before backend I/O.',
+    parameters: [{ name: 'context', description: 'immutable Agent, attempt, and baseline request facts.' }, { name: 'next', description: 'delegates to the remaining decorators or returns the baseline request.' }],
+  },
+  {
+    name: 'compaction/summary-validation',
+    mode: 'waterfall',
+    signature: '\'compaction/summary-validation\'(context: CompactionSummaryValidationContext, next: () => Promise<CompactionSummaryValidationDecision>): Promise<CompactionSummaryValidationDecision>',
+    summary: 'Validate a text-only compaction candidate after token-shrink validation and before any durable replacement.',
+    description: 'Validate a text-only compaction candidate after token-shrink validation and before any durable replacement. With no listener the candidate is accepted. A listener may request another candidate within the configured `maxSummaryValidationRetries`; it cannot mutate the Session or commit a replacement itself.',
+    parameters: [{ name: 'context', description: 'immutable candidate summary and transaction facts.' }, { name: 'next', description: 'delegates to the remaining validators or accepts the candidate.' }],
+  },
+  {
     name: 'cordis/dynamic-package',
     mode: 'emit',
     signature: '\'cordis/dynamic-package\'(pkg: DynamicCordisPackage): void',
@@ -3329,6 +3514,14 @@ export const EVENT_API: readonly EventApiEntry[] = [
     summary: 'The provider topology changed: an adapter registered or unregistered routes, or the configurable-provider directory gained or lost entries.',
     description: 'The provider topology changed: an adapter registered or unregistered routes, or the configurable-provider directory gained or lost entries. This payload-free registry notification fires at each commit point (including registration disposal); consumers re-read `listProviders()`, `listModels()`, or `listConfigurableProviders()` for the new state. Observer failures are contained and cannot veto the registry mutation.',
     parameters: [],
+  },
+  {
+    name: 'llm/request-activity',
+    mode: 'emit',
+    signature: '\'llm/request-activity\'(payload: { readonly sessionId: Branded<\'SessionId\'> readonly observedAt: number readonly source: \'backend-observer\' readonly confidence: \'confirmed\' | \'provisional\' }): void',
+    summary: 'Publish attributed request progress that occurs outside the provider response stream.',
+    description: 'Publish attributed request progress that occurs outside the provider response stream. Adapters may use this signal to rearm an outstanding idle read, but it carries no response content and changes no request.',
+    parameters: [{ name: 'payload', description: '.confidence - strength of the activity attribution.' }],
   },
   {
     name: 'llm/stream',
@@ -3596,7 +3789,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'AgentPreset',
-    declaration: 'export interface AgentPreset {\n    readonly id: string;\n    readonly trust: PresetTrust;\n    readonly path: string;\n    readonly name?: string;\n    readonly description?: string;\n    readonly order?: number;\n    readonly broken?: string;\n}',
+    declaration: 'export interface AgentPreset {\n    readonly id: string;\n    readonly trust: PresetTrust;\n    readonly path: string;\n    readonly name?: string;\n    readonly description?: string;\n    readonly order?: number;\n    readonly visibility?: PresetVisibility;\n    readonly broken?: string;\n}',
   },
   {
     name: 'AgentPresetComposition',
@@ -3625,6 +3818,14 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'AgentResolver',
     declaration: 'export type AgentResolver = (sessionId: SessionId) => Promise<Agent>;',
+  },
+  {
+    name: 'AgentRunDiagnostics',
+    declaration: 'export interface AgentRunDiagnostics {\n    readonly run: AgentRunState | null;\n    readonly staleThresholdMs: number;\n    readonly unattributedBackendObservations: readonly BackendObservation[];\n}',
+  },
+  {
+    name: 'AgentRunState',
+    declaration: 'export interface AgentRunState {\n    readonly sessionId: SessionId;\n    readonly runId: RunId;\n    readonly turn: number;\n    readonly phase: RunPhase;\n    readonly health: RunHealth;\n    readonly startedAt: number;\n    readonly updatedAt: number;\n    readonly completedAt?: number;\n    readonly lastActivityAt: number;\n    readonly lastMeaningfulActivityAt: number;\n    readonly lastBackendActivityAt?: number;\n    readonly provider?: string;\n    readonly model?: string;\n    readonly attempt?: AttemptState;\n    readonly retryCount: number;\n    readonly maxRetryCount?: number;\n    readonly retryReason?: RunErrorCode;\n    readonly cancellation?: CancellationObservation;\n    readonly currentTool?: {\n        readonly callId: string;\n        readonly name: string;\n    };\n    readonly reasoning: ReasoningObservation;\n    readonly context: ContextPressureObservation;\n    readonly backend: {\n        readonly attribution: BackendAttribution;\n        readonly processHealth: BackendComponentHealth;\n        readonly modelHealth: BackendComponentHealth;\n        readonly generationHealth: GenerationHealth;\n        readonly generationActivity?: GenerationActivityObservation;\n        readonly prefill?: PrefillObservation;\n    };\n    readonly primaryError?: ClassifiedRunError;\n    readonly secondaryErrors: readonly ClassifiedRunError[];\n}',
   },
   {
     name: 'AgentSetup',
@@ -3739,6 +3940,14 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export type AttachmentId = Branded<\'AttachmentId\'>;',
   },
   {
+    name: 'AttemptId',
+    declaration: 'export type AttemptId = Branded<\'AttemptId\'>;',
+  },
+  {
+    name: 'AttemptState',
+    declaration: 'export interface AttemptState {\n    readonly attemptId: AttemptId;\n    readonly step: number;\n    readonly ordinal: number;\n    readonly startedAt: number;\n    readonly settledAt?: number;\n    readonly providerRequestId?: ProviderRequestId;\n}',
+  },
+  {
     name: 'AuthorizationEntry',
     declaration: 'export interface AuthorizationEntry {\n    key: CredentialKey;\n    label: string;\n    methods: readonly AuthorizationMethod[];\n    inFlight: boolean;\n}',
   },
@@ -3787,6 +3996,22 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export type AuthorizationStatus = \'authorized\' | \'cancelled\';',
   },
   {
+    name: 'BackendAttribution',
+    declaration: 'export type BackendAttribution = {\n    readonly kind: \'attempt\';\n    readonly attemptId: AttemptId;\n    readonly source?: \'explicit\' | \'request-and-backend-lifecycle\';\n    readonly confidence?: \'confirmed\' | \'provisional\';\n} | {\n    readonly kind: \'run\';\n    readonly runId: RunId;\n    readonly source?: \'explicit\' | \'request-and-backend-lifecycle\';\n    readonly confidence?: \'confirmed\' | \'provisional\';\n} | {\n    readonly kind: \'unknown\';\n};',
+  },
+  {
+    name: 'BackendComponentHealth',
+    declaration: 'export type BackendComponentHealth = \'unknown\' | \'healthy\' | \'degraded\' | \'fatal\';',
+  },
+  {
+    name: 'BackendObservation',
+    declaration: 'export interface BackendObservation {\n    readonly observerId: BackendObserverId;\n    readonly attribution: BackendAttribution;\n    readonly observedAt: number;\n    readonly lastActivityAt?: number;\n    readonly activity?: \'model-loading\' | \'prefill\' | \'generation\' | \'heartbeat\';\n    readonly processHealth: BackendComponentHealth;\n    readonly modelHealth: BackendComponentHealth;\n    readonly generationHealth: GenerationHealth;\n    readonly generationActivity?: GenerationActivityObservation;\n    readonly prefill?: PrefillObservation;\n    readonly failure?: {\n        readonly error: unknown;\n        readonly kind?: StrongBackendFailureKind;\n    };\n}',
+  },
+  {
+    name: 'BackendObserverId',
+    declaration: 'export type BackendObserverId = Branded<\'BackendObserverId\'>;',
+  },
+  {
     name: 'BackendRegistry',
     declaration: 'export class BackendRegistry {\n    register(name: string, backend: StorageBackend): () => void;\n    get(name: string): StorageBackend;\n    names(): string[];\n}',
   },
@@ -3809,6 +4034,18 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'BrandedNumber',
     declaration: 'export type BrandedNumber<B extends string> = number & {\n    readonly [BRAND]: B;\n};',
+  },
+  {
+    name: 'CancellationObservation',
+    declaration: 'export type CancellationObservation = {\n    readonly status: \'requested\';\n    readonly requestedAt: number;\n} | {\n    readonly status: \'confirmed\';\n    readonly requestedAt: number;\n    readonly resolvedAt: number;\n} | {\n    readonly status: \'unconfirmed\';\n    readonly requestedAt: number;\n    readonly resolvedAt: number;\n};',
+  },
+  {
+    name: 'CanonicalReasoningLevel',
+    declaration: 'export type CanonicalReasoningLevel = Exclude<ReasoningLevel, \'off\'>;',
+  },
+  {
+    name: 'ClassifiedRunError',
+    declaration: 'export interface ClassifiedRunError {\n    readonly code: RunErrorCode;\n    readonly message: string;\n    readonly severity: \'degraded\' | \'fatal\';\n    readonly origin: RunErrorOrigin;\n    readonly time: number;\n    readonly providerRequestId?: ProviderRequestId;\n}',
   },
   {
     name: 'ClientArtifactBaseline',
@@ -3895,12 +4132,32 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export type CompactionId = Branded<\'CompactionId\'>;',
   },
   {
+    name: 'CompactionPolicyDiagnostics',
+    declaration: 'export interface CompactionPolicyDiagnostics {\n    readonly pressureState: ContextPressureDecision[\'pressureState\'];\n    readonly eligibility: \'eligible\' | \'ineligible\' | \'unknown\';\n    readonly triggerReason?: \'pressure\' | \'context-overflow\';\n    readonly reasoning?: Pick<ResolvedReasoningDecision, \'requested\' | \'resolved\' | \'wireValue\' | \'source\'>;\n    readonly attempt?: {\n        readonly ordinal: number;\n        readonly validation: \'pending\' | \'passed\' | \'failed\';\n        readonly failureReason?: string;\n    };\n    readonly taskFactsInjected: boolean;\n    readonly toolResultsPruned: boolean | \'unknown\';\n}',
+  },
+  {
+    name: 'CompactionRequestPolicyContext',
+    declaration: 'export interface CompactionRequestPolicyContext {\n    readonly agent: Agent;\n    readonly attempt: number;\n    readonly options: GenerateOptions;\n}',
+  },
+  {
     name: 'CompactionResult',
     declaration: 'export interface CompactionResult {\n    compactionId: CompactionId;\n    sourceCommandId?: CommandId;\n    startSeq: SessionSeq;\n    summarySeq: SessionSeq;\n    endSeq: SessionSeq;\n    summary: ContentBlock[];\n    shadowedRange: {\n        start: SessionSeq;\n        end: SessionSeq;\n    };\n    shadowedSeqs: SessionSeq[];\n    shadowedTokenCount: number;\n}',
   },
   {
+    name: 'CompactionSummaryValidationContext',
+    declaration: 'export interface CompactionSummaryValidationContext {\n    readonly agent: Agent;\n    readonly compactionId: CompactionId;\n    readonly attempt: number;\n    readonly summary: readonly ContentBlock[];\n}',
+  },
+  {
+    name: 'CompactionSummaryValidationDecision',
+    declaration: 'export type CompactionSummaryValidationDecision = {\n    readonly kind: \'accept\';\n} | {\n    readonly kind: \'retry\';\n    readonly reason: string;\n};',
+  },
+  {
     name: 'CompactionTrigger',
     declaration: 'export type CompactionTrigger = \'pressure\' | \'context-overflow\';',
+  },
+  {
+    name: 'CompletedTaskStep',
+    declaration: 'export interface CompletedTaskStep extends TaskStep {\n    readonly completedAt: number;\n    readonly evidence: TaskStepCompletionEvidence;\n}',
   },
   {
     name: 'CompositionRowEnablement',
@@ -3925,6 +4182,14 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'ContextFormed',
     declaration: 'export type ContextFormed = {\n    readonly form?: never;\n} | {\n    readonly form: \'instructions\';\n} | {\n    readonly form: \'catalog\';\n} | {\n    readonly form: \'snapshot\';\n    readonly sections: readonly ContextSnapshotSection[];\n} | {\n    readonly form: \'notice\';\n    readonly summary: string;\n} | {\n    readonly form: \'relay\';\n} | {\n    readonly form: \'recall\';\n};',
+  },
+  {
+    name: 'ContextPressureDecision',
+    declaration: 'export interface ContextPressureDecision {\n    readonly contextWindow?: number;\n    readonly projectedPromptTokens?: number;\n    readonly resumeContextTokens?: number;\n    readonly expectedOutputReserve: number;\n    readonly providerSafetyMargin: number;\n    readonly effectivePromptBudget?: number;\n    readonly pressureRatio?: number;\n    readonly pressureState: \'unknown\' | \'normal\' | \'watch\' | \'prepare\' | \'compact\' | \'critical\';\n}',
+  },
+  {
+    name: 'ContextPressureObservation',
+    declaration: 'export interface ContextPressureObservation {\n    readonly contextWindow?: number;\n    readonly surfaceTokens?: number;\n    readonly projectedTokens?: number;\n    readonly inputTokens?: number;\n    readonly outputTokens?: number;\n    readonly cacheReadTokens?: number;\n    readonly cacheWriteTokens?: number;\n    readonly projectedPromptTokens?: number;\n    readonly resumeContextTokens?: number;\n    readonly expectedOutputReserve?: number;\n    readonly providerSafetyMargin?: number;\n    readonly effectivePromptBudget?: number;\n    readonly pressureRatio?: number;\n    readonly pressureState?: \'unknown\' | \'normal\' | \'watch\' | \'prepare\' | \'compact\' | \'critical\';\n}',
   },
   {
     name: 'ContextSnapshotSection',
@@ -4077,6 +4342,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'DeepSeekLlmApiJson',
     declaration: 'export type DeepSeekLlmApiJson = null | boolean | number | string | DeepSeekLlmApiJson[] | {\n    [key: string]: DeepSeekLlmApiJson;\n};',
+  },
+  {
+    name: 'DiagnosticsListener',
+    declaration: 'export type DiagnosticsListener = (diagnostics: AgentRunDiagnostics) => void;',
   },
   {
     name: 'DiffCallView',
@@ -4293,6 +4562,14 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'GenerateOptions',
     declaration: 'export interface GenerateOptions {\n    provider: string;\n    model: string;\n    reasoningEffort?: ReasoningEffortId;\n    messages: Message[];\n    system?: string;\n    tools?: ToolSchema[];\n    temperature?: number;\n    maxTokens?: number;\n    stop?: string[];\n    signal?: AbortSignal;\n    sessionId?: Branded<\'SessionId\'>;\n    purpose?: \'compaction\' | \'session-title\';\n}',
+  },
+  {
+    name: 'GenerationActivityObservation',
+    declaration: 'export interface GenerationActivityObservation {\n    readonly state: \'active\' | \'inactive\';\n    readonly source: \'backend-log\' | \'callback\' | \'metrics\' | \'unknown\';\n    readonly confidence: \'provisional\' | \'confirmed\' | \'unknown\';\n}',
+  },
+  {
+    name: 'GenerationHealth',
+    declaration: 'export type GenerationHealth = \'unknown\' | \'active\' | \'stalled\' | \'degraded\' | \'fatal\';',
   },
   {
     name: 'GenericCallView',
@@ -4567,6 +4844,18 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export class LlmRuntime extends TypertRemoteService {\n    constructor(ctx: Context);\n    registerAdapter(providers: string[], adapter: LlmAdapter): AdapterRegistrationHandle;\n    @Remote\n    listProviders(): LlmProviderInfo[];\n    registerConfigurableProviders(entries: readonly LlmConfigurableProvider[]): DirectoryRegistrationHandle;\n    @Remote\n    listConfigurableProviders(): LlmConfigurableProvider[];\n    registerModelDiscovery(settingsNs: string, discover: (request: LlmModelDiscoveryRequest, signal?: AbortSignal) => Promise<readonly LlmDiscoveredModel[]>): () => void;\n    async discoverModels(settingsNs: string, request: LlmModelDiscoveryRequest, signal?: AbortSignal): Promise<LlmDiscoveredModel[]>;\n    @Remote(\'discoverModels\')\n    async remoteDiscoverModels(settingsNs: string, request: LlmModelDiscoveryRequest, signal: AbortSignal): Promise<LlmDiscoveredModel[]>;\n    providerRetryPolicy(provider: string): ResolvedRetryPolicy;\n    imageRequestPricing(provider: string, model: string): LlmImageRequestPricing | undefined;\n    fileRequestText(ref: FileAttachmentRef): string;\n    async listModels(provider: string): Promise<LlmModelInfo[]>;\n    async resolveModelInfo(provider: string, model: string, signal?: AbortSignal): Promise<LlmResolvedModelInfo>;\n    async resolveCallConfig(config: LlmCallConfig, signal?: AbortSignal): Promise<LlmCallConfig>;\n    async prepareCall(config: LlmCallConfig, signal?: AbortSignal): Promise<PreparedLlmCall>;\n    stream(options: GenerateOptions) /* …truncated — full shape in source */',
   },
   {
+    name: 'LocalBackendObserver',
+    declaration: 'export interface LocalBackendObserver {\n    readonly id: BackendObserverId;\n    subscribe(listener: (observation: BackendObservation) => void): () => void;\n    probe?(): Promise<void>;\n}',
+  },
+  {
+    name: 'LocalRunControlObserver',
+    declaration: 'export interface LocalRunControlObserver {\n    readonly id: RunControlObserverId;\n    subscribe(listener: (observation: RunControlObservation) => void): () => void;\n}',
+  },
+  {
+    name: 'LocalRunDiagnosticsObserver',
+    declaration: 'export interface LocalRunDiagnosticsObserver {\n    readonly id: RunDiagnosticsObserverId;\n    subscribe(listener: (observation: RunDiagnosticsObservation) => void): () => void;\n}',
+  },
+  {
     name: 'LspHover',
     declaration: 'export interface LspHover {\n    readonly contents: string;\n    readonly range?: LspRange;\n}',
   },
@@ -4703,6 +4992,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface MessageSourceMap {\n    user: {\n        kind: \'user\';\n    };\n    plugin: {\n        kind: \'plugin\';\n        plugin: string;\n    } & ContextFormed;\n    model: ModelMessageSource;\n    tool: ToolMessageSource;\n}',
   },
   {
+    name: 'MlxProcessExit',
+    declaration: 'export interface MlxProcessExit {\n    readonly time: number;\n    readonly message: string;\n}',
+  },
+  {
     name: 'ModelCatalog',
     declaration: 'export interface ModelCatalog {\n    readonly default: ModelSelection;\n    readonly routableProviders: readonly string[];\n    readonly groups: readonly ModelProviderGroup[];\n    readonly failures: readonly ModelCatalogFailure[];\n}',
   },
@@ -4759,6 +5052,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export type PostToolDecision = {\n    kind: \'accept\';\n    content?: ContentBlock[];\n    value?: never;\n    additionalContexts?: UserMessage[];\n} | {\n    kind: \'accept\';\n    value: JsonValue;\n    content?: never;\n    additionalContexts?: UserMessage[];\n} | {\n    kind: \'block\';\n    feedback: ContentBlock[];\n    additionalContexts?: UserMessage[];\n};',
   },
   {
+    name: 'PrefillObservation',
+    declaration: 'export interface PrefillObservation {\n    readonly current?: number;\n    readonly total?: number;\n    readonly speed?: number;\n    readonly source: \'backend-log\' | \'callback\' | \'metrics\' | \'unknown\';\n    readonly confidence: \'provisional\' | \'confirmed\' | \'unknown\';\n}',
+  },
+  {
     name: 'PreparedAdapterCall',
     declaration: 'export interface PreparedAdapterCall {\n    readonly model: LlmResolvedModelInfo;\n    stream(options: GenerateOptions): AsyncIterable<StreamChunk>;\n}',
   },
@@ -4793,6 +5090,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'PresetTrust',
     declaration: 'export type PresetTrust = \'system\' | \'user\';',
+  },
+  {
+    name: 'PresetVisibility',
+    declaration: 'export type PresetVisibility = \'visible\' | \'hidden\';',
   },
   {
     name: 'PreStepDecision',
@@ -4863,6 +5164,14 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface PtcDispatchLog {\n    readonly exec: ToolExecution;\n    readonly agent?: Agent;\n    readonly subCallId: ToolCallId;\n    readonly name: string;\n    readonly isError: boolean;\n    readonly content: ContentBlock[];\n}',
   },
   {
+    name: 'PublishedResultSnapshot',
+    declaration: 'export interface PublishedResultSnapshot {\n    readonly path: string;\n    readonly content: string;\n    readonly size: number;\n    readonly checksum: string;\n}',
+  },
+  {
+    name: 'PublishTaskResultOptions',
+    declaration: 'export interface PublishTaskResultOptions {\n    readonly taskId: TaskId;\n    readonly runId: RunId;\n    readonly execution: TaskExecutionMetadata;\n    readonly path: string;\n    readonly content: string;\n    readonly mode: number;\n    readonly dirMode?: number;\n    readonly validators?: readonly TaskResultValidator[];\n    readonly outputId?: TaskOutputId;\n    readonly now?: number;\n}',
+  },
+  {
     name: 'ReadFileLine',
     declaration: 'export interface ReadFileLine {\n    number: number;\n    text: string;\n}',
   },
@@ -4875,8 +5184,20 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface ReasoningBlock {\n    type: \'reasoning\';\n    text: string;\n}',
   },
   {
+    name: 'ReasoningDecisionSource',
+    declaration: 'export type ReasoningDecisionSource = \'user-override\' | \'benchmark-lock\' | \'task-policy\' | \'profile-default\' | \'global-default\' | \'gguf-template-confirmed\' | \'gguf-backend-capability-fallback\' | \'gguf-alias-normalization\' | \'compaction-policy\' | \'backend-default\';',
+  },
+  {
     name: 'ReasoningEffortId',
     declaration: 'export type ReasoningEffortId = Branded<\'ReasoningEffortId\'>;',
+  },
+  {
+    name: 'ReasoningLevel',
+    declaration: 'export type ReasoningLevel = \'none\' | \'off\' | \'low\' | \'medium\' | \'high\' | \'xhigh\';',
+  },
+  {
+    name: 'ReasoningObservation',
+    declaration: 'export interface ReasoningObservation {\n    readonly requestedReasoning?: string;\n    readonly policySelected?: string;\n    readonly resolvedReasoning?: string;\n    readonly wireValue?: string;\n    readonly backendDefaultReasoning?: string;\n    readonly source?: string;\n    readonly capabilityConfidence?: \'confirmed\' | \'provisional\' | \'unknown\';\n}',
   },
   {
     name: 'RedactedSecret',
@@ -4935,6 +5256,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface ResolvedNormalRetryPolicy extends ResolvedRetryBackoff {\n    readonly mode: \'normal\';\n    readonly maxRetries: number;\n    readonly retryableCodes: readonly string[];\n}',
   },
   {
+    name: 'ResolvedReasoningDecision',
+    declaration: 'export interface ResolvedReasoningDecision {\n    readonly requested?: ReasoningLevel;\n    readonly policySelected: CanonicalReasoningLevel;\n    readonly resolved: CanonicalReasoningLevel;\n    readonly wireValue: string;\n    readonly backendDefault?: CanonicalReasoningLevel;\n    readonly source: ReasoningDecisionSource;\n    readonly capabilityConfidence: \'confirmed\' | \'provisional\';\n    readonly capabilitySource: string;\n}',
+  },
+  {
     name: 'ResolvedRetryBackoff',
     declaration: 'export interface ResolvedRetryBackoff {\n    readonly initialDelayMs: number;\n    readonly maxDelayMs: number;\n    readonly jitterRatio: number;\n}',
   },
@@ -4951,12 +5276,76 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface RestoredSessionOptions {\n    readonly seed: SessionEvent[];\n    readonly meta: SessionHeader;\n    readonly inheritedEventCount: SessionLogOffset;\n    readonly eventState: SessionSeedEventState;\n}',
   },
   {
+    name: 'ResultChecksum',
+    declaration: 'export interface ResultChecksum {\n    readonly algorithm: \'sha256\';\n    readonly value: string;\n}',
+  },
+  {
+    name: 'ResultManifest',
+    declaration: 'export interface ResultManifest {\n    readonly version: 1;\n    readonly outputId: TaskOutputId;\n    readonly revision: number;\n    readonly taskId: TaskId;\n    readonly runId: RunId;\n    readonly path: string;\n    readonly status: ResultManifestStatus;\n    readonly createdAt: number;\n    readonly updatedAt: number;\n    readonly completedAt?: number;\n    readonly size?: number;\n    readonly checksum?: ResultChecksum;\n    readonly execution: TaskExecutionMetadata;\n    readonly validation: ResultValidation;\n}',
+  },
+  {
+    name: 'ResultManifestStatus',
+    declaration: 'export type ResultManifestStatus = \'running\' | \'partial\' | \'completed\' | \'failed\' | \'cancelled\';',
+  },
+  {
+    name: 'ResultValidation',
+    declaration: 'export interface ResultValidation {\n    readonly status: \'pending\' | \'passed\' | \'failed\';\n    readonly checks: readonly ResultValidationCheck[];\n}',
+  },
+  {
+    name: 'ResultValidationCheck',
+    declaration: 'export interface ResultValidationCheck {\n    readonly id: string;\n    readonly status: \'passed\' | \'failed\';\n    readonly message?: string;\n}',
+  },
+  {
     name: 'ResumeAgentOptions',
     declaration: 'export interface ResumeAgentOptions {\n    readonly resumeSessionId: SessionId;\n    readonly parentAgent?: Agent;\n    readonly agentOptions?: AgentOptions;\n    readonly signal?: AbortSignal;\n    readonly setup?: AgentSetup;\n}',
   },
   {
+    name: 'ResumeDecision',
+    declaration: 'export interface ResumeDecision {\n    readonly eligibility: ResumeEligibility;\n    readonly reason: string;\n    readonly pendingSteps: readonly TaskStep[];\n    readonly modelRelation: TaskModelRelation;\n}',
+  },
+  {
+    name: 'ResumeEligibility',
+    declaration: 'export type ResumeEligibility = \'SAFE_TO_RESUME\' | \'NEEDS_VALIDATION\' | \'BLOCKED_UNKNOWN_SIDE_EFFECT\' | \'COMPLETED\' | \'NOT_RESUMABLE\';',
+  },
+  {
+    name: 'RunControlObservation',
+    declaration: 'export interface RunControlObservation {\n    readonly observerId: RunControlObserverId;\n    readonly runId: RunId;\n    readonly observedAt: number;\n    readonly retry?: {\n        readonly maxRetryCount: number;\n        readonly reason: RunErrorCode;\n    };\n    readonly cancellation?: CancellationObservation;\n}',
+  },
+  {
+    name: 'RunControlObserverId',
+    declaration: 'export type RunControlObserverId = Branded<\'RunControlObserverId\'>;',
+  },
+  {
+    name: 'RunDiagnosticsObservation',
+    declaration: 'export interface RunDiagnosticsObservation {\n    readonly observerId: RunDiagnosticsObserverId;\n    readonly runId: RunId;\n    readonly observedAt: number;\n    readonly reasoning?: ReasoningObservation;\n    readonly context?: ContextPressureObservation;\n}',
+  },
+  {
+    name: 'RunDiagnosticsObserverId',
+    declaration: 'export type RunDiagnosticsObserverId = Branded<\'RunDiagnosticsObserverId\'>;',
+  },
+  {
+    name: 'RunErrorCode',
+    declaration: 'export type RunErrorCode = \'RESOURCE_LIMIT\' | \'WORKER_CRASH\' | \'MODEL_LOAD_FAILED\' | \'INVALID_REASONING_PARAMETER\' | \'INVALID_MODEL_CONFIG\' | \'CONTEXT_OVERFLOW\' | \'GENERATION_STALLED\' | \'PROVIDER_TIMEOUT\' | \'PROVIDER_UNAVAILABLE\' | \'TRANSPORT\' | \'TOOL_FAILED\' | \'STREAM_DISCONNECTED\' | \'CLIENT_CANCELLED\' | \'BACKEND_RESTARTED\' | \'BLOCKED\' | \'MAX_TOKENS\' | \'SESSION_INTERRUPTED\' | \'RETRY_FAILED\' | \'UNKNOWN\';',
+  },
+  {
+    name: 'RunErrorOrigin',
+    declaration: 'export type RunErrorOrigin = \'backend\' | \'provider\' | \'transport\' | \'client\' | \'tool\' | \'session\';',
+  },
+  {
+    name: 'RunHealth',
+    declaration: 'export type RunHealth = \'unknown\' | \'healthy\' | \'slow\' | \'stalled\' | \'degraded\' | \'fatal\';',
+  },
+  {
+    name: 'RunId',
+    declaration: 'export type RunId = Branded<\'RunId\'>;',
+  },
+  {
     name: 'RunnerFailureRule',
     declaration: 'export interface RunnerFailureRule {\n    allowedExitCodes?: readonly number[];\n    fatalSignatures: readonly string[];\n    informationalLines?: readonly string[];\n}',
+  },
+  {
+    name: 'RunPhase',
+    declaration: 'export type RunPhase = \'unknown\' | \'starting\' | \'preparing_context\' | \'prefill\' | \'reasoning\' | \'generating\' | \'tool_wait\' | \'waiting_retry\' | \'compacting\' | \'completed\' | \'cancelled\' | \'failed\';',
   },
   {
     name: 'SandboxEnforcement',
@@ -5711,6 +6100,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export type StreamChunk = {\n    type: \'block-start\';\n    index: number;\n    blockType: ContentBlockType;\n} | {\n    type: \'text-delta\';\n    index: number;\n    text: string;\n} | {\n    type: \'reasoning-delta\';\n    index: number;\n    text: string;\n} | {\n    type: \'tool-call-delta\';\n    index: number;\n    id: ToolCallId;\n    name?: string;\n    argumentsDelta: string;\n} | {\n    type: \'block-end\';\n    index: number;\n    block: ContentBlock;\n} | {\n    type: \'usage\';\n    usage: TokenUsage;\n} | {\n    type: \'finish\';\n    reason: FinishReason;\n    replayState?: ReplayEnvelope;\n};',
   },
   {
+    name: 'StrongBackendFailureKind',
+    declaration: 'export type StrongBackendFailureKind = \'process-exit\' | \'worker-uncaught-exception\' | \'generation-worker-terminated\' | \'model-load-failure\';',
+  },
+  {
     name: 'SubagentCapabilities',
     declaration: 'export interface SubagentCapabilities {\n    readonly agentOptions: boolean;\n    readonly outputSchema: boolean;\n    readonly depthLimit: boolean;\n    readonly toolFilter: boolean;\n    readonly persona: boolean;\n}',
   },
@@ -5885,6 +6278,94 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'TableValueOf',
     declaration: 'export type TableValueOf<S extends DomainSpec, N extends keyof S[\'tables\']> = S[\'tables\'][N] extends DomainTableSpec<string, infer V> ? V : never;',
+  },
+  {
+    name: 'TaskCheckpoint',
+    declaration: 'export interface TaskCheckpoint extends TaskCheckpointRef {\n    readonly version: 1;\n    readonly taskType: string;\n    readonly sessionId: SessionId;\n    readonly originRunId: RunId;\n    readonly latestRunId: RunId;\n    readonly status: TaskStatus;\n    readonly originalExecution: TaskExecutionMetadata;\n    readonly latestExecution: TaskExecutionMetadata;\n    readonly modelRelation: TaskModelRelation;\n    readonly completedSteps: readonly CompletedTaskStep[];\n    readonly currentStep?: TaskStep;\n    readonly pendingSteps: readonly TaskStep[];\n    readonly createdAt: number;\n    readonly lastSuccessAt?: number;\n    readonly lastActivityAt: number;\n    readonly resumeContext: TaskResumeContext;\n    readonly outputs: readonly TaskOutputId[];\n    readonly failureContext?: TaskFailureContext;\n    readonly latestResume?: TaskResumeRecord;\n}',
+  },
+  {
+    name: 'TaskCheckpointRef',
+    declaration: 'export interface TaskCheckpointRef {\n    readonly taskId: TaskId;\n    readonly revision: number;\n}',
+  },
+  {
+    name: 'TaskCheckpointService',
+    declaration: 'export default class TaskCheckpointService extends Service {\n    static override readonly name;\n    static readonly inject;\n    constructor(ctx: Context);\n    saveCheckpoint(session: Session, candidate: TaskCheckpoint): TaskCheckpoint;\n    saveResultManifest(session: Session, candidate: ResultManifest): ResultManifest;\n    get(session: Session, taskId: TaskId): TaskCheckpoint | undefined;\n    getResult(session: Session, outputId: TaskOutputId): ResultManifest | undefined;\n    resultPublisher(session: Session): TaskResultPublisher;\n    resume(agent: Agent, request: TaskResumeRequest): Promise<TaskResumeExecutionResult>;\n    diagnostics(session: Session, options: {\n        readonly taskId?: TaskId;\n        readonly requestedExecution?: TaskExecutionMetadata;\n        readonly trigger?: \'automatic\' | \'user\';\n    } = {}): TaskDiagnostics;\n}',
+  },
+  {
+    name: 'TaskDiagnostics',
+    declaration: 'export interface TaskDiagnostics {\n    readonly task?: TaskCheckpoint;\n    readonly checkpoint?: {\n        readonly revision: number;\n        readonly completedSteps: readonly CompletedTaskStep[];\n        readonly currentStep?: TaskStep;\n        readonly pendingSteps: readonly TaskStep[];\n        readonly lastSuccessAt?: number;\n    };\n    readonly resume: ResumeDecision & {\n        readonly requested: boolean;\n        readonly started: boolean;\n        readonly runId?: RunId;\n        readonly requestedAt?: number;\n        readonly startedAt?: number;\n        readonly contextEstimatedTokens?: number;\n        readonly contextIncludedSections?: readonly string[];\n        readonly contextOmittedSections?: readonly string[];\n    };\n    readonly outputs: readonly ResultManifest[];\n    readonly repairHazards: readonly TaskRepairHazard[];\n}',
+  },
+  {
+    name: 'TaskExecutionMetadata',
+    declaration: 'export interface TaskExecutionMetadata {\n    readonly provider: string;\n    readonly model: string;\n    readonly backend?: string;\n    readonly requestedReasoning?: string;\n    readonly resolvedReasoning?: string;\n}',
+  },
+  {
+    name: 'TaskFailureContext',
+    declaration: 'export interface TaskFailureContext {\n    readonly primaryError: ClassifiedRunError;\n    readonly failedAt: number;\n    readonly failedAttemptId?: AttemptId;\n    readonly currentStepId?: TaskStepId;\n}',
+  },
+  {
+    name: 'TaskId',
+    declaration: 'export type TaskId = Branded<\'TaskId\'>;',
+  },
+  {
+    name: 'TaskModelRelation',
+    declaration: 'export type TaskModelRelation = \'same-model\' | \'model-changed\';',
+  },
+  {
+    name: 'TaskOutputId',
+    declaration: 'export type TaskOutputId = Branded<\'TaskOutputId\'>;',
+  },
+  {
+    name: 'TaskOutputVerificationIssue',
+    declaration: 'export interface TaskOutputVerificationIssue {\n    readonly outputId: TaskOutputId;\n    readonly code: \'MISSING_MANIFEST\' | \'MISSING_FILE\' | \'SIZE_CHANGED\' | \'CHECKSUM_CHANGED\' | \'INVALID_MANIFEST_STATE\';\n    readonly message: string;\n}',
+  },
+  {
+    name: 'TaskRepairHazard',
+    declaration: 'export interface TaskRepairHazard {\n    readonly taskId: TaskId;\n    readonly callId: string;\n    readonly code: \'TOOL_NOT_STARTED\' | \'TOOL_OUTCOME_UNKNOWN\';\n    readonly eventSeq: SessionSeq;\n}',
+  },
+  {
+    name: 'TaskResultPublisher',
+    declaration: 'export class TaskResultPublisher {\n    constructor(private readonly service: TaskCheckpointService, private readonly session: Session);\n    async publish(options: PublishTaskResultOptions): Promise<ResultManifest>;\n}',
+  },
+  {
+    name: 'TaskResultValidator',
+    declaration: 'export interface TaskResultValidator {\n    readonly id: string;\n    validate(snapshot: PublishedResultSnapshot): Promise<Omit<ResultValidationCheck, \'id\'>> | Omit<ResultValidationCheck, \'id\'>;\n}',
+  },
+  {
+    name: 'TaskResumeContext',
+    declaration: 'export interface TaskResumeContext {\n    readonly objective: string;\n    readonly constraints: readonly string[];\n    readonly decisions: readonly string[];\n    readonly criticalContext: readonly string[];\n}',
+  },
+  {
+    name: 'TaskResumeContextBudget',
+    declaration: 'export interface TaskResumeContextBudget {\n    readonly estimatedTokens: number;\n    readonly maxTokens: number;\n    readonly includedSections: readonly string[];\n    readonly omittedSections: readonly string[];\n}',
+  },
+  {
+    name: 'TaskResumeExecutionResult',
+    declaration: 'export type TaskResumeExecutionResult = {\n    readonly status: \'started\';\n    readonly taskId: TaskId;\n    readonly runId: RunId;\n    readonly checkpointRevision: number;\n    readonly context: TaskResumeContextBudget;\n    readonly pendingSteps: readonly TaskStep[];\n} | {\n    readonly status: \'refused\';\n    readonly taskId: TaskId;\n    readonly decision: ResumeDecision;\n    readonly outputIssues: readonly TaskOutputVerificationIssue[];\n    readonly context?: TaskResumeContextBudget;\n};',
+  },
+  {
+    name: 'TaskResumeRecord',
+    declaration: 'export interface TaskResumeRecord {\n    readonly requestedAt: number;\n    readonly runId: RunId;\n    readonly executionPlan: readonly TaskStepId[];\n    readonly context: TaskResumeContextBudget;\n}',
+  },
+  {
+    name: 'TaskResumeRequest',
+    declaration: 'export interface TaskResumeRequest {\n    readonly taskId: TaskId;\n    readonly maxContextTokens: number;\n    readonly requestedAt?: number;\n    readonly execution?: TaskExecutionMetadata;\n}',
+  },
+  {
+    name: 'TaskStatus',
+    declaration: 'export type TaskStatus = \'running\' | \'paused\' | \'blocked\' | \'completed\' | \'partial\' | \'failed\' | \'cancelled\';',
+  },
+  {
+    name: 'TaskStep',
+    declaration: 'export interface TaskStep {\n    readonly id: TaskStepId;\n    readonly title: string;\n}',
+  },
+  {
+    name: 'TaskStepCompletionEvidence',
+    declaration: 'export type TaskStepCompletionEvidence = {\n    readonly kind: \'tool-result\';\n    readonly eventSeq: SessionSeq;\n    readonly callId: string;\n} | {\n    readonly kind: \'result-validation\';\n    readonly outputId: TaskOutputId;\n    readonly manifestRevision: number;\n} | {\n    readonly kind: \'runtime-validation\';\n    readonly validator: string;\n    readonly reference: string;\n};',
+  },
+  {
+    name: 'TaskStepId',
+    declaration: 'export type TaskStepId = Branded<\'TaskStepId\'>;',
   },
   {
     name: 'TeamId',

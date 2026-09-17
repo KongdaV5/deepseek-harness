@@ -22,7 +22,7 @@ session 组让对话持久保存，恢复已发布的日志格式，并使已提
 <a id="packages"></a>
 ## 包
 
-本组分为四个家族：持久存储（持久化 seam、后端、检查点策略）、投影、标题与遥测。每个包 README 负责各自的约定与配置。
+本组分为五个家族：持久存储（持久化 seam、后端、检查点策略）、任务恢复记录、投影、标题与遥测。每个包 README 负责各自的约定与配置。
 
 ### 持久化
 
@@ -36,6 +36,12 @@ session 组让对话持久保存，恢复已发布的日志格式，并使已提
 | [`session-persistence-jsonl/`](session-persistence-jsonl/README.zh.md) | 随产品交付的后端：逐 Session 使用不可变规范 generation 文件名并排他发布后继；可选 Zstandard 压缩 | 注册到 `ctx.sessionPersistence` |
 | [`session-checkpoint-policy/`](session-checkpoint-policy/README.zh.md) | 让模型请求、顶层工具副作用与已完成步骤在下一步动作前持久化 | 包装 `ctx.llm` 与 `ctx.tools` |
 | [`session-log-deepseek/`](session-log-deepseek/README.zh.md) | 把增量规范日志作为可选的官方 DeepSeek 请求元数据上传 | 贡献 `dsh_session_log` |
+
+### 任务恢复记录
+
+| 包 | 职责 | ctx key |
+|---|---|---|
+| [`task-checkpoint/`](task-checkpoint/README.zh.md) | 保存有证据的 Task Checkpoint 与独立 Result Manifest，投影 repair hazard，并在不执行 Resume 的前提下分类 Resume 安全性 | `ctx.taskCheckpoints` |
 
 ### 投影
 
@@ -71,6 +77,7 @@ session 组让对话持久保存，恢复已发布的日志格式，并使已提
 
 - [会话持久化子系统](../../docs/subsystems/persistence.zh.md)——后端无关的服务语义、flush 检查点与崩溃恢复。
 - [会话投影子系统](../../docs/subsystems/session-projection.zh.md)——投影单元约定与驱动语义。
+- [Task Checkpoint 子系统](../../docs/subsystems/task-checkpoint.zh.md)——稳定 Task identity、Result validity、repair hazard 与 Resume 安全分类。
 - [会话标题子系统](../../docs/subsystems/session-title.zh.md)——标题资格、回退与提供方流程。
 - [会话遥测子系统](../../docs/subsystems/session-telemetry.zh.md)——捕获、脱敏与投递模式。
 - [会话子系统](../../docs/subsystems/session.zh.md)——本组每个包持久化或派生的实时事件日志。

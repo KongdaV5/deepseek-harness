@@ -71,6 +71,7 @@ kind: "package-reference"
 | `maxTokens` | `8192` | 摘要请求的输出上限；可包含推理 token。 |
 | `compactionRetries` | `1` | 压力仍高于阈值时，在首次压缩后进行的额外尝试次数。 |
 | `maxOverflowRetries` | `1` | 已确认上下文窗口溢出后的最大重试次数；`0` 只禁用恢复。 |
+| `maxSummaryValidationRetries` | `0` | 只有可选 semantic validator 请求另一份摘要时允许的额外 candidate；`0` 保持单 candidate 行为。 |
 | `modelPolicies` | `[]` | 针对个别模型路由的精确 `{ provider, model, ...partialPolicy }` 覆盖。 |
 | `auto` | `true` | 启用自动压缩与溢出恢复；设为 `false` 则仅手动执行。 |
 
@@ -115,7 +116,7 @@ kind: "package-reference"
 
 ### 摘要机制
 
-直接 `ctx.llm.stream()` 调用使用已配置的提供方／模型对与上限，回退到最新已记录请求目标，然后再回退到 `AgentOptions` 对，而不运行仅用于 agent loop 的 `agent/request` 扩展点。该调用将 surface 节点 0 处派生的 `system/message` 作为 `messages` 的首项回放，后接已遮蔽区域消息（包括位于其 surface 位置的被遮蔽历史内 `system/message`），并逐字携带 header 的工具——包括所选适配器必须解析或明确拒绝的图片引用——并将压缩指令作为最后一条 user 消息追加，从而复用提供方的热前缀 cache，而非使它失效。空内容系统头节点不贡献消息，但仍处于压缩范围之外。调用将 `GenerateOptions.purpose` 设为 `compaction`；只有返回文本进入检查点，推理与工具调用都会被排除。图片输出会以 `UNSUPPORTED_CONTENT` 失败，而不是消失。替换 user 消息用 `<compacted-summary>` 标签框定摘要；原始摘要保留在 `compaction/summary` 事件上。
+直接 `ctx.llm.stream()` 调用使用已配置的提供方／模型对与上限，回退到最新已记录请求目标，然后再回退到 `AgentOptions` 对，而不运行仅用于 agent loop 的 `agent/request` 扩展点。该调用将 surface 节点 0 处派生的 `system/message` 作为 `messages` 的首项回放，后接已遮蔽区域消息（包括位于其 surface 位置的被遮蔽历史内 `system/message`），并逐字携带 header 的工具——包括所选适配器必须解析或明确拒绝的图片引用——并将压缩指令作为最后一条 user 消息追加，从而复用提供方的热前缀 cache，而非使它失效。空内容系统头节点不贡献消息，但仍处于压缩范围之外。`compaction/request-policy` waterfall 可以设置适配器支持的 reasoning 值，并在最终 instruction 前立即插入 runtime facts；route、cap、tool、replay prefix、Session、purpose 和 cancellation 字段都保持固定。`compaction/summary-validation` 在 shrink validation 后、commit 前执行；它请求的 retry 受 `maxSummaryValidationRetries` 限制。没有 listener 时，两个 waterfall 都保持原先的一次调用行为。调用将 `GenerateOptions.purpose` 设为 `compaction`；只有返回文本进入检查点，推理与工具调用都会被排除。图片输出会以 `UNSUPPORTED_CONTENT` 失败，而不是消失。替换 user 消息用 `<compacted-summary>` 标签框定摘要；原始摘要保留在 `compaction/summary` 事件上。
 
 ### 区域事务
 
@@ -242,6 +243,7 @@ Rules:
 - **部分不可分单元与仅 envelope 溢出仍不在表层压缩范围内**——恢复无法缩减系统／工具／前缀、拆分不可分的非工具节点，或修复不可剪枝剩余部分仍超出窗口的工具单元。可选 pruner 可以缩减原本不可分工具对内的文本型工具结果主体。
 - **`compactRegion` 要求存在未结束的轮次**——在完全关闭的会话上手动调用会抛出异常（「no open turn」），而不是执行压缩。
 - **摘要失败会保留最新持久表层**——任何替换前，自动路径会记录警告，并携带完整超预算历史继续。如果剪枝已落地，后续摘要失败会从该持久剪枝表层继续。因达到 `maxTokens` 而发生的摘要截断（隐藏推理 token 可能会耗尽该额度）遵循同一规则。
+- **Semantic retry 保持 opt-in**——只有 `maxSummaryValidationRetries` 为正数时，validator 才能请求另一份 candidate。最终 candidate 被拒绝时，既有 surface 与所有 durable Task/Result record 都不改变。
 
 <a id="dev-note"></a>
 ### 开发备注

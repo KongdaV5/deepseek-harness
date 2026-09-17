@@ -1,5 +1,6 @@
 /** Sign final native runtime files before the enclosing Desktop application is signed. */
 
+import { spawn } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { closeSync, openSync, readSync } from 'node:fs'
 import { join } from 'node:path'
@@ -39,5 +40,35 @@ export async function signMacOSRuntime(root: string, appId: string, expected: Ma
   const results = await Promise.allSettled(workers)
   const errors = results.filter(result => result.status === 'rejected').map(result => result.reason as unknown)
   if (errors.length > 0) throw new AggregateError(errors, 'desktop runtime: native signing failed')
+  return files.length
+}
+
+/**
+ * Apply an explicitly local, ad-hoc signature to the native files in a Custom
+ * Desktop runtime.  This deliberately has no release-identity, timestamp, or
+ * notarization semantics; it only makes the self-contained development app
+ * executable on the build machine without borrowing the formal Desktop's
+ * signing credentials.
+ */
+export async function signMacOSRuntimeAdHoc(root: string, appId: string): Promise<number> {
+  const files = inventoryDesktopRuntime(root).map(file => file.path).filter(path => isMachO(join(root, path)))
+  const sign = (path: string): Promise<void> => new Promise((accept, reject) => {
+    const identifier = `${appId}.runtime.${createHash('sha256').update(path).digest('hex')}`
+    const child = spawn('/usr/bin/codesign', [
+      '--force', '--sign', '-', '--identifier', identifier, '--timestamp=none', join(root, path),
+    ], { stdio: ['ignore', 'pipe', 'pipe'] })
+    let diagnostic = ''
+    child.stdout.setEncoding('utf8')
+    child.stderr.setEncoding('utf8')
+    child.stdout.on('data', (chunk) => { diagnostic += chunk })
+    child.stderr.on('data', (chunk) => { diagnostic += chunk })
+    child.once('error', reject)
+    child.once('close', code => code === 0 ? accept() : reject(new Error(
+      `desktop runtime: ad-hoc signing failed for ${path} (exit ${String(code)}): ${diagnostic.trim()}`,
+    )))
+  })
+  const results = await Promise.allSettled(files.map(sign))
+  const errors = results.filter(result => result.status === 'rejected').map(result => result.reason as unknown)
+  if (errors.length > 0) throw new AggregateError(errors, 'desktop runtime: ad-hoc native signing failed')
   return files.length
 }

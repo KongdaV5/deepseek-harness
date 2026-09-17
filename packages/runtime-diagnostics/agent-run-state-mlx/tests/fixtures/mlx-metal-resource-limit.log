@@ -1,0 +1,8 @@
+Exception in thread Thread-1 (_generate):
+Traceback (most recent call last):
+  File "<mlx-lm>/server.py", line 853, in _generate
+    prompt_responses, gen_responses = batch_generator.next()
+  File "<mlx-lm>/generate.py", line 1369, in _step
+    mx.async_eval(self._next_tokens, self._next_logprobs, token_context)
+RuntimeError: [metal::malloc] Resource limit (499000) exceeded.
+127.0.0.1 - - [12/Sep/2026 21:16:20] "GET /health HTTP/1.1" 200 -

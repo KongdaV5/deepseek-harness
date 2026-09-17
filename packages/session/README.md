@@ -22,7 +22,7 @@ The session group keeps conversations durable, restores released log formats, an
 <a id="packages"></a>
 ## Packages
 
-The group splits into four families: durable storage (persistence seam, backends, checkpoint policy), projections, titles, and telemetry. Each package README owns its contract and configuration.
+The group splits into five families: durable storage (persistence seam, backends, checkpoint policy), task recovery records, projections, titles, and telemetry. Each package README owns its contract and configuration.
 
 ### Persistence
 
@@ -36,6 +36,12 @@ The group splits into four families: durable storage (persistence seam, backends
 | [`session-persistence-jsonl/`](session-persistence-jsonl/README.md) | Shipped backend: immutable canonical generation filenames per Session with exclusive successor publication, optionally Zstandard-compressed | registers on `ctx.sessionPersistence` |
 | [`session-checkpoint-policy/`](session-checkpoint-policy/README.md) | Makes model requests, top-level tool side effects, and completed steps durable before the next action | wraps `ctx.llm` and `ctx.tools` |
 | [`session-log-deepseek/`](session-log-deepseek/README.md) | Uploads the incremental canonical log as optional official DeepSeek request metadata | contributes `dsh_session_log` |
+
+### Task recovery records
+
+| Package | Role | ctx key |
+|---|---|---|
+| [`task-checkpoint/`](task-checkpoint/README.md) | Stores evidence-backed Task Checkpoints and separate Result Manifests, projects repair hazards, and classifies resume safety without executing resume | `ctx.taskCheckpoints` |
 
 ### Projection
 
@@ -71,6 +77,7 @@ Only one title provider may register at a time; without one, the title service k
 
 - [Session persistence subsystem](../../docs/subsystems/persistence.md) — backend-neutral service semantics, the flush checkpoint, and crash recovery.
 - [Session projections subsystem](../../docs/subsystems/session-projection.md) — the projection unit contract and drive semantics.
+- [Task checkpoints subsystem](../../docs/subsystems/task-checkpoint.md) — stable Task identity, result validity, repair hazards, and resume-safety classification.
 - [Session titles subsystem](../../docs/subsystems/session-title.md) — title eligibility, fallback, and provider flow.
 - [Session telemetry subsystem](../../docs/subsystems/session-telemetry.md) — capture, redaction, and delivery modes.
 - [Session subsystem](../../docs/subsystems/session.md) — the live event log every package in this group persists or derives from.

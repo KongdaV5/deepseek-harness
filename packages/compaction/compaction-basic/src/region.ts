@@ -23,10 +23,16 @@ import { SessionSeq, type Session, type SessionEvent } from '@deepseek-ai/dsh-se
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import { frameSummary } from './summarizer.ts'
 import type { SummarizationInput, SummaryResult } from './summarizer.ts'
+import type {
+  CompactionSummaryValidationContext,
+  CompactionSummaryValidationDecision,
+} from './types.ts'
 
 interface RegionDependencies {
   readonly meter: TokenMeter
-  summarize(input: SummarizationInput, agent: Agent, signal?: AbortSignal): Promise<SummaryResult>
+  summarize(input: SummarizationInput, agent: Agent, signal: AbortSignal | undefined, attempt: number): Promise<SummaryResult>
+  readonly maxSummaryValidationRetries: number
+  validateSummary(context: CompactionSummaryValidationContext): Promise<CompactionSummaryValidationDecision>
 }
 
 /** One validated inclusive span of current surface positions. */
@@ -220,13 +226,8 @@ export async function compactSurfaceRegion(
 
   try {
     const prepared = prepareCompaction(dependencies, session, selection)
-    const summarized = await summarizeCompaction(
-      dependencies,
-      prepared,
-      agent,
-      compactionId,
-      options.sourceCommandId,
-      signal,
+    const summarized = await summarizeWithSemanticValidation(
+      dependencies, prepared, agent, compactionId, options.sourceCommandId, signal,
     )
     if (options.owner === null) signal?.throwIfAborted()
     assertStable(dependencies, session, summarized)
@@ -383,7 +384,7 @@ function prepareCompaction(
 }
 
 /** Run the summarizer and frame its replacement checkpoint. */
-async function summarizeCompaction(
+async function summarizeWithSemanticValidation(
   dependencies: RegionDependencies,
   prepared: PreparedCompaction,
   agent: Agent,
@@ -391,7 +392,35 @@ async function summarizeCompaction(
   sourceCommandId: CommandId | undefined,
   signal?: AbortSignal,
 ): Promise<SummarizedCompaction> {
-  const summaryResult = await dependencies.summarize(prepared.input, agent, signal)
+  for (let attempt = 1; attempt <= dependencies.maxSummaryValidationRetries + 1; attempt += 1) {
+    const summarized = await summarizeCompaction(
+      dependencies, prepared, agent, compactionId, sourceCommandId, signal, attempt,
+    )
+    const decision = await dependencies.validateSummary({
+      agent,
+      compactionId,
+      attempt,
+      summary: summarized.summary,
+    })
+    if (decision.kind === 'accept') return summarized
+    if (attempt > dependencies.maxSummaryValidationRetries) {
+      throw new Error(`compaction semantic validation failed: ${decision.reason}`)
+    }
+  }
+  throw new Error('compaction semantic validation exhausted without a result')
+}
+
+/** Run one summary candidate and verify it consumes less context than its source. */
+async function summarizeCompaction(
+  dependencies: RegionDependencies,
+  prepared: PreparedCompaction,
+  agent: Agent,
+  compactionId: CompactionResult['compactionId'],
+  sourceCommandId: CommandId | undefined,
+  signal?: AbortSignal,
+  attempt: number = 1,
+): Promise<SummarizedCompaction> {
+  const summaryResult = await dependencies.summarize(prepared.input, agent, signal, attempt)
   const checkpointMessage = createUserMessage({
     content: frameSummary(summaryResult.summary),
     source: compactCheckpointSource(compactionId, sourceCommandId),

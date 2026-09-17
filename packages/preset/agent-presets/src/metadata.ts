@@ -24,6 +24,9 @@ import yaml from 'js-yaml'
 /** The optional display-metadata file beside a preset's composition. */
 export const METADATA_FILE = 'preset.yml'
 
+/** Whether a preset appears in ordinary interactive roster selection. */
+export type PresetVisibility = 'visible' | 'hidden'
+
 /** Display text a preset may publish about itself. */
 export interface PresetMetadata {
   /** Human-facing name; falls back to the preset id when absent. */
@@ -36,6 +39,8 @@ export interface PresetMetadata {
    * can read in capability order while authored ones stay alphabetical.
    */
   readonly order?: number
+  /** `hidden` keeps an explicitly addressable operational preset out of normal pickers. */
+  readonly visibility?: PresetVisibility
 }
 
 /** A non-empty trimmed string, or undefined for anything else. */
@@ -77,10 +82,12 @@ export async function readPresetMetadata(directory: string): Promise<PresetMetad
   const order = typeof record.order === 'number' && Number.isFinite(record.order)
     ? record.order
     : undefined
+  const visibility = record.visibility === 'hidden' ? 'hidden' : undefined
   return {
     ...name === undefined ? {} : { name },
     ...description === undefined ? {} : { description },
     ...order === undefined ? {} : { order },
+    ...visibility === undefined ? {} : { visibility },
   }
 }
 
@@ -95,11 +102,12 @@ export async function readPresetMetadata(directory: string): Promise<PresetMetad
 export function renderPresetMetadata(metadata: PresetMetadata): string | undefined {
   const name = text(metadata.name)
   const description = text(metadata.description)
-  const { order } = metadata
-  if (name === undefined && description === undefined && order === undefined) return undefined
+  const { order, visibility } = metadata
+  if (name === undefined && description === undefined && order === undefined && visibility === undefined) return undefined
   return yaml.dump({
     ...name === undefined ? {} : { name },
     ...description === undefined ? {} : { description },
     ...order === undefined ? {} : { order },
+    ...visibility === undefined ? {} : { visibility },
   }, { lineWidth: -1 })
 }

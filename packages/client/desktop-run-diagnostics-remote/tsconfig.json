@@ -1,0 +1,10 @@
+{
+  "extends": "../../../tsconfig.base.client.json",
+  "compilerOptions": { "outDir": "lib/types", "rootDir": "src" },
+  "include": ["src"],
+  "references": [
+    { "path": "../../../vendor/cordis" },
+    { "path": "../../api/remotes/tsconfig.client.json" },
+    { "path": "../../runtime-diagnostics/desktop-run-diagnostics" }
+  ]
+}

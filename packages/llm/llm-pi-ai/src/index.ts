@@ -210,6 +210,9 @@ export function apply(ctx: Context, config: Config): void {
         + ` sending that message as provider-neutral content (${reason})`,
       )
     },
+    subscribeRequestActivity: (sessionId, listener) => ctx.on('llm/request-activity', (activity) => {
+      if (activity.sessionId === sessionId) listener()
+    }),
   })
   // Independent of the route set: signing in is what makes a route worth
   // adding, so the flows are offered before any profile names their provider.

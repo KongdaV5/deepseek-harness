@@ -1,0 +1,22 @@
+{
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "lib/types"
+  },
+  "include": [
+    "src"
+  ],
+  "references": [
+    { "path": "../../../vendor/cosmokit" },
+    { "path": "../../../vendor/cordis" },
+    { "path": "../../util/brand" },
+    { "path": "../../util/atomic-write" },
+    { "path": "../../llm/llm" },
+    { "path": "../../llm/token-meter" },
+    { "path": "../../core/agent" },
+    { "path": "../../core/session" },
+    { "path": "../session-projection" },
+    { "path": "../../runtime-diagnostics/agent-run-state" }
+  ]
+}

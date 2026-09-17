@@ -66,6 +66,51 @@ interface CompactionResult {
 type CompactionTrigger = 'pressure' | 'context-overflow'
 ```
 
+## Basic 后端的请求与验证策略钩子
+
+`dsh-compaction-basic` 保持对压缩事务、模型路由和原子 surface 替换的控制，但为 capability 暴露两个可选的类型化 waterfall：一个装饰候选请求，另一个验证尚未提交的摘要。监听器可以设置 adapter 支持的 `reasoningEffort`，并在最终指令之前插入紧凑 runtime facts；它不能重定向路由、修改 Session 或应用替换。默认重试预算为零；只有配置 `maxSummaryValidationRetries` 允许时，验证器才可请求额外候选。
+
+```ts type-equiv
+/**
+ * Immutable request facts passed to the optional compaction-only request-policy waterfall.
+ * Listeners may retain the original request fields and insert model-visible runtime facts
+ * immediately before the final compaction instruction, or set an adapter-supported
+ * `reasoningEffort`. They cannot redirect the provider, mutate the Session, or execute a
+ * compaction operation.
+ */
+interface CompactionRequestPolicyContext {
+  /** Live Agent whose Session owns the selected history. */
+  readonly agent: Agent
+  /** One-based candidate generation ordinal within this compaction transaction. */
+  readonly attempt: number
+  /** Fully formed auxiliary request; its final message is the compaction instruction. */
+  readonly options: GenerateOptions
+}
+```
+
+```ts type-equiv
+/** Immutable candidate facts passed to the optional semantic-validation waterfall. */
+interface CompactionSummaryValidationContext {
+  /** Live Agent whose Session would receive the replacement checkpoint. */
+  readonly agent: Agent
+  /** Durable identity of the enclosing compaction transaction. */
+  readonly compactionId: CompactionId
+  /** One-based candidate generation ordinal within this compaction transaction. */
+  readonly attempt: number
+  /** Text-only candidate summary before durable framing and surface replacement. */
+  readonly summary: readonly ContentBlock[]
+}
+```
+
+```ts type-equiv
+/** Result of one optional semantic validation. */
+type CompactionSummaryValidationDecision =
+  | { readonly kind: 'accept' }
+  | { readonly kind: 'retry'; readonly reason: string }
+```
+
+这些是扩展契约，而不是另一套 compaction executor。最终候选被拒绝时，会在既有原子提交之前抛出，因此旧的模型可见 surface 保持不变。源码：[`packages/compaction/compaction-basic/src/types.ts`](../../packages/compaction/compaction-basic/src/types.ts)。
+
 `CompactionEngine` 暴露 `compactIfNeeded(agent, trigger, signal)` 以执行自动 `pressure` 或 `context-overflow` 策略，暴露 `compactNow(agent, signal)` 以便即使未达到压力也对空闲会话进行一次有效缩减，还针对显式、两端均包含的 surface 范围暴露 `compactRegion(...)`。`compactNow()` 作为轮次之间的 agent maintenance 运行；没有有效范围时返回 `null` 且不写入；在摘要前记录独立的 `turn: null` 标记对，并在后续排队提示词能够从新表层派生前 flush 已闭合尝试。每个后端都使用 `compactCheckpointSource(compactionId, sourceCommandId?)` 创建替换用 `user/message` 的源；client 与 wire 消费方从无 Cordis 的 `@deepseek-ai/dsh-compaction/checkpoint` 子路径导入该构造函数、`CompactionCheckpointSource` 和 `isCompactCheckpointSource()`，包根则为 host 消费方重新导出它们。必填的事务身份会关联替换检查点，而该判定函数使检查点识别不依赖任一特定后端。实现必须把传入的 signal 转发给摘要流程。该 seam 不拥有计价 API：单例 [`ctx.tokenMeter`](token-meter.zh.md) 直接拥有估算与回放，而 `dsh-compaction-basic` 拥有保留策略、事件排序、按路由执行的摘要调用及其配置。
 
 预期的手动失败使用 `ManualCompactionErrorCode`：
@@ -235,4 +280,56 @@ pruneSession(session: Session): PruneResult
 Types: [ContentBlock](llm-streaming.zh.md) · [Session](session.zh.md)
 
 Source: [`packages/compaction/compaction-tool-result-pruner/src/index.ts`](../../packages/compaction/compaction-tool-result-pruner/src/index.ts)
+
+<a id="compaction-events"></a>
+
+### `compaction/*` events
+
+<a id="compactionrequest-policy--waterfall"></a>
+
+#### `compaction/request-policy` — waterfall
+
+Decorate one fully formed compaction auxiliary request before it reaches the LLM adapter. With no listener the original request reaches the adapter unchanged. A listener may set an adapter-supported `reasoningEffort` and insert runtime-fact messages immediately before the fixed final compaction instruction; changing route, tools, caps, purpose, Session identity, cancellation, or existing replay messages rejects the attempt before backend I/O.
+
+```ts cordis-catalog
+/**
+ * Decorate one fully formed compaction auxiliary request before it reaches
+ * the LLM adapter. With no listener the original request reaches the
+ * adapter unchanged. A listener may set an adapter-supported
+ * `reasoningEffort` and insert runtime-fact messages immediately before the
+ * fixed final compaction instruction; changing route, tools, caps, purpose,
+ * Session identity, cancellation, or existing replay messages rejects the
+ * attempt before backend I/O.
+ * @param context - immutable Agent, attempt, and baseline request facts.
+ * @param next - delegates to the remaining decorators or returns the baseline request.
+ * @mode waterfall
+ */
+'compaction/request-policy'(context: CompactionRequestPolicyContext, next: () => Promise<GenerateOptions>): Promise<GenerateOptions>
+```
+
+Types: [GenerateOptions](llm-streaming.zh.md)
+
+Source: [`packages/compaction/compaction-basic/src/index.ts`](../../packages/compaction/compaction-basic/src/index.ts)
+
+<a id="compactionsummary-validation--waterfall"></a>
+
+#### `compaction/summary-validation` — waterfall
+
+Validate a text-only compaction candidate after token-shrink validation and before any durable replacement. With no listener the candidate is accepted. A listener may request another candidate within the configured `maxSummaryValidationRetries`; it cannot mutate the Session or commit a replacement itself.
+
+```ts cordis-catalog
+/**
+ * Validate a text-only compaction candidate after token-shrink validation
+ * and before any durable replacement. With no listener the candidate is
+ * accepted. A listener may request another candidate within the configured
+ * `maxSummaryValidationRetries`; it cannot mutate the Session or commit a
+ * replacement itself.
+ * @param context - immutable candidate summary and transaction facts.
+ * @param next - delegates to the remaining validators or accepts the candidate.
+ * @mode waterfall
+ */
+'compaction/summary-validation'(context: CompactionSummaryValidationContext, next: () => Promise<CompactionSummaryValidationDecision>): Promise<CompactionSummaryValidationDecision>
+```
+
+Source: [`packages/compaction/compaction-basic/src/index.ts`](../../packages/compaction/compaction-basic/src/index.ts)
 <!-- END GENERATED cordis-surface -->

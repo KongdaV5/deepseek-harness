@@ -850,6 +850,30 @@ Source: [`packages/subagent/tool-subagent/src/model-selection-state.ts:17`](../p
 
 Source: [`packages/core/session/src/types.ts:310`](../packages/core/session/src/types.ts)
 
+### `task/*`
+
+<a id="taskcheckpoint--log-only"></a>
+
+#### `task/checkpoint` — log-only
+
+```ts persistence-catalog
+/** Required durable task-progress snapshot; older runtimes must not silently ignore it. */
+'task/checkpoint': TaskCheckpointEventData
+```
+
+Source: [`packages/session/task-checkpoint/src/domain.ts:22`](../packages/session/task-checkpoint/src/domain.ts)
+
+<a id="taskresult-manifest--log-only"></a>
+
+#### `task/result-manifest` — log-only
+
+```ts persistence-catalog
+/** Required durable result-artifact snapshot, separate from task progress. */
+'task/result-manifest': ResultManifestEventData
+```
+
+Source: [`packages/session/task-checkpoint/src/domain.ts:24`](../packages/session/task-checkpoint/src/domain.ts)
+
 ### `team/*`
 
 <a id="teammember--log-only"></a>

@@ -101,6 +101,11 @@ export interface PiAiAdapterOptions {
    * conversion because its stored replay state is unusable by this build.
    */
   onReplayDegrade?: (detail: { provider: string; model: string; reason: string }) => void
+  /** Subscribe one loop request to attributed progress outside the response stream. */
+  subscribeRequestActivity?: (
+    sessionId: NonNullable<GenerateOptions['sessionId']>,
+    listener: () => void,
+  ) => () => void
 }
 
 /** The two auth injectables a pi-ai collection is built with. */
@@ -353,6 +358,9 @@ export class PiAiAdapter extends LlmAdapter {
       : AbortSignal.any([options.signal, consumer.signal])
     const streamIdleTimeoutMs = profile.streamIdleTimeoutMs
     using watchdog = idleWatchdog(upstream, streamIdleTimeoutMs, 'LLM_STREAM_IDLE_TIMEOUT')
+    const disposeRequestActivity = options.sessionId === undefined
+      ? undefined
+      : this.config.subscribeRequestActivity?.(options.sessionId, () => { watchdog.pulse() })
 
     try {
       const containsImage = options.messages.some(message => contentHasImage(message.content))
@@ -419,6 +427,7 @@ export class PiAiAdapter extends LlmAdapter {
       }
       throw error
     } finally {
+      disposeRequestActivity?.()
       consumer.abort('pi-ai stream consumer stopped')
     }
   }

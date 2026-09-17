@@ -122,6 +122,7 @@ export async function summarizeWithLlm(
   input: SummarizationInput,
   agent: Agent,
   signal?: AbortSignal,
+  attempt: number = 1,
 ): Promise<SummaryResult> {
   const latest = agent.session.requestHeader()?.config
   const configured = config.summarizationProvider.length === 0
@@ -158,7 +159,13 @@ export async function summarizeWithLlm(
     purpose: 'compaction',
     ...signal === undefined ? {} : { signal },
   }
-  for await (const chunk of ctx.llm.stream(options)) assembler.push(chunk)
+  const decorated = await ctx.waterfall(
+    'compaction/request-policy',
+    { agent, attempt, options },
+    () => Promise.resolve(options),
+  )
+  assertDecoratedCompactionRequest(options, decorated)
+  for await (const chunk of ctx.llm.stream(decorated)) assembler.push(chunk)
   const error = finishError(assembler.finish)
   if (error !== undefined) throw error
 
@@ -171,10 +178,41 @@ export async function summarizeWithLlm(
     summary,
     rawOutput,
     llmStreamCall: true,
-    provider: options.provider,
-    model: options.model,
+    provider: decorated.provider,
+    model: decorated.model,
     maxTokens: config.maxTokens,
     ...(assembler.usage === undefined ? {} : { usage: assembler.usage }),
+  }
+}
+
+/** Reject changes outside the narrow compaction request-policy authority. */
+function assertDecoratedCompactionRequest(
+  baseline: GenerateOptions,
+  decorated: GenerateOptions,
+): void {
+  const sameScalar = baseline.provider === decorated.provider
+    && baseline.model === decorated.model
+    && baseline.maxTokens === decorated.maxTokens
+    && baseline.sessionId === decorated.sessionId
+    && baseline.purpose === decorated.purpose
+    && baseline.signal === decorated.signal
+  if (!sameScalar || decorated.purpose !== 'compaction') {
+    throw new Error('compaction request policy may not change the route, caps, Session, purpose, or cancellation')
+  }
+  const baseTools = baseline.tools ?? []
+  const decoratedTools = decorated.tools ?? []
+  if (baseTools.length !== decoratedTools.length
+    || baseTools.some((tool, index) => tool !== decoratedTools[index])) {
+    throw new Error('compaction request policy may not change replayed tool schemas')
+  }
+  const instruction = baseline.messages.at(-1)
+  if (instruction === undefined || decorated.messages.at(-1) !== instruction) {
+    throw new Error('compaction request policy must retain the final compaction instruction')
+  }
+  const prefix = baseline.messages.slice(0, -1)
+  if (decorated.messages.length < baseline.messages.length
+    || prefix.some((message, index) => decorated.messages[index] !== message)) {
+    throw new Error('compaction request policy may only insert runtime facts before the final instruction')
   }
 }
 

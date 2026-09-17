@@ -8,6 +8,8 @@ import { parseArgs } from 'node:util'
 import { DESKTOP_HOST_PROTOCOL_VERSION } from '../src/host-protocol.ts'
 import type { DesktopRelease } from '../src/release.ts'
 import { prepareDevelopmentProject } from './development-project.ts'
+import type { DevelopmentComposition } from './development-project.ts'
+import { prepareDevelopmentFixtures } from './development-fixtures.ts'
 
 const APP_ROOT = resolve(import.meta.dirname, '..')
 const REPOSITORY_ROOT = resolve(APP_ROOT, '..', '..')
@@ -32,6 +34,12 @@ function debugPort(name: string, fallback: number): number {
     throw new Error(`desktop development: ${name} must be an integer from 1 through 65535`)
   }
   return port
+}
+
+function developmentComposition(value: string | undefined): DevelopmentComposition | undefined {
+  if (value === undefined || value === '') return undefined
+  if (value === 'phase2-6') return value
+  throw new Error('desktop development: DSH_DESKTOP_DEV_COMPOSITION must be the exact allowlisted value "phase2-6"')
 }
 
 async function run(command: string, args: readonly string[], cwd: string, environment = process.env): Promise<void> {
@@ -101,13 +109,21 @@ async function main(): Promise<void> {
     nodeVersion: process.versions.node,
     pnpmVersion,
   }
+  const composition = developmentComposition(process.env.DSH_DESKTOP_DEV_COMPOSITION)
+  if (composition !== undefined) console.log(`desktop development: composition=${composition}`)
   prepareDevelopmentProject({
     projectDir: join(DEVELOPMENT_ROOT, 'project'),
     cliDir: join(REPOSITORY_ROOT, 'apps', 'cli'),
     hostDir: join(REPOSITORY_ROOT, 'apps', 'desktop-host'),
     dependencyDir: join(REPOSITORY_ROOT, 'node_modules', '.pnpm', 'node_modules'),
     release,
+    ...(composition === undefined ? {} : { composition }),
   })
+  if (composition !== undefined) {
+    const home = resolve(process.env.DSH_HOME ?? join(DEVELOPMENT_ROOT, 'home'))
+    const metadata = prepareDevelopmentFixtures({ home, repositoryRoot: REPOSITORY_ROOT, runtimeVersion: version, composition })
+    console.log(`desktop development: Dev fixture=${metadata.provider} ${metadata.baseUrl}`)
+  }
   await launchElectron()
 }
 

@@ -85,6 +85,25 @@ describe('desktop external plugin profile', () => {
     await expect(manager.applyRelease()).resolves.toBe(false)
   })
 
+  it('treats build-specific capability bundles as host-owned instead of external plugins', async () => {
+    const root = temporaryRoot()
+    const dsh = join(root, 'resources', 'dsh')
+    const customBundle = '@deepseek-ai/dsh-desktop-custom-composition'
+    runtimeFixture(dsh, '1.0.0', '24.17.0', [customBundle])
+    const manager = new DesktopProjectManager(
+      resolveDesktopPaths(join(root, '.dsh')),
+      { node: process.execPath, pnpm: writeFakePnpm(root), dsh },
+      ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app', customBundle],
+    )
+
+    await expect(manager.applyRelease()).resolves.toBe(true)
+    expect(manager.listPlugins()).toEqual([])
+    expect((JSON.parse(readFileSync(join(manager.paths.profile, 'package.json'), 'utf8')) as {
+      dsh: { profile: { bundles: string[] } }
+    }).dsh.profile.bundles).toEqual(['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app', customBundle])
+    await expect(manager.applyRelease()).resolves.toBe(false)
+  })
+
   it('disables every third-party bundle without reading a broken plugin patch declaration', async () => {
     const { root, manager } = setup()
     await manager.applyRelease()

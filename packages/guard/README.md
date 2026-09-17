@@ -1,15 +1,15 @@
 ---
-description: "Package map for the loop-hygiene guard family: the advisory repeat-tool reminder and the per-tool-call timeout policy, for users and maintainers choosing or composing the guards."
+description: "Package map for loop and request-safety guards: repeat-tool guidance, tool-call time limits, and progress-informed local model recovery governance."
 kind: "package-group"
 ---
 
-# guard/ — loop-hygiene guard family
+# guard/ — loop and request-safety guard family
 
 English | [中文](README.zh.md)
 
 ## Summary
 
-The `guard/` group keeps the agent loop productive by watching for two common failure patterns. `repeat-tool-reminder` notices when the model repeats the exact same tool call and reminds it to change approach or finish, so a stuck loop stops burning time and tokens. `timeout-policy` puts a time limit on tool calls that declare one, so a hung call returns a clear timed-out error to the model instead of stalling the session. Both ship enabled in the `dsh` base bundle; a composition can tune or remove them.
+The `guard/` group keeps the agent loop and model-request recovery bounded. `repeat-tool-reminder` detects repeated identical tool calls, `timeout-policy` enforces tool-declared cooperative limits, and `agent-run-policy` uses Agent Run State to cap transient local-provider retries and acknowledge cancellation without mistaking AbortSignal for backend termination. The first two ship in the `dsh` base bundle; the Run policy is an opt-in composition capability for deployments that mount Run State and a backend observer.
 
 ## Table of Contents
 
@@ -22,10 +22,11 @@ The `guard/` group keeps the agent loop productive by watching for two common fa
 <a id="packages"></a>
 ## Packages
 
-Two small plugins cover the two patterns; each README below explains when to keep, tune, or remove it.
+Three focused plugins cover the patterns; each README explains its composition boundary.
 
 | Package | What it provides |
 |---|---|
+| [`agent-run-policy/`](agent-run-policy/README.md) | Probes Run State, caps transient model retries, blocks fatal blind retry, and distinguishes requested from confirmed cancellation |
 | [`repeat-tool-reminder/`](repeat-tool-reminder/README.md) | Reminds the model when it repeats the same tool call, so it changes approach or finishes |
 | [`timeout-policy/`](timeout-policy/README.md) | Times out tool calls that declare a limit, so the model gets a clear error instead of waiting forever |
 
@@ -34,7 +35,7 @@ Two small plugins cover the two patterns; each README below explains when to kee
 <a id="related-documentation"></a>
 ## Related documentation
 
-Start with the tools subsystem reference for the tool-call pipeline, then the reminder's configuration and the timeout-library decision behind the policy.
+Start with the relevant request or tool subsystem, then follow the package-specific decision record.
 
 - [Tools subsystem reference](../../docs/subsystems/tools.md) — the tool-call pipeline and decisions both guards build on.
 - [Generated configuration catalog](../../docs/config-catalog.md#deepseek-aidsh-repeat-tool-reminder) — every accepted field of the repeat-call reminder.
@@ -49,3 +50,5 @@ Start with the tools subsystem reference for the tool-call pipeline, then the re
 None.
 
 </details>
+- [Agent Run State subsystem](../../docs/subsystems/agent-run-state.md) — identity, meaningful activity, backend evidence, and diagnostics consumed by `agent-run-policy`.
+- [Progress-aware Run control Agent Note](../../.agents/notes/implemented/architecture/2026-09-14-progress-aware-run-control.md) — the retry/cancellation policy boundary and minimum activity hook.

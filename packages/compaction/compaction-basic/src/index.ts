@@ -11,7 +11,7 @@ import type { CompactionResult, CompactionTrigger } from '@deepseek-ai/dsh-compa
 import type { TokenMeter } from '@deepseek-ai/dsh-token-meter'
 import type { Session, SessionSeq } from '@deepseek-ai/dsh-session'
 import { CONTEXT_WINDOW_EXCEEDED_CODE } from '@deepseek-ai/dsh-llm'
-import type { LlmCallConfig } from '@deepseek-ai/dsh-llm'
+import type { GenerateOptions, LlmCallConfig } from '@deepseek-ai/dsh-llm'
 import { assertNever } from '@deepseek-ai/dsh-util-values'
 import type { Agent, PreStepDecision } from '@deepseek-ai/dsh-agent'
 import type { CommandId } from '@deepseek-ai/dsh-commands/brand'
@@ -32,6 +32,9 @@ import { summarizeWithLlm } from './summarizer.ts'
 import type { SummarizationInput, SummaryResult } from './summarizer.ts'
 import type {
   BasicCompactionConfig,
+  CompactionRequestPolicyContext,
+  CompactionSummaryValidationContext,
+  CompactionSummaryValidationDecision,
   ModelCompactPolicyConfig,
   ResolvedConfig,
 } from './types.ts'
@@ -44,10 +47,47 @@ export type {
   ResolvedConfig,
   ResolvedRetention,
   ResolvedTargetPolicy,
+  CompactionRequestPolicyContext,
+  CompactionSummaryValidationContext,
+  CompactionSummaryValidationDecision,
 } from './types.ts'
 
+declare module '@deepseek-ai/cordis' {
+  interface Events {
+    /**
+     * Decorate one fully formed compaction auxiliary request before it reaches
+     * the LLM adapter. With no listener the original request reaches the
+     * adapter unchanged. A listener may set an adapter-supported
+     * `reasoningEffort` and insert runtime-fact messages immediately before the
+     * fixed final compaction instruction; changing route, tools, caps, purpose,
+     * Session identity, cancellation, or existing replay messages rejects the
+     * attempt before backend I/O.
+     * @param context - immutable Agent, attempt, and baseline request facts.
+     * @param next - delegates to the remaining decorators or returns the baseline request.
+     * @mode waterfall
+     */
+    'compaction/request-policy'(context: CompactionRequestPolicyContext, next: () => Promise<GenerateOptions>): Promise<GenerateOptions>
+    /**
+     * Validate a text-only compaction candidate after token-shrink validation
+     * and before any durable replacement. With no listener the candidate is
+     * accepted. A listener may request another candidate within the configured
+     * `maxSummaryValidationRetries`; it cannot mutate the Session or commit a
+     * replacement itself.
+     * @param context - immutable candidate summary and transaction facts.
+     * @param next - delegates to the remaining validators or accepts the candidate.
+     * @mode waterfall
+     */
+    'compaction/summary-validation'(context: CompactionSummaryValidationContext, next: () => Promise<CompactionSummaryValidationDecision>): Promise<CompactionSummaryValidationDecision>
+  }
+}
+
 /** The region transaction's view of this service's dynamically dispatched summarizer. */
-type RegionSummarize = (input: SummarizationInput, agent: Agent, signal?: AbortSignal) => Promise<SummaryResult>
+type RegionSummarize = (
+  input: SummarizationInput,
+  agent: Agent,
+  signal: AbortSignal | undefined,
+  attempt: number,
+) => Promise<SummaryResult>
 
 /** Resolve the exact provider/model durably routed for the latest request. */
 function routedTarget(
@@ -79,6 +119,7 @@ const summarizationModelSchema = z.string()
 const maxTokensSchema = z.number().step(1).min(1)
 const compactionRetriesSchema = z.number().step(1).min(0)
 const maxOverflowRetriesSchema = z.number().step(1).min(0)
+const maxSummaryValidationRetriesSchema = z.number().step(1).min(0)
 
 const modelPolicy: z<ModelCompactPolicyConfig> = z.object({
   provider: z.string().required(),
@@ -91,6 +132,7 @@ const modelPolicy: z<ModelCompactPolicyConfig> = z.object({
   maxTokens: maxTokensSchema,
   compactionRetries: compactionRetriesSchema,
   maxOverflowRetries: maxOverflowRetriesSchema,
+  maxSummaryValidationRetries: maxSummaryValidationRetriesSchema,
 })
 
 /**
@@ -113,6 +155,7 @@ export class BasicCompactionEngine extends CompactionEngine {
     maxTokens: maxTokensSchema,
     compactionRetries: compactionRetriesSchema,
     maxOverflowRetries: maxOverflowRetriesSchema,
+    maxSummaryValidationRetries: maxSummaryValidationRetriesSchema,
     modelPolicies: z.array(modelPolicy),
     auto: z.boolean(),
   })
@@ -238,12 +281,13 @@ export class BasicCompactionEngine extends CompactionEngine {
     input: SummarizationInput,
     agent: Agent,
     signal?: AbortSignal,
+    attempt: number = 1,
   ): Promise<SummaryResult> {
     const target = conversationTarget(agent)
     const config = target === undefined
       ? this.config
       : resolveTargetPolicy(this.config, target)
-    return summarizeWithLlm(this.ctx, config, input, agent, signal)
+    return summarizeWithLlm(this.ctx, config, input, agent, signal, attempt)
   }
 
   /**
@@ -421,10 +465,21 @@ export class BasicCompactionEngine extends CompactionEngine {
   }
 
   /** Bind the effective token meter and dynamically dispatched summarizer hook. */
-  private regionDependencies(): { meter: TokenMeter; summarize: RegionSummarize } {
+  private regionDependencies(): {
+    meter: TokenMeter
+    summarize: RegionSummarize
+    maxSummaryValidationRetries: number
+    validateSummary: (context: CompactionSummaryValidationContext) => Promise<CompactionSummaryValidationDecision>
+  } {
     return {
       meter: this.ctx.tokenMeter,
-      summarize: (input, owner, abort) => this.summarize(input, owner, abort),
+      summarize: (input, owner, abort, attempt) => this.summarize(input, owner, abort, attempt),
+      maxSummaryValidationRetries: this.config.maxSummaryValidationRetries,
+      validateSummary: context => this.ctx.waterfall(
+        'compaction/summary-validation',
+        context,
+        () => Promise.resolve({ kind: 'accept' }),
+      ),
     }
   }
 }
