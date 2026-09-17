@@ -189,10 +189,9 @@ export function RunStatusDock({ useRunDiagnostics, resume, t }: RunStatusDockPro
   }, [pending, resume, snapshot, t])
 
   // `run: null` means there is no current Run, not that the backend is known
-  // to be idle or healthy. Keep that Unknown fact in diagnostics, but do not
-  // reserve composer space for it unless a paused or safely resumable Task
-  // needs an explicit user action.
-  const inactiveWithoutAction = snapshot?.run === null && !resumeAvailable
+  // to be idle or healthy. Keep that Unknown fact in diagnostics, but never
+  // reserve ordinary composer space for a historical checkpoint state.
+  const inactiveWithoutAction = snapshot?.run === null
   if (snapshot === undefined || label === undefined || inactiveWithoutAction) return null
   return (
     <div className={css.dock} data-run-status-dock>

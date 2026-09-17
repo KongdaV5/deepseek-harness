@@ -65,6 +65,14 @@ describe('RunStatusDock', () => {
     expect(screen.queryByText('未知')).toBeNull()
   })
 
+  it('keeps a resumable checkpoint out of the idle composer when no Run is active', () => {
+    renderDock(snapshot({ run: null, checkpoint: {
+      task: { taskId: 'task-1', status: 'paused' },
+      resume: { eligibility: 'SAFE_TO_RESUME', requested: false, started: false }, outputs: [], repairHazards: [],
+    } }))
+    expect(screen.queryByRole('button', { name: '查看运行详情' })).toBeNull()
+  })
+
   it('keeps Unknown visible for an active Run when observation is unavailable', () => {
     const run = snapshot().run!
     renderDock(snapshot({ run: { ...run, phase: 'unknown', health: 'unknown' } }))

@@ -25,7 +25,7 @@ The Custom package uses the same official client capability profile as the forma
 
 The separately built startup shell receives localized messages through the Desktop-owned `localeGet` IPC. For Custom it receives the same narrow product-token substitution as native menus and dialogs, so its visible loading and recovery text says **DS Harness**; the formal Desktop receives the untouched upstream locale. This is a build/configuration seam, not a renderer DOM rewrite.
 
-The optional Run Details dock is conditionally mounted. With no active Run and no safely resumable paused Task, it does not reserve an idle composer row merely to display the diagnostic value `Unknown`. That suppression does not assert that the backend is idle, ready, or healthy: an active Run with unavailable observation still renders `Unknown`, and a safely resumable Task remains visible.
+The optional Run Details dock is conditionally mounted. With no active Run, it does not reserve an idle composer row merely to display the diagnostic value `Unknown` or a historical checkpoint state. That suppression does not assert that the backend is idle, ready, or healthy: an active Run with unavailable observation still renders `Unknown`.
 
 For daily local use, `pnpm --filter @deepseek-ai/dsh-desktop run package-and-install:custom:mac:arm64` packages then installs `/Applications/DS Harness.app`. The install step verifies the source app and any pre-existing target through its Bundle ID, visible name, provenance, and ad-hoc signature before replacing the target. It never writes the formal Desktop application, the `desktop-custom` profile, Electron user-data identity, settings, or sessions.
 

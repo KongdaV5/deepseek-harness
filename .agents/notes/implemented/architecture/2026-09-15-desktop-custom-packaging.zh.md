@@ -25,7 +25,7 @@ Custom package 使用与正式 Desktop 相同的 official client capability prof
 
 单独构建的 startup shell 通过 Desktop 自己的 `localeGet` IPC 接收本地化 messages。Custom 会在此处获得与原生菜单和 dialog 相同的窄范围 product-token 替换，因此 loading 与 recovery 的可见文案显示 **DS Harness**；正式 Desktop 继续接收未修改的 upstream locale。这是 build/configuration seam，不是 renderer DOM rewrite。
 
-可选 Run Details dock 使用条件挂载。没有 active Run 且没有可安全恢复的 paused Task 时，它不会只为显示诊断值 `Unknown` 而在 idle composer 中保留一行。该 suppression 不表示 backend 已被判定为 idle、ready 或 healthy：active Run 但 observation 不可得时仍会显示 `Unknown`，可安全恢复的 Task 也仍会显示。
+可选 Run Details dock 使用条件挂载。没有 active Run 时，它不会只为显示诊断值 `Unknown` 或历史 checkpoint state 而在 idle composer 中保留一行。该 suppression 不表示 backend 已被判定为 idle、ready 或 healthy：active Run 但 observation 不可得时仍会显示 `Unknown`。
 
 日常本地使用可执行 `pnpm --filter @deepseek-ai/dsh-desktop run package-and-install:custom:mac:arm64`，先 package 再安装 `/Applications/DS Harness.app`。install step 会通过 Bundle ID、可见名称、provenance 与 ad-hoc signature 验证 source app 以及任何已存在 target，之后才替换 target。它绝不写入正式 Desktop application、`desktop-custom` profile、Electron user-data identity、settings 或 sessions。
 
