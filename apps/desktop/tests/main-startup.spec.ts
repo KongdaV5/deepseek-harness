@@ -63,6 +63,9 @@ const harness = await vi.hoisted(async () => {
     getLocale: () => 'en-US',
     getVersion: () => '1.0.0',
     getAppPath: () => 'desktop-test-app',
+    getPath: () => 'desktop-test-data',
+    setName: vi.fn(),
+    setPath: vi.fn(),
     requestSingleInstanceLock: () => true,
     exit: vi.fn(),
     relaunch: vi.fn(),
@@ -307,6 +310,19 @@ describe('desktop main startup', () => {
     expect(harness.windows).toHaveLength(1)
     expect(window.urls).toEqual(['dsh-app://shell/startup.html', 'dsh-app://app/index.html'])
     expect(invoke(DESKTOP_IPC.backendStatus)).toEqual({ phase: 'ready' })
+  })
+
+  it('returns Custom-branded startup copy only for the DS Harness executable', async () => {
+    vi.stubGlobal('process', { ...process, execPath: '/Applications/DS Harness.app/Contents/MacOS/DS Harness', resourcesPath: 'desktop-test-resources' })
+    await import('../src/main.ts')
+    await harness.preparing.promise
+    expect(invoke(DESKTOP_IPC.localeGet)).toMatchObject({
+      id: 'en',
+      messages: expect.objectContaining({
+        startupLoading: 'Starting DS Harness…',
+        startupFailed: 'DS Harness could not start',
+      }),
+    })
   })
 
   it('starts the unpackaged Host from the application development directory', async () => {

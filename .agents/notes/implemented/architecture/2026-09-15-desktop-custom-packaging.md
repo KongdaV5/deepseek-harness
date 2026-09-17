@@ -23,6 +23,10 @@ Custom uses an isolated Electron user-data profile and `~/.dsh/profiles/desktop-
 
 The Custom package uses the same official client capability profile as the formal Desktop, but passes the build's narrow title override as `--title "DS Harness"`. Its local `release:pack` call repeats the same explicit value as `--client-title "DS Harness"`, so the package-set verifier accepts only artifacts that carry the intended title. The generic client-build helper changes only the public `DSH_CLIENT_TITLE`; formal packaging omits both options and continues to require `DeepSeek Harness`.
 
+The separately built startup shell receives localized messages through the Desktop-owned `localeGet` IPC. For Custom it receives the same narrow product-token substitution as native menus and dialogs, so its visible loading and recovery text says **DS Harness**; the formal Desktop receives the untouched upstream locale. This is a build/configuration seam, not a renderer DOM rewrite.
+
+The optional Run Details dock is conditionally mounted. With no active Run and no safely resumable paused Task, it does not reserve an idle composer row merely to display the diagnostic value `Unknown`. That suppression does not assert that the backend is idle, ready, or healthy: an active Run with unavailable observation still renders `Unknown`, and a safely resumable Task remains visible.
+
 For daily local use, `pnpm --filter @deepseek-ai/dsh-desktop run package-and-install:custom:mac:arm64` packages then installs `/Applications/DS Harness.app`. The install step verifies the source app and any pre-existing target through its Bundle ID, visible name, provenance, and ad-hoc signature before replacing the target. It never writes the formal Desktop application, the `desktop-custom` profile, Electron user-data identity, settings, or sessions.
 
 The historical `dsh-custom-baseline-2026-09-17` tag remains the immutable pre-rename technical recovery anchor. It intentionally retains the original `DSH Desktop Custom` build provenance; it is not moved for the DS Harness product rename.

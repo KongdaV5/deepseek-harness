@@ -59,6 +59,19 @@ function renderDock(value: DesktopRunDiagnosticsSnapshot) {
 }
 
 describe('RunStatusDock', () => {
+  it('does not reserve an idle composer row for a no-Run Unknown snapshot', () => {
+    renderDock(snapshot({ run: null }))
+    expect(screen.queryByRole('button', { name: '查看运行详情' })).toBeNull()
+    expect(screen.queryByText('未知')).toBeNull()
+  })
+
+  it('keeps Unknown visible for an active Run when observation is unavailable', () => {
+    const run = snapshot().run!
+    renderDock(snapshot({ run: { ...run, phase: 'unknown', health: 'unknown' } }))
+    expect(screen.getByText('未知')).toBeTruthy()
+    expect(screen.getByRole('button', { name: '查看运行详情' })).toBeTruthy()
+  })
+
   it('uses the existing phase vocabulary and keeps prefill unknown rather than fabricating a percent', () => {
     renderDock(snapshot({ run: { ...snapshot().run!, phase: 'prefill', backend: {
       ...snapshot().run!.backend,

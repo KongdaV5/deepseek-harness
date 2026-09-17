@@ -185,6 +185,11 @@ async function main(): Promise<void> {
   let updateState: DesktopUpdateState = { phase: 'idle' }
   const locale = resolveDesktopLocale(app.getLocale())
   const messages = custom ? productMessages(locale.messages, CUSTOM_DESKTOP_NAME) : locale.messages
+  // The startup renderer is an isolated shell document. It receives its
+  // localized copy only through this IPC payload, so preserve the same
+  // Custom product token here rather than teaching the static renderer a
+  // second identity mechanism.
+  const shellLocale = custom ? { ...locale, messages } : locale
   const appPreload = fileURLToPath(new URL('./preload-app.cjs', import.meta.url))
   const managementPreload = fileURLToPath(new URL('./preload.cjs', import.meta.url))
   const startupUrl = `${SCHEME}://shell/startup.html`
@@ -335,7 +340,7 @@ async function main(): Promise<void> {
   }
   ipcMain.handle(DESKTOP_IPC.localeGet, (event) => {
     assertDesktopSender(event, ['shell'])
-    return locale
+    return shellLocale
   })
   ipcMain.handle(DESKTOP_IPC.pluginsList, (event) => {
     assertDesktopSender(event, ['shell'])

@@ -5,10 +5,14 @@ import { JSDOM } from 'jsdom'
 import { expect, it, onTestFinished, vi } from 'vitest'
 import type { DesktopBackendState } from '../src/backend-controller.ts'
 import type { DshDesktopStartupApi } from '../src/ipc.ts'
-import { resolveDesktopLocale } from '../src/locale.ts'
+import { resolveDesktopLocale, type DesktopMessages } from '../src/locale.ts'
 import { startupFailureDocument } from '../src/startup-document.ts'
 
-function startup(locale = 'en', status: Promise<DesktopBackendState> = Promise.resolve({ phase: 'starting' })) {
+function startup(
+  locale = 'en',
+  status: Promise<DesktopBackendState> = Promise.resolve({ phase: 'starting' }),
+  messages: DesktopMessages = resolveDesktopLocale(locale).messages,
+) {
   const dom = new JSDOM(readFileSync(new URL('../renderer/startup.html', import.meta.url), 'utf8'), { runScripts: 'outside-only' })
   onTestFinished(() => {
     dom.window.dispatchEvent(new dom.window.Event('pagehide'))
@@ -22,7 +26,7 @@ function startup(locale = 'en', status: Promise<DesktopBackendState> = Promise.r
   const queried = Promise.withResolvers<undefined>()
   const api: DshDesktopStartupApi = {
     protocolVersion: 1,
-    locale: async () => resolveDesktopLocale(locale),
+    locale: async () => ({ ...resolveDesktopLocale(locale), messages }),
     backend: {
       status: () => { queried.resolve(undefined); return status },
       subscribe: (listener) => { listeners.add(listener); return unsubscribe },
@@ -104,6 +108,18 @@ it('shows Chinese loading and recovery copy', async () => {
     禁用全部第三方插件并重试
     重置 Desktop 并重试"
   `)
+})
+
+it('renders Custom startup branding from the shell locale payload', async () => {
+  const upstream = resolveDesktopLocale('zh-CN')
+  const page = startup('zh-CN', undefined, {
+    ...upstream.messages,
+    startupLoading: '正在启动 DS Harness…',
+    startupFailed: 'DS Harness 无法启动',
+  })
+  await expect.poll(() => page.element('#title').textContent).toBe('正在启动 DS Harness…')
+  page.publish({ phase: 'error', profileRecovery: false, message: '启动失败' })
+  expect(page.element('#title').textContent).toBe('DS Harness 无法启动')
 })
 
 it('renders diagnostic markup as text and exposes failures from recovery actions', async () => {
