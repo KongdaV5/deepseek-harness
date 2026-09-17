@@ -150,6 +150,7 @@ describe('incremental upstream monitor', () => {
       },
     })
     expect(failedWrite.outcome).toBe('STATE_WRITE_FAILED')
+    expect(failedWrite.state?.lastObservedUpstreamSha).toBe(writeFailure.cursor)
     expect(existsSync(join(writeFailure.output, 'state.json'))).toBe(false)
     expect(writeTarget).not.toBe(writeFailure.cursor)
   })

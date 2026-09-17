@@ -496,6 +496,7 @@ async function monitorLocked(root: string, options: MonitorOptions, deps: Monito
     return writeFailure(root, statePath, state, output, 'AUDIT_FAILED', (error as Error).message, options, deps, target)
   }
   const item = incremental(state.lastObservedUpstreamSha, target, audit)
+  const stateBeforeAdvance = structuredClone(state)
   try {
     const report = options.dryRun ? null : await writeReport(root, state, item, output, deps, audit)
     item.report = report ?? undefined
@@ -508,6 +509,7 @@ async function monitorLocked(root: string, options: MonitorOptions, deps: Monito
     if (!options.dryRun) await persist(statePath, state, deps)
     return result('NEW_CHANGES', statePath, `audited ${item.newCommits} new upstream commit(s)`, state, item, report)
   } catch (error) {
+    state = stateBeforeAdvance
     return result('STATE_WRITE_FAILED', statePath, `report/state persistence failed; cursor was not advanced: ${(error as Error).message}`, state, item)
   }
 }
