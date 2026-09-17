@@ -13,11 +13,13 @@ import { installDesktopUpdateTaskControl } from './update-tasks.ts'
 async function main(): Promise<void> {
   const runtimeDir = process.argv[2] as string
   const projectDir = process.argv[3] as string
+  const profileName = process.env.DSH_DESKTOP_PROFILE_NAME ?? 'desktop'
+  if (!/^[a-z][a-z0-9-]*$/u.test(profileName)) throw new Error('dsh desktop host: invalid profile name')
   const installAnchor = join(runtimeDir, 'node_modules', '@deepseek-ai', 'dsh', 'package.json')
   const profile = loadProfileDirectory('dsh', projectDir, installAnchor)
   const application = runProfile({
     environment: loadLayeredEnv('dsh'),
-    profile: 'desktop',
+    profile: profileName,
     resolutionMode: process.argv[5] === 'runtime' ? 'runtime' : 'link',
     resolvedProfile: { profile, installAnchor },
     patchFiles: [],

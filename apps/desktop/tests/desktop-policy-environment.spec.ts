@@ -38,3 +38,11 @@ it.each([{ unsigned: true }, { prepareOnly: true }, {}])('fails before signing/p
       .toThrow('DSH_DESKTOP_MANDATORY_UPDATE_TEST_ORIGIN')
   }
 })
+
+it('accepts an unsigned custom flavor without an official appId, policy, or update channel', () => {
+  expect(() => {
+    validateDesktopPackageEnvironment({
+      DSH_DESKTOP_PRODUCT_FLAVOR: 'ds-harness',
+    }, { platform: 'win32', arch: 'x64' }, { unsigned: true })
+  }).not.toThrow()
+})

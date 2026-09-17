@@ -17,6 +17,7 @@ import {
 } from './windows-sign.mjs'
 import { resolveDesktopAutoUpdateConfig } from './desktop-auto-update-environment.mjs'
 import { resolveDesktopPolicyEnvironment } from './desktop-policy-environment.mjs'
+import { resolveDesktopFlavorAppId, resolveDesktopProductFlavorDefinition } from './product-flavor.mjs'
 import { desktopTargetBuildPaths, resolveDesktopBuildTarget } from './desktop-build-paths.mjs'
 import { installWindowsDirectoryInstaller } from './windows-directory-installer.mjs'
 import { preserveWindowsRuntimeSignature } from './windows-runtime-signature.mjs'
@@ -40,8 +41,9 @@ export function createElectronBuilderConfig(
   hostArch = process.arch,
   preparedRuntime = undefined,
 ) {
-  const appId = resolveDesktopAppId(env)
-  const policy = resolveDesktopPolicyEnvironment(env)
+  const flavor = resolveDesktopProductFlavorDefinition(env)
+  const appId = resolveDesktopFlavorAppId(flavor, env, resolveDesktopAppId)
+  const policy = flavor.updates.mode === 'official' ? resolveDesktopPolicyEnvironment(env) : undefined
   const targetPlatform = env.DSH_DESKTOP_TARGET_PLATFORM
   const resolvedPlatform = targetPlatform ?? hostPlatform
   const resolvedArch = env.DSH_DESKTOP_TARGET_ARCH ?? hostArch
@@ -73,13 +75,19 @@ export function createElectronBuilderConfig(
   if (windowsSigner !== undefined) {
     installWindowsNsisBootstrapSigner({ sign: windowsSigner })
   }
-  const update = unsigned ? undefined : resolveDesktopAutoUpdateConfig(env, resolvedPlatform, resolvedArch)
+  const update = unsigned || flavor.updates.mode === 'disabled'
+    ? undefined
+    : resolveDesktopAutoUpdateConfig(env, resolvedPlatform, resolvedArch)
   if (preparedRuntime !== undefined) buildPaths.dsh = preparedRuntime
   return {
     appId,
-    extraMetadata: { dshDesktopAppId: appId, dshMandatoryUpdatePolicy: policy },
-    productName: 'DeepSeek Harness',
-    artifactName: 'deepseek-harness-${version}-${os}-${arch}.${ext}',
+    extraMetadata: {
+      dshDesktopAppId: appId,
+      dshDesktopProductFlavor: flavor.id,
+      ...(policy === undefined ? {} : { dshMandatoryUpdatePolicy: policy }),
+    },
+    productName: flavor.productName,
+    artifactName: `${flavor.artifactPrefix}-\${version}-\${os}-\${arch}.\${ext}`,
     directories: { output: unsigned ? join(buildPaths.root, 'unsigned-artifacts') : buildPaths.artifacts },
     asar: true,
     electronDist: buildPaths.electron,

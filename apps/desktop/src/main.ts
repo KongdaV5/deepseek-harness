@@ -1,7 +1,7 @@
 import { WINDOWS_TITLEBAR_HEIGHT } from './windows-layout.ts'
 /** Electron shell: desktop project ownership, custom protocol, windows, and lifecycle. */
 
-import { readFile, writeFile } from 'node:fs/promises'
+import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
@@ -39,6 +39,15 @@ import { DesktopMandatoryUpdateWindow } from './mandatory-update-window.ts'
 import { DesktopPolicyTestAuth } from './policy-test-auth.ts'
 import { DesktopUpdateDialog, type UpdateDialogOptions } from './update-dialog.ts'
 import { readDesktopRuntime } from './runtime-tree.ts'
+import {
+  applyDesktopProductIdentity,
+  readDesktopApplicationManifest,
+  resolveDesktopRuntimeProductFlavor,
+} from './product-flavor.ts'
+
+const applicationManifest = readDesktopApplicationManifest(app.getAppPath())
+const productFlavor = resolveDesktopRuntimeProductFlavor(app.isPackaged, applicationManifest)
+applyDesktopProductIdentity(app, productFlavor)
 
 let focusPrimaryWindow = (): void => {}
 let stopForRecovery = async (): Promise<void> => {}
@@ -46,14 +55,14 @@ let shuttingDown = false
 let windowsLanguage: string | undefined
 
 function currentDesktopLocale(): ReturnType<typeof resolveDesktopLocale> {
-  return resolveDesktopLocale(windowsLanguage ?? app.getLocale())
+  return resolveDesktopLocale(windowsLanguage ?? app.getLocale(), productFlavor.productName)
 }
 const recovery = new DesktopFatalRecovery({
   messages: () => currentDesktopLocale().messages,
   show: options => dialog.showMessageBox(options),
   stop: () => { shuttingDown = true; return stopForRecovery() },
   disablePlugins: async () => {
-    const manager = new DesktopProjectManager(resolveDesktopPaths(), runtimeResources())
+    const manager = new DesktopProjectManager(resolveDesktopPaths(undefined, productFlavor.profileName), runtimeResources())
     const backupPath = await manager.disableAllPlugins()
     console.info('Desktop profile recovery completed:', { profilePatchBackup: backupPath ?? null, homePatch: 'unchanged' })
   },
@@ -114,6 +123,7 @@ function createWindow(preload: string, show = false, primary = false): BrowserWi
     height: 840,
     minWidth: 880,
     minHeight: 600,
+    title: productFlavor.productName,
     show,
     ...(process.platform === 'win32' && primary ? {
       titleBarStyle: 'hidden' as const,
@@ -138,6 +148,10 @@ function createWindow(preload: string, show = false, primary = false): BrowserWi
       sandbox: true,
       webSecurity: true,
     },
+  })
+  window.webContents.on('page-title-updated', (event) => {
+    event.preventDefault()
+    window.setTitle(productFlavor.productName)
   })
   window.webContents.setWindowOpenHandler(({ url }) => {
     if (['http:', 'https:'].includes(new URL(url).protocol)) void shell.openExternal(url)
@@ -186,7 +200,7 @@ async function main(): Promise<void> {
   const journalDirectory = process.env.DSH_DESKTOP_UPDATE_JOURNAL_DIR
   const updateJournal = journalDirectory === undefined ? undefined : new DesktopUpdateJournal(journalDirectory, app.getVersion())
   const resources = runtimeResources()
-  const paths = resolveDesktopPaths()
+  const paths = resolveDesktopPaths(undefined, productFlavor.profileName)
   const development = !app.isPackaged
   const activeProject = paths.profile
   const manager = new DesktopProjectManager(paths, resources)
@@ -205,7 +219,7 @@ async function main(): Promise<void> {
   const isQuitting = (): boolean => quitting
   const currentMainWindow = (): BrowserWindow | undefined => mainWindow
   const ordinaryDialogs = new Set<AbortController>()
-  const locale = resolveDesktopLocale(app.getLocale())
+  const locale = resolveDesktopLocale(app.getLocale(), productFlavor.productName)
   const messages = locale.messages
   const updateDialog = new DesktopUpdateDialog(fileURLToPath(new URL('./preload-update-dialog.cjs', import.meta.url)), locale)
   const isMandatory = (): boolean => mandatoryPolicy?.state.blocking === true
@@ -251,7 +265,7 @@ async function main(): Promise<void> {
       hostInspectPort, process.env, onFailure,
       development ? join(app.getAppPath(), '.desktop-build', 'targets', `${process.platform === 'darwin' ? 'mac' : 'win'}-${process.arch}`, 'runtime', 'primary-runtime')
         : join(process.resourcesPath, 'runtime', 'primary-runtime'),
-      development ? 'link' : 'runtime', resources)
+      development ? 'link' : 'runtime', resources, productFlavor.profileName)
     return {
       start: async () => {
         const ready = await host.start()
@@ -382,7 +396,7 @@ async function main(): Promise<void> {
         requireCleanStop = false
       }
       return true
-    },
+    }, undefined, productFlavor.updateBehavior === 'official' ? undefined : () => false,
   )
 
   const updateSchedule = new DesktopUpdateSchedule(updates, resolveDesktopUpdateScheduleConfig(process.env))
@@ -565,6 +579,7 @@ async function main(): Promise<void> {
   }
 
   const automaticCheck = (): void => {
+    if (productFlavor.updateBehavior === 'disabled') return
     if (!quitting) void mandatoryPolicy?.check('foreground-or-resume').catch((error: unknown) => { console.error(error) })
     if (!quitting) void updateSchedule.check().catch((error: unknown) => { console.error(error) })
   }
@@ -576,7 +591,7 @@ async function main(): Promise<void> {
   })
 
   app.setAboutPanelOptions({
-    applicationName: 'DeepSeek Harness',
+    applicationName: productFlavor.productName,
     applicationVersion: app.getVersion(),
     // The release has no separate build number; omit Electron's bundle version.
     version: '',
@@ -593,10 +608,13 @@ async function main(): Promise<void> {
   const hideCommands: MenuItemConstructorOptions[] = darwin
     ? [{ role: 'hide' }, { role: 'hideOthers' }, { role: 'unhide' }, { type: 'separator' }]
     : []
-  const applicationItems = (): MenuItemConstructorOptions[] => [
-    { label: currentDesktopLocale().messages.aboutMenu, role: 'about' },
+  const updateMenuItems = (): MenuItemConstructorOptions[] => productFlavor.updateBehavior === 'official' ? [
     { type: 'separator' },
     { label: currentDesktopLocale().messages.checkUpdatesMenu, click: () => { void openUpdatePrompt(true) } },
+  ] : []
+  const applicationItems = (): MenuItemConstructorOptions[] => [
+    { label: currentDesktopLocale().messages.aboutMenu, role: 'about' },
+    ...updateMenuItems(),
     { type: 'separator' },
     ...hideCommands,
     { role: 'quit', ...(process.platform === 'win32' ? { label: currentDesktopLocale().messages.exitApplication } : {}) },
@@ -716,11 +734,9 @@ async function main(): Promise<void> {
   })
 
   mainWindow = createMainWindow()
-  const manifest: unknown = JSON.parse(await readFile(join(app.getAppPath(), 'package.json'), 'utf8'))
-  if (typeof manifest !== 'object' || manifest === null) throw new Error('desktop policy: invalid application manifest')
   const developmentPolicy = app.isPackaged ? undefined : process.env.DSH_DESKTOP_MANDATORY_UPDATE_CONFIG
-  const policyInput: unknown = app.isPackaged
-    ? ('dshMandatoryUpdatePolicy' in manifest ? manifest.dshMandatoryUpdatePolicy : undefined)
+  const policyInput: unknown = productFlavor.updateBehavior === 'disabled' ? undefined : app.isPackaged
+    ? applicationManifest.dshMandatoryUpdatePolicy
     : developmentPolicy === undefined ? undefined : JSON.parse(developmentPolicy) as unknown
   const policyConfig = resolveDesktopPolicyConfig(policyInput, !app.isPackaged)
   if (policyConfig !== undefined) {
@@ -729,7 +745,7 @@ async function main(): Promise<void> {
         (event) => { console.info(`desktop policy authentication: ${event}`); updateJournal?.action(`policy-login-${event}`) })
     }
     const bundleId = app.isPackaged
-      ? ('dshDesktopAppId' in manifest ? manifest.dshDesktopAppId : undefined)
+      ? applicationManifest.dshDesktopAppId
       : process.env.DSH_DESKTOP_APP_ID
     if (typeof bundleId !== 'string' || bundleId.trim() === '') throw new Error('desktop policy: missing application bundle ID')
     if (!['win32', 'darwin'].includes(process.platform) || !['x64', 'arm64'].includes(process.arch)) throw new Error('desktop policy: unsupported platform')

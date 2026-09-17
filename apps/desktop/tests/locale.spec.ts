@@ -14,4 +14,16 @@ describe('desktop locale dictionaries', () => {
       .toBe('plugin@1.2.3 {missing}')
   })
 
+  it('derives custom startup and update identity from the product flavor name', () => {
+    const english = resolveDesktopLocale('en-US', 'DS Harness').messages
+    const chinese = resolveDesktopLocale('zh-CN', 'DS Harness').messages
+    expect(english).toMatchObject({
+      aboutMenu: 'About DS Harness', startupFailed: 'DS Harness is unavailable', updateTitle: 'DS Harness Update',
+    })
+    expect(chinese).toMatchObject({
+      aboutMenu: '关于 DS Harness', startupFailed: 'DS Harness 无法使用', updateTitle: 'DS Harness 更新',
+    })
+    expect(JSON.stringify({ english, chinese })).not.toContain('DeepSeek Harness')
+  })
+
 })

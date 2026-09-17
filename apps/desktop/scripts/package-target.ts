@@ -13,6 +13,7 @@ import { packageMacOSArtifacts, type DesktopPrepackagedArtifact } from './packag
 import { loadDesktopPackageEnvironment, validateDesktopPackageEnvironment } from './desktop-package-environment.mjs'
 import { createPackagingRun } from './packaging-run.mjs'
 import { withMacOSSigningKeychain } from './macos-signing-keychain.mjs'
+import { resolveDesktopProductFlavorDefinition } from './product-flavor.mjs'
 
 const APP_ROOT = resolve(import.meta.dirname, '..')
 const REPOSITORY_ROOT = resolve(APP_ROOT, '..', '..')
@@ -122,6 +123,7 @@ function writeReleaseRecord(
   environment: NodeJS.ProcessEnv,
   artifactsRoot: string,
 ): void {
+  if (resolveDesktopProductFlavorDefinition(environment).updates.mode === 'disabled') return
   const desktopVersion = packageVersion(join(APP_ROOT, 'package.json'), 'desktop package')
   const dshVersion = packageVersion(join(REPOSITORY_ROOT, 'package.json'), 'dsh package')
   if (desktopVersion !== dshVersion) {

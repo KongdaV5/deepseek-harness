@@ -12,6 +12,27 @@ vi.mock('node:child_process', async (importOriginal) => {
 })
 
 describe('installer preparation preserves application dependencies', () => {
+  it('packages DS Harness with an isolated identity and no official update metadata', async () => {
+    const { createElectronBuilderConfig } = await import('../scripts/electron-builder-config.mjs')
+    const config = createElectronBuilderConfig({
+      DSH_DESKTOP_PRODUCT_FLAVOR: 'ds-harness',
+      DSH_DESKTOP_TARGET_PLATFORM: 'win32',
+      DSH_DESKTOP_TARGET_ARCH: 'x64',
+      DSH_DESKTOP_UNSIGNED: '1',
+    }, 'win32', 'x64')
+    expect(config).toMatchObject({
+      appId: 'dev.dsh.desktop.custom',
+      productName: 'DS Harness',
+      artifactName: 'ds-harness-${version}-${os}-${arch}.${ext}',
+      publish: null,
+      extraMetadata: {
+        dshDesktopAppId: 'dev.dsh.desktop.custom',
+        dshDesktopProductFlavor: 'ds-harness',
+      },
+    })
+    expect(config.extraMetadata).not.toHaveProperty('dshMandatoryUpdatePolicy')
+  })
+
   it.each(['win32', 'darwin'] as const)('rejects a missing production policy before signing on %s', async (platform) => {
     const { createElectronBuilderConfig } = await import('../scripts/electron-builder-config.mjs')
     expect(() => createElectronBuilderConfig({ DSH_DESKTOP_APP_ID: 'com.example.installer',
@@ -36,6 +57,19 @@ describe('installer preparation preserves application dependencies', () => {
     try {
       const { createElectronBuilderConfig } = await import('../electron-builder.config.mjs')
       const config = createElectronBuilderConfig(env, platform, 'x64')
+      expect(config).toMatchObject({
+        appId: 'com.example.installer',
+        productName: 'DeepSeek Harness',
+        artifactName: 'deepseek-harness-${version}-${os}-${arch}.${ext}',
+        extraMetadata: {
+          dshDesktopAppId: 'com.example.installer',
+          dshDesktopProductFlavor: 'official',
+        },
+      })
+      expect(config.extraMetadata.dshMandatoryUpdatePolicy).toBeDefined()
+      expect(config.publish).toEqual(platform === 'darwin'
+        ? [{ provider: 'generic', url: 'https://desktop-updates.example.com/dsh-desk/feeds/mac-x64/', channel: 'nightly' }]
+        : null)
       const aboutIcon = config.extraResources.find(resource => resource.to === 'icon.png')
       expect(aboutIcon).toBeDefined()
       expect(readFileSync(aboutIcon!.from)).toEqual(readFileSync(new URL('../resources/icon-windows.png', import.meta.url)))

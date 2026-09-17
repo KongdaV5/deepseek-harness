@@ -40,6 +40,7 @@ const harness = await vi.hoisted(async () => {
   let quitCompleted = deferred()
   let policyBlocked = deferred()
   let embeddedPolicy: unknown
+  let productFlavor: 'official' | 'ds-harness' = 'official'
   let closeWindowsOnQuit = false
   let updateState: DesktopUpdateState = { phase: 'idle' }
   const updateCheck = vi.fn(async (_manual?: boolean): Promise<DesktopUpdateState> => updateState)
@@ -70,7 +71,7 @@ const harness = await vi.hoisted(async () => {
     readonly restore = vi.fn()
     readonly setSize = vi.fn()
     readonly setTitleBarOverlay = vi.fn()
-    constructor(readonly options: { show: boolean; modal?: boolean }) {
+    constructor(readonly options: { show: boolean; modal?: boolean; title?: string }) {
       super(); if (windowFailure !== undefined) throw windowFailure; windows.push(this); if (options.modal) policyBlocked.resolve()
     }
     isDestroyed() { return this.destroyed }
@@ -110,6 +111,7 @@ const harness = await vi.hoisted(async () => {
       readonly inspectPort?: number, readonly environment?: NodeJS.ProcessEnv, readonly onFailure?: (error: Error) => void,
       readonly primaryRuntime?: string, readonly profileResolution?: string,
       readonly packageManager?: { pnpm: string; nodeBin: string },
+      readonly profileName?: string,
     ) { hosts.push(this) }
   }
   const app = Object.assign(new EventEmitter(), {
@@ -119,8 +121,11 @@ const harness = await vi.hoisted(async () => {
     getLocale: (): string => 'en-US',
     getVersion: () => '1.0.0',
     getAppPath: () => 'desktop-test-app',
+    getPath: (name: string) => name === 'appData' ? 'desktop-test-app-data' : `desktop-test-${name}`,
+    setPath: vi.fn(),
+    setName: vi.fn((name: string) => { app.name = name }),
     setAboutPanelOptions: vi.fn<(options: Electron.AboutPanelOptionsOptions) => void>(),
-    requestSingleInstanceLock: () => true,
+    requestSingleInstanceLock: vi.fn(() => true),
     exit: vi.fn(),
     relaunch: vi.fn(),
     quit: vi.fn(() => {
@@ -156,6 +161,8 @@ const harness = await vi.hoisted(async () => {
     get policyBlocked() { return policyBlocked },
     get embeddedPolicy() { return embeddedPolicy },
     set embeddedPolicy(value: unknown) { embeddedPolicy = value },
+    get productFlavor() { return productFlavor },
+    set productFlavor(value: 'official' | 'ds-harness') { productFlavor = value },
     nextNavigation() { navigated = deferred(); return navigated.promise },
     nextHostStart() { hostStarted = deferred(); return hostStarted.promise },
     get pluginsEnabled() { return pluginsEnabled },
@@ -165,6 +172,10 @@ const harness = await vi.hoisted(async () => {
       windows.length = 0; hosts.length = 0; handlers.clear(); app.removeAllListeners()
       powerMonitor.removeAllListeners()
       app.isPackaged = true
+      app.name = 'Desktop test'
+      app.setPath.mockClear()
+      app.setName.mockClear()
+      app.requestSingleInstanceLock.mockClear()
       windowFailure = undefined
       pluginsEnabled = false
       closeWindowsOnQuit = false
@@ -178,6 +189,7 @@ const harness = await vi.hoisted(async () => {
       navigated = deferred(); dialogShown = deferred(); quitCompleted = deferred()
       policyBlocked = deferred()
       embeddedPolicy = undefined
+      productFlavor = 'official'
     },
   }
 })
@@ -219,8 +231,21 @@ vi.mock('node:fs/promises', async (importOriginal) => {
     return encoding === undefined ? original.readFile(path) : original.readFile(path, encoding)
   }) }
 })
+vi.mock('../src/product-flavor.ts', async (importOriginal) => {
+  const original = await importOriginal<typeof import('../src/product-flavor.ts')>()
+  return {
+    ...original,
+    readDesktopApplicationManifest: () => ({
+      dshDesktopProductFlavor: harness.productFlavor,
+      dshDesktopAppId: harness.productFlavor === 'ds-harness' ? 'dev.dsh.desktop.custom' : 'com.deepseek.dsh',
+      dshMandatoryUpdatePolicy: harness.embeddedPolicy,
+    }),
+  }
+})
 vi.mock('../src/runtime-tree.ts', () => ({ readDesktopRuntime: () => ({ release: { version: '1.0.0' } }) }))
-vi.mock('../src/paths.ts', () => ({ resolveDesktopPaths: () => ({ profile: 'desktop-test-profile' }) }))
+vi.mock('../src/paths.ts', () => ({ resolveDesktopPaths: (_home?: string, profileName = 'desktop') => ({
+  profile: profileName === 'desktop' ? 'desktop-test-profile' : `${profileName}-test-profile`,
+}) }))
 vi.mock('../src/project-manager.ts', () => ({
   DesktopProjectManager: class {
     readonly applyRelease = harness.applyRelease
@@ -288,7 +313,7 @@ beforeEach(() => {
   vi.spyOn(console, 'info').mockImplementation(() => {})
   vi.stubEnv('DSH_DESKTOP_PNPM_ENTRY', 'test-pnpm')
   vi.stubEnv('DSH_DESKTOP_DSH_DIR', 'test-runtime')
-  vi.stubGlobal('process', { ...process, platform: 'win32', resourcesPath: 'desktop-test-resources' })
+  vi.stubGlobal('process', { ...process, platform: 'win32', arch: 'x64', resourcesPath: 'desktop-test-resources' })
   vi.stubEnv('DSH_DESKTOP_HOST_INSPECT_PORT', undefined)
   vi.stubEnv('DSH_DESKTOP_MANDATORY_UPDATE_CONFIG', undefined)
   vi.stubEnv('DSH_DESKTOP_UPDATE_JOURNAL_DIR', undefined)
@@ -323,6 +348,27 @@ describe('desktop main startup', () => {
     expect({ menu: submenu.slice(0, 2), options: { ...options, iconPath: '<app icon>' } }).toEqual(expected[locale])
     expect(options.iconPath).toBe(packaged ? join('desktop-test-resources', 'icon.png')
       : join('desktop-test-app', 'resources', 'icon-windows.png'))
+  })
+
+  it('starts the DS Harness flavor with isolated process, profile, branding, and update behavior', async () => {
+    harness.productFlavor = 'ds-harness'
+    harness.embeddedPolicy = { origin: 'https://official-policy.example.com', authentication: 'anonymous' }
+    const host = await readyForUpdate()
+    await vi.advanceTimersByTimeAsync(0)
+    expect(harness.app.setName).toHaveBeenCalledWith('DS Harness')
+    expect(harness.app.setPath.mock.calls).toEqual([
+      ['userData', join('desktop-test-app-data', '@deepseek-ai', 'dsh-desktop-custom')],
+      ['sessionData', join('desktop-test-app-data', '@deepseek-ai', 'dsh-desktop-custom')],
+    ])
+    expect(harness.app.setPath.mock.invocationCallOrder[0])
+      .toBeLessThan(harness.app.requestSingleInstanceLock.mock.invocationCallOrder[0]!)
+    expect(harness.windows[0]!.options.title).toBe('DS Harness')
+    expect(harness.app.setAboutPanelOptions).toHaveBeenCalledWith(expect.objectContaining({ applicationName: 'DS Harness' }))
+    expect(host).toMatchObject({ profile: 'desktop-custom-test-profile', profileName: 'desktop-custom' })
+    expect(applicationMenuItems().map(item => item.label ?? item.role ?? item.type))
+      .toEqual(['About DS Harness', 'separator', 'Exit'])
+    expect(harness.updateCheck).not.toHaveBeenCalled()
+    expect(testAuth.login).not.toHaveBeenCalled()
   })
 
   it('shows one explained startup login before Host readiness and joins concurrent checks without reopening it', async () => {

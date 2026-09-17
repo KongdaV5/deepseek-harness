@@ -14,9 +14,11 @@ export interface DesktopPaths {
  * @param dshHome - Harness home shared with npm-installed dsh.
  * @returns immutable desktop path set.
  */
-export function resolveDesktopPaths(dshHome: string = resolveDshHome()): DesktopPaths {
+export function resolveDesktopPaths(dshHome: string = resolveDshHome(), profileName = 'desktop'): DesktopPaths {
+  if (!/^[a-z][a-z0-9-]*$/u.test(profileName)) throw new Error('desktop paths: invalid profile name')
+  const profile = join(dshHome, 'profiles', profileName)
   return {
-    profile: join(dshHome, 'profiles', 'desktop'),
-    lock: join(dshHome, 'profiles', 'desktop', 'lock'),
+    profile,
+    lock: join(profile, 'lock'),
   }
 }

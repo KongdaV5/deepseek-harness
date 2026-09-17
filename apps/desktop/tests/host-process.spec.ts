@@ -121,6 +121,16 @@ describe('desktop host process', () => {
     expect(await (await fetch(url)).json()).toMatchObject({ primaryRuntime, profileResolution: 'runtime', pnpm: join(runtime, 'pnpm.mjs'), nodeBin: join(runtime, 'bin') })
   })
 
+  it('propagates the selected product profile explicitly to the Host environment', async () => {
+    const runtime = projectWithHost(HTTP_HOST.replace('runtime: process.argv[2]',
+      'profileName: process.env.DSH_DESKTOP_PROFILE_NAME, runtime: process.argv[2]'))
+    const host = new DesktopHostProcess(process.execPath, runtime, runtime, undefined, process.env,
+      undefined, undefined, 'link', undefined, 'desktop-custom')
+    hosts.push(host)
+    const { url } = await host.start()
+    expect(await (await fetch(url)).json()).toMatchObject({ profileName: 'desktop-custom' })
+  })
+
   it('reports a fatal event after readiness once', async () => {
     const runtime = projectWithHost()
     const failure = vi.fn()

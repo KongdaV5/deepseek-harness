@@ -1,8 +1,8 @@
 {
   "formatVersion": 1,
-  "phase": "8C.1",
-  "status": "strategy-locked",
-  "generatedAt": "2026-09-17T23:25:13+08:00",
+  "phase": "8C.2a",
+  "status": "stage-2-complete",
+  "generatedAt": "2026-09-18T07:13:54+08:00",
   "target": {
     "remote": "https://github.com/deepseek-ai/deepseek-harness.git",
     "branch": "origin/master",
@@ -26,7 +26,8 @@
     "stableAppsModified": false,
     "candidateInstalled": false,
     "realUserDataRead": false,
-    "mainBranchIntegrated": false
+    "mainBranchIntegrated": false,
+    "productFlavorImplemented": true
   },
   "upstreamHealth": {
     "install": "PASS",
@@ -39,7 +40,7 @@
       "architecture": "arm64",
       "node": "24.21.0",
       "declaredPackageManager": "pnpm@11.7.0",
-      "executedPnpm": "11.19.0",
+      "executedPnpm": "11.7.0",
       "defaultPython": "/usr/bin/python3 3.9.6"
     },
     "knownFailures": [
@@ -55,7 +56,15 @@
         "classification": "upstream-test-fixture-regression",
         "evidence": "main-startup.spec.ts stubs process.platform to win32 while retaining the arm64 host architecture; the new installed-client guard correctly rejects desktop-win plus arm64, causing one identity failure and fourteen dependent timeouts."
       }
-    ]
+    ],
+    "phase8C2aFocused": {
+      "desktopTestFilesPassed": 77,
+      "desktopTestFilesSkipped": 1,
+      "desktopTestsPassed": 751,
+      "desktopTestsSkipped": 39,
+      "desktopTestsFailed": 0,
+      "newFailureClasses": 0
+    }
   },
   "oldCustomSurface": {
     "trackedFiles": 256,
@@ -79,8 +88,9 @@
       "capability": "Product identity and coexistence",
       "oldImplementation": "Custom Electron app name, dev.dsh.desktop.custom, isolated userData and desktop-custom profile, startup branding, and independent single-instance ownership.",
       "upstreamEquivalent": "DSH_DESKTOP_APP_ID configures appId, but productName remains hard-coded, Desktop profile remains desktop, and startup/update identity was redesigned.",
-      "status": "REWRITE_REQUIRED",
-      "action": "REIMPLEMENT",
+      "status": "PORT_WITH_ADAPTATION",
+      "action": "PORT",
+      "implementationStatus": "IMPLEMENTED_STAGE_2",
       "risk": "CRITICAL",
       "validation": ["bundle identity inspection", "isolated userData/profile assertion", "dual-app single-instance coexistence", "startup/window/client branding"]
     },
@@ -351,22 +361,24 @@
     }
   },
   "portOrder": [
-    { "stage": 1, "goal": "Reconfirm locked upstream health and toolchain", "dependencies": [], "tests": ["install", "build", "classified upstream tests"], "stopGate": "Target SHA or health classification differs without explanation." },
-    { "stage": 2, "goal": "Product identity and process isolation", "dependencies": [1], "tests": ["bundle/profile/userData/single-instance contracts"], "stopGate": "Any path can collide with official Desktop or Stable DS Harness." },
-    { "stage": 3, "goal": "Profile, settings, sessions, and migration boundary", "dependencies": [2], "tests": ["temp-home paths", "copied-fixture migrations", "sentinel hashes"], "stopGate": "Any real-data path is touched or migration semantics remain unresolved." },
-    { "stage": 4, "goal": "Packaging and primary-runtime closure", "dependencies": [2, 3], "tests": ["runtime lock", "native ABI", "codesign", "candidate staging"], "stopGate": "Runtime payload/signature/native closure fails." },
-    { "stage": 5, "goal": "Minimal current Cordis/package-set composition", "dependencies": [3, 4], "tests": ["composition resolution", "host startup in temp profile"], "stopGate": "Composition duplicates upstream-native services or cannot start isolated." },
-    { "stage": 6, "goal": "Session v3 and Agent lifecycle adapters", "dependencies": [5], "tests": ["schema", "projection", "turn/step/attempt fixtures"], "stopGate": "Run identity or durable-event compatibility is ambiguous." },
-    { "stage": 7, "goal": "Run State, backend health, and error classification", "dependencies": [6], "tests": ["Phase 2/3 observability and policy fixtures"], "stopGate": "Unknown is guessed, fatal evidence is weak, or terminal state can regress." },
-    { "stage": 8, "goal": "TaskCheckpoint, Result Manifest, and guarded resume", "dependencies": [6, 7], "tests": ["crash/resume", "pending-only", "outcome-unknown block"], "stopGate": "Authoritative task facts can be lost or duplicated." },
-    { "stage": 9, "goal": "IQ3_S reasoning and bounded run policy", "dependencies": [7, 8], "tests": ["xhigh-first matrix", "fatal no retry", "retry at most two"], "stopGate": "A second retry engine appears or request reasoning cannot be proven." },
-    { "stage": 10, "goal": "Task-aware compaction adapter", "dependencies": [8, 9], "tests": ["facts", "atomic apply", "low-medium", "scope isolation"], "stopGate": "Compaction can mutate checkpoints, delete evidence, or lower main reasoning." },
-    { "stage": 11, "goal": "Current-client Run Details integration", "dependencies": [7, 10], "tests": ["remote", "dockkit", "idle closure", "renderer build"], "stopGate": "Diagnostics can mutate runtime or idle UI regresses." },
-    { "stage": 12, "goal": "Phase 8B maintenance plane port", "dependencies": [2, 5], "tests": ["B8 regression", "read-only dry run", "state hashes"], "stopGate": "Maintenance joins product runtime or changes cursor/debt." },
-    { "stage": 13, "goal": "Full isolated regression and candidate qualification", "dependencies": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], "tests": ["full product matrix", "packaged smoke", "coexistence", "data safety"], "stopGate": "Any baseline invariant or safety sentinel fails; no install or new baseline." }
+    { "stage": 1, "status": "COMPLETE", "goal": "Reconfirm locked upstream health and toolchain", "dependencies": [], "tests": ["install", "build", "classified upstream tests"], "stopGate": "Target SHA or health classification differs without explanation." },
+    { "stage": 2, "status": "COMPLETE", "goal": "Product identity and process isolation", "dependencies": [1], "tests": ["bundle/profile/userData/single-instance contracts"], "stopGate": "Any path can collide with official Desktop or Stable DS Harness." },
+    { "stage": 3, "status": "PENDING", "goal": "Profile, settings, sessions, and migration boundary", "dependencies": [2], "tests": ["temp-home paths", "copied-fixture migrations", "sentinel hashes"], "stopGate": "Any real-data path is touched or migration semantics remain unresolved." },
+    { "stage": 4, "status": "PENDING", "goal": "Packaging and primary-runtime closure", "dependencies": [2, 3], "tests": ["runtime lock", "native ABI", "codesign", "candidate staging"], "stopGate": "Runtime payload/signature/native closure fails." },
+    { "stage": 5, "status": "PENDING", "goal": "Minimal current Cordis/package-set composition", "dependencies": [3, 4], "tests": ["composition resolution", "host startup in temp profile"], "stopGate": "Composition duplicates upstream-native services or cannot start isolated." },
+    { "stage": 6, "status": "PENDING", "goal": "Session v3 and Agent lifecycle adapters", "dependencies": [5], "tests": ["schema", "projection", "turn/step/attempt fixtures"], "stopGate": "Run identity or durable-event compatibility is ambiguous." },
+    { "stage": 7, "status": "PENDING", "goal": "Run State, backend health, and error classification", "dependencies": [6], "tests": ["Phase 2/3 observability and policy fixtures"], "stopGate": "Unknown is guessed, fatal evidence is weak, or terminal state can regress." },
+    { "stage": 8, "status": "PENDING", "goal": "TaskCheckpoint, Result Manifest, and guarded resume", "dependencies": [6, 7], "tests": ["crash/resume", "pending-only", "outcome-unknown block"], "stopGate": "Authoritative task facts can be lost or duplicated." },
+    { "stage": 9, "status": "PENDING", "goal": "IQ3_S reasoning and bounded run policy", "dependencies": [7, 8], "tests": ["xhigh-first matrix", "fatal no retry", "retry at most two"], "stopGate": "A second retry engine appears or request reasoning cannot be proven." },
+    { "stage": 10, "status": "PENDING", "goal": "Task-aware compaction adapter", "dependencies": [8, 9], "tests": ["facts", "atomic apply", "low-medium", "scope isolation"], "stopGate": "Compaction can mutate checkpoints, delete evidence, or lower main reasoning." },
+    { "stage": 11, "status": "PENDING", "goal": "Current-client Run Details integration", "dependencies": [7, 10], "tests": ["remote", "dockkit", "idle closure", "renderer build"], "stopGate": "Diagnostics can mutate runtime or idle UI regresses." },
+    { "stage": 12, "status": "PENDING", "goal": "Phase 8B maintenance plane port", "dependencies": [2, 5], "tests": ["B8 regression", "read-only dry run", "state hashes"], "stopGate": "Maintenance joins product runtime or changes cursor/debt." },
+    { "stage": 13, "status": "PENDING", "goal": "Full isolated regression and candidate qualification", "dependencies": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], "tests": ["full product matrix", "packaged smoke", "coexistence", "data safety"], "stopGate": "Any baseline invariant or safety sentinel fails; no install or new baseline." }
   ],
   "contractEvidencePaths": [
     "apps/desktop/src/main.ts",
+    "apps/desktop/src/product-flavor.ts",
+    "apps/desktop/src/product-flavors.json",
     "apps/desktop/src/paths.ts",
     "apps/desktop/src/single-instance.ts",
     "apps/desktop/electron-builder.config.mjs",
@@ -395,10 +407,10 @@
     "severity": "CRITICAL",
     "impact": "BLOCKING_CHANGE",
     "resolution": "UNRESOLVED",
-    "reason": "Reconnaissance and a strategy lock do not prove a port, packaged candidate, data migration, or new product baseline."
+    "reason": "The Stage 2 product identity seam does not yet prove data migration, packaged runtime qualification, retained capabilities, or a new product baseline."
   },
   "knownUnknowns": [
-    "The exact upstream-style configuration API for a second product flavor must be designed and reviewed in Stage 2.",
+    "The signed and notarized DS Harness package, runtime payload, and client artifact identity remain unqualified until Stage 4.",
     "The precise v3 extension-event registration versus ignorable-envelope choice for TaskCheckpoint and Run State durable facts needs a focused schema prototype in Stage 6.",
     "The local IQ3_S route's final mapping into the current pi-ai model catalog must be proven without reading real settings in Stage 9.",
     "The current dockkit/scoped-slot insertion contract for Run Details needs a minimal renderer prototype after its remote contract stabilizes.",

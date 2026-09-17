@@ -92,6 +92,7 @@ export class DesktopHostProcess {
    *   `office-skills` resources fail Host startup.
    * @param packageManager - Bundled pnpm entry and Node launcher directory, scoped to package operations.
    * @param profileResolution - Package resolution mode for the application-owned profile.
+   * @param profileName - Explicit profile identity selected by the Desktop product flavor.
    */
   constructor(
     private readonly node: string,
@@ -103,6 +104,7 @@ export class DesktopHostProcess {
     private readonly primaryRuntime?: string,
     private readonly profileResolution: 'link' | 'runtime' = 'link',
     private readonly packageManager?: { readonly pnpm: string; readonly nodeBin: string },
+    private readonly profileName = 'desktop',
   ) {}
 
   /**
@@ -123,7 +125,10 @@ export class DesktopHostProcess {
       ...this.packageManager === undefined ? [] : [this.packageManager.pnpm, this.packageManager.nodeBin],
     ], {
       cwd: this.projectDir,
-      env: desktopNodeEnvironment(this.node, undefined, this.environment),
+      env: {
+        ...desktopNodeEnvironment(this.node, undefined, this.environment),
+        DSH_DESKTOP_PROFILE_NAME: this.profileName,
+      },
       stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
     })
     this.child = child

@@ -186,10 +186,21 @@ export interface DesktopLocale {
 }
 
 /** Resolve Electron's locale to one shipped Desktop dictionary. */
-export function resolveDesktopLocale(locale: string): DesktopLocale {
-  return locale.toLowerCase().startsWith('zh')
-    ? { id: 'zh-CN', messages: zh }
-    : { id: 'en', messages: en }
+export function resolveDesktopLocale(locale: string, productName = 'DeepSeek Harness'): DesktopLocale {
+  const chinese = locale.toLowerCase().startsWith('zh')
+  const selected = chinese ? { id: 'zh-CN' as const, messages: zh } : { id: 'en' as const, messages: en }
+  if (productName === 'DeepSeek Harness') return selected
+  const branded: DesktopMessages = {
+    ...selected.messages,
+    aboutMenu: chinese ? `关于 ${productName}` : `About ${productName}`,
+    startupFailed: chinese ? `${productName} 无法使用` : `${productName} is unavailable`,
+    updateDownloadedTitle: chinese ? `${productName} v{version} 下载完成` : `${productName} v{version} downloaded`,
+    updateTitle: chinese ? `${productName} 更新` : `${productName} Update`,
+    updateDetail: chinese
+      ? `${productName} {version}\n\n新版本绑定匹配的 dsh，安装后将重新启动。`
+      : `${productName} {version}\n\nThis release includes its matching dsh version. The application will restart after installation.`,
+  }
+  return { id: selected.id, messages: branded }
 }
 
 /** Replace named placeholders in one locale-owned message. */

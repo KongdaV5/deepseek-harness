@@ -19,6 +19,7 @@ interface Manifest {
     readonly id: string
     readonly status: string
     readonly action: string
+    readonly implementationStatus?: string
     readonly validation: readonly string[]
   }[]
   readonly seams: readonly {
@@ -31,7 +32,12 @@ interface Manifest {
     readonly validation: readonly string[]
   }[]
   readonly strategy: { readonly chosen: string }
-  readonly portOrder: readonly { readonly stage: number; readonly stopGate: string; readonly tests: readonly string[] }[]
+  readonly portOrder: readonly {
+    readonly stage: number
+    readonly status: string
+    readonly stopGate: string
+    readonly tests: readonly string[]
+  }[]
   readonly contractEvidencePaths: readonly string[]
   readonly compatibilityDebt: { readonly severity: string; readonly impact: string; readonly resolution: string }
 }
@@ -54,12 +60,12 @@ const seamIds = [
   'native-runtime-abi-closure',
 ] as const
 
-describe('Phase 8C.1 upstream adaptation manifest', () => {
+describe('Phase 8C upstream adaptation manifest', () => {
   it('locks the audited target and immutable source baselines', () => {
     expect(manifest).toMatchObject({
       formatVersion: 1,
-      phase: '8C.1',
-      status: 'strategy-locked',
+      phase: '8C.2a',
+      status: 'stage-2-complete',
       target: { sha: 'ddefc45fbc7f8e46dd73185e68295696d1297887' },
       source: {
         productBaselineTag: 'ds-harness-product-baseline-2026-09-17',
@@ -78,6 +84,9 @@ describe('Phase 8C.1 upstream adaptation manifest', () => {
       expect(manifest.actionValues).toContain(capability.action)
       expect(capability.validation.length).toBeGreaterThan(0)
     }
+    expect(manifest.capabilities.find(capability => capability.id === 'product-identity')).toMatchObject({
+      status: 'PORT_WITH_ADAPTATION', action: 'PORT', implementationStatus: 'IMPLEMENTED_STAGE_2',
+    })
   })
 
   it('covers the eleven registered seams with migration and validation contracts', () => {
@@ -99,6 +108,8 @@ describe('Phase 8C.1 upstream adaptation manifest', () => {
       expect(stage.tests.length).toBeGreaterThan(0)
       expect(stage.stopGate.length).toBeGreaterThan(10)
     }
+    expect(manifest.portOrder.slice(0, 2).map(stage => stage.status)).toEqual(['COMPLETE', 'COMPLETE'])
+    expect(manifest.portOrder.slice(2).every(stage => stage.status === 'PENDING')).toBe(true)
   })
 
   it('keeps compatibility debt unresolved and every cited contract path discoverable', () => {
