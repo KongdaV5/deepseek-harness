@@ -1,0 +1,529 @@
+{
+  "formatVersion": 1,
+  "baseline": "ds-harness-product-baseline-2026-09-17",
+  "customChangeSurface": [
+    {
+      "domain": "desktop-product-identity",
+      "description": "DS Harness name, bundle identifier, Custom flavor, startup branding, and isolation from the official Desktop.",
+      "customPaths": [
+        "apps/desktop/electron-builder.config.mjs",
+        "apps/desktop/scripts/package-custom.ts",
+        "apps/desktop/scripts/install-custom.ts",
+        "apps/desktop/src/main.ts",
+        "apps/desktop/src/paths.ts",
+        "apps/desktop/src/startup-renderer.ts"
+      ],
+      "upstreamDependency": "Electron product configuration, userData resolution, single-instance ownership, and startup renderer contracts.",
+      "riskSignificance": "A regression can rename the product, reuse the official profile/userData boundary, or show stale official branding."
+    },
+    {
+      "domain": "desktop-packaging",
+      "description": "Custom package/install entry points, runtime tree, Electron builder inputs, and package-set closure.",
+      "customPaths": [
+        "apps/desktop/scripts/package-custom.ts",
+        "apps/desktop/scripts/install-custom.ts",
+        "apps/desktop/scripts/prepare-dsh.ts",
+        "apps/desktop/scripts/prepare-package-set.ts",
+        "apps/desktop/scripts/macos-runtime.ts",
+        "apps/desktop/electron-builder.config.mjs",
+        "scripts/build.ts",
+        "scripts/client-build-environment.ts"
+      ],
+      "upstreamDependency": "Desktop staging layout, runtime descriptor, packaged Node Host, package resolution, and release-family build contracts.",
+      "riskSignificance": "Changes can produce an incomplete runtime, wrong architecture, missing native module, or non-replayable product build."
+    },
+    {
+      "domain": "custom-composition",
+      "description": "The built-in Cordis bundle that composes the approved Phase 2–7 capabilities.",
+      "customPaths": [
+        "packages/bundle/desktop-custom-composition/**",
+        "packages/bundle/desktop-dev-composition/**"
+      ],
+      "upstreamDependency": "Cordis patch schema, base/web bundles, package export resolution, and Desktop package-set loading.",
+      "riskSignificance": "Composition drift can silently omit a capability or make the Custom runtime fail during startup."
+    },
+    {
+      "domain": "phase-2-7-capabilities",
+      "description": "Run State, backend observation, run control, Task Checkpoint, reasoning, compaction, and diagnostics capabilities.",
+      "customPaths": [
+        "packages/runtime-diagnostics/**",
+        "packages/guard/agent-run-policy/**",
+        "packages/session/task-checkpoint/**",
+        "packages/compaction/compaction-basic/**"
+      ],
+      "upstreamDependency": "Agent events, LLM streaming/retry hooks, Session events/projections, compaction executor, and token-meter contracts.",
+      "riskSignificance": "Interface drift can break observability or safety invariants while leaving the Desktop superficially runnable."
+    },
+    {
+      "domain": "profile-runtime-boundary",
+      "description": "desktop-custom profile, Electron userData isolation, bundled Node Host, and intentionally shared settings/session boundaries.",
+      "customPaths": [
+        "apps/desktop/src/main.ts",
+        "apps/desktop/src/paths.ts",
+        "apps/desktop/src/project-manager.ts",
+        "apps/desktop/scripts/package-custom.ts",
+        "packages/bundle/desktop-custom-composition/**"
+      ],
+      "upstreamDependency": "Profile link/loading, project/runtime descriptors, userData, settings, sessions, and migration semantics.",
+      "riskSignificance": "This is a data-safety boundary; a mismatch can mix official and Custom runtime state or migrate shared data unexpectedly."
+    },
+    {
+      "domain": "ui-integration",
+      "description": "Run Details diagnostics surface, idle-state closure, startup shell, title, and client composition wiring.",
+      "customPaths": [
+        "packages/client/desktop-run-diagnostics-remote/**",
+        "packages/client/ui-run-details/**",
+        "apps/desktop/src/startup-renderer.ts",
+        "apps/desktop/src/main.ts"
+      ],
+      "upstreamDependency": "Client remote transport, renderer slots, conversation layout, startup URL, and title/branding contracts.",
+      "riskSignificance": "Changes can hide diagnostics, reintroduce an idle dock gap, or surface official branding."
+    },
+    {
+      "domain": "tests",
+      "description": "Phase 2–8A contract, packaging, composition, UI, and safety regression coverage.",
+      "customPaths": [
+        "apps/desktop/tests/**",
+        "packages/runtime-diagnostics/**/tests/**",
+        "packages/guard/agent-run-policy/tests/**",
+        "packages/session/task-checkpoint/tests/**",
+        "packages/client/ui-run-details/tests/**"
+      ],
+      "upstreamDependency": "Vitest, test helpers, Desktop fixtures, and package build conventions.",
+      "riskSignificance": "Test-framework drift can hide or falsely report compatibility failures; it does not itself prove a product regression."
+    },
+    {
+      "domain": "documentation",
+      "description": "Bilingual architecture records, subsystem documentation, generated catalogs, and baseline attestations.",
+      "customPaths": [
+        ".agents/notes/implemented/architecture/2026-09-1*.md",
+        ".agents/notes/implemented/architecture/2026-09-1*.yaml",
+        "docs/subsystems/agent-run-state*",
+        "docs/subsystems/task-checkpoint*",
+        "docs/subsystems/compaction*",
+        "docs/capability-seams*",
+        "docs/config-catalog*",
+        "docs/event-producer-consumer*",
+        "docs/module-graph*",
+        "docs/persistence-catalog*"
+      ],
+      "upstreamDependency": "Documentation pairing, generated-catalog, link, and architecture-note conventions.",
+      "riskSignificance": "Documentation drift is normally non-runtime but can invalidate generated-doc gates and maintenance evidence."
+    },
+    {
+      "domain": "workspace-build-graph",
+      "description": "Workspace references, dependency lock, package metadata, build faces, exports, and release families required by Custom packages.",
+      "customPaths": [
+        "package.json",
+        "pnpm-lock.yaml",
+        "tsconfig.base.json",
+        "tsconfig.client.json",
+        "tsconfig.host.json",
+        "scripts/type-equiv.manifest.json",
+        "scripts/release/families.ts"
+      ],
+      "upstreamDependency": "Workspace discovery, TypeScript project references, package exports, build/release tooling, and dependency resolution.",
+      "riskSignificance": "Structural drift can make Custom packages disappear from builds or resolve incompatible runtime dependencies."
+    }
+  ],
+  "seams": [
+    {
+      "id": "desktop-product-identity-isolation",
+      "description": "Product name, bundle identity, startup branding, userData, and single-instance isolation for DS Harness.",
+      "upstreamPaths": [
+        "apps/desktop/electron-builder.config.*",
+        "apps/desktop/src/main.ts",
+        "apps/desktop/src/paths.ts",
+        "apps/desktop/src/startup-renderer.ts",
+        "apps/desktop/src/project-manager.ts",
+        "apps/desktop/package.json"
+      ],
+      "contractPaths": [
+        "apps/desktop/electron-builder.config.*",
+        "apps/desktop/src/main.ts",
+        "apps/desktop/src/paths.ts",
+        "apps/desktop/src/startup-renderer.ts"
+      ],
+      "customPaths": [
+        "apps/desktop/electron-builder.config.mjs",
+        "apps/desktop/scripts/package-custom.ts",
+        "apps/desktop/scripts/install-custom.ts",
+        "apps/desktop/src/main.ts",
+        "apps/desktop/src/paths.ts",
+        "apps/desktop/src/startup-renderer.ts"
+      ],
+      "interface": "Electron productName/appId, app.setPath('userData'), single-instance ownership, startup URL/title, and flavor selection.",
+      "whyItMatters": "A mismatch can collapse Custom and official state boundaries or regress visible DS Harness identity.",
+      "failureMode": "Wrong app name or bundle id, shared userData/profile, stale official startup branding, or competing instance ownership.",
+      "detectionMethod": "Exact path and rename detection; product/data-safety contract paths are treated as structural signals.",
+      "risk": "CRITICAL",
+      "tests": [
+        "apps/desktop/tests/main-startup.spec.ts",
+        "apps/desktop/tests/startup-renderer.spec.ts",
+        "apps/desktop/tests/project-manager.spec.ts"
+      ]
+    },
+    {
+      "id": "desktop-packaging-runtime-tree",
+      "description": "Desktop staging, Electron packaging, runtime descriptor, and Custom install artifact contract.",
+      "upstreamPaths": [
+        "apps/desktop/electron-builder.config.*",
+        "apps/desktop/scripts/package*.ts",
+        "apps/desktop/scripts/prepare-*.ts",
+        "apps/desktop/scripts/macos-runtime.ts",
+        "apps/desktop/scripts/runtime-tree.ts",
+        "apps/desktop/package.json",
+        "scripts/build.ts",
+        "scripts/release/**"
+      ],
+      "contractPaths": [
+        "apps/desktop/electron-builder.config.*",
+        "apps/desktop/scripts/prepare-dsh.ts",
+        "apps/desktop/scripts/prepare-package-set.ts",
+        "apps/desktop/scripts/macos-runtime.ts",
+        "apps/desktop/scripts/runtime-tree.ts",
+        "apps/desktop/package.json"
+      ],
+      "customPaths": [
+        "apps/desktop/electron-builder.config.mjs",
+        "apps/desktop/scripts/package-custom.ts",
+        "apps/desktop/scripts/install-custom.ts",
+        "apps/desktop/scripts/prepare-dsh.ts",
+        "apps/desktop/scripts/prepare-package-set.ts",
+        "apps/desktop/scripts/macos-runtime.ts"
+      ],
+      "interface": "Prepared Resources/dsh tree, packaged Node executable, package-set closure, builder configuration, target architecture, and install source.",
+      "whyItMatters": "The product is replayed from this pipeline and native/runtime closure must match Electron and macOS architecture.",
+      "failureMode": "Missing Host/runtime package, wrong executable architecture, invalid signing input, or incomplete Custom artifact.",
+      "detectionMethod": "Path/rename detection plus package/build manifest and runtime-tree structural signals.",
+      "risk": "HIGH",
+      "tests": [
+        "apps/desktop/tests/macos-signature.spec.ts",
+        "apps/desktop/tests/runtime-fixture.ts",
+        "scripts/verify-runtime-closure.spec.ts"
+      ]
+    },
+    {
+      "id": "package-set-custom-composition",
+      "description": "Cordis bundle schema and package-set loading used to inject the Custom capability composition.",
+      "upstreamPaths": [
+        "apps/desktop/scripts/prepare-package-set.ts",
+        "apps/desktop/src/profile-packages.ts",
+        "packages/bundle/base/**",
+        "packages/bundle/web-app/**",
+        "packages/core/loader/**",
+        "vendor/loader/**"
+      ],
+      "contractPaths": [
+        "apps/desktop/scripts/prepare-package-set.ts",
+        "apps/desktop/src/profile-packages.ts",
+        "packages/bundle/base/cordis.patch.yml",
+        "packages/bundle/base/package.json",
+        "packages/bundle/web-app/cordis.patch.yml",
+        "packages/bundle/web-app/package.json"
+      ],
+      "customPaths": [
+        "packages/bundle/desktop-custom-composition/**",
+        "packages/bundle/desktop-dev-composition/**",
+        "apps/desktop/scripts/prepare-package-set.ts"
+      ],
+      "interface": "Cordis patch declarations, package names/exports, built-in package resolution, and Desktop package-set materialization.",
+      "whyItMatters": "All Phase 2–7 packages enter the daily product through this deliberately thin composition seam.",
+      "failureMode": "Startup load error, unresolved package, invalid patch schema, or silently absent diagnostics/policy capability.",
+      "detectionMethod": "Bundle/package/loader path detection, manifest changes, and rename tracking.",
+      "risk": "HIGH",
+      "tests": [
+        "packages/guard/agent-run-policy/tests/loader-composition.spec.ts",
+        "packages/runtime-diagnostics/reasoning-policy/tests/loader-composition.spec.ts",
+        "packages/session/task-checkpoint/tests/loader-composition.spec.ts"
+      ]
+    },
+    {
+      "id": "client-package-export-loader",
+      "description": "Client package export faces, remote client registration, slot ownership, and renderer package loading.",
+      "upstreamPaths": [
+        "packages/client/modules/**",
+        "packages/client/connection/**",
+        "packages/client/ui-renderer/**",
+        "packages/client/ui-conversation/**",
+        "packages/client/ui-layout/**",
+        "packages/client/tsdown.client.ts",
+        "scripts/client-build-environment.ts",
+        "scripts/gen-client-catalog.ts"
+      ],
+      "contractPaths": [
+        "packages/client/modules/src/client/manifest.ts",
+        "packages/client/modules/src/client/index.ts",
+        "packages/client/connection/src/client/api.ts",
+        "packages/client/ui-renderer/src/client/registry.ts",
+        "packages/client/ui-conversation/src/client/contract/**",
+        "packages/client/ui-layout/src/client/**",
+        "packages/client/tsdown.client.ts",
+        "scripts/client-build-environment.ts"
+      ],
+      "customPaths": [
+        "packages/client/desktop-run-diagnostics-remote/**",
+        "packages/client/ui-run-details/**",
+        "packages/bundle/desktop-custom-composition/cordis.patch.yml",
+        "scripts/client-build-environment.ts"
+      ],
+      "interface": "Client/remote export maps, package manifest loading, UI slots, connection commands, and renderer registration.",
+      "whyItMatters": "Run Details is a client plugin and depends on upstream loader and layout contracts without owning them.",
+      "failureMode": "Client bundle build failure, missing remote, unrendered dock, duplicate slot owner, or runtime module resolution failure.",
+      "detectionMethod": "Contract-path and package-export changes; exact rename detection for client contracts.",
+      "risk": "HIGH",
+      "tests": [
+        "packages/client/ui-run-details/tests/run-status-dock.client.spec.tsx",
+        "packages/client/ui-run-details/tests/source.client.spec.ts",
+        "scripts/verify-client-packages.spec.ts"
+      ]
+    },
+    {
+      "id": "profile-settings-session-boundary",
+      "description": "Custom profile selection and the intentional isolation/sharing boundary for userData, settings, and Sessions.",
+      "upstreamPaths": [
+        "apps/desktop/src/paths.ts",
+        "apps/desktop/src/main.ts",
+        "apps/desktop/src/project-manager.ts",
+        "apps/desktop/src/profile-packages.ts",
+        "packages/profile/**",
+        "packages/session/session-persistence/**",
+        "packages/core/session/**",
+        "packages/config/**"
+      ],
+      "contractPaths": [
+        "apps/desktop/src/paths.ts",
+        "apps/desktop/src/main.ts",
+        "apps/desktop/src/project-manager.ts",
+        "apps/desktop/src/profile-packages.ts",
+        "packages/profile/**/src/**",
+        "packages/session/session-persistence/src/**",
+        "packages/core/session/src/**",
+        "packages/config/**/src/**"
+      ],
+      "customPaths": [
+        "apps/desktop/src/paths.ts",
+        "apps/desktop/src/main.ts",
+        "apps/desktop/src/project-manager.ts",
+        "apps/desktop/scripts/package-custom.ts",
+        "packages/bundle/desktop-custom-composition/**"
+      ],
+      "interface": "Profile path/name, profile-link resolution, settings ownership, Session persistence location/schema, and userData derivation.",
+      "whyItMatters": "The official and Custom products are isolated in some stores and intentionally share others; accidental drift is a data-safety issue.",
+      "failureMode": "Wrong profile, duplicate or migrated settings, conflicting concurrent Session writers, or data written under a new path.",
+      "detectionMethod": "Exact data-boundary paths, schema/type files, migrations, and renames always require manual review.",
+      "risk": "CRITICAL",
+      "tests": [
+        "apps/desktop/tests/project-manager.spec.ts",
+        "apps/desktop/tests/profile-packages.spec.ts",
+        "packages/session/task-checkpoint/tests/schema.spec.ts"
+      ]
+    },
+    {
+      "id": "agent-run-event-contract",
+      "description": "Agent lifecycle, request-attempt, stream, retry, cancellation, and tool event surfaces projected by Run State and policy.",
+      "upstreamPaths": [
+        "packages/agent/**",
+        "packages/core/agent/**",
+        "packages/core/session/src/known-event-types.ts",
+        "packages/extensions/tool-cordis/src/api-catalog.ts"
+      ],
+      "contractPaths": [
+        "packages/agent/**/src/types.ts",
+        "packages/agent/**/src/events.ts",
+        "packages/agent/**/src/agent-loop.ts",
+        "packages/core/agent/**/src/**",
+        "packages/core/session/src/known-event-types.ts",
+        "packages/extensions/tool-cordis/src/api-catalog.ts"
+      ],
+      "customPaths": [
+        "packages/runtime-diagnostics/agent-run-state/**",
+        "packages/guard/agent-run-policy/**",
+        "packages/session/task-checkpoint/**",
+        "packages/core/session/src/known-event-types.ts",
+        "packages/extensions/tool-cordis/src/api-catalog.ts"
+      ],
+      "interface": "Run/Attempt correlation, agent event payloads, model-attempt lifecycle, tool completion facts, retry gates, and cancellation acknowledgement.",
+      "whyItMatters": "Run State and recovery safety project existing events; they must not guess if lifecycle semantics change.",
+      "failureMode": "Wrong Run attribution, terminal-state overwrite, unsafe retry, lost cancellation acknowledgement, or TOOL_OUTCOME_UNKNOWN bypass.",
+      "detectionMethod": "Agent/core contract paths, event schema/type changes, direct overlap, and rename detection.",
+      "risk": "HIGH",
+      "tests": [
+        "packages/runtime-diagnostics/agent-run-state/tests/projection.spec.ts",
+        "packages/guard/agent-run-policy/tests/policy.spec.ts",
+        "packages/session/task-checkpoint/tests/guards.spec.ts"
+      ]
+    },
+    {
+      "id": "llm-provider-stream-contract",
+      "description": "LLM request, reasoning effort, streaming chunks, retry classification, token usage, and provider adapter contracts.",
+      "upstreamPaths": [
+        "packages/llm/**",
+        "packages/provider/**",
+        "packages/core/llm/**"
+      ],
+      "contractPaths": [
+        "packages/llm/llm/src/types.ts",
+        "packages/llm/**/src/adapter.ts",
+        "packages/llm/**/src/types.ts",
+        "packages/provider/**/src/types.ts",
+        "packages/core/llm/**/src/**"
+      ],
+      "customPaths": [
+        "packages/llm/llm/src/types.ts",
+        "packages/llm/llm-pi-ai/src/adapter.ts",
+        "packages/runtime-diagnostics/reasoning-policy/**",
+        "packages/runtime-diagnostics/agent-run-state/**",
+        "packages/guard/agent-run-policy/**"
+      ],
+      "interface": "Request-level reasoning, stream chunks, usage/cache accounting, retry/error payloads, and provider defaults.",
+      "whyItMatters": "The IQ3_S policy and Run projection depend on explicit wire values and observed stream facts, not inferred configuration.",
+      "failureMode": "Unsupported reasoning sent on wire, lost activity, false retry classification, or inaccurate context pressure.",
+      "detectionMethod": "Type/adapter contract paths and package export changes; adjacent implementation is medium risk pending review.",
+      "risk": "HIGH",
+      "tests": [
+        "packages/llm/llm-pi-ai/tests/adapter.spec.ts",
+        "packages/runtime-diagnostics/reasoning-policy/tests/policy.spec.ts",
+        "packages/runtime-diagnostics/agent-run-state/tests/service.spec.ts"
+      ]
+    },
+    {
+      "id": "session-projection-persistence-contract",
+      "description": "Session event durability, known event registration, projection replay, and persistence format used by Run and Task state.",
+      "upstreamPaths": [
+        "packages/core/session/**",
+        "packages/session/session-format/**",
+        "packages/session/session-persistence/**",
+        "packages/session/session-controller/**"
+      ],
+      "contractPaths": [
+        "packages/core/session/src/known-event-types.ts",
+        "packages/core/session/**/src/types.ts",
+        "packages/session/session-format/src/**",
+        "packages/session/session-persistence/src/**",
+        "packages/session/session-controller/src/**"
+      ],
+      "customPaths": [
+        "packages/core/session/src/known-event-types.ts",
+        "packages/runtime-diagnostics/agent-run-state/**",
+        "packages/session/task-checkpoint/**"
+      ],
+      "interface": "Durable Session event envelope, known-type catalog, JSONL format, projection registration/replay, and atomic persistence.",
+      "whyItMatters": "Run terminal facts, Task Checkpoint, and Result Manifest survive restart only through these upstream contracts.",
+      "failureMode": "Events rejected, projections not rebuilt, checkpoint loss, schema incompatibility, or unsafe resume eligibility.",
+      "detectionMethod": "Schema/type/event/persistence paths and migrations; direct overlap is explicitly recorded.",
+      "risk": "CRITICAL",
+      "tests": [
+        "packages/runtime-diagnostics/agent-run-state/tests/projection.spec.ts",
+        "packages/session/task-checkpoint/tests/task-checkpoint.spec.ts",
+        "packages/session/task-checkpoint/tests/resume-execution.spec.ts"
+      ]
+    },
+    {
+      "id": "compaction-token-surface-contract",
+      "description": "Compaction executor, surface replacement, token meter, tool-result governance, and auxiliary reasoning isolation.",
+      "upstreamPaths": [
+        "packages/compaction/**",
+        "packages/token-meter/**",
+        "packages/agent/**/src/context*.ts",
+        "packages/agent/**/src/surface*.ts"
+      ],
+      "contractPaths": [
+        "packages/compaction/compaction-basic/src/**",
+        "packages/compaction/compaction/src/**",
+        "packages/token-meter/**/src/**",
+        "packages/agent/**/src/context*.ts",
+        "packages/agent/**/src/surface*.ts"
+      ],
+      "customPaths": [
+        "packages/compaction/compaction-basic/**",
+        "packages/runtime-diagnostics/reasoning-policy/src/compaction-policy.ts",
+        "packages/runtime-diagnostics/reasoning-policy/src/context-pressure.ts",
+        "packages/session/task-checkpoint/**"
+      ],
+      "interface": "Pressure facts, compaction eligibility/execution, candidate validation, atomic surface apply, and tool-output references.",
+      "whyItMatters": "Main-task xhigh reasoning and checkpoint authority rely on compaction staying auxiliary, validated, and fail-closed.",
+      "failureMode": "Main reasoning polluted, facts dropped, old surface deleted before validation, or compaction used as recovery.",
+      "detectionMethod": "Compaction/token surface paths, schema/type changes, and direct overlap detection.",
+      "risk": "HIGH",
+      "tests": [
+        "packages/runtime-diagnostics/reasoning-policy/tests/compaction-policy.spec.ts",
+        "packages/compaction/compaction-basic/tests/compaction-basic.spec.ts",
+        "packages/session/task-checkpoint/tests/resume-execution.spec.ts"
+      ]
+    },
+    {
+      "id": "diagnostics-remote-ui-contract",
+      "description": "Read-only diagnostics transport and UI source contract from Run State to Run Details.",
+      "upstreamPaths": [
+        "packages/client/connection/**",
+        "packages/client/modules/**",
+        "packages/client/ui-conversation/**",
+        "packages/client/ui-layout/**",
+        "packages/extensions/tool-cordis/src/api-catalog.ts"
+      ],
+      "contractPaths": [
+        "packages/client/connection/src/client/api.ts",
+        "packages/client/modules/src/client/**",
+        "packages/client/ui-conversation/src/client/contract/**",
+        "packages/client/ui-layout/src/client/**",
+        "packages/extensions/tool-cordis/src/api-catalog.ts"
+      ],
+      "customPaths": [
+        "packages/runtime-diagnostics/desktop-run-diagnostics/**",
+        "packages/client/desktop-run-diagnostics-remote/**",
+        "packages/client/ui-run-details/**",
+        "packages/extensions/tool-cordis/src/api-catalog.ts"
+      ],
+      "interface": "Typert/remote service publication, client snapshot source, UI slot ownership, and explicit Unknown/idle presentation.",
+      "whyItMatters": "Diagnostics must remain read-only and must not fabricate health when backend facts are absent.",
+      "failureMode": "Transport break, missing panel, stale snapshot, idle ghost dock, or Unknown coerced to a false healthy state.",
+      "detectionMethod": "Remote/client contract and slot paths; exact overlaps and renames increase confidence.",
+      "risk": "HIGH",
+      "tests": [
+        "packages/runtime-diagnostics/desktop-run-diagnostics/tests/service.spec.ts",
+        "packages/client/ui-run-details/tests/source.client.spec.ts",
+        "packages/client/ui-run-details/tests/run-status-dock.client.spec.tsx"
+      ]
+    },
+    {
+      "id": "native-runtime-abi-closure",
+      "description": "Electron/Node ABI and packaged native modules required by the Desktop Host.",
+      "upstreamPaths": [
+        "package.json",
+        "pnpm-lock.yaml",
+        "apps/desktop/package.json",
+        "apps/desktop/scripts/macos-runtime.ts",
+        "apps/desktop/scripts/runtime-tree.ts",
+        "native/system/**",
+        "packages/host/**/package.json",
+        "packages/system/**/package.json",
+        "packages/tool/bash/package.json"
+      ],
+      "contractPaths": [
+        "package.json",
+        "pnpm-lock.yaml",
+        "apps/desktop/package.json",
+        "apps/desktop/scripts/macos-runtime.ts",
+        "apps/desktop/scripts/runtime-tree.ts",
+        "native/system/**"
+      ],
+      "customPaths": [
+        "apps/desktop/scripts/package-custom.ts",
+        "apps/desktop/scripts/macos-runtime.ts",
+        "apps/desktop/electron-builder.config.mjs",
+        "pnpm-lock.yaml"
+      ],
+      "interface": "Electron version, bundled Node version/architecture, native ABI, target platform, and fs-ext/koffi/sharp/node-pty closure.",
+      "whyItMatters": "The verified product ships native modules and a packaged Host; version drift is invisible until load or spawn time.",
+      "failureMode": "dlopen/ABI failure, missing native binary, wrong architecture, or packaged Host startup failure.",
+      "detectionMethod": "Manifest/lock/runtime changes are inspected for Electron, Node, target, and named native dependencies rather than treating every dependency change as high risk.",
+      "risk": "HIGH",
+      "tests": [
+        "scripts/verify-runtime-closure.spec.ts",
+        "apps/desktop/tests/runtime-fixture.ts",
+        "apps/desktop/tests/macos-signature.spec.ts"
+      ]
+    }
+  ]
+}
