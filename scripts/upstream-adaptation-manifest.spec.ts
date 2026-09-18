@@ -60,6 +60,15 @@ interface Manifest {
     readonly validation: readonly string[]
   }[]
   readonly strategy: { readonly chosen: string }
+  readonly compositionQualification: {
+    readonly profile: string
+    readonly upstreamTemplate: string
+    readonly bundles: readonly string[]
+    readonly profilePatch: string
+    readonly customEntryIds: readonly string[]
+    readonly upstreamNativeOwner: readonly string[]
+    readonly legacyComposition: string
+  }
   readonly portOrder: readonly {
     readonly stage: number
     readonly status: string
@@ -92,8 +101,8 @@ describe('Phase 8C upstream adaptation manifest', () => {
   it('locks the audited target and immutable source baselines', () => {
     expect(manifest).toMatchObject({
       formatVersion: 1,
-      phase: '8C.2b',
-      status: 'stage-3-complete',
+      phase: '8C.2d',
+      status: 'stage-5-complete',
       target: { sha: 'ddefc45fbc7f8e46dd73185e68295696d1297887' },
       source: {
         productBaselineTag: 'ds-harness-product-baseline-2026-09-17',
@@ -139,8 +148,23 @@ describe('Phase 8C upstream adaptation manifest', () => {
       expect(stage.tests.length).toBeGreaterThan(0)
       expect(stage.stopGate.length).toBeGreaterThan(10)
     }
-    expect(manifest.portOrder.slice(0, 3).map(stage => stage.status)).toEqual(['COMPLETE', 'COMPLETE', 'COMPLETE'])
-    expect(manifest.portOrder.slice(3).every(stage => stage.status === 'PENDING')).toBe(true)
+    expect(manifest.portOrder.slice(0, 5).map(stage => stage.status)).toEqual([
+      'COMPLETE', 'COMPLETE', 'COMPLETE', 'COMPLETE', 'COMPLETE',
+    ])
+    expect(manifest.portOrder.slice(5).every(stage => stage.status === 'PENDING')).toBe(true)
+    expect(manifest.compositionQualification).toEqual({
+      profile: 'desktop-custom',
+      upstreamTemplate: 'web',
+      bundles: ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app'],
+      profilePatch: 'upstream-init-empty',
+      customEntryIds: [],
+      upstreamNativeOwner: [
+        'Cordis bundle layering',
+        'generated client module roster',
+        'agent/session/checkpoint/retry/compaction services',
+      ],
+      legacyComposition: 'REJECTED_FAIL_CLOSED',
+    })
   })
 
   it('records the Stage 3 sharing, compatibility, and rollback classifications', () => {
