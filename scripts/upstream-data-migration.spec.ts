@@ -121,14 +121,37 @@ describe('Final Product Session v3 compatibility', () => {
     await reader.close()
   })
 
-  it.each(['task/checkpoint', 'task/result-manifest'])('rejects removed required Custom event %s', async (type) => {
+  // Restored first-party compatibility: `task/checkpoint` and
+  // `task/result-manifest` were re-declared as known Session v3 vocabulary, so
+  // the read path admits a legacy log carrying them with no conversion.
+  it.each(['task/checkpoint', 'task/result-manifest'])('reads restored first-party required event %s without rewriting the log', async (type) => {
     const root = await temporaryRoot()
-    const id = `old-custom-${type.replace('/', '-')}`
+    const id = `restored-custom-${type.replace('/', '-')}`
     const path = await writeV3Fixture(root, id, {
       type,
       seq: 0,
       time: 1,
       data: { kind: type, version: 1 },
+    })
+    const before = await readFile(path)
+    const ctx = await sessionContext(root)
+    const reader = await ctx.sessionPersistence.open(SessionId(id), 'read')
+    expect((await reader.read()).events[0]?.type).toBe(type)
+    await reader.close()
+    expect(await readFile(path)).toEqual(before)
+  })
+
+  // The generic refusal stays intact: only the two restored types became
+  // known, so an event this build genuinely does not declare is still an
+  // unreadable required event rather than a silently skipped one.
+  it('still rejects a required event outside the target catalog', async () => {
+    const root = await temporaryRoot()
+    const id = 'unregistered-required-event'
+    const path = await writeV3Fixture(root, id, {
+      type: 'unregistered/required',
+      seq: 0,
+      time: 1,
+      data: { kind: 'unregistered/required', version: 1 },
     })
     const before = await readFile(path)
     const ctx = await sessionContext(root)

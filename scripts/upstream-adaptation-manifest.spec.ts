@@ -38,6 +38,7 @@ interface Manifest {
       readonly rollbackClassification: string
       readonly targetOnlyRequiredEvents: readonly string[]
       readonly removedRequiredCustomEvents: readonly string[]
+      readonly restoredFirstPartyRequiredEvents: readonly string[]
       readonly customEventBehavior: string
     }
   }
@@ -74,6 +75,8 @@ interface Manifest {
     readonly status: string
     readonly stopGate: string
     readonly tests: readonly string[]
+    readonly deliverables?: readonly string[]
+    readonly decisions?: readonly string[]
   }[]
   readonly contractEvidencePaths: readonly string[]
   readonly compatibilityDebt: { readonly severity: string; readonly impact: string; readonly resolution: string }
@@ -101,8 +104,8 @@ describe('Phase 8C upstream adaptation manifest', () => {
   it('locks the audited target and immutable source baselines', () => {
     expect(manifest).toMatchObject({
       formatVersion: 1,
-      phase: '8C.2d',
-      status: 'stage-5-complete',
+      phase: '8C.2e',
+      status: 'stage-6-complete',
       target: { sha: 'ddefc45fbc7f8e46dd73185e68295696d1297887' },
       source: {
         productBaselineTag: 'ds-harness-product-baseline-2026-09-17',
@@ -148,10 +151,10 @@ describe('Phase 8C upstream adaptation manifest', () => {
       expect(stage.tests.length).toBeGreaterThan(0)
       expect(stage.stopGate.length).toBeGreaterThan(10)
     }
-    expect(manifest.portOrder.slice(0, 5).map(stage => stage.status)).toEqual([
-      'COMPLETE', 'COMPLETE', 'COMPLETE', 'COMPLETE', 'COMPLETE',
+    expect(manifest.portOrder.slice(0, 6).map(stage => stage.status)).toEqual([
+      'COMPLETE', 'COMPLETE', 'COMPLETE', 'COMPLETE', 'COMPLETE', 'COMPLETE',
     ])
-    expect(manifest.portOrder.slice(5).every(stage => stage.status === 'PENDING')).toBe(true)
+    expect(manifest.portOrder.slice(6).every(stage => stage.status === 'PENDING')).toBe(true)
     expect(manifest.compositionQualification).toEqual({
       profile: 'desktop-custom',
       upstreamTemplate: 'web',
@@ -198,11 +201,27 @@ describe('Phase 8C upstream adaptation manifest', () => {
       mutationMode: 'IMMUTABLE_SUCCESSOR_GENERATION',
       rollbackClassification: 'ROLLBACK_SAFE_WITH_BACKUP_RESTORE',
       targetOnlyRequiredEvents: ['image/offload', 'workspace/changes'],
-      removedRequiredCustomEvents: ['task/checkpoint', 'task/result-manifest'],
-      customEventBehavior: 'CUSTOM_EVENT_MIGRATION_BLOCKED',
+      removedRequiredCustomEvents: [],
+      customEventBehavior: 'RESTORED_FIRST_PARTY_REQUIRED_EVENTS_READ_WITHOUT_REWRITE',
     })
     expect(manifest.dataBoundary.sessionCompatibility.baselineProviderBlob)
       .toBe(manifest.dataBoundary.sessionCompatibility.targetProviderBlob)
+  })
+
+  it('records the Stage 6 event restoration and its six locked decisions', () => {
+    expect(manifest.dataBoundary.sessionCompatibility.restoredFirstPartyRequiredEvents)
+      .toEqual(['task/checkpoint', 'task/result-manifest'])
+    const stageSix = manifest.portOrder.filter(stage => stage.stage === 6)
+    expect(stageSix.length).toBe(1)
+    expect(stageSix.map(stage => stage.status)).toEqual(['COMPLETE'])
+    expect(stageSix.map(stage => stage.deliverables)).toEqual([[
+      'packages/session/task-checkpoint',
+      'packages/runtime-diagnostics/agent-lifecycle-facts',
+      'docs/persistence-changes/2026-09-18-restore-task-checkpoint-events',
+    ]])
+    expect(stageSix.flatMap(stage => stage.decisions ?? []).map(decision => decision.slice(0, 3))).toEqual([
+      'D1 ', 'D2 ', 'D3 ', 'D4 ', 'D5 ', 'D6 ',
+    ])
   })
 
   it('keeps compatibility debt unresolved and every cited contract path discoverable', () => {

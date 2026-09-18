@@ -289,12 +289,17 @@
       "@deepseek-ai/dsh-session-log-export/client": ["./packages/session-query/session-log-export/src/client"],
       "@deepseek-ai/dsh-compaction-image-offload/projection": ["./packages/compaction/compaction-image-offload/src/projection.ts"],
       "@deepseek-ai/dsh-session-format-catalog/message-projections": ["./packages/session/session-format-catalog/src/message-projections.ts"],
+      // The Stage 6 read-compatibility packages publish a type-only outlet, so
+      // documentation fragments resolve their declared `/types` subpath to source.
+      "@deepseek-ai/dsh-task-checkpoint/types": ["./packages/session/task-checkpoint/src/types.ts"],
+      "@deepseek-ai/dsh-agent-lifecycle-facts/types": ["./packages/runtime-diagnostics/agent-lifecycle-facts/src/types.ts"],
       // BEGIN generated package aliases — pnpm run gen-tsconfig-paths
       "@deepseek-ai/dsh-acp": ["./packages/acp/acp/src"],
       "@deepseek-ai/dsh-acp-app": ["./packages/bundle/acp-app/src"],
       "@deepseek-ai/dsh-agent": ["./packages/core/agent/src"],
       "@deepseek-ai/dsh-agent-default-model": ["./packages/core/agent-default-model/src"],
       "@deepseek-ai/dsh-agent-instructions": ["./packages/context/agent-instructions/src"],
+      "@deepseek-ai/dsh-agent-lifecycle-facts": ["./packages/runtime-diagnostics/agent-lifecycle-facts/src"],
       "@deepseek-ai/dsh-agent-loop": ["./packages/core/agent-loop/src"],
       "@deepseek-ai/dsh-agent-loop-testkit": ["./packages/test-support/agent-loop-testkit/src"],
       "@deepseek-ai/dsh-agent-presets": ["./packages/preset/agent-presets/src"],
@@ -450,6 +455,7 @@
       "@deepseek-ai/dsh-subprocess-ssh": ["./packages/ssh/subprocess-ssh/src"],
       "@deepseek-ai/dsh-system-prompt": ["./packages/core/system-prompt/src"],
       "@deepseek-ai/dsh-system-prompt/invariant": ["./packages/core/system-prompt/src/invariant.ts"],
+      "@deepseek-ai/dsh-task-checkpoint": ["./packages/session/task-checkpoint/src"],
       "@deepseek-ai/dsh-terminal": ["./packages/terminal/terminal/src"],
       "@deepseek-ai/dsh-terminal-bash": ["./packages/terminal/terminal-bash/src"],
       "@deepseek-ai/dsh-time-context": ["./packages/context/time-context/src"],

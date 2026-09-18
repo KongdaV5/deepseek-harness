@@ -60,6 +60,8 @@ The [format references](persistence-changes/historical-formats/README.md) cover 
 | `event:subagent/descriptor` | event | `b79ada42962cad0190a9d465805260567621fa3a4abd757eb31e6016b52d5ab5` | [`event:subagent/descriptor`](#persistence-type-eventsubagentdescriptor) |
 | `event:subagent/model-selection-policy` | event | `a6567ccb2e530606b775371eb4fa31468d72084339968e8b0440a516a23b39dc` | [`event:subagent/model-selection-policy`](#persistence-type-eventsubagentmodel-selection-policy) |
 | `event:system/message` | event | `69becfb6b2d3fd5da91518089454cae8ef33f1835637ec44dde35dd077fd4bae` | [`event:system/message`](#persistence-type-eventsystemmessage) |
+| `event:task/checkpoint` | event | `ed6611b5093d78f0a1b567a57f91b14eabcc6826c23ea6e25b250807784cb8c2` | [`event:task/checkpoint`](#persistence-type-eventtaskcheckpoint) |
+| `event:task/result-manifest` | event | `f2778fce9c7288863fa02ae1370152b2435c4c135f8b8215acf90b37cf20c8ab` | [`event:task/result-manifest`](#persistence-type-eventtaskresult-manifest) |
 | `event:team/member` | event | `4fb59762612c3e3ac3a3bd4f84c9c148d3c3893bd422ba2b201cc039fabd49bc` | [`event:team/member`](#persistence-type-eventteammember) |
 | `event:team/message/delivered` | event | `48f9c19417a1abbedfa59f4667bba36b93ac2db407adf5e84cb3ba0de30942cb` | [`event:team/message/delivered`](#persistence-type-eventteammessagedelivered) |
 | `event:team/message/queued` | event | `443371ec07a03a82a0e93d93abca3e70b03bca55ba5b01d507030fcb66e8fbb4` | [`event:team/message/queued`](#persistence-type-eventteammessagequeued) |
@@ -939,6 +941,43 @@ Source: [`packages/subagent/tool-subagent/src/model-selection-state.ts:17`](../p
 
 Source: [`packages/core/session/src/types.ts:310`](../packages/core/session/src/types.ts)
 
+### `task/*`
+
+<a id="taskcheckpoint--log-only"></a>
+
+#### `task/checkpoint` — log-only
+
+```ts persistence-catalog
+/**
+ * Whole durable task-progress snapshot for one recoverable task, written by
+ * the Final Product and now read for compatibility. It is authoritative:
+ * the snapshot carries the task identity, revision, status, completed and
+ * pending steps, output references, resume context, and root failure that a
+ * reader needs to reconstruct task progress, so an older runtime must not
+ * silently skip it.
+ */
+'task/checkpoint': TaskCheckpointEventData
+```
+
+Source: [`packages/session/task-checkpoint/src/domain.ts:43`](../packages/session/task-checkpoint/src/domain.ts)
+
+<a id="taskresult-manifest--log-only"></a>
+
+#### `task/result-manifest` — log-only
+
+```ts persistence-catalog
+/**
+ * Whole durable result-artifact snapshot for one task output, written by the
+ * Final Product and now read for compatibility. It stays separate from task
+ * progress: a manifest revision describes a published deliverable (path,
+ * size, checksum, structural validation), which is evidence a task step may
+ * reference rather than task state itself.
+ */
+'task/result-manifest': ResultManifestEventData
+```
+
+Source: [`packages/session/task-checkpoint/src/domain.ts:51`](../packages/session/task-checkpoint/src/domain.ts)
+
 ### `team/*`
 
 <a id="teammember--log-only"></a>
@@ -1438,6 +1477,22 @@ SHA-256: `17aae616ef020b8b9f011ec398ec935450fb06d3e2a0722c456f63aeaf5ff728`
 
 `"at"`
 
+<a id="persistence-type-backend"></a>
+
+### `"backend"`
+
+SHA-256: `e24819e460f57c9c658fcd3269cb5888dbc4788447846dbcf0b33793d96c2d99`
+
+`"backend"`
+
+<a id="persistence-type-backend_restarted"></a>
+
+### `"BACKEND_RESTARTED"`
+
+SHA-256: `3469e94a825d0dfab11f65e37a13a4a51e8269f34de8b7297ad2676ce31b6570`
+
+`"BACKEND_RESTARTED"`
+
 <a id="persistence-type-block"></a>
 
 ### `"block"`
@@ -1469,6 +1524,14 @@ SHA-256: `cbca49bde16b656d5b8fbe4a8a507769f7b594c6287782b809c03814941bc5e3`
 SHA-256: `254dce209e735f9cb6f6b7aec0354712b1611759ec02af4d35a96f2081e666f6`
 
 `"blocked"`
+
+<a id="persistence-type-blocked-2"></a>
+
+### `"BLOCKED"`
+
+SHA-256: `9377b8a9b2aaa261d9daae8325faaa6b4abe49e606bed19998740016975c99fd`
+
+`"BLOCKED"`
 
 <a id="persistence-type-boolean"></a>
 
@@ -1533,6 +1596,22 @@ SHA-256: `aff60ef947c18b012644852bdd0d5bfe72065e061dd563787c76c646b4a10f6b`
 SHA-256: `e7e154d47d5fbc5366330fb4dade1f108c6dfe4335044d21ded14b7bf1dce084`
 
 `"clear"`
+
+<a id="persistence-type-client"></a>
+
+### `"client"`
+
+SHA-256: `0cf8b305bb456f0e6e4496002b843c9b1070027671197a073e08c5217e59948a`
+
+`"client"`
+
+<a id="persistence-type-client_cancelled"></a>
+
+### `"CLIENT_CANCELLED"`
+
+SHA-256: `de8bdf6ff490e360b2362f7ee924cecfab4bfb03727c9c3d5c5d047bf9884b13`
+
+`"CLIENT_CANCELLED"`
 
 <a id="persistence-type-codex"></a>
 
@@ -1606,6 +1685,14 @@ SHA-256: `1ebc6f9ff3aa9e3a38f8695f49bacdab1f8b7a3832741853ca46f40af56ccd01`
 
 `"completed"`
 
+<a id="persistence-type-context_overflow"></a>
+
+### `"CONTEXT_OVERFLOW"`
+
+SHA-256: `896a53799f852752e8439bd21d17306f49d11421e60b0e9e2e4aa85102a55c72`
+
+`"CONTEXT_OVERFLOW"`
+
 <a id="persistence-type-continuable"></a>
 
 ### `"continuable"`
@@ -1629,6 +1716,14 @@ SHA-256: `7624ca28c61ca0eaa4f015140f3cea6e0c16cce2f2960fab5f531203d253903e`
 SHA-256: `18fce9540bb20897a66275499faee6b8296c97e9901fa1ff45a191772448ad1a`
 
 `"danger-full-access"`
+
+<a id="persistence-type-degraded"></a>
+
+### `"degraded"`
+
+SHA-256: `686831008b4e0931328cf6fc59211ed6a890670cc0c76a8a7900b7688ad92760`
+
+`"degraded"`
 
 <a id="persistence-type-delegation"></a>
 
@@ -3385,6 +3480,134 @@ One of:
 - [`event:agent/inbox/spliced.data.inserted[0].source[6]`](#persistence-type-eventagentinboxspliceddatainserted0source6)
 - [`event:agent/inbox/spliced.data.inserted[0].source[1]`](#persistence-type-eventagentinboxspliceddatainserted0source1)
 
+<a id="persistence-type-eventtaskcheckpoint"></a>
+
+### `event:task/checkpoint`
+
+SHA-256: `ed6611b5093d78f0a1b567a57f91b14eabcc6826c23ea6e25b250807784cb8c2`
+
+| Property | Presence | Type |
+|---|---|---|
+| `data` | required | [`packages/session/task-checkpoint/src/domain.ts#TaskCheckpointEventData`](#persistence-type-packagessessiontask-checkpointsrcdomaintstaskcheckpointeventdata) |
+| `ignorable` | optional | `true` |
+| `seq` | required | `number` |
+| `time` | required | `number` |
+| `type` | required | `"task/checkpoint"` |
+
+<a id="persistence-type-eventtaskcheckpointdatacheckpointcompletedsteps"></a>
+
+### `event:task/checkpoint.data.checkpoint.completedSteps`
+
+SHA-256: `a87ab45ffc753b89b04b651519a0722b909f0b2cba6b8ec982d8c0d0a3223eaa`
+
+Array of [`packages/session/task-checkpoint/src/types.ts#CompletedTaskStep`](#persistence-type-packagessessiontask-checkpointsrctypestscompletedtaskstep).
+
+<a id="persistence-type-eventtaskcheckpointdatacheckpointcompletedsteps0evidence0"></a>
+
+### `event:task/checkpoint.data.checkpoint.completedSteps[0].evidence[0]`
+
+SHA-256: `b2a87173bdd0a1c09a2b9b8c39b4d696299c26d0113026a248bfd339a51ae729`
+
+Sources: [`packages/session/task-checkpoint/src/types.ts:59`](../packages/session/task-checkpoint/src/types.ts)
+
+| Property | Presence | Type |
+|---|---|---|
+| `callId` | required | `string` |
+| `eventSeq` | required | `number` |
+| `kind` | required | `"tool-result"` |
+
+<a id="persistence-type-eventtaskcheckpointdatacheckpointcompletedsteps0evidence1"></a>
+
+### `event:task/checkpoint.data.checkpoint.completedSteps[0].evidence[1]`
+
+SHA-256: `7ff9a98855cb1593667af97db38ebac7db34dd4430e46cee667a2c6f955d53c3`
+
+Sources: [`packages/session/task-checkpoint/src/types.ts:64`](../packages/session/task-checkpoint/src/types.ts)
+
+| Property | Presence | Type |
+|---|---|---|
+| `kind` | required | `"result-validation"` |
+| `manifestRevision` | required | `number` |
+| `outputId` | required | `string` |
+
+<a id="persistence-type-eventtaskcheckpointdatacheckpointcompletedsteps0evidence2"></a>
+
+### `event:task/checkpoint.data.checkpoint.completedSteps[0].evidence[2]`
+
+SHA-256: `b7892f7abbc464976e0739d5763903fd378614e3ec1518f51e388e505009a6bb`
+
+Sources: [`packages/session/task-checkpoint/src/types.ts:69`](../packages/session/task-checkpoint/src/types.ts)
+
+| Property | Presence | Type |
+|---|---|---|
+| `kind` | required | `"runtime-validation"` |
+| `reference` | required | `string` |
+| `validator` | required | `string` |
+
+<a id="persistence-type-eventtaskcheckpointdatacheckpointfailurecontextprimaryerrorseverity"></a>
+
+### `event:task/checkpoint.data.checkpoint.failureContext.primaryError.severity`
+
+SHA-256: `7b52f81924a917332046e8af931b6ca8b932057a4974d0b1768a7f130c7a8b1f`
+
+One of:
+
+- `"degraded"`
+- `"fatal"`
+
+<a id="persistence-type-eventtaskcheckpointdatacheckpointpendingsteps"></a>
+
+### `event:task/checkpoint.data.checkpoint.pendingSteps`
+
+SHA-256: `72b5d4eccb55ed22989b24719e0dd5443115df3928d744d6a97ae9e53061b56a`
+
+Array of [`packages/session/task-checkpoint/src/types.ts#TaskStep`](#persistence-type-packagessessiontask-checkpointsrctypeststaskstep).
+
+<a id="persistence-type-eventtaskresult-manifest"></a>
+
+### `event:task/result-manifest`
+
+SHA-256: `f2778fce9c7288863fa02ae1370152b2435c4c135f8b8215acf90b37cf20c8ab`
+
+| Property | Presence | Type |
+|---|---|---|
+| `data` | required | [`packages/session/task-checkpoint/src/domain.ts#ResultManifestEventData`](#persistence-type-packagessessiontask-checkpointsrcdomaintsresultmanifesteventdata) |
+| `ignorable` | optional | `true` |
+| `seq` | required | `number` |
+| `time` | required | `number` |
+| `type` | required | `"task/result-manifest"` |
+
+<a id="persistence-type-eventtaskresult-manifestdatamanifestvalidationchecks"></a>
+
+### `event:task/result-manifest.data.manifest.validation.checks`
+
+SHA-256: `aefd643d5ec229e931c09abf14d1c2c8a09d187fbe5b9e82913f40e554b3ff30`
+
+Array of [`packages/session/task-checkpoint/src/types.ts#ResultValidationCheck`](#persistence-type-packagessessiontask-checkpointsrctypestsresultvalidationcheck).
+
+<a id="persistence-type-eventtaskresult-manifestdatamanifestvalidationchecks0status"></a>
+
+### `event:task/result-manifest.data.manifest.validation.checks[0].status`
+
+SHA-256: `46da8e9d57fd5526420b53f5da29b089e6a9a932819fcf704cb9c7f5fe3b6597`
+
+One of:
+
+- `"failed"`
+- `"passed"`
+
+<a id="persistence-type-eventtaskresult-manifestdatamanifestvalidationstatus"></a>
+
+### `event:task/result-manifest.data.manifest.validation.status`
+
+SHA-256: `cafc40bd39a51dc2ab8d150c1da824d48dd8c3bb78cc8bc9806fc93926caa8f5`
+
+One of:
+
+- `"failed"`
+- `"passed"`
+- `"pending"`
+
 <a id="persistence-type-eventteammember"></a>
 
 ### `event:team/member`
@@ -4087,6 +4310,14 @@ SHA-256: `0c4205180f75b9ee1e0d878bd9a9851628b5dc18448486389d9c5fdc3f1ccda3`
 
 `false`
 
+<a id="persistence-type-fatal"></a>
+
+### `"fatal"`
+
+SHA-256: `04ad35ffe9ae7f563dce1c19bf0071515937e2546fc7d89ffbf300045c402a75`
+
+`"fatal"`
+
 <a id="persistence-type-feedbackmessage-delete"></a>
 
 ### `"feedback/message-delete"`
@@ -4142,6 +4373,14 @@ SHA-256: `2da725e554cd89301d829ed9dc45a572c3cd1b93b5e91d0d71f007976d8a0863`
 SHA-256: `dd2780e7e07684332f7a9ab047237798d260e7eaffb1321cb38eca695d184c3d`
 
 `"fresh"`
+
+<a id="persistence-type-generation_stalled"></a>
+
+### `"GENERATION_STALLED"`
+
+SHA-256: `761ee9e278671bdc2173afcc953eed01544672e5aa1bfa85bfab9fc1f2fd6543`
+
+`"GENERATION_STALLED"`
 
 <a id="persistence-type-goal"></a>
 
@@ -4281,6 +4520,22 @@ SHA-256: `69d238a6e9b08d67f601b1825962963d8d3523cb69ebf6208c697dc5d058c199`
 
 `"interrupted"`
 
+<a id="persistence-type-invalid_model_config"></a>
+
+### `"INVALID_MODEL_CONFIG"`
+
+SHA-256: `c225c8f4152f358ab2fa0c120655aa3513b33b6139b50359c7e710b6d3881b10`
+
+`"INVALID_MODEL_CONFIG"`
+
+<a id="persistence-type-invalid_reasoning_parameter"></a>
+
+### `"INVALID_REASONING_PARAMETER"`
+
+SHA-256: `d69b5fcc36de1dbe6274622137f5ae2ebb9beb9747bf73576c0cddf0bcaac988`
+
+`"INVALID_REASONING_PARAMETER"`
+
 <a id="persistence-type-legacy"></a>
 
 ### `"legacy"`
@@ -4313,6 +4568,14 @@ SHA-256: `68141cbe3994a5ffcd064c07c75996538437fd9dbf77ce8a2927e89ec577fabe`
 
 `"max-tokens"`
 
+<a id="persistence-type-max_tokens"></a>
+
+### `"MAX_TOKENS"`
+
+SHA-256: `e2abde1e1f0e37588e851cec9ff949080b0c9902b250b090499b5a0efdaf9c2a`
+
+`"MAX_TOKENS"`
+
 <a id="persistence-type-model"></a>
 
 ### `"model"`
@@ -4320,6 +4583,22 @@ SHA-256: `68141cbe3994a5ffcd064c07c75996538437fd9dbf77ce8a2927e89ec577fabe`
 SHA-256: `2765e9119edf5816ac1ab4c95c5ee32c90403f3742962eff11544f7752d59d2e`
 
 `"model"`
+
+<a id="persistence-type-model-changed"></a>
+
+### `"model-changed"`
+
+SHA-256: `f7e08b538ae2a8063678f1c928299cb52ffa14f915d1875deb13c6e09ac1e4a4`
+
+`"model-changed"`
+
+<a id="persistence-type-model_load_failed"></a>
+
+### `"MODEL_LOAD_FAILED"`
+
+SHA-256: `be1bf0647deeec78a74dc010825f20b4060c5dc4b17d8d0cbce1fab3850d15e9`
+
+`"MODEL_LOAD_FAILED"`
 
 <a id="persistence-type-modelselection"></a>
 
@@ -5689,6 +5968,360 @@ One of:
 - [`event:session/title.data.source[0]`](#persistence-type-eventsessiontitledatasource0)
 - [`event:agent/inbox/spliced.data.inserted[0].source[0]`](#persistence-type-eventagentinboxspliceddatainserted0source0)
 
+<a id="persistence-type-packagessessiontask-checkpointsrcdomaintsresultmanifesteventdata"></a>
+
+### `packages/session/task-checkpoint/src/domain.ts#ResultManifestEventData`
+
+SHA-256: `aabbdecaa3d2878a31da50d921877873e21dd4fe15b76604ea41b724fd9fbae3`
+
+Sources: [`packages/session/task-checkpoint/src/domain.ts:27`](../packages/session/task-checkpoint/src/domain.ts)
+
+| Property | Presence | Type |
+|---|---|---|
+| `kind` | required | `"task/result-manifest"` |
+| `manifest` | required | [`packages/session/task-checkpoint/src/types.ts#ResultManifest`](#persistence-type-packagessessiontask-checkpointsrctypestsresultmanifest) |
+| `version` | required | `1` |
+
+<a id="persistence-type-packagessessiontask-checkpointsrcdomaintstaskcheckpointeventdata"></a>
+
+### `packages/session/task-checkpoint/src/domain.ts#TaskCheckpointEventData`
+
+SHA-256: `6c19a5813ee809690dc0d9077352adebcf621b108b90e238f65f23ce0457f5f8`
+
+Sources: [`packages/session/task-checkpoint/src/domain.ts:20`](../packages/session/task-checkpoint/src/domain.ts)
+
+| Property | Presence | Type |
+|---|---|---|
+| `checkpoint` | required | [`packages/session/task-checkpoint/src/types.ts#TaskCheckpoint`](#persistence-type-packagessessiontask-checkpointsrctypeststaskcheckpoint) |
+| `kind` | required | `"task/checkpoint"` |
+| `version` | required | `1` |
+
+<a id="persistence-type-packagessessiontask-checkpointsrctypestsclassifiedrunerror"></a>
+
+### `packages/session/task-checkpoint/src/types.ts#ClassifiedRunError`
+
+SHA-256: `e3ab599c78bf09c2dacf1bd27eceb6a5de160580c2e4dc785b6d8abf8b4b3698`
+
+Sources: [`packages/session/task-checkpoint/src/types.ts:131`](../packages/session/task-checkpoint/src/types.ts)
+
+| Property | Presence | Type |
+|---|---|---|
+| `code` | required | [`packages/session/task-checkpoint/src/types.ts#RunErrorCode`](#persistence-type-packagessessiontask-checkpointsrctypestsrunerrorcode) |
+| `message` | required | `string` |
+| `origin` | required | [`packages/session/task-checkpoint/src/types.ts#RunErrorOrigin`](#persistence-type-packagessessiontask-checkpointsrctypestsrunerrororigin) |
+| `providerRequestId` | optional | `string` |
+| `severity` | required | [`event:task/checkpoint.data.checkpoint.failureContext.primaryError.severity`](#persistence-type-eventtaskcheckpointdatacheckpointfailurecontextprimaryerrorseverity) |
+| `time` | required | `number` |
+
+<a id="persistence-type-packagessessiontask-checkpointsrctypestscompletedtaskstep"></a>
+
+### `packages/session/task-checkpoint/src/types.ts#CompletedTaskStep`
+
+SHA-256: `559f07313a6598eb85705dd67d8e7afa6ee7b3d4cb1c40c55d31bbbf808424ff`
+
+Sources: [`packages/session/task-checkpoint/src/types.ts:76`](../packages/session/task-checkpoint/src/types.ts)
+
+| Property | Presence | Type |
+|---|---|---|
+| `completedAt` | required | `number` |
+| `evidence` | required | [`packages/session/task-checkpoint/src/types.ts#TaskStepCompletionEvidence`](#persistence-type-packagessessiontask-checkpointsrctypeststaskstepcompletionevidence) |
+| `id` | required | `string` |
+| `title` | required | `string` |
+
+<a id="persistence-type-packagessessiontask-checkpointsrctypestsresultchecksum"></a>
+
+### `packages/session/task-checkpoint/src/types.ts#ResultChecksum`
+
+SHA-256: `3bc61db712117a60d632e6b1b07d199570b9e4c522c0c514499039b660a1c1ab`
+
+Sources: [`packages/session/task-checkpoint/src/types.ts:221`](../packages/session/task-checkpoint/src/types.ts)
+
+| Property | Presence | Type |
+|---|---|---|
+| `algorithm` | required | `"sha256"` |
+| `value` | required | `string` |
+
+<a id="persistence-type-packagessessiontask-checkpointsrctypestsresultmanifest"></a>
+
+### `packages/session/task-checkpoint/src/types.ts#ResultManifest`
+
+SHA-256: `f2c11764875bcfb18d483bed6b14a795c94261758e96fdde7f2df3300565a722`
+
+Sources: [`packages/session/task-checkpoint/src/types.ts:227`](../packages/session/task-checkpoint/src/types.ts)
+
+| Property | Presence | Type |
+|---|---|---|
+| `checksum` | optional | [`packages/session/task-checkpoint/src/types.ts#ResultChecksum`](#persistence-type-packagessessiontask-checkpointsrctypestsresultchecksum) |
+| `completedAt` | optional | `number` |
+| `createdAt` | required | `number` |
+| `execution` | required | [`packages/session/task-checkpoint/src/types.ts#TaskExecutionMetadata`](#persistence-type-packagessessiontask-checkpointsrctypeststaskexecutionmetadata) |
+| `outputId` | required | `string` |
+| `path` | required | `string` |
+| `revision` | required | `number` |
+| `runId` | required | `string` |
+| `size` | optional | `number` |
+| `status` | required | [`packages/session/task-checkpoint/src/types.ts#ResultManifestStatus`](#persistence-type-packagessessiontask-checkpointsrctypestsresultmanifeststatus) |
+| `taskId` | required | `string` |
+| `updatedAt` | required | `number` |
+| `validation` | required | [`packages/session/task-checkpoint/src/types.ts#ResultValidation`](#persistence-type-packagessessiontask-checkpointsrctypestsresultvalidation) |
+| `version` | required | `1` |
+
+<a id="persistence-type-packagessessiontask-checkpointsrctypestsresultmanifeststatus"></a>
+
+### `packages/session/task-checkpoint/src/types.ts#ResultManifestStatus`
+
+SHA-256: `7b32f77e4f15b2b2d2dc419561a9c86e8beed7b9e6be94741505e8dc0257f2c7`
+
+Sources: [`packages/session/task-checkpoint/src/types.ts:205`](../packages/session/task-checkpoint/src/types.ts)
+
+One of:
+
+- `"cancelled"`
+- `"completed"`
+- `"failed"`
+- `"partial"`
+- `"running"`
+
+<a id="persistence-type-packagessessiontask-checkpointsrctypestsresultvalidation"></a>
+
+### `packages/session/task-checkpoint/src/types.ts#ResultValidation`
+
+SHA-256: `167d764c0cfa5259d1cd5edd03c521022fe97a6da46e8ed423bcb833c9d9d7d7`
+
+Sources: [`packages/session/task-checkpoint/src/types.ts:215`](../packages/session/task-checkpoint/src/types.ts)
+
+| Property | Presence | Type |
+|---|---|---|
+| `checks` | required | [`event:task/result-manifest.data.manifest.validation.checks`](#persistence-type-eventtaskresult-manifestdatamanifestvalidationchecks) |
+| `status` | required | [`event:task/result-manifest.data.manifest.validation.status`](#persistence-type-eventtaskresult-manifestdatamanifestvalidationstatus) |
+
+<a id="persistence-type-packagessessiontask-checkpointsrctypestsresultvalidationcheck"></a>
+
+### `packages/session/task-checkpoint/src/types.ts#ResultValidationCheck`
+
+SHA-256: `0487d76463a45b2b79cc1f113d3e83579016fd170c1e4673b123d291d07e5556`
+
+Sources: [`packages/session/task-checkpoint/src/types.ts:208`](../packages/session/task-checkpoint/src/types.ts)
+
+| Property | Presence | Type |
+|---|---|---|
+| `id` | required | `string` |
+| `message` | optional | `string` |
+| `status` | required | [`event:task/result-manifest.data.manifest.validation.checks[0].status`](#persistence-type-eventtaskresult-manifestdatamanifestvalidationchecks0status) |
+
+<a id="persistence-type-packagessessiontask-checkpointsrctypestsrunerrorcode"></a>
+
+### `packages/session/task-checkpoint/src/types.ts#RunErrorCode`
+
+SHA-256: `517b58d98764cd311cacf11c5a9767d5afe35b4d04e1a266aade1b32d6042436`
+
+Sources: [`packages/session/task-checkpoint/src/types.ts:106`](../packages/session/task-checkpoint/src/types.ts)
+
+One of:
+
+- `"BACKEND_RESTARTED"`
+- `"BLOCKED"`
+- `"PROVIDER_UNAVAILABLE"`
+- `"RESOURCE_LIMIT"`
+- `"RETRY_FAILED"`
+- `"SESSION_INTERRUPTED"`
+- `"STREAM_DISCONNECTED"`
+- `"TOOL_FAILED"`
+- `"TRANSPORT"`
+- `"UNKNOWN"`
+- `"WORKER_CRASH"`
+- `"CLIENT_CANCELLED"`
+- `"CONTEXT_OVERFLOW"`
+- `"GENERATION_STALLED"`
+- `"INVALID_MODEL_CONFIG"`
+- `"INVALID_REASONING_PARAMETER"`
+- `"MAX_TOKENS"`
+- `"MODEL_LOAD_FAILED"`
+- `"PROVIDER_TIMEOUT"`
+
+<a id="persistence-type-packagessessiontask-checkpointsrctypestsrunerrororigin"></a>
+
+### `packages/session/task-checkpoint/src/types.ts#RunErrorOrigin`
+
+SHA-256: `1836a235a5d00c1e41109944a34333dafe022c954af50ccda740647a535d10c3`
+
+Sources: [`packages/session/task-checkpoint/src/types.ts:128`](../packages/session/task-checkpoint/src/types.ts)
+
+One of:
+
+- `"backend"`
+- `"client"`
+- `"provider"`
+- `"session"`
+- `"tool"`
+- `"transport"`
+
+<a id="persistence-type-packagessessiontask-checkpointsrctypeststaskcheckpoint"></a>
+
+### `packages/session/task-checkpoint/src/types.ts#TaskCheckpoint`
+
+SHA-256: `53e23a1a9722adbfd1a9603de46ce49f0d8e0ba567aa0e9f0bb8229f90dbaf7c`
+
+Sources: [`packages/session/task-checkpoint/src/types.ts:152`](../packages/session/task-checkpoint/src/types.ts)
+
+| Property | Presence | Type |
+|---|---|---|
+| `completedSteps` | required | [`event:task/checkpoint.data.checkpoint.completedSteps`](#persistence-type-eventtaskcheckpointdatacheckpointcompletedsteps) |
+| `createdAt` | required | `number` |
+| `currentStep` | optional | [`packages/session/task-checkpoint/src/types.ts#TaskStep`](#persistence-type-packagessessiontask-checkpointsrctypeststaskstep) |
+| `failureContext` | optional | [`packages/session/task-checkpoint/src/types.ts#TaskFailureContext`](#persistence-type-packagessessiontask-checkpointsrctypeststaskfailurecontext) |
+| `lastActivityAt` | required | `number` |
+| `lastSuccessAt` | optional | `number` |
+| `latestExecution` | required | [`packages/session/task-checkpoint/src/types.ts#TaskExecutionMetadata`](#persistence-type-packagessessiontask-checkpointsrctypeststaskexecutionmetadata) |
+| `latestResume` | optional | [`packages/session/task-checkpoint/src/types.ts#TaskResumeRecord`](#persistence-type-packagessessiontask-checkpointsrctypeststaskresumerecord) |
+| `latestRunId` | required | `string` |
+| `modelRelation` | required | [`packages/session/task-checkpoint/src/types.ts#TaskModelRelation`](#persistence-type-packagessessiontask-checkpointsrctypeststaskmodelrelation) |
+| `originRunId` | required | `string` |
+| `originalExecution` | required | [`packages/session/task-checkpoint/src/types.ts#TaskExecutionMetadata`](#persistence-type-packagessessiontask-checkpointsrctypeststaskexecutionmetadata) |
+| `outputs` | required | [`event:assistant/attempt.data.stream[0][0].texts`](#persistence-type-eventassistantattemptdatastream00texts) |
+| `pendingSteps` | required | [`event:task/checkpoint.data.checkpoint.pendingSteps`](#persistence-type-eventtaskcheckpointdatacheckpointpendingsteps) |
+| `resumeContext` | required | [`packages/session/task-checkpoint/src/types.ts#TaskResumeContext`](#persistence-type-packagessessiontask-checkpointsrctypeststaskresumecontext) |
+| `revision` | required | `number` |
+| `sessionId` | required | `string` |
+| `status` | required | [`packages/session/task-checkpoint/src/types.ts#TaskStatus`](#persistence-type-packagessessiontask-checkpointsrctypeststaskstatus) |
+| `taskId` | required | `string` |
+| `taskType` | required | `string` |
+| `version` | required | `1` |
+
+<a id="persistence-type-packagessessiontask-checkpointsrctypeststaskexecutionmetadata"></a>
+
+### `packages/session/task-checkpoint/src/types.ts#TaskExecutionMetadata`
+
+SHA-256: `09a4807cea7d2204dba85cecb8f15d9e52defc516426383fb6c65afb87b20d9a`
+
+Sources: [`packages/session/task-checkpoint/src/types.ts:40`](../packages/session/task-checkpoint/src/types.ts)
+
+| Property | Presence | Type |
+|---|---|---|
+| `backend` | optional | `string` |
+| `model` | required | `string` |
+| `provider` | required | `string` |
+| `requestedReasoning` | optional | `string` |
+| `resolvedReasoning` | optional | `string` |
+
+<a id="persistence-type-packagessessiontask-checkpointsrctypeststaskfailurecontext"></a>
+
+### `packages/session/task-checkpoint/src/types.ts#TaskFailureContext`
+
+SHA-256: `dfee98e89d46784598fb59f3ae50a1ccef5dda53145fc0bb887dbc874834c9f0`
+
+Sources: [`packages/session/task-checkpoint/src/types.ts:141`](../packages/session/task-checkpoint/src/types.ts)
+
+| Property | Presence | Type |
+|---|---|---|
+| `currentStepId` | optional | `string` |
+| `failedAt` | required | `number` |
+| `failedAttemptId` | optional | `string` |
+| `primaryError` | required | [`packages/session/task-checkpoint/src/types.ts#ClassifiedRunError`](#persistence-type-packagessessiontask-checkpointsrctypestsclassifiedrunerror) |
+
+<a id="persistence-type-packagessessiontask-checkpointsrctypeststaskmodelrelation"></a>
+
+### `packages/session/task-checkpoint/src/types.ts#TaskModelRelation`
+
+SHA-256: `da2744a5f23869cf7d13fadf47bcba259116900f564103fb9f29ba0a23d7be84`
+
+Sources: [`packages/session/task-checkpoint/src/types.ts:49`](../packages/session/task-checkpoint/src/types.ts)
+
+One of:
+
+- `"model-changed"`
+- `"same-model"`
+
+<a id="persistence-type-packagessessiontask-checkpointsrctypeststaskresumecontext"></a>
+
+### `packages/session/task-checkpoint/src/types.ts#TaskResumeContext`
+
+SHA-256: `79c30a29651335548498a53a8c2523d2002786979061f9dbcb8595d60fa0794d`
+
+Sources: [`packages/session/task-checkpoint/src/types.ts:82`](../packages/session/task-checkpoint/src/types.ts)
+
+| Property | Presence | Type |
+|---|---|---|
+| `constraints` | required | [`event:assistant/attempt.data.stream[0][0].texts`](#persistence-type-eventassistantattemptdatastream00texts) |
+| `criticalContext` | required | [`event:assistant/attempt.data.stream[0][0].texts`](#persistence-type-eventassistantattemptdatastream00texts) |
+| `decisions` | required | [`event:assistant/attempt.data.stream[0][0].texts`](#persistence-type-eventassistantattemptdatastream00texts) |
+| `objective` | required | `string` |
+
+<a id="persistence-type-packagessessiontask-checkpointsrctypeststaskresumecontextbudget"></a>
+
+### `packages/session/task-checkpoint/src/types.ts#TaskResumeContextBudget`
+
+SHA-256: `caa4e154cdbf350f67bde214bd56d23c335a45f9bec137a03a53c511680bf1cb`
+
+Sources: [`packages/session/task-checkpoint/src/types.ts:90`](../packages/session/task-checkpoint/src/types.ts)
+
+| Property | Presence | Type |
+|---|---|---|
+| `estimatedTokens` | required | `number` |
+| `includedSections` | required | [`event:assistant/attempt.data.stream[0][0].texts`](#persistence-type-eventassistantattemptdatastream00texts) |
+| `maxTokens` | required | `number` |
+| `omittedSections` | required | [`event:assistant/attempt.data.stream[0][0].texts`](#persistence-type-eventassistantattemptdatastream00texts) |
+
+<a id="persistence-type-packagessessiontask-checkpointsrctypeststaskresumerecord"></a>
+
+### `packages/session/task-checkpoint/src/types.ts#TaskResumeRecord`
+
+SHA-256: `6bd4d6c17ff6add6cce0d9a95865703bf0cae82442ffb8ca22a2d76c7ee3084b`
+
+Sources: [`packages/session/task-checkpoint/src/types.ts:98`](../packages/session/task-checkpoint/src/types.ts)
+
+| Property | Presence | Type |
+|---|---|---|
+| `context` | required | [`packages/session/task-checkpoint/src/types.ts#TaskResumeContextBudget`](#persistence-type-packagessessiontask-checkpointsrctypeststaskresumecontextbudget) |
+| `executionPlan` | required | [`event:assistant/attempt.data.stream[0][0].texts`](#persistence-type-eventassistantattemptdatastream00texts) |
+| `requestedAt` | required | `number` |
+| `runId` | required | `string` |
+
+<a id="persistence-type-packagessessiontask-checkpointsrctypeststaskstatus"></a>
+
+### `packages/session/task-checkpoint/src/types.ts#TaskStatus`
+
+SHA-256: `60eb66a1297316bd6ea1a632868032f85901a17c93ee8dfcc5598f9c3b750d36`
+
+Sources: [`packages/session/task-checkpoint/src/types.ts:37`](../packages/session/task-checkpoint/src/types.ts)
+
+One of:
+
+- `"blocked"`
+- `"cancelled"`
+- `"completed"`
+- `"failed"`
+- `"partial"`
+- `"paused"`
+- `"running"`
+
+<a id="persistence-type-packagessessiontask-checkpointsrctypeststaskstep"></a>
+
+### `packages/session/task-checkpoint/src/types.ts#TaskStep`
+
+SHA-256: `c6f48bedc81bd115c76c5edab192d92e80b5a858c297c090575812e6bea41e35`
+
+Sources: [`packages/session/task-checkpoint/src/types.ts:52`](../packages/session/task-checkpoint/src/types.ts)
+
+| Property | Presence | Type |
+|---|---|---|
+| `id` | required | `string` |
+| `title` | required | `string` |
+
+<a id="persistence-type-packagessessiontask-checkpointsrctypeststaskstepcompletionevidence"></a>
+
+### `packages/session/task-checkpoint/src/types.ts#TaskStepCompletionEvidence`
+
+SHA-256: `fa3760763588d07e697200464c2355f7675a50fc91bb31342e82fe6d7d449b11`
+
+Sources: [`packages/session/task-checkpoint/src/types.ts:58`](../packages/session/task-checkpoint/src/types.ts)
+
+One of:
+
+- [`event:task/checkpoint.data.checkpoint.completedSteps[0].evidence[0]`](#persistence-type-eventtaskcheckpointdatacheckpointcompletedsteps0evidence0)
+- [`event:task/checkpoint.data.checkpoint.completedSteps[0].evidence[1]`](#persistence-type-eventtaskcheckpointdatacheckpointcompletedsteps0evidence1)
+- [`event:task/checkpoint.data.checkpoint.completedSteps[0].evidence[2]`](#persistence-type-eventtaskcheckpointdatacheckpointcompletedsteps0evidence2)
+
 <a id="persistence-type-packagesskillskillsrcindextsskillinvocationsource"></a>
 
 ### `packages/skill/skill/src/index.ts#SkillInvocationSource`
@@ -5927,6 +6560,22 @@ SHA-256: `e6411b09c1d982f789bf741ca74e2bea69df56029847f86a6148e722039ee732`
 
 `"parent"`
 
+<a id="persistence-type-partial"></a>
+
+### `"partial"`
+
+SHA-256: `d3a2e34fcfd4682e19d37cbf72da4788dba6817dc6169022919e7419c3c7bdd0`
+
+`"partial"`
+
+<a id="persistence-type-passed"></a>
+
+### `"passed"`
+
+SHA-256: `182c443f17e9b064447d546cdeab903c9dfab871ac4176d30ad5f74a794b5b25`
+
+`"passed"`
+
 <a id="persistence-type-pause"></a>
 
 ### `"pause"`
@@ -5998,6 +6647,22 @@ SHA-256: `0341d4c3dfcd53253cdc1e789d9130d3cd848b6f8b0706bf92f313a68b39ff23`
 SHA-256: `e31572180d6b28b73f073ad30ae19d5d82982d3daf984723984e23da1e7c459a`
 
 `"provider"`
+
+<a id="persistence-type-provider_timeout"></a>
+
+### `"PROVIDER_TIMEOUT"`
+
+SHA-256: `eba4ef3dc75c03d28ca3dfec5737f46c295e740175d98d359249fcc91bcf8f15`
+
+`"PROVIDER_TIMEOUT"`
+
+<a id="persistence-type-provider_unavailable"></a>
+
+### `"PROVIDER_UNAVAILABLE"`
+
+SHA-256: `fc868ab72ec9f38e6bb3f5b6b3e4bc9a2a4063aec21a76d3602aa73d8fb93ae8`
+
+`"PROVIDER_UNAVAILABLE"`
 
 <a id="persistence-type-provisioning"></a>
 
@@ -6103,6 +6768,22 @@ SHA-256: `5bd310104cfe448e530beb11422d2f791e2e32e8e95fdc528a15f9ca693dae75`
 
 `"resource-cost"`
 
+<a id="persistence-type-resource_limit"></a>
+
+### `"RESOURCE_LIMIT"`
+
+SHA-256: `44b95b53cf3b8da02d6cfc71015e5b9e79341491eedb48abba3de55b35255b2a`
+
+`"RESOURCE_LIMIT"`
+
+<a id="persistence-type-result-validation"></a>
+
+### `"result-validation"`
+
+SHA-256: `d5252d2b19d2b956074415606b9dd0309317dceb57aa6981ea8e8adddcce799b`
+
+`"result-validation"`
+
 <a id="persistence-type-resume"></a>
 
 ### `"resume"`
@@ -6110,6 +6791,38 @@ SHA-256: `5bd310104cfe448e530beb11422d2f791e2e32e8e95fdc528a15f9ca693dae75`
 SHA-256: `34d1ab5c5df378186d6054b1a1beea9a41e41965d6f336f0bc0025c441a82e66`
 
 `"resume"`
+
+<a id="persistence-type-retry_failed"></a>
+
+### `"RETRY_FAILED"`
+
+SHA-256: `6a4e95c56a13583849abcd4a88a6c2616d70c36384b937dcd0dd6332d1aad405`
+
+`"RETRY_FAILED"`
+
+<a id="persistence-type-running"></a>
+
+### `"running"`
+
+SHA-256: `c6e4fa548c431804f6adebfaed3e343205c813699d2a191f990a7b1133e8c5ba`
+
+`"running"`
+
+<a id="persistence-type-runtime-validation"></a>
+
+### `"runtime-validation"`
+
+SHA-256: `e2a3508382493cf2c9b19f80d2950396e6684034eae969115b1df75e4168d722`
+
+`"runtime-validation"`
+
+<a id="persistence-type-same-model"></a>
+
+### `"same-model"`
+
+SHA-256: `3d018379b192ccbe71478191b3e1230f0454f60918c6b4809b06b532e876c030`
+
+`"same-model"`
 
 <a id="persistence-type-sandboxmode"></a>
 
@@ -6174,6 +6887,14 @@ SHA-256: `47e5d84f1a93450a78c7f3954b43990d0f629af7c034a56313e5deb63e772c1b`
 SHA-256: `7f13860ee89a2d35ce09f958e85a04566cd59cb1de1d73a9619a9b631961dc71`
 
 `"session-reference"`
+
+<a id="persistence-type-session_interrupted"></a>
+
+### `"SESSION_INTERRUPTED"`
+
+SHA-256: `4d00c9456a6da238e77373d9351b7c73fc0513ac38d6ea862f3e82136529d3ca`
+
+`"SESSION_INTERRUPTED"`
 
 <a id="persistence-type-sessionend-seed"></a>
 
@@ -6283,6 +7004,14 @@ SHA-256: `b765ee31033cea463863faf3fc6a0a1b85c47c6a2f13fe1ce833abe56105114b`
 
 `"set"`
 
+<a id="persistence-type-sha256"></a>
+
+### `"sha256"`
+
+SHA-256: `1f2ef0dac8481048048adc3fb9a0e48089a269511de871bf9a09c79e29411098`
+
+`"sha256"`
+
 <a id="persistence-type-skill-catalog"></a>
 
 ### `"skill-catalog"`
@@ -6331,13 +7060,21 @@ SHA-256: `57f3f606ff8b6c84d9c443faace9d1dd10cca0354f37a4f515ef075f7c351b90`
 
 `"stop"`
 
+<a id="persistence-type-stream_disconnected"></a>
+
+### `"STREAM_DISCONNECTED"`
+
+SHA-256: `161739d9d5195c68db1902a141ab98997c2c46e9278fa3d5f1af408b97aced36`
+
+`"STREAM_DISCONNECTED"`
+
 <a id="persistence-type-string"></a>
 
 ### `string`
 
 SHA-256: `4cd48f3e5108bd6ebedf7301c3638839b8b2b9db8dbd493974177fbdeb91a01b`
 
-Sources: [`packages/api/session-controller/src/types.ts:376`](../packages/api/session-controller/src/types.ts) · [`packages/attachment/attachment/src/brand.ts:6`](../packages/attachment/attachment/src/brand.ts) · [`packages/compaction/compaction/src/brand.ts:4`](../packages/compaction/compaction/src/brand.ts) · [`packages/core/session/src/types.ts:19`](../packages/core/session/src/types.ts) · [`packages/experimental/agent-team/src/types.ts:20`](../packages/experimental/agent-team/src/types.ts) · [`packages/experimental/agent-team/src/types.ts:32`](../packages/experimental/agent-team/src/types.ts) · [`packages/experimental/agent-team/src/types.ts:8`](../packages/experimental/agent-team/src/types.ts) · [`packages/feedback/message-feedback/src/types.ts:14`](../packages/feedback/message-feedback/src/types.ts) · [`packages/goal/goal/src/types.ts:17`](../packages/goal/goal/src/types.ts) · [`packages/interaction/commands/src/brand.ts:31`](../packages/interaction/commands/src/brand.ts) · [`packages/interaction/user-approval/src/types.ts:17`](../packages/interaction/user-approval/src/types.ts) · [`packages/llm/llm-retry/src/brand.ts:4`](../packages/llm/llm-retry/src/brand.ts) · [`packages/llm/llm/src/brand.ts:16`](../packages/llm/llm/src/brand.ts) · [`packages/llm/llm/src/brand.ts:31`](../packages/llm/llm/src/brand.ts) · [`packages/llm/llm/src/brand.ts:43`](../packages/llm/llm/src/brand.ts) · [`packages/llm/llm/src/brand.ts:67`](../packages/llm/llm/src/brand.ts) · [`packages/schedule/schedule/src/types.ts:10`](../packages/schedule/schedule/src/types.ts) · [`packages/session/session-title/src/index.ts:42`](../packages/session/session-title/src/index.ts) · [`packages/session/session-title/src/types.ts:17`](../packages/session/session-title/src/types.ts) · [`packages/webhook/webhook/src/brand.ts:12`](../packages/webhook/webhook/src/brand.ts) · [`packages/webhook/webhook/src/brand.ts:6`](../packages/webhook/webhook/src/brand.ts) · [`packages/webhook/webhook/src/brand.ts:9`](../packages/webhook/webhook/src/brand.ts) · [`packages/workflow/workflow/src/types.ts:13`](../packages/workflow/workflow/src/types.ts)
+Sources: [`packages/api/session-controller/src/types.ts:376`](../packages/api/session-controller/src/types.ts) · [`packages/attachment/attachment/src/brand.ts:6`](../packages/attachment/attachment/src/brand.ts) · [`packages/compaction/compaction/src/brand.ts:4`](../packages/compaction/compaction/src/brand.ts) · [`packages/core/session/src/types.ts:19`](../packages/core/session/src/types.ts) · [`packages/experimental/agent-team/src/types.ts:20`](../packages/experimental/agent-team/src/types.ts) · [`packages/experimental/agent-team/src/types.ts:32`](../packages/experimental/agent-team/src/types.ts) · [`packages/experimental/agent-team/src/types.ts:8`](../packages/experimental/agent-team/src/types.ts) · [`packages/feedback/message-feedback/src/types.ts:14`](../packages/feedback/message-feedback/src/types.ts) · [`packages/goal/goal/src/types.ts:17`](../packages/goal/goal/src/types.ts) · [`packages/interaction/commands/src/brand.ts:31`](../packages/interaction/commands/src/brand.ts) · [`packages/interaction/user-approval/src/types.ts:17`](../packages/interaction/user-approval/src/types.ts) · [`packages/llm/llm-retry/src/brand.ts:4`](../packages/llm/llm-retry/src/brand.ts) · [`packages/llm/llm/src/brand.ts:16`](../packages/llm/llm/src/brand.ts) · [`packages/llm/llm/src/brand.ts:31`](../packages/llm/llm/src/brand.ts) · [`packages/llm/llm/src/brand.ts:43`](../packages/llm/llm/src/brand.ts) · [`packages/llm/llm/src/brand.ts:67`](../packages/llm/llm/src/brand.ts) · [`packages/schedule/schedule/src/types.ts:10`](../packages/schedule/schedule/src/types.ts) · [`packages/session/session-title/src/index.ts:42`](../packages/session/session-title/src/index.ts) · [`packages/session/session-title/src/types.ts:17`](../packages/session/session-title/src/types.ts) · [`packages/session/task-checkpoint/src/legacy-identity.ts:22`](../packages/session/task-checkpoint/src/legacy-identity.ts) · [`packages/session/task-checkpoint/src/legacy-identity.ts:25`](../packages/session/task-checkpoint/src/legacy-identity.ts) · [`packages/session/task-checkpoint/src/types.ts:22`](../packages/session/task-checkpoint/src/types.ts) · [`packages/session/task-checkpoint/src/types.ts:25`](../packages/session/task-checkpoint/src/types.ts) · [`packages/session/task-checkpoint/src/types.ts:28`](../packages/session/task-checkpoint/src/types.ts) · [`packages/webhook/webhook/src/brand.ts:12`](../packages/webhook/webhook/src/brand.ts) · [`packages/webhook/webhook/src/brand.ts:6`](../packages/webhook/webhook/src/brand.ts) · [`packages/webhook/webhook/src/brand.ts:9`](../packages/webhook/webhook/src/brand.ts) · [`packages/workflow/workflow/src/types.ts:13`](../packages/workflow/workflow/src/types.ts)
 
 `string`
 
@@ -6412,6 +7149,22 @@ SHA-256: `1c5a58f4599bd4a9711712551ffe2442a5e5fcd0758bafe630cc4ead850bdaa7`
 SHA-256: `f05fb85e715af4ab4de0b6ba111166dd0435bd8bb74a0fa0f32b9d174113fc7c`
 
 `"task-result"`
+
+<a id="persistence-type-taskcheckpoint"></a>
+
+### `"task/checkpoint"`
+
+SHA-256: `0b79e25c0bace482a93798011e8646d339d42d0685a58807bcd23b685e9b792b`
+
+`"task/checkpoint"`
+
+<a id="persistence-type-taskresult-manifest"></a>
+
+### `"task/result-manifest"`
+
+SHA-256: `5d8286ff7cbfbc640cc82bd0d05f21fc5e5277e51cbe5be6e5c4226c3b23206d`
+
+`"task/result-manifest"`
 
 <a id="persistence-type-team-message"></a>
 
@@ -6565,6 +7318,14 @@ SHA-256: `cdca80b8dad24d4e7b1d5a288a8475ba8d8d46be385bd2da85f122ee836f1670`
 
 `"tool-workflow/run-start"`
 
+<a id="persistence-type-tool_failed"></a>
+
+### `"TOOL_FAILED"`
+
+SHA-256: `e610e3d1e8ab798766839d895ff3d727d6ae1bca2d569bd88f49c6f7977a6830`
+
+`"TOOL_FAILED"`
+
 <a id="persistence-type-toolcall"></a>
 
 ### `"tool/call"`
@@ -6596,6 +7357,22 @@ SHA-256: `2aed07493b1c65b6d00de5586da1e743cf501684b9ad43a1765fb4007d4ea456`
 SHA-256: `570e85022434613394418ad33e77e9f1f7a05699b33d0b62eae0677a638c3833`
 
 `"tool/result"`
+
+<a id="persistence-type-transport"></a>
+
+### `"TRANSPORT"`
+
+SHA-256: `628813059763a83092e93fab39a799226cdc45f4a275563af2543d38f946b4ac`
+
+`"TRANSPORT"`
+
+<a id="persistence-type-transport-2"></a>
+
+### `"transport"`
+
+SHA-256: `99accc4c5b6b8951697d38d79f6012b5b5b325a4b82faa077ae57785ddb55a76`
+
+`"transport"`
 
 <a id="persistence-type-true"></a>
 
@@ -6636,6 +7413,14 @@ SHA-256: `2c4c21f19f426a58f2dac914e34313aa43f8408972de857a486d1f086d5adb6c`
 SHA-256: `bbc5696e3f13c758237b316e3cf08cda0b9fd51ffe672539883457769faa185d`
 
 `unknown`: the declaration does not expose the stored value's internal fields.
+
+<a id="persistence-type-unknown-2"></a>
+
+### `"UNKNOWN"`
+
+SHA-256: `d1b524d018e5d505491bd0b7bdebc0b89b938b9329d7d2c13da69174a79c2f7a`
+
+`"UNKNOWN"`
 
 <a id="persistence-type-usage"></a>
 
@@ -6692,6 +7477,14 @@ SHA-256: `6f611bed14b2106542480c4a230b4a83baf76dc0d8ac0cd13319a7cb8dae7675`
 SHA-256: `db6c5246911d47a7969f6b4cb47c7d0dbbde75c402710b22ace3672fa97bebe0`
 
 `"webhook"`
+
+<a id="persistence-type-worker_crash"></a>
+
+### `"WORKER_CRASH"`
+
+SHA-256: `ed4fe34b0b5616baebedfaba34e7494280e91024df89640a7f05e481439e89c8`
+
+`"WORKER_CRASH"`
 
 <a id="persistence-type-workspace-write"></a>
 

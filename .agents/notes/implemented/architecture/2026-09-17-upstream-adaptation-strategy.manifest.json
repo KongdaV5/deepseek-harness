@@ -1,8 +1,8 @@
 {
   "formatVersion": 1,
-  "phase": "8C.2d",
-  "status": "stage-5-complete",
-  "generatedAt": "2026-09-18T15:08:00+08:00",
+  "phase": "8C.2e",
+  "status": "stage-6-complete",
+  "generatedAt": "2026-09-18T17:40:00+08:00",
   "target": {
     "remote": "https://github.com/deepseek-ai/deepseek-harness.git",
     "branch": "origin/master",
@@ -85,10 +85,11 @@
       "mutationMode": "IMMUTABLE_SUCCESSOR_GENERATION",
       "sourceGenerationRetained": true,
       "rollbackClassification": "ROLLBACK_SAFE_WITH_BACKUP_RESTORE",
-      "rollbackReason": "The physical v3 provider is shared, but target-only required events are unknown to the Final Product catalog and Final Product task events are unknown to the target catalog.",
+      "rollbackReason": "The physical v3 provider is shared, and target-only required events are still unknown to the Final Product catalog.",
       "targetOnlyRequiredEvents": ["image/offload", "workspace/changes"],
-      "removedRequiredCustomEvents": ["task/checkpoint", "task/result-manifest"],
-      "customEventBehavior": "CUSTOM_EVENT_MIGRATION_BLOCKED"
+      "removedRequiredCustomEvents": [],
+      "restoredFirstPartyRequiredEvents": ["task/checkpoint", "task/result-manifest"],
+      "customEventBehavior": "RESTORED_FIRST_PARTY_REQUIRED_EVENTS_READ_WITHOUT_REWRITE"
     },
     "futureCutoverRequirement": {
       "stage": 13,
@@ -225,6 +226,7 @@
       "upstreamEquivalent": "session-checkpoint-policy now flushes before model requests, side-effecting tools, and next steps; repair distinguishes TOOL_NOT_STARTED and TOOL_OUTCOME_UNKNOWN, but there is no domain TaskCheckpoint/Result Manifest.",
       "status": "REWRITE_REQUIRED",
       "action": "REIMPLEMENT",
+      "implementationStatus": "IMPLEMENTED_STAGE_6_EVENTS_AND_PROJECTIONS",
       "risk": "CRITICAL",
       "validation": ["v3 event compatibility", "completed/pending preservation", "TOOL_OUTCOME_UNKNOWN blocks resume", "crash/resume pending-only"]
     },
@@ -455,7 +457,7 @@
     { "stage": 3, "status": "COMPLETE", "goal": "Profile, settings, sessions, and migration boundary", "dependencies": [2], "tests": ["temp-home paths", "copied-fixture migrations", "sentinel hashes"], "stopGate": "Any real-data path is touched or migration semantics remain unresolved." },
     { "stage": 4, "status": "COMPLETE", "goal": "Packaging and primary-runtime closure", "dependencies": [2, 3], "tests": ["runtime lock", "native ABI", "codesign", "candidate staging"], "stopGate": "Runtime payload/signature/native closure fails." },
     { "stage": 5, "status": "COMPLETE", "goal": "Minimal current Cordis/package-set composition", "dependencies": [3, 4], "tests": ["composition resolution", "effective-row uniqueness", "host startup in temp profile"], "stopGate": "Composition duplicates upstream-native services or cannot start isolated." },
-    { "stage": 6, "status": "PENDING", "goal": "Session v3 and Agent lifecycle adapters", "dependencies": [5], "tests": ["schema", "projection", "turn/step/attempt fixtures"], "stopGate": "Run identity or durable-event compatibility is ambiguous." },
+    { "stage": 6, "status": "COMPLETE", "goal": "Session v3 and Agent lifecycle adapters", "dependencies": [5], "tests": ["schema", "projection", "turn/step/attempt fixtures"], "stopGate": "Run identity or durable-event compatibility is ambiguous.", "deliverables": ["packages/session/task-checkpoint", "packages/runtime-diagnostics/agent-lifecycle-facts", "docs/persistence-changes/2026-09-18-restore-task-checkpoint-events"], "decisions": ["D1 restore task/checkpoint and task/result-manifest as first-party known events instead of custom-event migration", "D2 keep the old v1 schema and field names; RunId and AttemptId survive only as in-package compatibility identity types", "D3 Stage 6 deliberately defines no logical RunId; that stays a Stage 7 decision", "D4 LlmAttemptId remains transient and non-durable and is never persisted into a checkpoint", "D5 two independent pure-library packages with no runtime companion and no composition entry", "D6 no guarded and no pending-only resume; resume policy is deferred to Stage 8"] },
     { "stage": 7, "status": "PENDING", "goal": "Run State, backend health, and error classification", "dependencies": [6], "tests": ["Phase 2/3 observability and policy fixtures"], "stopGate": "Unknown is guessed, fatal evidence is weak, or terminal state can regress." },
     { "stage": 8, "status": "PENDING", "goal": "TaskCheckpoint, Result Manifest, and guarded resume", "dependencies": [6, 7], "tests": ["crash/resume", "pending-only", "outcome-unknown block"], "stopGate": "Authoritative task facts can be lost or duplicated." },
     { "stage": 9, "status": "PENDING", "goal": "IQ3_S reasoning and bounded run policy", "dependencies": [7, 8], "tests": ["xhigh-first matrix", "fatal no retry", "retry at most two"], "stopGate": "A second retry engine appears or request reasoning cannot be proven." },
@@ -481,10 +483,12 @@
     "packages/session/session-format/src/index.ts",
     "packages/session/session-format-v2-to-v3/src/index.ts",
     "packages/session/session-persistence/src/storage-contract.ts",
+    "packages/session/task-checkpoint/src",
     "packages/llm/llm-pi-ai/src/index.ts",
     "packages/llm/llm-retry/src/index.ts",
     "packages/llm/token-meter/src",
     "packages/compaction/compaction-basic/src/index.ts",
+    "packages/runtime-diagnostics/agent-lifecycle-facts/src",
     "packages/runtime-diagnostics/invariants/src",
     "packages/client/ui-dockkit/src"
   ],
@@ -498,11 +502,12 @@
     "severity": "CRITICAL",
     "impact": "BLOCKING_CHANGE",
     "resolution": "UNRESOLVED",
-    "reason": "Stage 5 is qualified in isolated staging with the current upstream Web composition, but Custom event registration, retained capabilities, later ports, and a new product baseline remain unresolved."
+    "reason": "Stage 6 restored the two Final Product task events as first-party known v3 events and shipped the durable task-checkpoint contract plus a read-only lifecycle fact extractor, but Run State, retained capability ports, guarded resume, and a new product baseline remain unresolved."
   },
   "knownUnknowns": [
     "Formal Developer ID/notarization and daily installation remain intentionally outside the isolated Stage 4 candidate qualification.",
-    "The precise v3 extension-event registration versus ignorable-envelope choice for TaskCheckpoint and Run State durable facts needs a focused schema prototype in Stage 6.",
+    "Run State still has no logical RunId: Stage 6 refused to define one, so Stage 7 must fix the turn/step/attempt-to-RunId projection contract before any policy layer consumes it.",
+    "Whether guarded and pending-only resume may proceed without a durable attempt identity, given that Stage 6 kept LlmAttemptId transient and non-durable, is a Stage 8 question.",
     "The local IQ3_S route's final mapping into the current pi-ai model catalog must be proven without reading real settings in Stage 9.",
     "The current dockkit/scoped-slot insertion contract for Run Details needs a minimal renderer prototype after its remote contract stabilizes.",
     "Retained capability ports and current-client qualification remain unproven until their later stages."
