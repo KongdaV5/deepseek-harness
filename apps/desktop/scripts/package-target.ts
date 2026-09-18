@@ -14,6 +14,7 @@ import { loadDesktopPackageEnvironment, validateDesktopPackageEnvironment } from
 import { createPackagingRun } from './packaging-run.mjs'
 import { withMacOSSigningKeychain } from './macos-signing-keychain.mjs'
 import { resolveDesktopProductFlavorDefinition } from './product-flavor.mjs'
+import { isDesktopLocalMacOSQualification, qualifyLocalMacOSApplication } from './local-macos-qualification.mjs'
 
 const APP_ROOT = resolve(import.meta.dirname, '..')
 const REPOSITORY_ROOT = resolve(APP_ROOT, '..', '..')
@@ -294,7 +295,7 @@ async function main(): Promise<void> {
   if (run !== undefined) console.log(`DESKTOP_PACKAGING_RECORD ${run.directory}`)
   let success = false
   try {
-    if (target.platform === 'darwin') {
+    if (target.platform === 'darwin' && !isDesktopLocalMacOSQualification(environment, target, invocation)) {
       await withMacOSSigningKeychain(environment, signingEnvironment => packageTarget(invocation, signingEnvironment, run))
     } else {
       await packageTarget(invocation, environment, run)
@@ -330,6 +331,9 @@ export async function packageTarget(
     DSH_DESKTOP_TARGET_ARCH: target.arch,
   }
   const electronBuilderEnv = desktopElectronBuilderEnvironment(targetEnv, invocation.unsigned)
+  if (isDesktopLocalMacOSQualification(environment, target, invocation)) {
+    electronBuilderEnv.CSC_IDENTITY_AUTO_DISCOVERY = 'false'
+  }
   for (const name of WINDOWS_SIGNING_ENV_NAMES) {
     if (!invocation.unsigned && environment[name] !== undefined) electronBuilderEnv[name] = environment[name]
   }
@@ -378,6 +382,10 @@ export async function packageTarget(
     }, artifact => execute(desktopElectronBuilderArguments(target, false, artifact), electronBuilderEnv))
   } else {
     await execute(desktopElectronBuilderArguments(target, invocation.directory), electronBuilderEnv)
+  }
+  if (isDesktopLocalMacOSQualification(environment, target, invocation)) {
+    const flavor = resolveDesktopProductFlavorDefinition(environment)
+    qualifyLocalMacOSApplication(buildPaths.artifacts, target.name, flavor.productName)
   }
   if (!invocation.directory && !invocation.unsigned) writeReleaseRecord(target, electronBuilderEnv, buildPaths.artifacts)
 }

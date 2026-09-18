@@ -1,8 +1,8 @@
 {
   "formatVersion": 1,
-  "phase": "8C.2b",
-  "status": "stage-3-complete",
-  "generatedAt": "2026-09-18T11:54:10+08:00",
+  "phase": "8C.2c",
+  "status": "stage-4-complete",
+  "generatedAt": "2026-09-18T14:50:54+08:00",
   "target": {
     "remote": "https://github.com/deepseek-ai/deepseek-harness.git",
     "branch": "origin/master",
@@ -174,6 +174,7 @@
       "upstreamEquivalent": "A signed primary-runtime tree now bundles Node, Python, pnpm, payload digests, updater policy, and qualification stages.",
       "status": "REWRITE_REQUIRED",
       "action": "REIMPLEMENT",
+      "implementationStatus": "IMPLEMENTED_STAGE_4",
       "risk": "HIGH",
       "validation": ["staged runtime manifest", "codesign deep verification", "native module smoke", "candidate-only install rehearsal"]
     },
@@ -439,7 +440,7 @@
     { "stage": 1, "status": "COMPLETE", "goal": "Reconfirm locked upstream health and toolchain", "dependencies": [], "tests": ["install", "build", "classified upstream tests"], "stopGate": "Target SHA or health classification differs without explanation." },
     { "stage": 2, "status": "COMPLETE", "goal": "Product identity and process isolation", "dependencies": [1], "tests": ["bundle/profile/userData/single-instance contracts"], "stopGate": "Any path can collide with official Desktop or Stable DS Harness." },
     { "stage": 3, "status": "COMPLETE", "goal": "Profile, settings, sessions, and migration boundary", "dependencies": [2], "tests": ["temp-home paths", "copied-fixture migrations", "sentinel hashes"], "stopGate": "Any real-data path is touched or migration semantics remain unresolved." },
-    { "stage": 4, "status": "PENDING", "goal": "Packaging and primary-runtime closure", "dependencies": [2, 3], "tests": ["runtime lock", "native ABI", "codesign", "candidate staging"], "stopGate": "Runtime payload/signature/native closure fails." },
+    { "stage": 4, "status": "COMPLETE", "goal": "Packaging and primary-runtime closure", "dependencies": [2, 3], "tests": ["runtime lock", "native ABI", "codesign", "candidate staging"], "stopGate": "Runtime payload/signature/native closure fails." },
     { "stage": 5, "status": "PENDING", "goal": "Minimal current Cordis/package-set composition", "dependencies": [3, 4], "tests": ["composition resolution", "host startup in temp profile"], "stopGate": "Composition duplicates upstream-native services or cannot start isolated." },
     { "stage": 6, "status": "PENDING", "goal": "Session v3 and Agent lifecycle adapters", "dependencies": [5], "tests": ["schema", "projection", "turn/step/attempt fixtures"], "stopGate": "Run identity or durable-event compatibility is ambiguous." },
     { "stage": 7, "status": "PENDING", "goal": "Run State, backend health, and error classification", "dependencies": [6], "tests": ["Phase 2/3 observability and policy fixtures"], "stopGate": "Unknown is guessed, fatal evidence is weak, or terminal state can regress." },
@@ -483,13 +484,13 @@
     "severity": "CRITICAL",
     "impact": "BLOCKING_CHANGE",
     "resolution": "UNRESOLVED",
-    "reason": "Stage 3 isolates candidate data and classifies migration, but Custom event registration, profile composition migration, packaged runtime qualification, retained capabilities, and a new product baseline remain unresolved."
+    "reason": "Stage 4 is qualified in isolated staging, but Custom event registration, profile composition migration, retained capabilities, and a new product baseline remain unresolved."
   },
   "knownUnknowns": [
-    "The signed and notarized DS Harness package, runtime payload, and client artifact identity remain unqualified until Stage 4.",
+    "Formal Developer ID/notarization and daily installation remain intentionally outside the isolated Stage 4 candidate qualification.",
     "The precise v3 extension-event registration versus ignorable-envelope choice for TaskCheckpoint and Run State durable facts needs a focused schema prototype in Stage 6.",
     "The local IQ3_S route's final mapping into the current pi-ai model catalog must be proven without reading real settings in Stage 9.",
     "The current dockkit/scoped-slot insertion contract for Run Details needs a minimal renderer prototype after its remote contract stabilizes.",
-    "Packaged primary-runtime and native ABI behavior for the DS Harness flavor remains unproven until Stage 4 candidate qualification."
+    "Retained capability composition and current-client qualification remain unproven until their later stages."
   ]
 }

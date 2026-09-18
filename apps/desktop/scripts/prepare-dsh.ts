@@ -23,6 +23,8 @@ import {
   resolveDesktopAppId,
   resolveMacOSSigningEnvironment,
 } from './desktop-release-environment.mjs'
+import { resolveDesktopFlavorAppId, resolveDesktopProductFlavorDefinition } from './product-flavor.mjs'
+import { isDesktopLocalMacOSQualification } from './local-macos-qualification.mjs'
 import {
   signMacOSRuntime,
 } from './macos-runtime.ts'
@@ -143,9 +145,11 @@ async function main(): Promise<void> {
     if (!existsSync(join(DSH_OUTPUT_ROOT, 'node_modules', '@deepseek-ai', `libreoffice-kit-${officeEngine}`, 'prebuilds.json'))) {
       throw new Error(`desktop runtime: missing required LibreOffice engine ${officeEngine}`)
     }
-    if (process.platform === 'darwin') {
-      await signMacOSRuntime(DSH_OUTPUT_ROOT, resolveDesktopAppId(process.env), resolveMacOSSigningEnvironment(process.env))
-      await signMacOSRuntime(join(RUNTIME_ROOT, 'primary-runtime'), resolveDesktopAppId(process.env), resolveMacOSSigningEnvironment(process.env))
+    if (process.platform === 'darwin' && !isDesktopLocalMacOSQualification(process.env, { platform: 'darwin' }, { directory: true })) {
+      const flavor = resolveDesktopProductFlavorDefinition(process.env)
+      const appId = resolveDesktopFlavorAppId(flavor, process.env, resolveDesktopAppId)
+      await signMacOSRuntime(DSH_OUTPUT_ROOT, appId, resolveMacOSSigningEnvironment(process.env))
+      await signMacOSRuntime(join(RUNTIME_ROOT, 'primary-runtime'), appId, resolveMacOSSigningEnvironment(process.env))
     }
     smokePrimaryRuntime(join(RUNTIME_ROOT, 'primary-runtime'))
     writeDesktopRuntime(DSH_OUTPUT_ROOT, release, packageSet.packages.map(entry => entry.name), target)

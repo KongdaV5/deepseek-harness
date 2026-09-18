@@ -33,6 +33,29 @@ describe('installer preparation preserves application dependencies', () => {
     expect(config.extraMetadata).not.toHaveProperty('dshMandatoryUpdatePolicy')
   })
 
+  it('uses the fixed DS Harness identifier for macOS runtime signing inputs', async () => {
+    const { resolveDesktopAppId } = await import('../scripts/desktop-release-environment.mjs')
+    const {
+      resolveDesktopFlavorAppId,
+      resolveDesktopProductFlavorDefinition,
+    } = await import('../scripts/product-flavor.mjs')
+    const environment = {
+      DSH_DESKTOP_PRODUCT_FLAVOR: 'ds-harness',
+    }
+    expect(resolveDesktopFlavorAppId(resolveDesktopProductFlavorDefinition(environment), environment, resolveDesktopAppId))
+      .toBe('dev.dsh.desktop.custom')
+  })
+
+  it('limits local macOS qualification to an unpacked DS Harness staging artifact', async () => {
+    const { isDesktopLocalMacOSQualification } = await import('../scripts/local-macos-qualification.mjs')
+    const environment = { DSH_DESKTOP_PRODUCT_FLAVOR: 'ds-harness', DSH_DESKTOP_LOCAL_MACOS_QUALIFICATION: '1' }
+    expect(isDesktopLocalMacOSQualification(environment, { platform: 'darwin' }, { directory: true })).toBe(true)
+    expect(() => isDesktopLocalMacOSQualification(environment, { platform: 'darwin' }, { directory: false }))
+      .toThrow('requires a macOS --dir package')
+    expect(() => isDesktopLocalMacOSQualification({ ...environment, DSH_DESKTOP_PRODUCT_FLAVOR: 'official' }, { platform: 'darwin' }, { directory: true }))
+      .toThrow('limited to the ds-harness flavor')
+  })
+
   it.each(['win32', 'darwin'] as const)('rejects a missing production policy before signing on %s', async (platform) => {
     const { createElectronBuilderConfig } = await import('../scripts/electron-builder-config.mjs')
     expect(() => createElectronBuilderConfig({ DSH_DESKTOP_APP_ID: 'com.example.installer',

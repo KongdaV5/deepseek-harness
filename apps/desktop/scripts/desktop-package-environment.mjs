@@ -9,9 +9,10 @@ import { resolveDesktopAutoUpdateConfig } from './desktop-auto-update-environmen
 import { createWindowsTokenSigner } from './windows-sign.mjs'
 import { resolveDesktopPolicyEnvironment } from './desktop-policy-environment.mjs'
 import { resolveDesktopFlavorAppId, resolveDesktopProductFlavorDefinition } from './product-flavor.mjs'
+import { isDesktopLocalMacOSQualification } from './local-macos-qualification.mjs'
 
 const APP_ROOT = fileURLToPath(new URL('..', import.meta.url))
-const SHARED_SETTING = /^(?:DSH_DESKTOP_(?:APP_ID|PRODUCT_FLAVOR|AUTO_UPDATE_ENV|MANDATORY_UPDATE_(?:CONFIG|(?:TEST|PROD)_ORIGIN))|DOWNLOAD_(?:TEST|PROD)_(?:ORIGIN|COS_BUCKET|COS_SECRET_ID|COS_SECRET_KEY))$/u
+const SHARED_SETTING = /^(?:DSH_DESKTOP_(?:APP_ID|PRODUCT_FLAVOR|LOCAL_MACOS_QUALIFICATION|AUTO_UPDATE_ENV|MANDATORY_UPDATE_(?:CONFIG|(?:TEST|PROD)_ORIGIN))|DOWNLOAD_(?:TEST|PROD)_(?:ORIGIN|COS_BUCKET|COS_SECRET_ID|COS_SECRET_KEY))$/u
 const WINDOWS_SETTING = /^DSH_DESKTOP_WINDOWS_(?:CER_FILE|SIGNTOOL|KEY_CONTAINER|TOKEN_PIN)$/u
 const MACOS_SETTING = /^(?:DSH_DESKTOP_MACOS_(?:SIGNING_IDENTITY|TEAM_ID)|APPLE_(?:API_KEY|API_KEY_ID|API_ISSUER|ID|APP_SPECIFIC_PASSWORD|TEAM_ID|KEYCHAIN|KEYCHAIN_PROFILE)|CSC_(?:LINK|KEY_PASSWORD))$/u
 const AMBIENT_RELEASE_SETTING = /^(?:DSH_DESKTOP_(?:APP_ID|PRODUCT_FLAVOR|AUTO_UPDATE_ENV|MANDATORY_UPDATE_.*|WINDOWS_.*|MACOS_.*)|APPLE_.*|(?:WIN_)?CSC_.*|DOWNLOAD_(?:TEST|PROD)_.*)$/iu
@@ -77,6 +78,7 @@ function requireReadableFile(environment, name) {
 export function validateDesktopPackageEnvironment(environment, target, options = {}) {
   const flavor = resolveDesktopProductFlavorDefinition(environment)
   resolveDesktopFlavorAppId(flavor, environment, resolveDesktopAppId)
+  if (isDesktopLocalMacOSQualification(environment, target, options)) return
   if (flavor.updates.mode === 'official') resolveDesktopPolicyEnvironment(environment)
   if (options.unsigned) return
   if (!options.prepareOnly && flavor.updates.mode === 'official') {
