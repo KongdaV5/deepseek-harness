@@ -602,6 +602,34 @@ declare class Session {
     ...opts: T extends SurfaceEventType ? [opts: SurfaceIntent<T>] : []
     ): SessionEvent<T>;
   /**
+   * Append one registered reader-optional event to the log through the same
+   * single in-memory authority as {@link Session.append}: identical seq/time
+   * allocation, data snapshotting and freezing, surface validation, publication,
+   * observers, persistence path, ordering, and reentrancy protection. The only
+   * envelope difference is the `ignorable: true` marker, which tells a reader
+   * that does not implement the writer's optional subsystem that skipping this
+   * event still reconstructs the canonical session.
+   *
+   * `type` is restricted to {@link IgnorableSessionEventType} — the events their
+   * owning package registered in {@link IgnorableSessionEventMap} — so no caller
+   * can mark an arbitrary first-party event optional by accident. Ordinary
+   * first-party events stay required-by-default and must use
+   * {@link Session.append}. Surface-eligible types are unreachable here both by
+   * registration policy and at runtime, since this method carries no surface
+   * intent.
+   *
+   * @param type - The registered reader-optional event type.
+   * @param data - The event payload; must be JSON-serializable, exactly as
+   *   {@link Session.append} requires.
+   * @returns the logged event, carrying `ignorable: true` plus its assigned
+   *   `seq`/`time` and the frozen snapshot of `data`.
+   * @throws under the same conditions as {@link Session.append}.
+   */
+  appendIgnorable<T extends IgnorableSessionEventType>(
+    type: T,
+    data: SessionEventMap[T],
+    ): SessionEvent<T>;
+  /**
    * The {@link EpochHeader} in force after the log's last header event — the
    * header the NEXT request will be compared against — or undefined before
    * the first `request/header` snapshot. The live, incrementally-maintained

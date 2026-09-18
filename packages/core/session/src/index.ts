@@ -15,7 +15,7 @@ import type { Scoped } from '@deepseek-ai/dsh-scope'
 import type { Message } from '@deepseek-ai/dsh-llm'
 import { SESSION_FORMAT_VERSION, SessionLogOffset, SessionSeq } from './types.ts'
 import type { TypertLookup } from '@deepseek-ai/dsh-typert-protocol'
-import type { CreateSessionOptions, EpochHeader, PrepareSessionOptions, RequestContext, SessionEvent, SessionEventMap, SessionEventType, SessionHeader, SessionId, SessionSeedEventState, SurfaceIntent, SurfaceEventType } from './types.ts'
+import type { CreateSessionOptions, EpochHeader, IgnorableSessionEventType, PrepareSessionOptions, RequestContext, SessionEvent, SessionEventMap, SessionEventType, SessionHeader, SessionId, SessionSeedEventState, SurfaceIntent, SurfaceEventType } from './types.ts'
 import { SurfaceManager, validateSessionEventData, validateSurfaceMetadata } from './surface.ts'
 import type { SessionSurface, SessionMessageProjection } from './surface.ts'
 import { foldRequestHeader } from './request-header.ts'
@@ -721,7 +721,55 @@ export class Session {
     data: SessionEventMap[T],
     ...opts: T extends SurfaceEventType ? [opts: SurfaceIntent<T>] : []
   ): SessionEvent<T> {
-    const surfaceOpts: SurfaceIntent | undefined = opts[0]
+    return this.commitEvent(type, data, opts[0])
+  }
+
+  /**
+   * Append one registered reader-optional event to the log through the same
+   * single in-memory authority as {@link Session.append}: identical seq/time
+   * allocation, data snapshotting and freezing, surface validation, publication,
+   * observers, persistence path, ordering, and reentrancy protection. The only
+   * envelope difference is the `ignorable: true` marker, which tells a reader
+   * that does not implement the writer's optional subsystem that skipping this
+   * event still reconstructs the canonical session.
+   *
+   * `type` is restricted to {@link IgnorableSessionEventType} — the events their
+   * owning package registered in {@link IgnorableSessionEventMap} — so no caller
+   * can mark an arbitrary first-party event optional by accident. Ordinary
+   * first-party events stay required-by-default and must use
+   * {@link Session.append}. Surface-eligible types are unreachable here both by
+   * registration policy and at runtime, since this method carries no surface
+   * intent.
+   *
+   * @param type - The registered reader-optional event type.
+   * @param data - The event payload; must be JSON-serializable, exactly as
+   *   {@link Session.append} requires.
+   * @returns the logged event, carrying `ignorable: true` plus its assigned
+   *   `seq`/`time` and the frozen snapshot of `data`.
+   * @throws under the same conditions as {@link Session.append}.
+   */
+  appendIgnorable<T extends IgnorableSessionEventType>(
+    type: T,
+    data: SessionEventMap[T],
+  ): SessionEvent<T> {
+    return this.commitEvent(type, data, undefined, true)
+  }
+
+  /**
+   * Build, validate, publish, and commit one event envelope — the shared
+   * implementation behind {@link Session.append} and
+   * {@link Session.appendIgnorable}, so both allocate the same sequence and time,
+   * take the same snapshot, run the same validation, and publish through the same
+   * observer/commit boundary. The caller owns only the two envelope differences:
+   * surface intent (required for surface events, absent here for ignorable ones)
+   * and the `ignorable` marker.
+   */
+  private commitEvent<T extends SessionEventType>(
+    type: T,
+    data: SessionEventMap[T],
+    surfaceOpts?: SurfaceIntent,
+    ignorable?: true,
+  ): SessionEvent<T> {
     const surfaceMetadata = {
       ...surfaceOpts?.sourceEventSeqs === undefined ? {} : { sourceEventSeqs: surfaceOpts.sourceEventSeqs },
       ...surfaceOpts?.surfaceOp === undefined ? {} : { surfaceOp: surfaceOpts.surfaceOp },
@@ -743,6 +791,7 @@ export class Session {
       seq: SessionSeq(this.log.length),
       time: Date.now(),
       data: dataSnapshot,
+      ...ignorable === undefined ? {} : { ignorable },
       ...(surfaceMetadataSnapshot as { surfaceOp?: unknown; sourceEventSeqs?: unknown }),
     } as unknown as SessionEvent<T>)
     validateSessionEventData(event, `session event "${type}" at seq ${event.seq}`)

@@ -157,7 +157,7 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
 }[T]
 ```
 
-来源：[`packages/core/session/src/types.ts:409`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:417`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:439`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:470`](../packages/core/session/src/types.ts)
+来源：[`packages/core/session/src/types.ts:409`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:448`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:470`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:501`](../packages/core/session/src/types.ts)
 
 ## 事件
 
@@ -961,7 +961,7 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
 'task/checkpoint': TaskCheckpointEventData
 ```
 
-来源：[`packages/session/task-checkpoint/src/domain.ts:43`](../packages/session/task-checkpoint/src/domain.ts)
+来源：[`packages/session/task-checkpoint/src/domain.ts:49`](../packages/session/task-checkpoint/src/domain.ts)
 
 <a id="taskresult-manifest--log-only"></a>
 
@@ -978,7 +978,7 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
 'task/result-manifest': ResultManifestEventData
 ```
 
-来源：[`packages/session/task-checkpoint/src/domain.ts:51`](../packages/session/task-checkpoint/src/domain.ts)
+来源：[`packages/session/task-checkpoint/src/domain.ts:57`](../packages/session/task-checkpoint/src/domain.ts)
 
 ### `team/*`
 
@@ -4895,7 +4895,7 @@ SHA-256: `2a8b114637e66faab5fae1c6e2fba65320db6224c80f5f36c5bf32f937154d03`
 
 SHA-256: `335e242de1fcc17b6ca920fc420d71bec2d76e53e37955c00948b65ab77f05c5`
 
-来源：[`packages/core/session/src/types.ts:439`](../packages/core/session/src/types.ts)
+来源：[`packages/core/session/src/types.ts:470`](../packages/core/session/src/types.ts)
 
 以下类型之一：
 
@@ -5976,7 +5976,7 @@ SHA-256: `30d5a537b296685770b1241c4b4bbde19d5a31ff81aa23df73fab5e90b8fc65f`
 
 SHA-256: `aabbdecaa3d2878a31da50d921877873e21dd4fe15b76604ea41b724fd9fbae3`
 
-来源：[`packages/session/task-checkpoint/src/domain.ts:27`](../packages/session/task-checkpoint/src/domain.ts)
+来源：[`packages/session/task-checkpoint/src/domain.ts:33`](../packages/session/task-checkpoint/src/domain.ts)
 
 | 属性 | 存在性 | 类型 |
 |---|---|---|
@@ -5990,7 +5990,7 @@ SHA-256: `aabbdecaa3d2878a31da50d921877873e21dd4fe15b76604ea41b724fd9fbae3`
 
 SHA-256: `6c19a5813ee809690dc0d9077352adebcf621b108b90e238f65f23ce0457f5f8`
 
-来源：[`packages/session/task-checkpoint/src/domain.ts:20`](../packages/session/task-checkpoint/src/domain.ts)
+来源：[`packages/session/task-checkpoint/src/domain.ts:26`](../packages/session/task-checkpoint/src/domain.ts)
 
 | 属性 | 存在性 | 类型 |
 |---|---|---|
@@ -6974,7 +6974,7 @@ SHA-256: `7af85bf70d4eafce63e739adae38ea85501e68df3a0e22f97f3a0be90fd9e4cb`
 
 SHA-256: `bcf0caf62d964b2fcf5404bd5c909cfa9a21c3f3c96e6b7e36d9e33565223825`
 
-来源：[`packages/core/session/src/types.ts:441`](../packages/core/session/src/types.ts)
+来源：[`packages/core/session/src/types.ts:472`](../packages/core/session/src/types.ts)
 
 | 属性 | 存在性 | 类型 |
 |---|---|---|

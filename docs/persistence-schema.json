@@ -28417,7 +28417,7 @@
         "packages/core/session/src/types.ts#SurfaceOp"
       ],
       "sources": [
-        "packages/core/session/src/types.ts:439"
+        "packages/core/session/src/types.ts:470"
       ]
     },
     {
@@ -41413,7 +41413,7 @@
         "packages/session/task-checkpoint/src/domain.ts#TaskCheckpointEventData"
       ],
       "sources": [
-        "packages/session/task-checkpoint/src/domain.ts:20"
+        "packages/session/task-checkpoint/src/domain.ts:26"
       ]
     },
     {
@@ -52786,7 +52786,7 @@
         "packages/session/task-checkpoint/src/domain.ts#ResultManifestEventData"
       ],
       "sources": [
-        "packages/session/task-checkpoint/src/domain.ts:27"
+        "packages/session/task-checkpoint/src/domain.ts:33"
       ]
     },
     {
@@ -56228,7 +56228,7 @@
         "SessionEventEnvelope[6].surfaceOp[1]"
       ],
       "sources": [
-        "packages/core/session/src/types.ts:441"
+        "packages/core/session/src/types.ts:472"
       ]
     },
     {

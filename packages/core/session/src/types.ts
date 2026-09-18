@@ -409,6 +409,37 @@ export interface SessionEventMap {
 export type SessionEventType = keyof SessionEventMap
 
 /**
+ * The merge-extensible opt-in table of Session events whose absence is known not
+ * to prevent canonical Session or conversation reconstruction in a reader that
+ * does not implement the optional subsystem that wrote them.
+ *
+ * Membership is the ONLY thing that makes a type eligible for
+ * {@link Session.appendIgnorable}; being a known {@link SessionEventMap} event is
+ * not enough, because most known events (the turn/step brackets,
+ * `session/end-seed`, every surface message) change how the rest of the log is
+ * read, so a reader that skipped one would reconstruct a different session.
+ * Register a type here only when losing it leaves the same canonical session:
+ * optional subsystem metadata, never required history.
+ *
+ * The package that owns the event opts in from the same
+ * `declare module '@deepseek-ai/dsh-session/types'` block that declares it in
+ * {@link SessionEventMap}. Core turn/step/message/tool events and every
+ * surface-eligible type must stay out. Only the key set is read: each value
+ * restates the payload its {@link SessionEventMap} entry already types, which
+ * stays the one authority `Session.appendIgnorable` takes `data` from.
+ */
+export interface IgnorableSessionEventMap {}
+
+/**
+ * The event types registered in {@link IgnorableSessionEventMap} — the complete
+ * set {@link Session.appendIgnorable} accepts, narrowed to declared Session
+ * events so registration cannot name an event that is not part of the
+ * vocabulary. `never` in a build whose mounted packages register no
+ * reader-optional event.
+ */
+export type IgnorableSessionEventType = Extract<SessionEventType, keyof IgnorableSessionEventMap>
+
+/**
  * The subset of {@link SessionEventType} values whose events produce LLM
  * messages and are eligible to appear on the ordered surface. Only these
  * event types may carry {@link SurfaceOp}; system, user, and tool events may also cite

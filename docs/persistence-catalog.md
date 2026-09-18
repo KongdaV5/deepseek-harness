@@ -155,7 +155,7 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
 }[T]
 ```
 
-Sources: [`packages/core/session/src/types.ts:409`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:417`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:439`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:470`](../packages/core/session/src/types.ts)
+Sources: [`packages/core/session/src/types.ts:409`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:448`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:470`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:501`](../packages/core/session/src/types.ts)
 
 ## Events
 
@@ -959,7 +959,7 @@ Source: [`packages/core/session/src/types.ts:310`](../packages/core/session/src/
 'task/checkpoint': TaskCheckpointEventData
 ```
 
-Source: [`packages/session/task-checkpoint/src/domain.ts:43`](../packages/session/task-checkpoint/src/domain.ts)
+Source: [`packages/session/task-checkpoint/src/domain.ts:49`](../packages/session/task-checkpoint/src/domain.ts)
 
 <a id="taskresult-manifest--log-only"></a>
 
@@ -976,7 +976,7 @@ Source: [`packages/session/task-checkpoint/src/domain.ts:43`](../packages/sessio
 'task/result-manifest': ResultManifestEventData
 ```
 
-Source: [`packages/session/task-checkpoint/src/domain.ts:51`](../packages/session/task-checkpoint/src/domain.ts)
+Source: [`packages/session/task-checkpoint/src/domain.ts:57`](../packages/session/task-checkpoint/src/domain.ts)
 
 ### `team/*`
 
@@ -4893,7 +4893,7 @@ Sources: [`packages/core/session/src/types.ts:93`](../packages/core/session/src/
 
 SHA-256: `335e242de1fcc17b6ca920fc420d71bec2d76e53e37955c00948b65ab77f05c5`
 
-Sources: [`packages/core/session/src/types.ts:439`](../packages/core/session/src/types.ts)
+Sources: [`packages/core/session/src/types.ts:470`](../packages/core/session/src/types.ts)
 
 One of:
 
@@ -5974,7 +5974,7 @@ One of:
 
 SHA-256: `aabbdecaa3d2878a31da50d921877873e21dd4fe15b76604ea41b724fd9fbae3`
 
-Sources: [`packages/session/task-checkpoint/src/domain.ts:27`](../packages/session/task-checkpoint/src/domain.ts)
+Sources: [`packages/session/task-checkpoint/src/domain.ts:33`](../packages/session/task-checkpoint/src/domain.ts)
 
 | Property | Presence | Type |
 |---|---|---|
@@ -5988,7 +5988,7 @@ Sources: [`packages/session/task-checkpoint/src/domain.ts:27`](../packages/sessi
 
 SHA-256: `6c19a5813ee809690dc0d9077352adebcf621b108b90e238f65f23ce0457f5f8`
 
-Sources: [`packages/session/task-checkpoint/src/domain.ts:20`](../packages/session/task-checkpoint/src/domain.ts)
+Sources: [`packages/session/task-checkpoint/src/domain.ts:26`](../packages/session/task-checkpoint/src/domain.ts)
 
 | Property | Presence | Type |
 |---|---|---|
@@ -6972,7 +6972,7 @@ SHA-256: `7af85bf70d4eafce63e739adae38ea85501e68df3a0e22f97f3a0be90fd9e4cb`
 
 SHA-256: `bcf0caf62d964b2fcf5404bd5c909cfa9a21c3f3c96e6b7e36d9e33565223825`
 
-Sources: [`packages/core/session/src/types.ts:441`](../packages/core/session/src/types.ts)
+Sources: [`packages/core/session/src/types.ts:472`](../packages/core/session/src/types.ts)
 
 | Property | Presence | Type |
 |---|---|---|

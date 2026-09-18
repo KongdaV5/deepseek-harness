@@ -11,6 +11,12 @@
  * subsystem: this package adds no producer, so no current build writes these
  * events, and no legacy log is rewritten or converted to another envelope.
  *
+ * The declaration also opts both events into
+ * `IgnorableSessionEventMap`, which is the only thing that makes a type
+ * eligible for `Session.appendIgnorable`. That is the seam a future producer
+ * must use: these events stay required for a reader that knows them, while a
+ * reader without the task layer may omit them.
+ *
  * @module @deepseek-ai/dsh-task-checkpoint/domain
  */
 
@@ -48,6 +54,23 @@ declare module '@deepseek-ai/dsh-session/types' {
      * size, checksum, structural validation), which is evidence a task step may
      * reference rather than task state itself.
      */
+    'task/result-manifest': ResultManifestEventData
+  }
+
+  /**
+   * Both task events are optional-subsystem metadata for a reader without the
+   * DS Harness task layer: task progress and result manifests are recomputed
+   * from live runs, never replayed into model-visible history, so a reader that
+   * skips them still reconstructs the same canonical Session and conversation.
+   * That is what lets a current producer write them through
+   * `Session.appendIgnorable` as events an older or narrower reader may omit,
+   * while they stay authoritative known events for this harness.
+   *
+   * Legacy logs are unaffected: existing events keep their exact bytes, and an
+   * event written without the marker remains required-on-read.
+   */
+  interface IgnorableSessionEventMap {
+    'task/checkpoint': TaskCheckpointEventData
     'task/result-manifest': ResultManifestEventData
   }
 }

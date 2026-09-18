@@ -26,13 +26,13 @@ Session log 在发布后必须能升级格式，而最先发布的运行时决�
 
 ## 影响
 
-v0（0812 发布）交付的内容：分方向的拒绝并带原始日志路径；基于生成的已知词汇清单（`KNOWN_SESSION_EVENT_TYPES`，由 `gen-persistence-catalog` 从所有 `SessionEventMap` 声明合并生成，`verify-persistence-catalog` 保证新鲜）的未知事件守卫；`ignorable` 信封字段被种子校验、JSONL 和 BFF 线上 schema 接受。V1 添加静态相邻 catalog、恒等 v0-to-v1 迁移边、仅 header descriptor、精确代际 JSONL 发布与[已发布 Session 格式](2026-08-31-released-session-format-migrations.zh.md)定义的当前专用恢复。[历史 Session 只读迁移准备](2026-09-05-read-only-session-migration-preparation.zh.md)负责内存恢复与写入发布之间的 JSONL 时序。V2 让物理 codec 对普通事件词汇与 payload 新增项保持中立：相邻迁移边冻结 released source 与 target 清单，同版本恢复则应用已安装的 known-event set 与当前 payload 语义。第一方 writer 不通过 `Session.append` 设置 `ignorable`，而一个仓库外插件仍依赖该字段；同版本保留由[外部插件保留决策](2026-08-30-retain-ignorable-external-session-events.zh.md)定义，更严格的历史规则由 [alpha 迁移拒绝决策](2026-08-31-alpha-historical-unknown-event-refusal.zh.md)定义。未知类型守卫仍只在读取侧生效，因为 append 时的词汇拒绝会中断活跃 Session 的持久化。JSONL 会在当前 header 或事件解析前从最小原始 header 分类外来版本，因此结构完全不同的未来格式会报告升级方向而不是"损坏"。
+v0（0812 发布）交付的内容：分方向的拒绝并带原始日志路径；基于生成的已知词汇清单（`KNOWN_SESSION_EVENT_TYPES`，由 `gen-persistence-catalog` 从所有 `SessionEventMap` 声明合并生成，`verify-persistence-catalog` 保证新鲜）的未知事件守卫；`ignorable` 信封字段被种子校验、JSONL 和 BFF 线上 schema 接受。V1 添加静态相邻 catalog、恒等 v0-to-v1 迁移边、仅 header descriptor、精确代际 JSONL 发布与[已发布 Session 格式](2026-08-31-released-session-format-migrations.zh.md)定义的当前专用恢复。[历史 Session 只读迁移准备](2026-09-05-read-only-session-migration-preparation.zh.md)负责内存恢复与写入发布之间的 JSONL 时序。V2 让物理 codec 对普通事件词汇与 payload 新增项保持中立：相邻迁移边冻结 released source 与 target 清单，同版本恢复则应用已安装的 known-event set 与当前 payload 语义。普通第一方 writer 仍不通过 `Session.append` 设置 `ignorable`：该标记保持默认必需，第一方事件不会因疏忽而变为可选。唯一的窄类型例外是 `Session.appendIgnorable`，它只接受由所属包登记在可合并扩展的 `IgnorableSessionEventMap` 中的事件类型，且只用于缺失后仍不阻碍规范 Session 重建的可选子系统元数据；恢复的 task 权威（`task/checkpoint`、`task/result-manifest`）是当前采用该 opt-in 的消费方。仓库外插件仍是该信封字段本身的消费方；同版本保留由[外部插件保留决策](2026-08-30-retain-ignorable-external-session-events.zh.md)定义，更严格的历史规则由 [alpha 迁移拒绝决策](2026-08-31-alpha-historical-unknown-event-refusal.zh.md)定义。未知类型守卫仍只在读取侧生效，因为 append 时的词汇拒绝会中断活跃 Session 的持久化。JSONL 会在当前 header 或事件解析前从最小原始 header 分类外来版本，因此结构完全不同的未来格式会报告升级方向而不是"损坏"。
 
 ## 曾考虑的替代方案
 
 - **大小两级版本号**：能否转换这一位信息属于每一步的升级器，把它预先固化进编号形状会做出错误承诺。
 - **未知事件默认可忽略**：把忘写标记的后果从可见的过度拒绝反转成静默损坏。
 - **在仅 header 列表期间迁移**：让便宜清单改变存储，而且需要读取事件正文才能计算 header 无法证明的事实。列表返回 descriptor，事件正文读取负责发布。
-- **插件运行时注册已知事件类型**：不予采用，因为该方案会让已知集依赖插件组合，而且只注册事件名称，无法判定省略事件是否安全。持久化的 `ignorable` 标记把该分类保留在每条记录中；[外部插件保留决策](2026-08-30-retain-ignorable-external-session-events.zh.md)定义当前消费方约束。
+- **插件运行时注册已知事件类型**：不予采用，因为该方案会让已知集依赖插件组合，而且只注册事件名称，无法判定省略事件是否安全。持久化的 `ignorable` 标记把该分类保留在每条记录中；[外部插件保留决策](2026-08-30-retain-ignorable-external-session-events.zh.md)定义当前消费方约束。写入侧的 seam 不是这一被拒方案：`Session.appendIgnorable` 仍把持久化标记写入每条记录，登记只收窄第一方 writer 可以标记的类型，读取侧的已知集仍由仓库生成、与插件组合无关。
 - **重复发布标记或运行时状态服务**：为不控制 Session 执行的维护信息增加另一个可变真源。写入器常量与发布记录已经足够。
 - **依赖网络的文档门禁或发布自动化**：网络查询会把本地文档检查耦合到凭据与 GitHub 可用性；记录一致性不需要运行时服务或发布工作流变更。核实发布仍是发布操作者的明确义务。
