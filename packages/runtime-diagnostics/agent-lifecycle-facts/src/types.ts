@@ -39,6 +39,10 @@ export interface StepLifecycleFact {
   readonly step: number
   readonly startSeq: SessionSeq
   readonly endSeq?: SessionSeq
+  /** Epoch milliseconds of the `step/start` event. */
+  readonly startTime: number
+  /** Epoch milliseconds of the closing `step/end` event, when one exists. */
+  readonly endTime?: number
   /** Whether the step has no durable `step/end` in this event range. */
   readonly open: boolean
 }
@@ -48,8 +52,22 @@ export interface TurnLifecycleFact {
   readonly turn: number
   readonly startSeq: SessionSeq
   readonly endSeq?: SessionSeq
+  /** Epoch milliseconds of the opening `turn/start` event. */
+  readonly startTime: number
+  /** Epoch milliseconds of the closing `turn/end` event, when one exists. */
+  readonly endTime?: number
   /** Absent while the turn has no durable `turn/end` in this event range. */
   readonly terminal?: DurableTerminalReason
+  /**
+   * The full structured `turn/end` reason, present exactly when {@link terminal}
+   * is. {@link terminal} carries only the discriminant; a consumer that must
+   * classify a failure from structured evidence reads the payload here instead
+   * of matching on message text.
+   *
+   * `{ kind: 'error' }` retains upstream's `LlmFailure` verbatim, so the
+   * provider-neutral code, HTTP status, and request id survive the fold.
+   */
+  readonly terminalReason?: TurnEndReason
   /**
    * Whether this terminal reason is an after-the-fact crash repair rather than
    * a live decision. Upstream never emits `interrupted` live: resume and a cold
@@ -69,8 +87,12 @@ export interface RetryAttemptFact {
   /** Upstream provider-neutral failure code that triggered this retry. */
   readonly failureCode: string
   readonly scheduledSeq: SessionSeq
+  /** Epoch milliseconds of the `llm/retry` event that scheduled this attempt. */
+  readonly scheduledTime: number
   /** Present once the retry wait completed and the next attempt started. */
   readonly startedSeq?: SessionSeq
+  /** Epoch milliseconds of the `llm/retry-started` transition, when it happened. */
+  readonly startedTime?: number
 }
 
 /**
@@ -91,6 +113,8 @@ export interface RetryChainFact {
 /** The last constructor-seed boundary in an event range. */
 export interface SeedBoundaryFact {
   readonly seq: SessionSeq
+  /** Epoch milliseconds of the `session/end-seed` event. */
+  readonly time: number
   /** Whether the marker is a fork cut rather than an ordinary lifecycle end. */
   readonly inherited: boolean
 }

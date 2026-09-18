@@ -293,6 +293,7 @@
       // documentation fragments resolve their declared `/types` subpath to source.
       "@deepseek-ai/dsh-task-checkpoint/types": ["./packages/session/task-checkpoint/src/types.ts"],
       "@deepseek-ai/dsh-agent-lifecycle-facts/types": ["./packages/runtime-diagnostics/agent-lifecycle-facts/src/types.ts"],
+      "@deepseek-ai/dsh-agent-run-state/types": ["./packages/runtime-diagnostics/agent-run-state/src/types.ts"],
       // BEGIN generated package aliases — pnpm run gen-tsconfig-paths
       "@deepseek-ai/dsh-acp": ["./packages/acp/acp/src"],
       "@deepseek-ai/dsh-acp-app": ["./packages/bundle/acp-app/src"],
@@ -304,6 +305,7 @@
       "@deepseek-ai/dsh-agent-loop-testkit": ["./packages/test-support/agent-loop-testkit/src"],
       "@deepseek-ai/dsh-agent-presets": ["./packages/preset/agent-presets/src"],
       "@deepseek-ai/dsh-agent-presets/invariant": ["./packages/preset/agent-presets/src/invariant.ts"],
+      "@deepseek-ai/dsh-agent-run-state": ["./packages/runtime-diagnostics/agent-run-state/src"],
       "@deepseek-ai/dsh-agent-tool-presentation": ["./packages/core/agent-tool-presentation/src"],
       "@deepseek-ai/dsh-anonymous-user-id": ["./packages/identity/anonymous-user-id/src"],
       "@deepseek-ai/dsh-app-boot": ["./packages/boot/app-boot/src"],

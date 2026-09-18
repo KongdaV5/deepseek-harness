@@ -210,6 +210,7 @@ const SENTENCE_MODEL_EXPERIENCE: Readonly<Record<string, SentenceContract>> = {
   'packages/web/web-search-exa': { kind: 'indirect', reason: 'The provider backend delegates model rendering to dsh-tool-web.' },
   'packages/workflow/workflow': { kind: 'indirect', reason: 'The service delegates parent and child model rendering to its consumer and engine.' },
   'packages/runtime-diagnostics/agent-lifecycle-facts': { kind: 'none', reason: 'The adapter folds already-committed Session events for diagnostics; it registers no prompt, schema, tool, or result text.' },
+  'packages/runtime-diagnostics/agent-run-state': { kind: 'none', reason: 'The package derives run identity and diagnostics from committed Session turns and facts; it registers no prompt, schema, tool, or result text.' },
   'packages/session/task-checkpoint': { kind: 'none', reason: 'The package restores log-only task vocabulary and folds it; it registers no prompt, schema, tool, or result text.' },
 }
 

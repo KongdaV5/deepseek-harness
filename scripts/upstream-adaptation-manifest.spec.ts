@@ -104,8 +104,8 @@ describe('Phase 8C upstream adaptation manifest', () => {
   it('locks the audited target and immutable source baselines', () => {
     expect(manifest).toMatchObject({
       formatVersion: 1,
-      phase: '8C.2e',
-      status: 'stage-6-complete',
+      phase: '8C.2f',
+      status: 'stage-7-complete',
       target: { sha: 'ddefc45fbc7f8e46dd73185e68295696d1297887' },
       source: {
         productBaselineTag: 'ds-harness-product-baseline-2026-09-17',
@@ -151,10 +151,10 @@ describe('Phase 8C upstream adaptation manifest', () => {
       expect(stage.tests.length).toBeGreaterThan(0)
       expect(stage.stopGate.length).toBeGreaterThan(10)
     }
-    expect(manifest.portOrder.slice(0, 6).map(stage => stage.status)).toEqual([
-      'COMPLETE', 'COMPLETE', 'COMPLETE', 'COMPLETE', 'COMPLETE', 'COMPLETE',
+    expect(manifest.portOrder.slice(0, 7).map(stage => stage.status)).toEqual([
+      'COMPLETE', 'COMPLETE', 'COMPLETE', 'COMPLETE', 'COMPLETE', 'COMPLETE', 'COMPLETE',
     ])
-    expect(manifest.portOrder.slice(6).every(stage => stage.status === 'PENDING')).toBe(true)
+    expect(manifest.portOrder.slice(7).every(stage => stage.status === 'PENDING')).toBe(true)
     expect(manifest.compositionQualification).toEqual({
       profile: 'desktop-custom',
       upstreamTemplate: 'web',
@@ -221,6 +221,34 @@ describe('Phase 8C upstream adaptation manifest', () => {
     ]])
     expect(stageSix.flatMap(stage => stage.decisions ?? []).map(decision => decision.slice(0, 3))).toEqual([
       'D1 ', 'D2 ', 'D3 ', 'D4 ', 'D5 ', 'D6 ',
+    ])
+  })
+
+  it('records the Stage 7 run state adaptation and its sixteen locked decisions', () => {
+    const stageSeven = manifest.portOrder.filter(stage => stage.stage === 7)
+    expect(stageSeven.length).toBe(1)
+    expect(stageSeven.map(stage => stage.status)).toEqual(['COMPLETE'])
+    expect(stageSeven.map(stage => stage.deliverables)).toEqual([[
+      'packages/runtime-diagnostics/agent-run-state',
+    ]])
+    expect(stageSeven.flatMap(stage => stage.decisions ?? [])
+      .map(decision => decision.slice(0, decision.indexOf(' ')))).toEqual([
+      'D7.1', 'D7.2', 'D7.3', 'D7.4', 'D7.5', 'D7.6', 'D7.7', 'D7.8',
+      'D7.9', 'D7.10', 'D7.11', 'D7.12', 'D7.13', 'D7.14', 'D7.15', 'D7.16',
+    ])
+    // Stages beyond 7 stay pending, and Stage 7 introduces no new durable event.
+    expect(manifest.portOrder.filter(stage => stage.stage > 7).map(stage => stage.status))
+      .toEqual(['PENDING', 'PENDING', 'PENDING', 'PENDING', 'PENDING', 'PENDING'])
+    expect(manifest.dataBoundary.sessionCompatibility.restoredFirstPartyRequiredEvents)
+      .toEqual(['task/checkpoint', 'task/result-manifest'])
+    expect(manifest.capabilities.filter(capability =>
+      capability.id === 'run-state'
+      || capability.id === 'backend-observation'
+      || capability.id === 'error-classification',
+    ).map(capability => capability.implementationStatus)).toEqual([
+      'IMPLEMENTED_STAGE_7_TURN_SCOPED_RUN_IDENTITY',
+      'IMPLEMENTED_STAGE_7_CONTRACT_ONLY_NO_ADAPTER',
+      'IMPLEMENTED_STAGE_7_STRUCTURED_PRECEDENCE',
     ])
   })
 

@@ -42,7 +42,9 @@ export type {
 interface MutableStep {
   step: number
   startSeq: SessionSeq
+  startTime: number
   endSeq?: SessionSeq
+  endTime?: number
   open: boolean
 }
 
@@ -50,8 +52,11 @@ interface MutableStep {
 interface MutableTurn {
   turn: number
   startSeq: SessionSeq
+  startTime: number
   endSeq?: SessionSeq
+  endTime?: number
   terminal?: DurableTerminalReason
+  terminalReason?: TurnEndReason
   repairClosure: boolean
   steps: MutableStep[]
 }
@@ -74,7 +79,9 @@ interface MutableAttempt {
   delayMs: number
   failureCode: string
   scheduledSeq: SessionSeq
+  scheduledTime: number
   startedSeq?: SessionSeq
+  startedTime?: number
 }
 
 /**
@@ -110,6 +117,7 @@ export function lifecycleFactsFrom(events: readonly SessionEvent[]): LifecycleFa
         const turn: MutableTurn = {
           turn: event.data.turn,
           startSeq: event.seq,
+          startTime: event.time,
           repairClosure: false,
           steps: [],
         }
@@ -121,14 +129,16 @@ export function lifecycleFactsFrom(events: readonly SessionEvent[]): LifecycleFa
         const turn = turnByNumber.get(event.data.turn)
         if (turn === undefined) break
         turn.endSeq = event.seq
+        turn.endTime = event.time
         turn.terminal = event.data.reason.kind
+        turn.terminalReason = event.data.reason
         turn.repairClosure = isRepairClosure(event.data.reason)
         break
       }
       case 'step/start': {
         const turn = turnByNumber.get(event.data.turn)
         if (turn === undefined) break
-        turn.steps.push({ step: event.data.step, startSeq: event.seq, open: true })
+        turn.steps.push({ step: event.data.step, startSeq: event.seq, startTime: event.time, open: true })
         break
       }
       case 'step/end': {
@@ -138,6 +148,7 @@ export function lifecycleFactsFrom(events: readonly SessionEvent[]): LifecycleFa
         const step = turn.steps.findLast(candidate => candidate.step === event.data.step && candidate.open)
         if (step === undefined) break
         step.endSeq = event.seq
+        step.endTime = event.time
         step.open = false
         break
       }
@@ -158,7 +169,7 @@ export function lifecycleFactsFrom(events: readonly SessionEvent[]): LifecycleFa
           chains.push(chain)
           chainById.set(key, chain)
         }
-        chain.attempts.push(scheduledAttempt(event.seq, data))
+        chain.attempts.push(scheduledAttempt(event.seq, event.time, data))
         break
       }
       case 'llm/retry-started': {
@@ -168,10 +179,11 @@ export function lifecycleFactsFrom(events: readonly SessionEvent[]): LifecycleFa
         const attempt = chain.attempts.find(candidate => candidate.retry === data.retry)
         if (attempt === undefined) break
         attempt.startedSeq = event.seq
+        attempt.startedTime = event.time
         break
       }
       case 'session/end-seed': {
-        seedBoundary = { seq: event.seq, inherited: event.data.inherited === true }
+        seedBoundary = { seq: event.seq, time: event.time, inherited: event.data.inherited === true }
         break
       }
       default:
@@ -188,12 +200,13 @@ export function lifecycleFactsFrom(events: readonly SessionEvent[]): LifecycleFa
 }
 
 /** Record one scheduled retry attempt from its durable payload. */
-function scheduledAttempt(seq: SessionSeq, data: LlmRetryEventData): MutableAttempt {
+function scheduledAttempt(seq: SessionSeq, time: number, data: LlmRetryEventData): MutableAttempt {
   const base: MutableAttempt = {
     retry: data.retry,
     delayMs: data.delayMs,
     failureCode: data.failure.code,
     scheduledSeq: seq,
+    scheduledTime: time,
   }
   // `maxRetries` exists only on the bounded `normal` mode record.
   return data.mode === 'normal' ? { ...base, maxRetries: data.maxRetries } : base

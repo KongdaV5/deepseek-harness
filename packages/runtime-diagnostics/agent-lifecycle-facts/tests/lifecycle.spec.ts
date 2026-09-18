@@ -89,7 +89,7 @@ describe('empty and inert ranges', () => {
 describe('turn boundaries and terminal reasons', () => {
   it('leaves a turn open when the log has no closer', () => {
     const [turn] = lifecycleFactsFrom([event('turn/start', 0, { turn: 1 })]).turns
-    expect(turn).toEqual({ turn: 1, startSeq: 0, repairClosure: false, steps: [] })
+    expect(turn).toEqual({ turn: 1, startSeq: 0, startTime: 0, repairClosure: false, steps: [] })
   })
 
   it('records a live terminal reason without marking it a repair', () => {
@@ -98,8 +98,30 @@ describe('turn boundaries and terminal reasons', () => {
       event('turn/end', 1, { turn: 1, reason: { kind: 'completed' } }),
     ]).turns
     expect(turn?.endSeq).toBe(1)
+    expect(turn?.endTime).toBe(1)
     expect(turn?.terminal).toBe('completed')
     expect(turn?.repairClosure).toBe(false)
+  })
+
+  it('retains the full structured terminal reason beside its discriminant', () => {
+    const [turn] = lifecycleFactsFrom([
+      event('turn/start', 0, { turn: 1 }),
+      event('turn/end', 1, {
+        turn: 1,
+        reason: { kind: 'error', error: { message: 'no weights', code: 'MODEL_LOAD_FAILED', status: 500 } },
+      }),
+    ]).turns
+    expect(turn?.terminal).toBe('error')
+    expect(turn?.terminalReason).toEqual({
+      kind: 'error',
+      error: { message: 'no weights', code: 'MODEL_LOAD_FAILED', status: 500 },
+    })
+  })
+
+  it('omits the structured reason while the turn has no durable closer', () => {
+    const [turn] = lifecycleFactsFrom([event('turn/start', 0, { turn: 1 })]).turns
+    expect(turn?.terminalReason).toBeUndefined()
+    expect(turn?.endTime).toBeUndefined()
   })
 
   it('marks the interrupted closer as a repair closure', () => {
@@ -108,6 +130,7 @@ describe('turn boundaries and terminal reasons', () => {
       event('turn/end', 1, { turn: 1, reason: { kind: 'interrupted' } }),
     ]).turns
     expect(turn?.terminal).toBe('interrupted')
+    expect(turn?.terminalReason).toEqual({ kind: 'interrupted' })
     expect(turn?.repairClosure).toBe(true)
   })
 
@@ -139,7 +162,7 @@ describe('step boundaries', () => {
       event('step/start', 1, { turn: 1, step: 1 }),
       event('step/end', 2, { turn: 1, step: 1 }),
     ]).turns
-    expect(turn?.steps).toEqual([{ step: 1, startSeq: 1, endSeq: 2, open: false }])
+    expect(turn?.steps).toEqual([{ step: 1, startSeq: 1, startTime: 1, endSeq: 2, endTime: 2, open: false }])
   })
 
   it('leaves a step open when the log has no closer', () => {
@@ -149,8 +172,8 @@ describe('step boundaries', () => {
       event('step/start', 2, { turn: 1, step: 2 }),
     ]).turns
     expect(turn?.steps).toEqual([
-      { step: 1, startSeq: 1, open: true },
-      { step: 2, startSeq: 2, open: true },
+      { step: 1, startSeq: 1, startTime: 1, open: true },
+      { step: 2, startSeq: 2, startTime: 2, open: true },
     ])
   })
 
@@ -161,7 +184,7 @@ describe('step boundaries', () => {
       event('turn/start', 2, { turn: 1 }),
       event('step/end', 3, { turn: 1, step: 1 }),
     ])
-    expect(facts.turns).toEqual([{ turn: 1, startSeq: 2, repairClosure: false, steps: [] }])
+    expect(facts.turns).toEqual([{ turn: 1, startSeq: 2, startTime: 2, repairClosure: false, steps: [] }])
   })
 
   it('closes the newest open start when a step number repeats', () => {
@@ -172,8 +195,8 @@ describe('step boundaries', () => {
       event('step/end', 3, { turn: 1, step: 1 }),
     ]).turns
     expect(turn?.steps).toEqual([
-      { step: 1, startSeq: 1, open: true },
-      { step: 1, startSeq: 2, endSeq: 3, open: false },
+      { step: 1, startSeq: 1, startTime: 1, open: true },
+      { step: 1, startSeq: 2, startTime: 2, endSeq: 3, endTime: 3, open: false },
     ])
   })
 })
@@ -188,7 +211,14 @@ describe('retry chains', () => {
       provider: 'deepseek',
       mode: 'normal',
       policyKey: 'policy',
-      attempts: [{ retry: 1, maxRetries: 3, delayMs: 100, failureCode: 'PROVIDER_UNAVAILABLE', scheduledSeq: 0 }],
+      attempts: [{
+        retry: 1,
+        maxRetries: 3,
+        delayMs: 100,
+        failureCode: 'PROVIDER_UNAVAILABLE',
+        scheduledSeq: 0,
+        scheduledTime: 0,
+      }],
     }])
   })
 
@@ -196,7 +226,7 @@ describe('retry chains', () => {
     const [chain] = lifecycleFactsFrom([retryAlways(0, 1, 'retry-1')]).retryChains
     expect(chain?.mode).toBe('always')
     expect(chain?.attempts).toEqual([{
-      retry: 1, delayMs: 100, failureCode: 'PROVIDER_UNAVAILABLE', scheduledSeq: 0,
+      retry: 1, delayMs: 100, failureCode: 'PROVIDER_UNAVAILABLE', scheduledSeq: 0, scheduledTime: 0,
     }])
     expect(chain?.attempts[0]?.maxRetries).toBeUndefined()
   })
@@ -210,8 +240,26 @@ describe('retry chains', () => {
     ])
     expect(facts.retryChains).toHaveLength(1)
     expect(facts.retryChains[0]?.attempts).toEqual([
-      { retry: 1, maxRetries: 3, delayMs: 100, failureCode: 'PROVIDER_UNAVAILABLE', scheduledSeq: 0, startedSeq: 1 },
-      { retry: 2, maxRetries: 3, delayMs: 200, failureCode: 'PROVIDER_UNAVAILABLE', scheduledSeq: 2, startedSeq: 3 },
+      {
+        retry: 1,
+        maxRetries: 3,
+        delayMs: 100,
+        failureCode: 'PROVIDER_UNAVAILABLE',
+        scheduledSeq: 0,
+        scheduledTime: 0,
+        startedSeq: 1,
+        startedTime: 1,
+      },
+      {
+        retry: 2,
+        maxRetries: 3,
+        delayMs: 200,
+        failureCode: 'PROVIDER_UNAVAILABLE',
+        scheduledSeq: 2,
+        scheduledTime: 2,
+        startedSeq: 3,
+        startedTime: 3,
+      },
     ])
   })
 
@@ -226,19 +274,20 @@ describe('retry chains', () => {
 
     const unknownOrdinal = lifecycleFactsFrom([retryNormal(0, 1, 'retry-1'), retryStarted(1, 2, 'retry-1')])
     expect(unknownOrdinal.retryChains[0]?.attempts).toEqual([
-      { retry: 1, maxRetries: 3, delayMs: 100, failureCode: 'PROVIDER_UNAVAILABLE', scheduledSeq: 0 },
+      { retry: 1, maxRetries: 3, delayMs: 100, failureCode: 'PROVIDER_UNAVAILABLE', scheduledSeq: 0, scheduledTime: 0 },
     ])
   })
 })
 
 describe('seed boundary', () => {
   it('records an ordinary lifecycle boundary as not inherited', () => {
-    expect(lifecycleFactsFrom([event('session/end-seed', 0, {})]).seedBoundary).toEqual({ seq: 0, inherited: false })
+    expect(lifecycleFactsFrom([event('session/end-seed', 0, {})]).seedBoundary)
+      .toEqual({ seq: 0, time: 0, inherited: false })
   })
 
   it('records a fork cut as inherited', () => {
     expect(lifecycleFactsFrom([event('session/end-seed', 0, { inherited: true })]).seedBoundary)
-      .toEqual({ seq: 0, inherited: true })
+      .toEqual({ seq: 0, time: 0, inherited: true })
   })
 
   it('keeps only the last boundary in the range', () => {
@@ -246,7 +295,7 @@ describe('seed boundary', () => {
       event('session/end-seed', 0, { inherited: true }),
       event('session/end-seed', 4, {}),
     ])
-    expect(facts.seedBoundary).toEqual({ seq: 4, inherited: false })
+    expect(facts.seedBoundary).toEqual({ seq: 4, time: 4, inherited: false })
   })
 })
 

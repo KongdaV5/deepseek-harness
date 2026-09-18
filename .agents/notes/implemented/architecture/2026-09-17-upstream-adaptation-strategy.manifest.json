@@ -1,7 +1,7 @@
 {
   "formatVersion": 1,
-  "phase": "8C.2e",
-  "status": "stage-6-complete",
+  "phase": "8C.2f",
+  "status": "stage-7-complete",
   "generatedAt": "2026-09-18T17:40:00+08:00",
   "target": {
     "remote": "https://github.com/deepseek-ai/deepseek-harness.git",
@@ -186,6 +186,7 @@
       "upstreamEquivalent": "Upstream has turn/step lifecycle, LlmAttemptId, transient assistant stream, and durable retry events, but no DS Harness RunId projection.",
       "status": "PORT_WITH_ADAPTATION",
       "action": "PORT",
+      "implementationStatus": "IMPLEMENTED_STAGE_7_TURN_SCOPED_RUN_IDENTITY",
       "risk": "HIGH",
       "validation": ["new lifecycle fixture matrix", "retry remains same run", "terminal state ignores late observation", "Unknown remains explicit"]
     },
@@ -196,6 +197,7 @@
       "upstreamEquivalent": "No equivalent backend health or prefill observer was found.",
       "status": "PORT_WITH_ADAPTATION",
       "action": "PORT",
+      "implementationStatus": "IMPLEMENTED_STAGE_7_CONTRACT_ONLY_NO_ADAPTER",
       "risk": "HIGH",
       "validation": ["replayed backend fixtures", "long prefill is not stalled", "health 200 plus worker fatal", "unattributed observation isolation"]
     },
@@ -206,6 +208,7 @@
       "upstreamEquivalent": "LlmFailure now carries provider-neutral code/status/requestId facts but does not implement DS Harness backend-root-cause precedence.",
       "status": "PORT_WITH_ADAPTATION",
       "action": "PORT",
+      "implementationStatus": "IMPLEMENTED_STAGE_7_STRUCTURED_PRECEDENCE",
       "risk": "HIGH",
       "validation": ["RESOURCE_LIMIT remains primary", "cancel then BrokenPipe", "fatal evidence threshold", "unknown errors do not become fatal"]
     },
@@ -458,7 +461,7 @@
     { "stage": 4, "status": "COMPLETE", "goal": "Packaging and primary-runtime closure", "dependencies": [2, 3], "tests": ["runtime lock", "native ABI", "codesign", "candidate staging"], "stopGate": "Runtime payload/signature/native closure fails." },
     { "stage": 5, "status": "COMPLETE", "goal": "Minimal current Cordis/package-set composition", "dependencies": [3, 4], "tests": ["composition resolution", "effective-row uniqueness", "host startup in temp profile"], "stopGate": "Composition duplicates upstream-native services or cannot start isolated." },
     { "stage": 6, "status": "COMPLETE", "goal": "Session v3 and Agent lifecycle adapters", "dependencies": [5], "tests": ["schema", "projection", "turn/step/attempt fixtures"], "stopGate": "Run identity or durable-event compatibility is ambiguous.", "deliverables": ["packages/session/task-checkpoint", "packages/runtime-diagnostics/agent-lifecycle-facts", "docs/persistence-changes/2026-09-18-restore-task-checkpoint-events"], "decisions": ["D1 restore task/checkpoint and task/result-manifest as first-party known events instead of custom-event migration", "D2 keep the old v1 schema and field names; RunId and AttemptId survive only as in-package compatibility identity types", "D3 Stage 6 deliberately defines no logical RunId; that stays a Stage 7 decision", "D4 LlmAttemptId remains transient and non-durable and is never persisted into a checkpoint", "D5 two independent pure-library packages with no runtime companion and no composition entry", "D6 no guarded and no pending-only resume; resume policy is deferred to Stage 8"] },
-    { "stage": 7, "status": "PENDING", "goal": "Run State, backend health, and error classification", "dependencies": [6], "tests": ["Phase 2/3 observability and policy fixtures"], "stopGate": "Unknown is guessed, fatal evidence is weak, or terminal state can regress." },
+    { "stage": 7, "status": "COMPLETE", "goal": "Run State, backend health, and error classification", "dependencies": [6], "tests": ["Phase 2/3 observability and policy fixtures", "RunId is a pure function of the durable turn", "no live open turn yields no active run", "retry continues its own run", "terminal reasons survive the projection", "backend observation never becomes run authority", "error precedence is arrival-order independent"], "stopGate": "Unknown is guessed, fatal evidence is weak, or terminal state can regress.", "deliverables": ["packages/runtime-diagnostics/agent-run-state"], "decisions": ["D7.1 run authority is one durable upstream turn keyed by SessionId and turn, not agent-process lifetime, a task, an LlmAttemptId, or a RetryId", "D7.2 RunId is deterministic and injective over SessionId and turn, with no random, process-local, or counter allocation and no new Session event", "D7.3 an active run exists only while a live turn is open, and no live open turn means no active run", "D7.4 terminal reasons are preserved as recorded, and interrupted is after-the-fact repair closure rather than a live failure", "D7.5 a retry never allocates a second run and stays inside the same RunId, turn, and step", "D7.6 Stage 7 publishes no durable AttemptId and never persists, derives, or reads LlmAttemptId", "D7.7 the package is a pure library with no second Agent Loop, no second Session persistence, and no new Session events", "D7.8 the run projection is derived from the normalized Stage 6 agent-lifecycle-facts input", "D7.9 backend observation is a separate diagnostic dimension that never derives a RunId", "D7.10 Unknown stays Unknown at every level and no backend state is fabricated", "D7.11 only a backend-neutral observation contract is implemented, because the current source exposes no diagnostics seam to adapt", "D7.12 fatal classification requires strong structured evidence and message text is never classified", "D7.13 a cancellation is a durable terminal outcome and stays degraded even when a stronger signal carried it", "D7.14 error precedence is deterministic, total, and arrival-order independent: terminal, then execution, then client, then observer, then earliest time", "D7.15 a terminal run is retained as history and never stays active after turn/end", "D7.16 no new required Session event type is introduced"] },
     { "stage": 8, "status": "PENDING", "goal": "TaskCheckpoint, Result Manifest, and guarded resume", "dependencies": [6, 7], "tests": ["crash/resume", "pending-only", "outcome-unknown block"], "stopGate": "Authoritative task facts can be lost or duplicated." },
     { "stage": 9, "status": "PENDING", "goal": "IQ3_S reasoning and bounded run policy", "dependencies": [7, 8], "tests": ["xhigh-first matrix", "fatal no retry", "retry at most two"], "stopGate": "A second retry engine appears or request reasoning cannot be proven." },
     { "stage": 10, "status": "PENDING", "goal": "Task-aware compaction adapter", "dependencies": [8, 9], "tests": ["facts", "atomic apply", "low-medium", "scope isolation"], "stopGate": "Compaction can mutate checkpoints, delete evidence, or lower main reasoning." },
@@ -506,7 +509,8 @@
   },
   "knownUnknowns": [
     "Formal Developer ID/notarization and daily installation remain intentionally outside the isolated Stage 4 candidate qualification.",
-    "Run State still has no logical RunId: Stage 6 refused to define one, so Stage 7 must fix the turn/step/attempt-to-RunId projection contract before any policy layer consumes it.",
+    "Stage 7 fixed the turn-scoped RunId contract, so the remaining Run State unknown is only whether a live consumer may cache that projection instead of recomputing it; that is a Stage 11 question.",
+    "Stage 7 shipped the backend observation contract but no adapter, because the current source exposes no backend health or status seam to read; a later stage must add or find one before a local GGUF backend can report more than unknown.",
     "Whether guarded and pending-only resume may proceed without a durable attempt identity, given that Stage 6 kept LlmAttemptId transient and non-durable, is a Stage 8 question.",
     "The local IQ3_S route's final mapping into the current pi-ai model catalog must be proven without reading real settings in Stage 9.",
     "The current dockkit/scoped-slot insertion contract for Run Details needs a minimal renderer prototype after its remote contract stabilizes.",
