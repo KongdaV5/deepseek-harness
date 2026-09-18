@@ -1,4 +1,4 @@
-# Agent Note: Phase 8C.1 locks a latest-upstream semantic-port strategy
+# Agent Note: Phase 8C latest-upstream strategy and Stage 3 data boundary
 
 Status: implemented
 
@@ -6,7 +6,7 @@ English | [中文](2026-09-17-upstream-adaptation-strategy.zh.md)
 
 ## Problem
 
-Phase 8C.1 is reconnaissance, not an implementation or release. The adaptation target is the fetched `origin/master` commit `ddefc45fbc7f8e46dd73185e68295696d1297887` (`0.1.6-alpha.2`). It is evaluated in `/tmp/ds-harness-upstream-adaptation-ddefc45f` on `adapt/ds-harness-upstream-ddefc45f`, created directly from that commit. The source product baseline remains `ds-harness-product-baseline-2026-09-17` at `bfba98b9bd9390735242ad57840050850a3c11b5`; the technical recovery baseline remains `dsh-custom-baseline-2026-09-17` at `9d9762e7d2567248050559f2ac1b04e9f2a766f2`. The merge base is `c291e7961a515f6d7af9304e7fd1d257929aef26`, with 12 baseline-only and 1,548 target-only commits.
+Phase 8C.1 locked the strategy; Phase 8C.2 now implements it one stop-gated stage at a time. The adaptation target is the fetched `origin/master` commit `ddefc45fbc7f8e46dd73185e68295696d1297887` (`0.1.6-alpha.2`). It is evaluated in `/tmp/ds-harness-upstream-adaptation-ddefc45f` on `adapt/ds-harness-upstream-ddefc45f`, created directly from that commit. The source product baseline remains `ds-harness-product-baseline-2026-09-17` at `bfba98b9bd9390735242ad57840050850a3c11b5`; the technical recovery baseline remains `dsh-custom-baseline-2026-09-17` at `9d9762e7d2567248050559f2ac1b04e9f2a766f2`. The merge base is `c291e7961a515f6d7af9304e7fd1d257929aef26`, with 12 baseline-only and 1,548 target-only commits. Stages 1–3 are complete; packaging and all later capability ports remain pending.
 
 No candidate was installed or launched. Neither installed application, the main worktree, the two baseline tags, monitor cursor/state, scheduler state, nor real settings, sessions, profiles, or Application Support data was modified or used. All source work and tests stayed in the isolated worktree or test-created temporary directories.
 
@@ -14,7 +14,7 @@ The machine-readable contract is [`2026-09-17-upstream-adaptation-strategy.manif
 
 ## Pure upstream health
 
-`pnpm install --frozen-lockfile` and the complete `pnpm run build` pass on macOS arm64 with Node 24.21.0. The repository declares pnpm 11.7.0; the available CLI used for this run is 11.19.0. The build compiles the native darwin-arm64 system module, Host/client libraries, the web renderer, and 248 client artifacts.
+`pnpm install --frozen-lockfile` and the complete `pnpm run build` pass on macOS arm64 with Node 24.21.0. Phase 8C.2 pins and executes the repository-declared pnpm 11.7.0 through Corepack. The build compiles the native darwin-arm64 system module, Host/client libraries, the web renderer, and 248 client artifacts.
 
 The unmodified target test suite completes with 1,511 passed, 4 failed, and 14 skipped files; at test level it reports 25,845 passed, 260 failed, 1 expected failure, and 176 skipped. The 260 failures have two upstream/environment causes:
 
@@ -35,7 +35,18 @@ The release pipeline now stages a signed primary runtime with locked Node 24.21.
 
 ### Profile, data, and Session
 
-Profile resolution, isolated module fallbacks, cleanup behavior, and runtime installation changed, while default Desktop identity remains `desktop`. Session persistence is now format v3 with explicit v0-to-v1, v1-to-v2, and v2-to-v3 migrations, generation/lease checks, corruption/future-version refusal, and a known-event catalog. Unknown extension events are rejected unless registered or safely marked ignorable. Automatic migration makes profile/data isolation the first product stop gate; it may be tested only against copied fixtures under temporary roots.
+The Stage 3 implementation makes data authority explicit without changing Official Desktop defaults. Official continues to use profile `desktop`, its upstream Electron state, and the shared global settings and Session authorities. DS Harness uses profile `desktop-custom` and flavor-isolated Electron state while retaining the approved shared-global settings and Session design. The candidate cannot yet use those live shared stores: it starts only when `DSH_DESKTOP_DATA_MODE=candidate-rehearsal` names an absolute `DSH_DESKTOP_REHEARSAL_ROOT`, and then all DSH and Electron paths are contained below that temporary root. Missing, invalid, or escaping rehearsal inputs fail closed before Host startup.
+
+| Authority | Official | DS Harness final design | Current candidate |
+| --- | --- | --- | --- |
+| Settings | `$DSH_HOME/settings.yaml` | Same shared authority | Temporary rehearsal copy only |
+| Sessions | `$DSH_HOME/sessions` | Same shared authority | Synthetic or copied fixture only |
+| Profile | `$DSH_HOME/profiles/desktop` | `$DSH_HOME/profiles/desktop-custom` | Fresh temporary `desktop-custom` |
+| Electron state | Upstream default | Product-flavor isolated | `<rehearsal>/electron/<flavor-id>` |
+
+Settings are bidirectionally compatible: baseline and target use the same settings-file implementation blob, reads do not write back, locked atomic replacement is retained, and unknown sections survive updates. Profile data requires migration: the old `desktop-custom` manifest is structurally readable, but its bundle list and `patchReload` semantics do not describe the current boot composition; a fresh temporary Custom profile is compatible.
+
+Both baselines use Session format v3 and the JSONL persistence implementation is unchanged. A read-open prepares historical migration in memory without mutation; only write-open publishes a verified immutable successor generation, retaining the predecessor. Physical format compatibility does not make event catalogs bidirectional: target-only required `image/offload` and `workspace/changes` events are unknown to the Final Product, while old required Custom `task/checkpoint` and `task/result-manifest` events are unknown to the target and were not marked ignorable. Their classification is `CUSTOM_EVENT_MIGRATION_BLOCKED`, to be resolved by the Stage 6 schema adapter. Source rollback is therefore independent of data rollback and is safe only after restoring a pre-candidate snapshot when a candidate could have written Sessions.
 
 ### Agent, run lifecycle, and retry
 
@@ -73,7 +84,7 @@ Electron remains 44.0.0; Node moves from the Custom baseline's 24.17.0 to 24.21.
 | Task-aware compaction | Pressure, validation, low/medium, atomic apply | Strong native executor/pruner/offload | PORT_WITH_ADAPTATION | Thin adapter; keep native engine | HIGH | Facts, fail closed, scope isolation |
 | Large tool results | Custom summaries/key lines/references | Native pruner and offload | UPSTREAM_NATIVE | KEEP_UPSTREAM | MEDIUM | Root cause and artifact retention |
 | Run Details | Remote plus old dock | New module/catalog/dockkit client | REWRITE_REQUIRED | Rebuild current transport/UI | HIGH | Reconnect, read-only, idle closure |
-| Data boundary | Shared settings/sessions; isolated Electron/profile | New resolution and v3 automatic migration | REWRITE_REQUIRED | Explicit boundary and fixture qualification | CRITICAL | Temp roots, migrations, sentinels |
+| Data boundary | Shared settings/sessions; isolated Electron/profile | New resolution and v3 automatic migration | REWRITE_REQUIRED | Stage 3 boundary implemented; live cutover remains gated | CRITICAL | Temp roots, migrations, sentinels |
 | Phase 8B maintenance | Auditor/monitor/scheduler/notification | Product-independent repository plane | UNCHANGED_PORTABLE | Port late; adapt wiring only | MEDIUM | B8 regression and unchanged state hashes |
 
 ## Upstream-native reduction and required Custom surface
@@ -112,7 +123,7 @@ The single selected strategy is **B: fresh latest-upstream branch plus semantic 
 
 1. Reconfirm target/toolchain health. Stop on unexplained target or health drift.
 2. Add product identity/process isolation. Stop on any collision with official Desktop or Stable DS Harness.
-3. Establish profile/settings/session/userData boundaries with temporary copied fixtures. Stop on any real-data access or unresolved migration.
+3. **Complete:** establish profile/settings/session/userData boundaries with temporary copied fixtures. Live data remains blocked until the Stage 13 cutover gate.
 4. Restore packaging and primary-runtime closure. Stop on payload, signing, or native failure.
 5. Build the minimal current Cordis/package-set composition. Stop on duplicate native services or isolated startup failure.
 6. Adapt Session v3 and Agent lifecycle contracts. Stop if Run identity or durable event semantics are ambiguous.
@@ -128,12 +139,12 @@ The single selected strategy is **B: fresh latest-upstream branch plus semantic 
 
 ### Safety, native, maintenance, and unresolved contracts
 
-Every data/migration test must set temporary `DSH_HOME`, profile, userData, and Application Support equivalents and use synthetic or copied released fixtures. Real user data stays out of scope through Phase 8C.2 until a separately authorized migration rehearsal. Settings and sessions may be intentionally shared only after path contracts and migration behavior pass sentinel tests; `desktop-custom` and Electron state remain isolated.
+Every data/migration test sets temporary `DSH_HOME`, profile, userData, and Application Support equivalents and uses synthetic or copied released fixtures. Real user data stays out of scope through Phase 8C.2 until a separately authorized migration rehearsal. The future cutover must quiesce both products, snapshot settings, Sessions, and `desktop-custom`, record hashes and a restore manifest, migrate and validate a copy, and require explicit approval before shared-store access. A source rollback must restore that snapshot whenever bidirectional Session compatibility is not proven. Electron `sessionData` remains product-flavor state and is never confused with DSH Session JSONL.
 
 Native qualification adopts the upstream runtime lock and verifies architecture, payload hashes, deep codesign, Node and Python execution, `native/system`, `node-pty`, `koffi`, `sharp`, Host startup, and renderer loading. It occurs on a candidate path only, never the installed stable applications.
 
 The Phase 8B auditor, monitor, scheduler, notification, and maintenance runtime remain a repository-only plane. They port after product composition stabilizes, adapting package scripts and documentation paths while preserving cursor, state, daily schedule, material-change-only notification, and stable Homebrew Node/repository tsx entrypoints.
 
-Five contracts intentionally remain for the relevant Phase 8C.2 gates: the exact upstream-style product flavor API; v3 registration versus ignorable semantics for Custom durable events; final IQ3_S mapping into the current pi-ai catalog; the current dockkit/scoped-slot Run Details insertion contract; and packaged DS Harness primary-runtime/ABI behavior. None requires real user data or stable-App mutation to resolve.
+The remaining contracts are stop-gated to later stages: v3 registration versus ignorable semantics for Custom durable events; final IQ3_S mapping into the current pi-ai catalog; the current dockkit/scoped-slot Run Details insertion contract; and packaged DS Harness primary-runtime/ABI behavior. None requires real user data or stable-App mutation to resolve.
 
-Compatibility debt remains **CRITICAL / BLOCKING_CHANGE / UNRESOLVED**. A strategy lock proves how to port; it does not prove the port, packaged candidate, data migration, or a new product baseline.
+Compatibility debt remains **CRITICAL / BLOCKING_CHANGE / UNRESOLVED**. Stages 1–3 prove the target, product identity, and isolated data contract; they do not prove packaging, Custom durable-event adaptation, live data cutover, later capability ports, or a new product baseline.

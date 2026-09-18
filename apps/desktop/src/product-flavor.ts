@@ -114,11 +114,25 @@ export function resolveDesktopRuntimeProductFlavor(
 /**
  * Apply custom process identity before Electron's single-instance lock is acquired.
  * The official flavor deliberately leaves Electron's existing name and paths untouched.
+ * @param app - Electron identity operations used before application readiness.
+ * @param flavor - resolved product identity.
+ * @param explicitUserDataPath - rehearsal-owned Electron state path; omitted uses the flavor default.
+ * @returns nothing after identity and any explicit state path are applied.
  */
-export function applyDesktopProductIdentity(app: DesktopIdentityApp, flavor: DesktopProductFlavor): void {
-  if (flavor.id === 'official') return
+export function applyDesktopProductIdentity(
+  app: DesktopIdentityApp,
+  flavor: DesktopProductFlavor,
+  explicitUserDataPath?: string,
+): void {
+  if (flavor.id === 'official') {
+    if (explicitUserDataPath !== undefined) {
+      app.setPath('userData', explicitUserDataPath)
+      app.setPath('sessionData', explicitUserDataPath)
+    }
+    return
+  }
   if (flavor.userData.mode !== 'isolated') throw new Error('desktop product flavor: custom userData must be isolated')
-  const userData = join(app.getPath('appData'), ...flavor.userData.pathSegments)
+  const userData = explicitUserDataPath ?? join(app.getPath('appData'), ...flavor.userData.pathSegments)
   app.setName(flavor.productName)
   app.setPath('userData', userData)
   app.setPath('sessionData', userData)

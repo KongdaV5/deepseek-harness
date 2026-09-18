@@ -1,4 +1,4 @@
-# Agent Note：Phase 8C.1 锁定 latest-upstream 语义移植策略
+# Agent Note：Phase 8C latest-upstream 策略与 Stage 3 数据边界
 
 状态：已实施
 
@@ -6,7 +6,7 @@
 
 ## 问题
 
-Phase 8C.1 是侦察与策略锁定，不是实现或发布。Adaptation target 是已 fetch 的 `origin/master` commit `ddefc45fbc7f8e46dd73185e68295696d1297887`（`0.1.6-alpha.2`）。审计在 `/tmp/ds-harness-upstream-adaptation-ddefc45f` 的 `adapt/ds-harness-upstream-ddefc45f` 分支中进行，该分支直接从此 commit 创建。源产品 baseline 仍是 `ds-harness-product-baseline-2026-09-17`，指向 `bfba98b9bd9390735242ad57840050850a3c11b5`；技术恢复 baseline 仍是 `dsh-custom-baseline-2026-09-17`，指向 `9d9762e7d2567248050559f2ac1b04e9f2a766f2`。Merge base 是 `c291e7961a515f6d7af9304e7fd1d257929aef26`，baseline-only 为 12 个 commit，target-only 为 1,548 个 commit。
+Phase 8C.1 已锁定策略；Phase 8C.2 正按 stop gate 逐阶段实现。Adaptation target 是已 fetch 的 `origin/master` commit `ddefc45fbc7f8e46dd73185e68295696d1297887`（`0.1.6-alpha.2`）。审计在 `/tmp/ds-harness-upstream-adaptation-ddefc45f` 的 `adapt/ds-harness-upstream-ddefc45f` 分支中进行，该分支直接从此 commit 创建。源产品 baseline 仍是 `ds-harness-product-baseline-2026-09-17`，指向 `bfba98b9bd9390735242ad57840050850a3c11b5`；技术恢复 baseline 仍是 `dsh-custom-baseline-2026-09-17`，指向 `9d9762e7d2567248050559f2ac1b04e9f2a766f2`。Merge base 是 `c291e7961a515f6d7af9304e7fd1d257929aef26`，baseline-only 为 12 个 commit，target-only 为 1,548 个 commit。Stage 1–3 已完成；Packaging 与后续所有能力移植仍为 pending。
 
 没有安装或启动 candidate。两个已安装 App、主工作树、两个 baseline tag、monitor cursor/state、scheduler state，以及真实 settings、sessions、profiles、Application Support 数据都没有被修改或使用。所有源码工作与测试只发生在隔离 worktree 或测试创建的临时目录中。
 
@@ -14,7 +14,7 @@ Phase 8C.1 是侦察与策略锁定，不是实现或发布。Adaptation target 
 
 ## 纯 upstream 健康度
 
-在 macOS arm64、Node 24.21.0 环境，`pnpm install --frozen-lockfile` 与完整 `pnpm run build` 均通过。仓库声明 pnpm 11.7.0，本次实际可用 CLI 为 11.19.0。构建完成 darwin-arm64 native system module、Host/client libraries、web renderer 和 248 个 client artifacts。
+在 macOS arm64、Node 24.21.0 环境，`pnpm install --frozen-lockfile` 与完整 `pnpm run build` 均通过。Phase 8C.2 通过 Corepack 固定并执行仓库声明的 pnpm 11.7.0。构建完成 darwin-arm64 native system module、Host/client libraries、web renderer 和 248 个 client artifacts。
 
 未修改 target 的完整测试结束结果为：1,511 个 test files 通过、4 个失败、14 个跳过；test level 为 25,845 通过、260 失败、1 个 expected failure、176 跳过。260 个失败有两个 upstream/环境原因：
 
@@ -35,7 +35,18 @@ Release pipeline 现在 staging 一个签名 primary runtime，其中锁定 Node
 
 ### Profile、数据与 Session
 
-Profile resolution、isolated module fallback、cleanup 行为和 runtime installation 都有变化，但默认 Desktop identity 仍是 `desktop`。Session persistence 已是 format v3，包含显式 v0-to-v1、v1-to-v2、v2-to-v3 migration、generation/lease 检查、corruption/future-version refusal 和 known-event catalog。未知 extension events 会被拒绝，除非注册或安全标记为 ignorable。Automatic migration 使 profile/data isolation 成为首个产品 stop gate；只能在临时 root 中使用 copied fixtures 测试。
+Stage 3 实现已明确数据权威关系，同时不改变 Official Desktop 默认行为。Official 继续使用 `desktop` profile、upstream 默认 Electron state，以及共享的全局 settings 与 Session 权威。DS Harness 使用 `desktop-custom` profile 和按 product flavor 隔离的 Electron state，同时保留已批准的全局 settings/Session 共享设计。Candidate 当前不得使用这些真实共享存储：只有在 `DSH_DESKTOP_DATA_MODE=candidate-rehearsal` 指定绝对路径 `DSH_DESKTOP_REHEARSAL_ROOT` 时才允许启动，且所有 DSH 与 Electron 路径都必须包含在该临时 root 下。缺失、非法或发生路径逃逸的 rehearsal 输入会在 Host 启动前 fail closed。
+
+| 权威 | Official | DS Harness 最终设计 | 当前 Candidate |
+| --- | --- | --- | --- |
+| Settings | `$DSH_HOME/settings.yaml` | 同一共享权威 | 仅临时 rehearsal 副本 |
+| Sessions | `$DSH_HOME/sessions` | 同一共享权威 | 仅 synthetic 或 copied fixture |
+| Profile | `$DSH_HOME/profiles/desktop` | `$DSH_HOME/profiles/desktop-custom` | 全新临时 `desktop-custom` |
+| Electron state | Upstream 默认 | 按 product flavor 隔离 | `<rehearsal>/electron/<flavor-id>` |
+
+Settings 为双向兼容：baseline 与 target 使用相同的 settings-file implementation blob，读取不会自动回写，继续使用带锁的 atomic replace，且更新时保留未知 section。Profile data 需要 migration：旧 `desktop-custom` manifest 在结构上可读，但其 bundle list 与 `patchReload` 语义无法描述当前 boot composition；全新的临时 Custom profile 兼容。
+
+两个 baseline 都使用 Session format v3，JSONL persistence 实现未改变。read-open 只在内存中准备历史 migration，不发生写入；只有 write-open 才发布经过验证的不可变 successor generation，并保留 predecessor。物理格式兼容不等于 event catalog 双向兼容：target-only required events `image/offload`、`workspace/changes` 对 Final Product 是未知事件；旧 Custom required events `task/checkpoint`、`task/result-manifest` 对 target 是未知事件，且当初未标记为 ignorable。其分类为 `CUSTOM_EVENT_MIGRATION_BLOCKED`，留待 Stage 6 schema adapter 解决。因此 source rollback 与 data rollback 必须分开处理；如果 Candidate 可能写过 Session，只有恢复 Candidate 启动前的 snapshot 才能安全回滚数据。
 
 ### Agent、Run lifecycle 与 retry
 
@@ -73,7 +84,7 @@ Electron 仍为 44.0.0；Node 从 Custom baseline 的 24.17.0 升到 24.21.0。`
 | Task-aware compaction | Pressure、validation、low/medium、atomic apply | 强 native executor/pruner/offload | PORT_WITH_ADAPTATION | 薄 adapter；保留 native engine | HIGH | Facts、fail closed、scope isolation |
 | Large tool results | Custom summary/key lines/references | Native pruner 与 offload | UPSTREAM_NATIVE | KEEP_UPSTREAM | MEDIUM | Root cause 与 artifact retention |
 | Run Details | Remote 与旧 dock | 新 module/catalog/dockkit client | REWRITE_REQUIRED | 重建当前 transport/UI | HIGH | Reconnect、read-only、idle closure |
-| Data boundary | Shared settings/sessions；隔离 Electron/profile | 新 resolution 与 v3 automatic migration | REWRITE_REQUIRED | 显式 boundary 与 fixture qualification | CRITICAL | Temp roots、migration、sentinels |
+| Data boundary | Shared settings/sessions；隔离 Electron/profile | 新 resolution 与 v3 automatic migration | REWRITE_REQUIRED | Stage 3 boundary 已实现；live cutover 继续受 gate 保护 | CRITICAL | Temp roots、migration、sentinels |
 | Phase 8B maintenance | Auditor/monitor/scheduler/notification | 与产品独立的 repository plane | UNCHANGED_PORTABLE | 后期移植；只适配 wiring | MEDIUM | B8 regression 与 state hash 不变 |
 
 ## Upstream-native 缩面与必要 Custom surface
@@ -112,7 +123,7 @@ Electron 仍为 44.0.0；Node 从 Custom baseline 的 24.17.0 升到 24.21.0。`
 
 1. 重新确认 target/toolchain health。Target 或 health 无解释漂移即停止。
 2. 加入 product identity/process isolation。任何与 official Desktop 或 Stable DS Harness 碰撞即停止。
-3. 用临时 copied fixtures 建立 profile/settings/session/userData boundary。任何真实数据访问或未解决 migration 即停止。
+3. **已完成：**使用临时 copied fixtures 建立 profile/settings/session/userData boundary。Live data 继续阻断到 Stage 13 cutover gate。
 4. 恢复 packaging 与 primary-runtime closure。Payload、signing、native 任一失败即停止。
 5. 构建最小当前 Cordis/package-set composition。重复 native service 或隔离启动失败即停止。
 6. 适配 Session v3 与 Agent lifecycle contracts。Run identity 或 durable event 语义有歧义即停止。
@@ -128,12 +139,12 @@ Electron 仍为 44.0.0；Node 从 Custom baseline 的 24.17.0 升到 24.21.0。`
 
 ### 安全、native、maintenance 与未决 contract
 
-所有 data/migration 测试必须设置临时 `DSH_HOME`、profile、userData 与 Application Support 等价目录，并只使用 synthetic 或 copied released fixtures。Phase 8C.2 中真实用户数据仍然不在范围，除非以后单独授权 migration rehearsal。Settings 与 sessions 只有在 path contract 和 migration behavior 通过 sentinel tests 后才可按设计共享；`desktop-custom` 与 Electron state 必须继续隔离。
+所有 data/migration 测试都设置临时 `DSH_HOME`、profile、userData 与 Application Support 等价目录，并只使用 synthetic 或 copied released fixtures。Phase 8C.2 中真实用户数据仍然不在范围，除非以后单独授权 migration rehearsal。未来 cutover 必须先停稳两个产品，snapshot settings、Sessions 与 `desktop-custom`，记录 hash 和 restore manifest，在副本上 migration 并验证，然后取得明确批准才可访问共享存储。只要 Session 双向兼容尚未证明，source rollback 就必须恢复该 snapshot。Electron `sessionData` 始终属于 product-flavor state，不得与 DSH Session JSONL 混淆。
 
 Native qualification 采用 upstream runtime lock，并验证 architecture、payload hashes、deep codesign、Node/Python execution、`native/system`、`node-pty`、`koffi`、`sharp`、Host startup 与 renderer loading。它只能发生在 candidate path，绝不使用已安装 stable Apps。
 
 Phase 8B auditor、monitor、scheduler、notification 与 maintenance runtime 保持 repository-only plane。产品 composition 稳定后再移植，只适配 package scripts 和 documentation paths，同时保持 cursor、state、每日 schedule、material-change-only notification，以及 stable Homebrew Node/repository tsx entrypoints。
 
-五项 contract 有意留给对应的 Phase 8C.2 gate：准确的 upstream-style product flavor API；Custom durable events 在 v3 中选择注册还是 ignorable；本地 IQ3_S 到当前 pi-ai catalog 的最终映射；当前 dockkit/scoped-slot Run Details 插入 contract；以及 packaged DS Harness primary-runtime/ABI 行为。解决这些问题都不需要访问真实用户数据或修改 stable App。
+剩余 contract 按 stop gate 留给后续阶段：Custom durable events 在 v3 中选择注册还是 ignorable；本地 IQ3_S 到当前 pi-ai catalog 的最终映射；当前 dockkit/scoped-slot Run Details 插入 contract；以及 packaged DS Harness primary-runtime/ABI 行为。解决这些问题都不需要访问真实用户数据或修改 stable App。
 
-Compatibility debt 仍是 **CRITICAL / BLOCKING_CHANGE / UNRESOLVED**。策略锁定只证明如何移植，不证明移植、packaged candidate、data migration 或新 product baseline 已完成。
+Compatibility debt 仍是 **CRITICAL / BLOCKING_CHANGE / UNRESOLVED**。Stage 1–3 只证明 target、product identity 与隔离数据 contract；尚未证明 packaging、Custom durable-event 适配、live data cutover、后续能力移植或新 product baseline。

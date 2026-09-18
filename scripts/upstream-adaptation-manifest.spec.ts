@@ -13,6 +13,34 @@ interface Manifest {
     readonly technicalBaselineTag: string
     readonly technicalBaselineSha: string
   }
+  readonly dataBoundary: {
+    readonly official: { readonly profile: string; readonly settings: string; readonly sessions: string }
+    readonly dsHarness: { readonly profile: string; readonly settings: string; readonly sessions: string; readonly candidateMode: string }
+    readonly candidateRehearsal: {
+      readonly liveSharedDataMigrationAllowed: boolean
+      readonly pathEscape: string
+    }
+    readonly profileCompatibility: { readonly classification: string }
+    readonly settingsCompatibility: {
+      readonly classification: string
+      readonly automaticWritebackOnRead: boolean
+      readonly baselineProviderBlob: string
+      readonly targetProviderBlob: string
+    }
+    readonly sessionCompatibility: {
+      readonly baselineVersion: number
+      readonly targetVersion: number
+      readonly persistenceProviderUnchanged: boolean
+      readonly baselineProviderBlob: string
+      readonly targetProviderBlob: string
+      readonly migrationTrigger: string
+      readonly mutationMode: string
+      readonly rollbackClassification: string
+      readonly targetOnlyRequiredEvents: readonly string[]
+      readonly removedRequiredCustomEvents: readonly string[]
+      readonly customEventBehavior: string
+    }
+  }
   readonly statusValues: readonly string[]
   readonly actionValues: readonly string[]
   readonly capabilities: readonly {
@@ -64,8 +92,8 @@ describe('Phase 8C upstream adaptation manifest', () => {
   it('locks the audited target and immutable source baselines', () => {
     expect(manifest).toMatchObject({
       formatVersion: 1,
-      phase: '8C.2a',
-      status: 'stage-2-complete',
+      phase: '8C.2b',
+      status: 'stage-3-complete',
       target: { sha: 'ddefc45fbc7f8e46dd73185e68295696d1297887' },
       source: {
         productBaselineTag: 'ds-harness-product-baseline-2026-09-17',
@@ -86,6 +114,9 @@ describe('Phase 8C upstream adaptation manifest', () => {
     }
     expect(manifest.capabilities.find(capability => capability.id === 'product-identity')).toMatchObject({
       status: 'PORT_WITH_ADAPTATION', action: 'PORT', implementationStatus: 'IMPLEMENTED_STAGE_2',
+    })
+    expect(manifest.capabilities.find(capability => capability.id === 'data-boundaries')).toMatchObject({
+      status: 'REWRITE_REQUIRED', action: 'REIMPLEMENT', implementationStatus: 'IMPLEMENTED_STAGE_3',
     })
   })
 
@@ -108,8 +139,46 @@ describe('Phase 8C upstream adaptation manifest', () => {
       expect(stage.tests.length).toBeGreaterThan(0)
       expect(stage.stopGate.length).toBeGreaterThan(10)
     }
-    expect(manifest.portOrder.slice(0, 2).map(stage => stage.status)).toEqual(['COMPLETE', 'COMPLETE'])
-    expect(manifest.portOrder.slice(2).every(stage => stage.status === 'PENDING')).toBe(true)
+    expect(manifest.portOrder.slice(0, 3).map(stage => stage.status)).toEqual(['COMPLETE', 'COMPLETE', 'COMPLETE'])
+    expect(manifest.portOrder.slice(3).every(stage => stage.status === 'PENDING')).toBe(true)
+  })
+
+  it('records the Stage 3 sharing, compatibility, and rollback classifications', () => {
+    expect(manifest.dataBoundary.official).toMatchObject({
+      profile: 'desktop', settings: 'shared-global', sessions: 'shared-global',
+    })
+    expect(manifest.dataBoundary.dsHarness).toMatchObject({
+      profile: 'desktop-custom', settings: 'shared-global', sessions: 'shared-global',
+      candidateMode: 'REHEARSAL_ONLY',
+    })
+    expect(manifest.dataBoundary.candidateRehearsal).toEqual({
+      selector: 'DSH_DESKTOP_DATA_MODE=candidate-rehearsal',
+      root: 'DSH_DESKTOP_REHEARSAL_ROOT',
+      dshHomeChild: 'dsh-home',
+      electronChild: 'electron/<flavor-id>',
+      historicalSessionRead: 'FIXTURE_COPY_ONLY',
+      liveSharedDataMigrationAllowed: false,
+      pathEscape: 'FAIL_CLOSED',
+    })
+    expect(manifest.dataBoundary.profileCompatibility.classification).toBe('MIGRATION_REQUIRED')
+    expect(manifest.dataBoundary.settingsCompatibility).toMatchObject({
+      classification: 'BIDIRECTIONAL_COMPATIBLE', automaticWritebackOnRead: false,
+    })
+    expect(manifest.dataBoundary.settingsCompatibility.baselineProviderBlob)
+      .toBe(manifest.dataBoundary.settingsCompatibility.targetProviderBlob)
+    expect(manifest.dataBoundary.sessionCompatibility).toMatchObject({
+      baselineVersion: 3,
+      targetVersion: 3,
+      persistenceProviderUnchanged: true,
+      migrationTrigger: 'READ_OPEN_PREPARES_IN_MEMORY_WRITE_OPEN_PUBLISHES_SUCCESSOR',
+      mutationMode: 'IMMUTABLE_SUCCESSOR_GENERATION',
+      rollbackClassification: 'ROLLBACK_SAFE_WITH_BACKUP_RESTORE',
+      targetOnlyRequiredEvents: ['image/offload', 'workspace/changes'],
+      removedRequiredCustomEvents: ['task/checkpoint', 'task/result-manifest'],
+      customEventBehavior: 'CUSTOM_EVENT_MIGRATION_BLOCKED',
+    })
+    expect(manifest.dataBoundary.sessionCompatibility.baselineProviderBlob)
+      .toBe(manifest.dataBoundary.sessionCompatibility.targetProviderBlob)
   })
 
   it('keeps compatibility debt unresolved and every cited contract path discoverable', () => {

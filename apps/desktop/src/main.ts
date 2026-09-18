@@ -44,10 +44,16 @@ import {
   readDesktopApplicationManifest,
   resolveDesktopRuntimeProductFlavor,
 } from './product-flavor.ts'
+import { resolveDesktopDataBoundary } from './data-boundary.ts'
 
 const applicationManifest = readDesktopApplicationManifest(app.getAppPath())
 const productFlavor = resolveDesktopRuntimeProductFlavor(app.isPackaged, applicationManifest)
-applyDesktopProductIdentity(app, productFlavor)
+const dataBoundary = resolveDesktopDataBoundary(productFlavor)
+applyDesktopProductIdentity(
+  app,
+  productFlavor,
+  dataBoundary.electronUserData.mode === 'explicit' ? dataBoundary.electronUserData.path : undefined,
+)
 
 let focusPrimaryWindow = (): void => {}
 let stopForRecovery = async (): Promise<void> => {}
@@ -62,7 +68,7 @@ const recovery = new DesktopFatalRecovery({
   show: options => dialog.showMessageBox(options),
   stop: () => { shuttingDown = true; return stopForRecovery() },
   disablePlugins: async () => {
-    const manager = new DesktopProjectManager(resolveDesktopPaths(undefined, productFlavor.profileName), runtimeResources())
+    const manager = new DesktopProjectManager(resolveDesktopPaths(dataBoundary.dshHome, productFlavor.profileName), runtimeResources())
     const backupPath = await manager.disableAllPlugins()
     console.info('Desktop profile recovery completed:', { profilePatchBackup: backupPath ?? null, homePatch: 'unchanged' })
   },
@@ -200,7 +206,7 @@ async function main(): Promise<void> {
   const journalDirectory = process.env.DSH_DESKTOP_UPDATE_JOURNAL_DIR
   const updateJournal = journalDirectory === undefined ? undefined : new DesktopUpdateJournal(journalDirectory, app.getVersion())
   const resources = runtimeResources()
-  const paths = resolveDesktopPaths(undefined, productFlavor.profileName)
+  const paths = resolveDesktopPaths(dataBoundary.dshHome, productFlavor.profileName)
   const development = !app.isPackaged
   const activeProject = paths.profile
   const manager = new DesktopProjectManager(paths, resources)
@@ -261,8 +267,11 @@ async function main(): Promise<void> {
   }
   const backend = new DesktopBackendController((onFailure) => {
     const hostInspectPort = developmentHostInspectPort(development)
+    const hostEnvironment = dataBoundary.mode === 'candidate-rehearsal'
+      ? { ...process.env, DSH_HOME: dataBoundary.dshHome }
+      : process.env
     const host = new DesktopHostProcess(resources.node, resources.dsh, activeProject,
-      hostInspectPort, process.env, onFailure,
+      hostInspectPort, hostEnvironment, onFailure,
       development ? join(app.getAppPath(), '.desktop-build', 'targets', `${process.platform === 'darwin' ? 'mac' : 'win'}-${process.arch}`, 'runtime', 'primary-runtime')
         : join(process.resourcesPath, 'runtime', 'primary-runtime'),
       development ? 'link' : 'runtime', resources, productFlavor.profileName)

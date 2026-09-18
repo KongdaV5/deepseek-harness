@@ -43,6 +43,21 @@ afterEach(() => {
 })
 
 describe('desktop external plugin profile', () => {
+  it('initializes desktop-custom without creating or changing the official profile', async () => {
+    const root = temporaryRoot()
+    const dsh = join(root, 'resources', 'dsh')
+    runtimeFixture(dsh)
+    const home = join(root, '.dsh')
+    const official = resolveDesktopPaths(home, 'desktop').profile
+    const custom = new DesktopProjectManager(resolveDesktopPaths(home, 'desktop-custom'), { dsh })
+    await custom.applyRelease()
+    expect(existsSync(custom.paths.profile)).toBe(true)
+    expect(existsSync(official)).toBe(false)
+    expect(JSON.parse(readFileSync(join(custom.paths.profile, 'package.json'), 'utf8'))).toMatchObject({
+      name: 'dsh-profile-desktop-custom',
+    })
+  })
+
   it('cleans application packages only when preparing a production launch', async () => {
     const { manager } = setup()
     await manager.applyRelease()

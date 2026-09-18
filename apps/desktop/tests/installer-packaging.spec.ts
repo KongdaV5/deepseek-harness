@@ -66,7 +66,7 @@ describe('installer preparation preserves application dependencies', () => {
           dshDesktopProductFlavor: 'official',
         },
       })
-      expect(config.extraMetadata.dshMandatoryUpdatePolicy).toBeDefined()
+      expect(config.extraMetadata).toHaveProperty('dshMandatoryUpdatePolicy')
       expect(config.publish).toEqual(platform === 'darwin'
         ? [{ provider: 'generic', url: 'https://desktop-updates.example.com/dsh-desk/feeds/mac-x64/', channel: 'nightly' }]
         : null)

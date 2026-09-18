@@ -1,8 +1,8 @@
 {
   "formatVersion": 1,
-  "phase": "8C.2a",
-  "status": "stage-2-complete",
-  "generatedAt": "2026-09-18T07:13:54+08:00",
+  "phase": "8C.2b",
+  "status": "stage-3-complete",
+  "generatedAt": "2026-09-18T11:54:10+08:00",
   "target": {
     "remote": "https://github.com/deepseek-ai/deepseek-harness.git",
     "branch": "origin/master",
@@ -27,7 +27,80 @@
     "candidateInstalled": false,
     "realUserDataRead": false,
     "mainBranchIntegrated": false,
-    "productFlavorImplemented": true
+    "productFlavorImplemented": true,
+    "dataBoundaryImplemented": true,
+    "liveSharedDataMigrationAllowed": false
+  },
+  "dataBoundary": {
+    "authority": {
+      "dshRoot": "$DSH_HOME or ~/.dsh",
+      "settings": "$DSH_HOME/settings.yaml",
+      "profiles": "$DSH_HOME/profiles/<explicit profileName>",
+      "sessions": "$DSH_HOME/sessions",
+      "electronState": "Electron appData plus the explicit product-flavor identity"
+    },
+    "official": {
+      "profile": "desktop",
+      "settings": "shared-global",
+      "sessions": "shared-global",
+      "electronState": "electron-default",
+      "defaultBehavior": "UPSTREAM_UNCHANGED"
+    },
+    "dsHarness": {
+      "profile": "desktop-custom",
+      "settings": "shared-global",
+      "sessions": "shared-global",
+      "electronState": "flavor-isolated",
+      "candidateMode": "REHEARSAL_ONLY"
+    },
+    "candidateRehearsal": {
+      "selector": "DSH_DESKTOP_DATA_MODE=candidate-rehearsal",
+      "root": "DSH_DESKTOP_REHEARSAL_ROOT",
+      "dshHomeChild": "dsh-home",
+      "electronChild": "electron/<flavor-id>",
+      "historicalSessionRead": "FIXTURE_COPY_ONLY",
+      "liveSharedDataMigrationAllowed": false,
+      "pathEscape": "FAIL_CLOSED"
+    },
+    "profileCompatibility": {
+      "classification": "MIGRATION_REQUIRED",
+      "reason": "The directory and manifest remain readable, but the old desktop-custom bundle list names the Stage 5 composition package and the old patchReload field no longer controls current profile boot.",
+      "candidateFreshProfile": "COMPATIBLE"
+    },
+    "settingsCompatibility": {
+      "classification": "BIDIRECTIONAL_COMPATIBLE",
+      "automaticWritebackOnRead": false,
+      "baselineProviderBlob": "6a281479a192db758f3e068ade81ab1a007f3be2",
+      "targetProviderBlob": "6a281479a192db758f3e068ade81ab1a007f3be2",
+      "unknownSections": "PRESERVED_ON_UPDATE",
+      "writeMode": "LOCKED_ATOMIC_REPLACE"
+    },
+    "sessionCompatibility": {
+      "baselineVersion": 3,
+      "targetVersion": 3,
+      "persistenceProviderUnchanged": true,
+      "baselineProviderBlob": "ba4f8996f08edc7f633891103309fd27f7815674",
+      "targetProviderBlob": "ba4f8996f08edc7f633891103309fd27f7815674",
+      "migrationTrigger": "READ_OPEN_PREPARES_IN_MEMORY_WRITE_OPEN_PUBLISHES_SUCCESSOR",
+      "mutationMode": "IMMUTABLE_SUCCESSOR_GENERATION",
+      "sourceGenerationRetained": true,
+      "rollbackClassification": "ROLLBACK_SAFE_WITH_BACKUP_RESTORE",
+      "rollbackReason": "The physical v3 provider is shared, but target-only required events are unknown to the Final Product catalog and Final Product task events are unknown to the target catalog.",
+      "targetOnlyRequiredEvents": ["image/offload", "workspace/changes"],
+      "removedRequiredCustomEvents": ["task/checkpoint", "task/result-manifest"],
+      "customEventBehavior": "CUSTOM_EVENT_MIGRATION_BLOCKED"
+    },
+    "futureCutoverRequirement": {
+      "stage": 13,
+      "steps": [
+        "pre-validate and quiesce both products",
+        "snapshot settings, sessions, and desktop-custom profile",
+        "record hashes and a restore manifest",
+        "migrate a copy and validate it before cutover",
+        "cut over only after explicit approval",
+        "restore the snapshot before source rollback when compatibility is not bidirectional"
+      ]
+    }
   },
   "upstreamHealth": {
     "install": "PASS",
@@ -211,6 +284,7 @@
       "upstreamEquivalent": "Desktop and Host still default to desktop, while profile resolution and session v0-to-v3 migrations, generations, and leases are substantially newer.",
       "status": "REWRITE_REQUIRED",
       "action": "REIMPLEMENT",
+      "implementationStatus": "IMPLEMENTED_STAGE_3",
       "risk": "CRITICAL",
       "validation": ["temporary copied fixtures only", "migration dry run", "path identity assertions", "official profile remains untouched"]
     },
@@ -292,6 +366,7 @@
       "newContract": "Desktop and Host default to desktop; profile resolution, primary runtime installation, and automatic session migrations are new.",
       "breakage": "An unqualified launch could use the official profile or migrate shared stores under unreviewed assumptions.",
       "migration": "Implement and test explicit paths against copied fixtures before any real profile access.",
+      "implementationStatus": "IMPLEMENTED_STAGE_3",
       "risk": "CRITICAL",
       "validation": ["temporary home path audit", "fixture migrations", "official/profile sentinel hashes"]
     },
@@ -363,7 +438,7 @@
   "portOrder": [
     { "stage": 1, "status": "COMPLETE", "goal": "Reconfirm locked upstream health and toolchain", "dependencies": [], "tests": ["install", "build", "classified upstream tests"], "stopGate": "Target SHA or health classification differs without explanation." },
     { "stage": 2, "status": "COMPLETE", "goal": "Product identity and process isolation", "dependencies": [1], "tests": ["bundle/profile/userData/single-instance contracts"], "stopGate": "Any path can collide with official Desktop or Stable DS Harness." },
-    { "stage": 3, "status": "PENDING", "goal": "Profile, settings, sessions, and migration boundary", "dependencies": [2], "tests": ["temp-home paths", "copied-fixture migrations", "sentinel hashes"], "stopGate": "Any real-data path is touched or migration semantics remain unresolved." },
+    { "stage": 3, "status": "COMPLETE", "goal": "Profile, settings, sessions, and migration boundary", "dependencies": [2], "tests": ["temp-home paths", "copied-fixture migrations", "sentinel hashes"], "stopGate": "Any real-data path is touched or migration semantics remain unresolved." },
     { "stage": 4, "status": "PENDING", "goal": "Packaging and primary-runtime closure", "dependencies": [2, 3], "tests": ["runtime lock", "native ABI", "codesign", "candidate staging"], "stopGate": "Runtime payload/signature/native closure fails." },
     { "stage": 5, "status": "PENDING", "goal": "Minimal current Cordis/package-set composition", "dependencies": [3, 4], "tests": ["composition resolution", "host startup in temp profile"], "stopGate": "Composition duplicates upstream-native services or cannot start isolated." },
     { "stage": 6, "status": "PENDING", "goal": "Session v3 and Agent lifecycle adapters", "dependencies": [5], "tests": ["schema", "projection", "turn/step/attempt fixtures"], "stopGate": "Run identity or durable-event compatibility is ambiguous." },
@@ -379,6 +454,7 @@
     "apps/desktop/src/main.ts",
     "apps/desktop/src/product-flavor.ts",
     "apps/desktop/src/product-flavors.json",
+    "apps/desktop/src/data-boundary.ts",
     "apps/desktop/src/paths.ts",
     "apps/desktop/src/single-instance.ts",
     "apps/desktop/electron-builder.config.mjs",
@@ -407,7 +483,7 @@
     "severity": "CRITICAL",
     "impact": "BLOCKING_CHANGE",
     "resolution": "UNRESOLVED",
-    "reason": "The Stage 2 product identity seam does not yet prove data migration, packaged runtime qualification, retained capabilities, or a new product baseline."
+    "reason": "Stage 3 isolates candidate data and classifies migration, but Custom event registration, profile composition migration, packaged runtime qualification, retained capabilities, and a new product baseline remain unresolved."
   },
   "knownUnknowns": [
     "The signed and notarized DS Harness package, runtime payload, and client artifact identity remain unqualified until Stage 4.",

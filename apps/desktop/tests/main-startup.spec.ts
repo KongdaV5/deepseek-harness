@@ -352,19 +352,22 @@ describe('desktop main startup', () => {
 
   it('starts the DS Harness flavor with isolated process, profile, branding, and update behavior', async () => {
     harness.productFlavor = 'ds-harness'
+    vi.stubEnv('DSH_DESKTOP_DATA_MODE', 'candidate-rehearsal')
+    vi.stubEnv('DSH_DESKTOP_REHEARSAL_ROOT', join(process.cwd(), 'desktop-test-rehearsal-root'))
     harness.embeddedPolicy = { origin: 'https://official-policy.example.com', authentication: 'anonymous' }
     const host = await readyForUpdate()
     await vi.advanceTimersByTimeAsync(0)
     expect(harness.app.setName).toHaveBeenCalledWith('DS Harness')
     expect(harness.app.setPath.mock.calls).toEqual([
-      ['userData', join('desktop-test-app-data', '@deepseek-ai', 'dsh-desktop-custom')],
-      ['sessionData', join('desktop-test-app-data', '@deepseek-ai', 'dsh-desktop-custom')],
+      ['userData', join(process.cwd(), 'desktop-test-rehearsal-root', 'electron', 'ds-harness')],
+      ['sessionData', join(process.cwd(), 'desktop-test-rehearsal-root', 'electron', 'ds-harness')],
     ])
     expect(harness.app.setPath.mock.invocationCallOrder[0])
       .toBeLessThan(harness.app.requestSingleInstanceLock.mock.invocationCallOrder[0]!)
     expect(harness.windows[0]!.options.title).toBe('DS Harness')
     expect(harness.app.setAboutPanelOptions).toHaveBeenCalledWith(expect.objectContaining({ applicationName: 'DS Harness' }))
     expect(host).toMatchObject({ profile: 'desktop-custom-test-profile', profileName: 'desktop-custom' })
+    expect(host.environment?.DSH_HOME).toBe(join(process.cwd(), 'desktop-test-rehearsal-root', 'dsh-home'))
     expect(applicationMenuItems().map(item => item.label ?? item.role ?? item.type))
       .toEqual(['About DS Harness', 'separator', 'Exit'])
     expect(harness.updateCheck).not.toHaveBeenCalled()
