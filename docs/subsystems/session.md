@@ -1070,6 +1070,97 @@ Types: [CreateSessionOptions](persistence.md) · [PrepareSessionOptions](persist
 
 Source: [`packages/core/session/src/index.ts`](../../packages/core/session/src/index.ts)
 
+<a id="ctxtaskcheckpoints--taskcheckpointservice"></a>
+
+### `ctx.taskCheckpoints` — `TaskCheckpointService`
+
+Cordis service for durable Task authority and guarded continuation.
+
+Installing it registers the two task projections and the resume seam. It is deliberately not part of any composition marker: Stage 8 exposes the capability, and mounting it is a separate ownership decision.
+
+```ts cordis-catalog
+/**
+ * Commit the first durable revision of one Task.
+ * @param session - the Session that owns the durable Task.
+ * @param input - explicit Task identity, origin turn, plan, and resume facts.
+ * @returns the committed checkpoint at revision 1.
+ * @throws TaskContinuityError when the Session has no readable durable authority
+ *   or the candidate is not a legal first revision.
+ */
+createCheckpoint(session: Session, input: CreateTaskCheckpointInput): TaskCheckpoint
+
+/**
+ * Commit the next durable revision of an existing Task.
+ * @param session - the Session that owns the durable Task.
+ * @param update - superseded revision, committed latest turn, and successor value.
+ * @returns the committed successor revision.
+ * @throws TaskContinuityError when the declared revision is stale or the
+ *   successor is not a legal next revision.
+ */
+advanceCheckpoint(session: Session, update: TaskCheckpointUpdate): TaskCheckpoint
+
+/**
+ * Commit one independently versioned result manifest.
+ * @param session - the Session that owns the durable Task and result.
+ * @param candidate - the complete next manifest revision.
+ * @param runTurn - the committed turn whose Run produced this revision.
+ * @returns the committed manifest.
+ * @throws TaskContinuityError when the Task is unknown or the producing Run
+ *   has not committed.
+ */
+publishResultManifest(session: Session, candidate: ResultManifest, runTurn: number): ResultManifest
+
+/**
+ * Record an admitted resume against a turn that has already committed.
+ *
+ * Exposed so a caller that drives its own seam can record the same durable
+ * fact; the built-in seam calls exactly this method. `turn` must be committed,
+ * so the Run identity it derives is real rather than predicted.
+ * @param session - the Session that owns the durable Task.
+ * @param input - committed turn, Task identity, pending-only plan, and budget.
+ * @returns the committed resume revision, or the existing one for a repeat call.
+ * @throws TaskContinuityError when the turn is not durable or the plan is invalid.
+ */
+recordAcceptedResume(session: Session, input: AcceptedResumeInput): TaskCheckpoint
+
+/**
+ * Read the durable Task continuity diagnostics for one Session.
+ * @param session - the Session whose durable Task state is read.
+ * @param options - optional Task selection, proposed execution, and context budget.
+ * @returns the Task revision, its classified decision, and the evidence behind it.
+ * @throws TaskContinuityError when the Session has no readable durable authority.
+ */
+diagnostics( session: Session, options: { readonly taskId?: TaskId readonly requestedExecution?: TaskExecutionMetadata readonly context?: TaskResumeContextBudget } = {}, ): TaskDiagnostics
+
+/**
+ * Classify one resume request and, when it is allowed, adopt the next Run.
+ *
+ * Admission is a process-local promise, not a durable write: a durable
+ * "resume requested" record would have to name the Run it is waiting for,
+ * which is exactly the prediction this design forbids. Nothing is written
+ * until the Run exists, so a crash between admission and the turn simply
+ * leaves the Task at its last durable revision.
+ *
+ * @param session - the Session that owns the durable Task.
+ * @param request - Task identity, structured budget, and optional execution.
+ * @returns the decision and whether the seam now awaits the next committed turn.
+ * @throws TaskContinuityError when the caller supplies no budget for a decision that needs one.
+ */
+armResume(session: Session, request: TaskResumeRequest): TaskResumeAdmission
+
+/**
+ * Drop an admitted resume that has not been adopted by a Run yet.
+ *
+ * A caller whose wake lost to other input disarms the admission rather than
+ * letting the seam attribute an unrelated turn to the Task.
+ * @param session - the Session whose admission is withdrawn.
+ * @returns whether an admission was pending.
+ */
+disarmResume(session: Session): boolean
+```
+
+Source: [`packages/session/task-checkpoint/src/service.ts`](../../packages/session/task-checkpoint/src/service.ts)
+
 <a id="api-session-events"></a>
 
 ### `api-session/*` events

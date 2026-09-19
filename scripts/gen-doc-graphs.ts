@@ -494,6 +494,14 @@ const SERVICE_ROLES: ServiceRole[] = [
     note: 'Domains register state-driven fold units; the eager drive keeps per-session watermark states and the Session controller serves baselines and pushes changed values.',
   },
   {
+    key: 'taskCheckpoints',
+    pkg: 'task-checkpoint',
+    title: 'Durable Task authority and guarded continuation',
+    mode: 'core',
+    consumers: [],
+    note: 'The single writer of the restored task events; it registers the two task projections, decides whether an unfinished task may continue, and adopts the Run of the turn that actually started rather than predicting one.',
+  },
+  {
     key: 'sessionProjectionCache',
     pkg: 'session-projection-cache',
     title: 'Persisted projection cache',

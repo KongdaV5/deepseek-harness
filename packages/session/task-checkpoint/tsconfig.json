@@ -24,7 +24,13 @@
       "path": "../../core/session"
     },
     {
+      "path": "../../core/agent"
+    },
+    {
       "path": "../session-projection"
+    },
+    {
+      "path": "../../runtime-diagnostics/agent-run-state"
     }
   ]
 }

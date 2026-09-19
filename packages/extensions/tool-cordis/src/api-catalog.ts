@@ -2726,6 +2726,61 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
+    key: 'taskCheckpoints',
+    summary: 'Cordis service for durable Task authority and guarded continuation.',
+    description: 'Cordis service for durable Task authority and guarded continuation.\n\nInstalling it registers the two task projections and the resume seam. It is deliberately not part of any composition marker: Stage 8 exposes the capability, and mounting it is a separate ownership decision.',
+    methods: [
+      {
+        signature: 'createCheckpoint(session: Session, input: CreateTaskCheckpointInput): TaskCheckpoint',
+        description: 'Commit the first durable revision of one Task.',
+        parameters: [{ name: 'session', description: 'the Session that owns the durable Task.' }, { name: 'input', description: 'explicit Task identity, origin turn, plan, and resume facts.' }],
+        returns: 'the committed checkpoint at revision 1.',
+        throws: ['TaskContinuityError when the Session has no readable durable authority or the candidate is not a legal first revision.'],
+      },
+      {
+        signature: 'advanceCheckpoint(session: Session, update: TaskCheckpointUpdate): TaskCheckpoint',
+        description: 'Commit the next durable revision of an existing Task.',
+        parameters: [{ name: 'session', description: 'the Session that owns the durable Task.' }, { name: 'update', description: 'superseded revision, committed latest turn, and successor value.' }],
+        returns: 'the committed successor revision.',
+        throws: ['TaskContinuityError when the declared revision is stale or the successor is not a legal next revision.'],
+      },
+      {
+        signature: 'publishResultManifest(session: Session, candidate: ResultManifest, runTurn: number): ResultManifest',
+        description: 'Commit one independently versioned result manifest.',
+        parameters: [{ name: 'session', description: 'the Session that owns the durable Task and result.' }, { name: 'candidate', description: 'the complete next manifest revision.' }, { name: 'runTurn', description: 'the committed turn whose Run produced this revision.' }],
+        returns: 'the committed manifest.',
+        throws: ['TaskContinuityError when the Task is unknown or the producing Run has not committed.'],
+      },
+      {
+        signature: 'recordAcceptedResume(session: Session, input: AcceptedResumeInput): TaskCheckpoint',
+        description: 'Record an admitted resume against a turn that has already committed.\n\nExposed so a caller that drives its own seam can record the same durable fact; the built-in seam calls exactly this method. `turn` must be committed, so the Run identity it derives is real rather than predicted.',
+        parameters: [{ name: 'session', description: 'the Session that owns the durable Task.' }, { name: 'input', description: 'committed turn, Task identity, pending-only plan, and budget.' }],
+        returns: 'the committed resume revision, or the existing one for a repeat call.',
+        throws: ['TaskContinuityError when the turn is not durable or the plan is invalid.'],
+      },
+      {
+        signature: 'diagnostics( session: Session, options: { readonly taskId?: TaskId readonly requestedExecution?: TaskExecutionMetadata readonly context?: TaskResumeContextBudget } = {}, ): TaskDiagnostics',
+        description: 'Read the durable Task continuity diagnostics for one Session.',
+        parameters: [{ name: 'session', description: 'the Session whose durable Task state is read.' }, { name: 'options', description: 'optional Task selection, proposed execution, and context budget.' }],
+        returns: 'the Task revision, its classified decision, and the evidence behind it.',
+        throws: ['TaskContinuityError when the Session has no readable durable authority.'],
+      },
+      {
+        signature: 'armResume(session: Session, request: TaskResumeRequest): TaskResumeAdmission',
+        description: 'Classify one resume request and, when it is allowed, adopt the next Run.\n\nAdmission is a process-local promise, not a durable write: a durable "resume requested" record would have to name the Run it is waiting for, which is exactly the prediction this design forbids. Nothing is written until the Run exists, so a crash between admission and the turn simply leaves the Task at its last durable revision.',
+        parameters: [{ name: 'session', description: 'the Session that owns the durable Task.' }, { name: 'request', description: 'Task identity, structured budget, and optional execution.' }],
+        returns: 'the decision and whether the seam now awaits the next committed turn.',
+        throws: ['TaskContinuityError when the caller supplies no budget for a decision that needs one.'],
+      },
+      {
+        signature: 'disarmResume(session: Session): boolean',
+        description: 'Drop an admitted resume that has not been adopted by a Run yet.\n\nA caller whose wake lost to other input disarms the admission rather than letting the seam attribute an unrelated turn to the Task.',
+        parameters: [{ name: 'session', description: 'the Session whose admission is withdrawn.' }],
+        returns: 'whether an admission was pending.',
+      },
+    ],
+  },
+  {
     key: 'terminalController',
     summary: 'Typed Remote control of transient Session-owned terminal processes.',
     description: 'Typed Remote control of transient Session-owned terminal processes.',
@@ -3989,6 +4044,10 @@ export const EVENT_API: readonly EventApiEntry[] = [
 /** Shapes of every exported type the Service and Event signatures reference (transitively), sorted by name. */
 export const TYPE_API: readonly TypeApiEntry[] = [
   {
+    name: 'AcceptedResumeInput',
+    declaration: 'export interface AcceptedResumeInput {\n    readonly turn: number;\n    readonly taskId: TaskId;\n    readonly requestedAt: number;\n    readonly executionPlan: readonly TaskStepId[];\n    readonly context: TaskResumeContextBudget;\n    readonly latestExecution?: TaskExecutionMetadata;\n    readonly modelRelation?: TaskModelRelation;\n}',
+  },
+  {
     name: 'AdapterRegistrationHandle',
     declaration: 'export interface AdapterRegistrationHandle {\n    (): void;\n    replace(providers: string[]): void;\n}',
   },
@@ -4161,6 +4220,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export type AttachmentId = Branded<\'AttachmentId\'>;',
   },
   {
+    name: 'AttemptId',
+    declaration: 'export type AttemptId = Branded<\'AttemptId\'>;',
+  },
+  {
     name: 'AuthorizationEntry',
     declaration: 'export interface AuthorizationEntry {\n    key: CredentialKey;\n    label: string;\n    methods: readonly AuthorizationMethod[];\n    inFlight: boolean;\n}',
   },
@@ -4311,6 +4374,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'CompactionTrigger',
     declaration: 'export type CompactionTrigger = \'pressure\' | \'context-overflow\';',
+  },
+  {
+    name: 'CompletedTaskStep',
+    declaration: 'export interface CompletedTaskStep extends TaskStep {\n    readonly completedAt: number;\n    readonly evidence: TaskStepCompletionEvidence;\n}',
   },
   {
     name: 'CompositionRowEnablement',
@@ -4495,6 +4562,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'CreateSessionOptions',
     declaration: 'export interface CreateSessionOptions {\n    readonly seed?: readonly SessionEvent[];\n    readonly inheritedEventCount?: SessionLogOffset;\n    readonly meta?: {\n        readonly cwd?: string;\n        readonly parentSession?: SessionId;\n        readonly createdAt?: number;\n        readonly isSeeded?: boolean;\n        readonly origin?: \'subagent\';\n        readonly delegationDepth?: number;\n        readonly agentPreset?: string;\n    };\n}',
+  },
+  {
+    name: 'CreateTaskCheckpointInput',
+    declaration: 'export interface CreateTaskCheckpointInput {\n    readonly taskId: TaskId;\n    readonly taskType: string;\n    readonly originTurn: number;\n    readonly execution: TaskExecutionMetadata;\n    readonly status?: TaskStatus;\n    readonly completedSteps?: readonly CompletedTaskStep[];\n    readonly currentStep?: TaskStep;\n    readonly pendingSteps: readonly TaskStep[];\n    readonly resumeContext: TaskResumeContext;\n    readonly outputs?: readonly TaskOutputId[];\n    readonly createdAt?: number;\n    readonly lastActivityAt?: number;\n}',
   },
   {
     name: 'CreateTeamTaskRequest',
@@ -4807,6 +4878,18 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'GrantRecord',
     declaration: 'export interface GrantRecord {\n    readonly kind: \'grant\';\n    readonly payload: unknown;\n}',
+  },
+  {
+    name: 'GuardedResumeDecision',
+    declaration: 'export interface GuardedResumeDecision {\n    readonly decision: GuardedResumeDecisionClass;\n    readonly reason: GuardedResumeReason;\n    readonly detail: string;\n    readonly taskId?: TaskId;\n    readonly checkpointRevision?: number;\n    readonly latestRunId?: RunId;\n    readonly durableRunId?: RunId;\n    readonly currentStep?: TaskStep;\n    readonly pendingSteps: readonly TaskStep[];\n    readonly hazards: readonly TaskRepairHazard[];\n    readonly plan: readonly TaskStepId[];\n}',
+  },
+  {
+    name: 'GuardedResumeDecisionClass',
+    declaration: 'export type GuardedResumeDecisionClass = \'allowed\' | \'requires_confirmation\' | \'blocked\' | \'not_applicable\';',
+  },
+  {
+    name: 'GuardedResumeReason',
+    declaration: 'export type GuardedResumeReason = \'NO_CHECKPOINT\' | \'TASK_COMPLETED\' | \'TASK_CANCELLED\' | \'TASK_BLOCKED\' | \'TASK_FAILED_FATAL\' | \'TASK_FAILED_RECOVERABLE\' | \'TOOL_OUTCOME_UNKNOWN\' | \'NO_PENDING_WORK\' | \'RUN_STILL_OPEN\' | \'SESSION_DIVERGED\' | \'MODEL_CHANGED\' | \'MISSING_RESULT_MANIFEST\' | \'UNSETTLED_RESULT_MANIFEST\' | \'MISSING_COMPLETED_EVIDENCE\' | \'CONTEXT_OVER_BUDGET\' | \'PENDING_ONLY\';',
   },
   {
     name: 'HostConnectionFetch',
@@ -5579,6 +5662,26 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'RestoredSessionOptions',
     declaration: 'export interface RestoredSessionOptions {\n    readonly seed: SessionEvent[];\n    readonly meta: SessionHeader;\n    readonly inheritedEventCount: SessionLogOffset;\n    readonly eventState: SessionSeedEventState;\n}',
+  },
+  {
+    name: 'ResultChecksum',
+    declaration: 'export interface ResultChecksum {\n    readonly algorithm: \'sha256\';\n    readonly value: string;\n}',
+  },
+  {
+    name: 'ResultManifest',
+    declaration: 'export interface ResultManifest {\n    readonly version: 1;\n    readonly outputId: TaskOutputId;\n    readonly revision: number;\n    readonly taskId: TaskId;\n    readonly runId: RunId;\n    readonly path: string;\n    readonly status: ResultManifestStatus;\n    readonly createdAt: number;\n    readonly updatedAt: number;\n    readonly completedAt?: number;\n    readonly size?: number;\n    readonly checksum?: ResultChecksum;\n    readonly execution: TaskExecutionMetadata;\n    readonly validation: ResultValidation;\n}',
+  },
+  {
+    name: 'ResultManifestStatus',
+    declaration: 'export type ResultManifestStatus = \'running\' | \'partial\' | \'completed\' | \'failed\' | \'cancelled\';',
+  },
+  {
+    name: 'ResultValidation',
+    declaration: 'export interface ResultValidation {\n    readonly status: \'pending\' | \'passed\' | \'failed\';\n    readonly checks: readonly ResultValidationCheck[];\n}',
+  },
+  {
+    name: 'ResultValidationCheck',
+    declaration: 'export interface ResultValidationCheck {\n    readonly id: string;\n    readonly status: \'passed\' | \'failed\';\n    readonly message?: string;\n}',
   },
   {
     name: 'ResumeAgentOptions',
@@ -6539,6 +6642,82 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'TableValueOf',
     declaration: 'export type TableValueOf<S extends DomainSpec, N extends keyof S[\'tables\']> = S[\'tables\'][N] extends DomainTableSpec<string, infer V> ? V : never;',
+  },
+  {
+    name: 'TaskCheckpoint',
+    declaration: 'export interface TaskCheckpoint extends TaskCheckpointRef {\n    readonly version: 1;\n    readonly taskType: string;\n    readonly sessionId: SessionId;\n    readonly originRunId: RunId;\n    readonly latestRunId: RunId;\n    readonly status: TaskStatus;\n    readonly originalExecution: TaskExecutionMetadata;\n    readonly latestExecution: TaskExecutionMetadata;\n    readonly modelRelation: TaskModelRelation;\n    readonly completedSteps: readonly CompletedTaskStep[];\n    readonly currentStep?: TaskStep;\n    readonly pendingSteps: readonly TaskStep[];\n    readonly createdAt: number;\n    readonly lastSuccessAt?: number;\n    readonly lastActivityAt: number;\n    readonly resumeContext: TaskResumeContext;\n    readonly outputs: readonly TaskOutputId[];\n    readonly failureContext?: TaskFailureContext;\n    readonly latestResume?: TaskResumeRecord;\n}',
+  },
+  {
+    name: 'TaskCheckpointRef',
+    declaration: 'export interface TaskCheckpointRef {\n    readonly taskId: TaskId;\n    readonly revision: number;\n}',
+  },
+  {
+    name: 'TaskCheckpointUpdate',
+    declaration: 'export interface TaskCheckpointUpdate {\n    readonly expectedRevision: number;\n    readonly checkpoint: TaskCheckpoint;\n    readonly latestTurn: number;\n}',
+  },
+  {
+    name: 'TaskDiagnostics',
+    declaration: 'export interface TaskDiagnostics {\n    readonly task?: TaskCheckpoint;\n    readonly decision: GuardedResumeDecision;\n    readonly results: readonly ResultManifest[];\n    readonly hazards: readonly TaskRepairHazard[];\n}',
+  },
+  {
+    name: 'TaskExecutionMetadata',
+    declaration: 'export interface TaskExecutionMetadata {\n    readonly provider: string;\n    readonly model: string;\n    readonly backend?: string;\n    readonly requestedReasoning?: string;\n    readonly resolvedReasoning?: string;\n}',
+  },
+  {
+    name: 'TaskFailureContext',
+    declaration: 'export interface TaskFailureContext {\n    readonly primaryError: ClassifiedRunError;\n    readonly failedAt: number;\n    readonly failedAttemptId?: AttemptId;\n    readonly currentStepId?: TaskStepId;\n}',
+  },
+  {
+    name: 'TaskId',
+    declaration: 'export type TaskId = Branded<\'TaskId\'>;',
+  },
+  {
+    name: 'TaskModelRelation',
+    declaration: 'export type TaskModelRelation = \'same-model\' | \'model-changed\';',
+  },
+  {
+    name: 'TaskOutputId',
+    declaration: 'export type TaskOutputId = Branded<\'TaskOutputId\'>;',
+  },
+  {
+    name: 'TaskRepairHazard',
+    declaration: 'export interface TaskRepairHazard {\n    readonly taskId: TaskId;\n    readonly callId: string;\n    readonly code: \'TOOL_NOT_STARTED\' | \'TOOL_OUTCOME_UNKNOWN\';\n    readonly eventSeq: SessionSeq;\n}',
+  },
+  {
+    name: 'TaskResumeAdmission',
+    declaration: 'export interface TaskResumeAdmission {\n    readonly decision: GuardedResumeDecision;\n    readonly armed: boolean;\n}',
+  },
+  {
+    name: 'TaskResumeContext',
+    declaration: 'export interface TaskResumeContext {\n    readonly objective: string;\n    readonly constraints: readonly string[];\n    readonly decisions: readonly string[];\n    readonly criticalContext: readonly string[];\n}',
+  },
+  {
+    name: 'TaskResumeContextBudget',
+    declaration: 'export interface TaskResumeContextBudget {\n    readonly estimatedTokens: number;\n    readonly maxTokens: number;\n    readonly includedSections: readonly string[];\n    readonly omittedSections: readonly string[];\n}',
+  },
+  {
+    name: 'TaskResumeRecord',
+    declaration: 'export interface TaskResumeRecord {\n    readonly requestedAt: number;\n    readonly runId: RunId;\n    readonly executionPlan: readonly TaskStepId[];\n    readonly context: TaskResumeContextBudget;\n}',
+  },
+  {
+    name: 'TaskResumeRequest',
+    declaration: 'export interface TaskResumeRequest {\n    readonly taskId: TaskId;\n    readonly requestedAt?: number;\n    readonly context: TaskResumeContextBudget;\n    readonly requestedExecution?: TaskExecutionMetadata;\n}',
+  },
+  {
+    name: 'TaskStatus',
+    declaration: 'export type TaskStatus = \'running\' | \'paused\' | \'blocked\' | \'completed\' | \'partial\' | \'failed\' | \'cancelled\';',
+  },
+  {
+    name: 'TaskStep',
+    declaration: 'export interface TaskStep {\n    readonly id: TaskStepId;\n    readonly title: string;\n}',
+  },
+  {
+    name: 'TaskStepCompletionEvidence',
+    declaration: 'export type TaskStepCompletionEvidence = {\n    readonly kind: \'tool-result\';\n    readonly eventSeq: SessionSeq;\n    readonly callId: string;\n} | {\n    readonly kind: \'result-validation\';\n    readonly outputId: TaskOutputId;\n    readonly manifestRevision: number;\n} | {\n    readonly kind: \'runtime-validation\';\n    readonly validator: string;\n    readonly reference: string;\n};',
+  },
+  {
+    name: 'TaskStepId',
+    declaration: 'export type TaskStepId = Branded<\'TaskStepId\'>;',
   },
   {
     name: 'TeamId',

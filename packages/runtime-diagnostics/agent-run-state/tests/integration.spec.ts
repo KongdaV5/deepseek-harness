@@ -117,14 +117,20 @@ describe('Stage 7 adds no Session vocabulary and no new authority', () => {
     expect(known).toContain("'task/result-manifest'")
   })
 
-  it('leaves the Stage 6 task-checkpoint package independent of run state', () => {
-    const stageSix = sourcesUnder(join(repoRoot, 'packages/session/task-checkpoint/src'))
-    expect(stageSix.length).toBeGreaterThan(0)
-    for (const { path, text } of stageSix) {
-      // The restored v1 contract stays opaque about the Stage 7 RunId: no module
-      // imports or re-exports the run-state owner.
-      expect(text, path).not.toMatch(/from '@deepseek-ai\/dsh-agent-run-state/)
-      expect(text, path).not.toMatch(/from '\.\/agent-run-state/)
+  it('keeps Run identity owned by Stage 7 while Stage 8 consumes it', () => {
+    const stageEight = sourcesUnder(join(repoRoot, 'packages/session/task-checkpoint/src'))
+    expect(stageEight.length).toBeGreaterThan(0)
+    let derivations = 0
+    for (const { path, text } of stageEight) {
+      // The restored v1 contract now has a consumer: Stage 8 asks Stage 7 for a
+      // Run identity through `runIdFor`. The encoding is never re-implemented or
+      // parsed back out here, and no module brands a Run identity of its own —
+      // except the legacy read shim, which only re-brands an opaque value a
+      // persisted payload already carried.
+      expect(text, path).not.toContain('run:v1')
+      if (!path.endsWith('legacy-identity.ts')) expect(text, path).not.toContain('brandString<RunId>')
+      derivations += text.match(/runIdFor\(/g)?.length ?? 0
     }
+    expect(derivations).toBeGreaterThan(0)
   })
 })

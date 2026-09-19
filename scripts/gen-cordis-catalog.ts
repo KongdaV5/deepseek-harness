@@ -110,6 +110,7 @@ export const SERVICE_PAGE: Record<string, string> = {
   sessions: 'session.md',
   settings: 'settings.md',
   sessionTitle: 'session-title.md',
+  taskCheckpoints: 'session.md',
   skills: 'skills.md',
   spillStore: 'spill.md',
   storage: 'storage.md',
@@ -840,6 +841,17 @@ export const TYPE_LINK_EXEMPTIONS: Readonly<Record<string, string>> = {
   TerminalFrame: 'Browser terminal stream frames are owned by packages/api/terminal-controller/README.md',
   TerminalRetentionFrame: 'Browser terminal window holds are owned by packages/api/terminal-controller/README.md',
   WebTerminalId: 'Browser terminal identity is owned by packages/api/terminal-controller/README.md',
+  AcceptedResumeInput: 'task resume record is owned by packages/session/task-checkpoint/src/producer.ts',
+  CreateTaskCheckpointInput: 'task checkpoint creation input is owned by packages/session/task-checkpoint/src/producer.ts',
+  TaskCheckpointUpdate: 'task checkpoint compare-and-set input is owned by packages/session/task-checkpoint/src/producer.ts',
+  TaskCheckpoint: 'durable task revision is owned by packages/session/task-checkpoint/README.md',
+  ResultManifest: 'durable result revision is owned by packages/session/task-checkpoint/README.md',
+  TaskExecutionMetadata: 'task execution metadata is owned by packages/session/task-checkpoint/README.md',
+  TaskId: 'task identity is owned by packages/session/task-checkpoint/README.md',
+  TaskResumeContextBudget: 'task resume context budget is owned by packages/session/task-checkpoint/README.md',
+  TaskDiagnostics: 'task diagnostics read model is owned by packages/session/task-checkpoint/src/service.ts',
+  TaskResumeAdmission: 'task resume admission is owned by packages/session/task-checkpoint/src/service.ts',
+  TaskResumeRequest: 'task resume request is owned by packages/session/task-checkpoint/src/service.ts',
 }
 
 /** Repository data policy consumed by the Cordis catalog projector. */
