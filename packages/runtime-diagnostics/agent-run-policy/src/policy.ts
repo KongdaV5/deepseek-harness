@@ -27,11 +27,16 @@ import type { RetryDecision, RetryDecisionInput } from './types.ts'
  * provider's own declaration says.
  *
  * Each entry is a structured category, never message text. Cancellation, a
- * blocked run, a context overflow Stage 10 must address, a reached max-token
- * limit, an invalid reasoning or model configuration, a tool-semantics failure,
- * a generation that provably stalled, a Session interruption that needs guarded
- * resume, and a failed retry chain itself all describe a condition that
- * repeating the identical request cannot fix.
+ * blocked run, a context overflow, a reached max-token limit, an invalid
+ * reasoning or model configuration, a tool-semantics failure, a generation that
+ * provably stalled, a Session interruption that needs guarded resume, and a
+ * failed retry chain itself all describe a condition that repeating the
+ * identical request cannot fix.
+ *
+ * `CONTEXT_OVERFLOW` stays a member even though its branch is decided before
+ * this set is consulted: the set remains the complete statement of what this
+ * policy never *retries*, and the delegation branch only changes which
+ * mechanism is handed the failure, never whether a retry may happen.
  *
  * `STREAM_DISCONNECTED` is deliberately absent: a disconnected stream is a
  * transport condition, and the current contract treats transport failures as
@@ -63,6 +68,15 @@ const NEVER_RETRY_CATEGORIES: ReadonlySet<RunErrorCode> = new Set<RunErrorCode>(
  * an allow list this package owns.
  */
 const UPSTREAM_DEFAULT_TRANSIENT_CODES: ReadonlySet<string> = new Set(defaultUpstreamRetryableCodes())
+
+/**
+ * The one category this policy hands to a recovery mechanism other than retry.
+ *
+ * The compaction backend's overflow listener owns shrinking the surface, and it
+ * only sees the failure if the waterfall keeps descending. Denying the category
+ * outright would stop that descent, so the category is delegated instead.
+ */
+const COMPACTION_RECOVERY_CATEGORY: RunErrorCode = 'CONTEXT_OVERFLOW'
 
 /**
  * The code set the current upstream contract names when no provider configuration
@@ -132,6 +146,16 @@ export function decideBoundedRetry(input: RetryDecisionInput): RetryDecision {
   // An in-run retry needs an open turn to run inside; anything else is a
   // cross-run question that guarded resume, not retry, owns.
   if (!input.runOpen) return { ...base, kind: 'deny', reason: 'RUN_NOT_RETRYABLE' }
+
+  // A context overflow is not retryable — an identical request cannot fit a
+  // window it already did not fit — but it is also not a dead end: the recovery
+  // that owns it shrinks the surface first. Refusing here would suppress the
+  // failure before that recovery ever saw it, so this policy delegates instead.
+  // Nothing about a retry happens: no attempt is scheduled, no ordinal is spent,
+  // and no retry event is written.
+  if (classified.code === COMPACTION_RECOVERY_CATEGORY) {
+    return { ...base, kind: 'delegate-compaction', reason: 'COMPACTION_RECOVERY' }
+  }
 
   if (NEVER_RETRY_CATEGORIES.has(classified.code)) {
     return { ...base, kind: 'deny', reason: 'NO_RETRY_CATEGORY' }

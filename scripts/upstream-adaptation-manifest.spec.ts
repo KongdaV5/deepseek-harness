@@ -105,8 +105,8 @@ describe('Phase 8C upstream adaptation manifest', () => {
   it('locks the audited target and immutable source baselines', () => {
     expect(manifest).toMatchObject({
       formatVersion: 1,
-      phase: '8C.2h',
-      status: 'stage-9-complete',
+      phase: '8C.2i',
+      status: 'stage-10-complete',
       target: { sha: 'ddefc45fbc7f8e46dd73185e68295696d1297887' },
       source: {
         productBaselineTag: 'ds-harness-product-baseline-2026-09-17',
@@ -152,16 +152,21 @@ describe('Phase 8C upstream adaptation manifest', () => {
       expect(stage.tests.length).toBeGreaterThan(0)
       expect(stage.stopGate.length).toBeGreaterThan(10)
     }
-    expect(manifest.portOrder.slice(0, 9).map(stage => stage.status)).toEqual([
+    expect(manifest.portOrder.slice(0, 10).map(stage => stage.status)).toEqual([
       'COMPLETE', 'COMPLETE', 'COMPLETE', 'COMPLETE', 'COMPLETE', 'COMPLETE', 'COMPLETE', 'COMPLETE', 'COMPLETE',
+      'COMPLETE',
     ])
-    expect(manifest.portOrder.slice(9).every(stage => stage.status === 'PENDING')).toBe(true)
+    expect(manifest.portOrder.slice(10).every(stage => stage.status === 'PENDING')).toBe(true)
     expect(manifest.compositionQualification).toEqual({
       profile: 'desktop-custom',
       upstreamTemplate: 'web',
-      bundles: ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app'],
+      bundles: [
+        '@deepseek-ai/dsh-base',
+        '@deepseek-ai/dsh-web-app',
+        '@deepseek-ai/dsh-desktop-custom',
+      ],
       profilePatch: 'upstream-init-empty',
-      customEntryIds: [],
+      customEntryIds: ['task-checkpoint', 'agent-run-policy', 'compaction-task-aware-policy'],
       upstreamNativeOwner: [
         'Cordis bundle layering',
         'generated client module roster',
@@ -239,8 +244,8 @@ describe('Phase 8C upstream adaptation manifest', () => {
     ])
     // Stages beyond the completed prefix stay pending, and Stage 7 introduces
     // no new durable event.
-    expect(manifest.portOrder.filter(stage => stage.stage > 9).map(stage => stage.status))
-      .toEqual(['PENDING', 'PENDING', 'PENDING', 'PENDING'])
+    expect(manifest.portOrder.filter(stage => stage.stage > 10).map(stage => stage.status))
+      .toEqual(['PENDING', 'PENDING', 'PENDING'])
     expect(manifest.dataBoundary.sessionCompatibility.restoredFirstPartyRequiredEvents)
       .toEqual(['task/checkpoint', 'task/result-manifest'])
     expect(manifest.capabilities.filter(capability =>
@@ -275,8 +280,8 @@ describe('Phase 8C upstream adaptation manifest', () => {
     // Stage 8 restores guarded task continuity without adding a durable event.
     expect(manifest.dataBoundary.sessionCompatibility.restoredFirstPartyRequiredEvents)
       .toEqual(['task/checkpoint', 'task/result-manifest'])
-    expect(manifest.portOrder.filter(stage => stage.stage > 9).map(stage => stage.status))
-      .toEqual(['PENDING', 'PENDING', 'PENDING', 'PENDING'])
+    expect(manifest.portOrder.filter(stage => stage.stage > 10).map(stage => stage.status))
+      .toEqual(['PENDING', 'PENDING', 'PENDING'])
   })
 
   it('records the Stage 9 reasoning and bounded retry policies and its fifteen locked decisions', () => {
@@ -302,8 +307,49 @@ describe('Phase 8C upstream adaptation manifest', () => {
     // restored required-event set is exactly the Stage 6 pair.
     expect(manifest.dataBoundary.sessionCompatibility.restoredFirstPartyRequiredEvents)
       .toEqual(['task/checkpoint', 'task/result-manifest'])
-    expect(manifest.portOrder.filter(stage => stage.stage > 9).map(stage => stage.status))
-      .toEqual(['PENDING', 'PENDING', 'PENDING', 'PENDING'])
+    expect(manifest.portOrder.filter(stage => stage.stage > 10).map(stage => stage.status))
+      .toEqual(['PENDING', 'PENDING', 'PENDING'])
+  })
+
+  it('records the Stage 10 task-aware compaction adapter and its sixteen locked decisions', () => {
+    const stageTen = manifest.portOrder.filter(stage => stage.stage === 10)
+    expect(stageTen.length).toBe(1)
+    expect(stageTen.map(stage => stage.status)).toEqual(['COMPLETE'])
+    expect(stageTen.map(stage => stage.deliverables)).toEqual([[
+      'packages/compaction/compaction-task-aware-policy',
+      'packages/compaction/compaction',
+      'packages/compaction/compaction-basic',
+      'packages/bundle/desktop-custom',
+      'packages/session/task-checkpoint',
+      'packages/runtime-diagnostics/agent-run-policy',
+      'packages/llm/llm-retry',
+      'apps/desktop',
+    ]])
+    expect(stageTen.flatMap(stage => stage.decisions ?? [])
+      .map(decision => decision.slice(0, decision.indexOf(' ')))).toEqual([
+      'D10.1', 'D10.2', 'D10.3', 'D10.4', 'D10.5', 'D10.6', 'D10.7', 'D10.8',
+      'D10.9', 'D10.10', 'D10.11', 'D10.12', 'D10.13', 'D10.14', 'D10.15', 'D10.16',
+    ])
+    expect(manifest.capabilities.find(capability => capability.id === 'compaction'))
+      .toMatchObject({ implementationStatus: 'IMPLEMENTED_STAGE_10_TASK_AWARE_CANDIDATE_POLICY' })
+    // The custom layer appends to the upstream composition prefix instead of
+    // replacing it, so base and web-app stay first and the layer is the tail.
+    expect(manifest.compositionQualification.bundles).toEqual([
+      '@deepseek-ai/dsh-base',
+      '@deepseek-ai/dsh-web-app',
+      '@deepseek-ai/dsh-desktop-custom',
+    ])
+    expect(manifest.compositionQualification.customEntryIds).toEqual([
+      'task-checkpoint',
+      'agent-run-policy',
+      'compaction-task-aware-policy',
+    ])
+    // Stage 10 protects durable authority without adding a durable event, so the
+    // restored required-event set is exactly the Stage 6 pair.
+    expect(manifest.dataBoundary.sessionCompatibility.restoredFirstPartyRequiredEvents)
+      .toEqual(['task/checkpoint', 'task/result-manifest'])
+    expect(manifest.portOrder.filter(stage => stage.stage > 10).map(stage => stage.status))
+      .toEqual(['PENDING', 'PENDING', 'PENDING'])
   })
 
   it('keeps compatibility debt unresolved and every cited contract path discoverable', () => {

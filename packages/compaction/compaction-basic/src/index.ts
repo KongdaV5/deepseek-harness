@@ -6,8 +6,17 @@
 
 import { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
-import { CompactionEngine, ManualCompactionError } from '@deepseek-ai/dsh-compaction'
-import type { CompactionResult, CompactionTrigger } from '@deepseek-ai/dsh-compaction'
+import {
+  CompactionEngine,
+  CompactionPolicyRejectionError,
+  ManualCompactionError,
+} from '@deepseek-ai/dsh-compaction'
+import type {
+  CompactionPolicyTrigger,
+  CompactionRequestDecoration,
+  CompactionResult,
+  CompactionTrigger,
+} from '@deepseek-ai/dsh-compaction'
 import type { Session, SessionSeq } from '@deepseek-ai/dsh-session'
 import { CONTEXT_WINDOW_EXCEEDED_CODE } from '@deepseek-ai/dsh-llm'
 import type { LlmCallConfig } from '@deepseek-ai/dsh-llm'
@@ -27,7 +36,8 @@ import {
   compactSurfaceRegion,
   selectCompactableRange,
 } from './region.ts'
-import { summarizeWithLlm } from './summarizer.ts'
+import type { CompactionPolicySeam } from './region.ts'
+import { resolveSummaryTarget, summarizeWithLlm } from './summarizer.ts'
 import type { SummarizationInput, SummaryResult } from './summarizer.ts'
 import type {
   BasicCompactionConfig,
@@ -75,6 +85,7 @@ const summarizationModelSchema = z.string()
 const maxTokensSchema = z.number().step(1).min(1)
 const compactionRetriesSchema = z.number().step(1).min(0)
 const maxOverflowRetriesSchema = z.number().step(1).min(0)
+const maxSummaryValidationRetriesSchema = z.number().step(1).min(0)
 
 const modelPolicy: z<ModelCompactPolicyConfig> = z.object({
   provider: z.string().required(),
@@ -87,6 +98,7 @@ const modelPolicy: z<ModelCompactPolicyConfig> = z.object({
   maxTokens: maxTokensSchema,
   compactionRetries: compactionRetriesSchema,
   maxOverflowRetries: maxOverflowRetriesSchema,
+  maxSummaryValidationRetries: maxSummaryValidationRetriesSchema,
 })
 
 /**
@@ -109,6 +121,7 @@ export class BasicCompactionEngine extends CompactionEngine {
     maxTokens: maxTokensSchema,
     compactionRetries: compactionRetriesSchema,
     maxOverflowRetries: maxOverflowRetriesSchema,
+    maxSummaryValidationRetries: maxSummaryValidationRetriesSchema,
     modelPolicies: z.array(modelPolicy),
     auto: z.boolean(),
   })
@@ -228,18 +241,22 @@ export class BasicCompactionEngine extends CompactionEngine {
    * @param input - replayed conversation prefix (system, tools, and leading messages) to condense.
    * @param agent - supplies routed-model history, fallback model, and session id.
    * @param signal - optional cancellation forwarded to the adapter.
+   * @param decoration - optional policy-supplied request changes. An override
+   *   that ignores it simply cannot carry a policy's decoration; the backend
+   *   still validates and gates whatever the override produces.
    * @returns safe text summary blocks and the exact auxiliary call envelope and output.
    */
   protected async summarize(
     input: SummarizationInput,
     agent: Agent,
     signal?: AbortSignal,
+    decoration?: CompactionRequestDecoration,
   ): Promise<SummaryResult> {
     const target = conversationTarget(agent)
     const config = target === undefined
       ? this.config
       : resolveTargetPolicy(this.config, target)
-    return summarizeWithLlm(this.ctx, config, input, agent, signal)
+    return summarizeWithLlm(this.ctx, config, input, agent, signal, decoration)
   }
 
   /**
@@ -278,13 +295,24 @@ export class BasicCompactionEngine extends CompactionEngine {
     const prune = this.ctx.get('toolResultPruner')
 
     if (trigger === 'context-overflow') {
+      // An installed policy is consulted before the model-free prune, so a
+      // refusal never leaves the surface already narrowed for an operation that
+      // then declined.
+      const overflowAdmission = this.admitPolicy(agent.session, {
+        trigger: 'context-overflow',
+        beforeTokens: measurement.totalTokens,
+        maxTokens: policy.maxTokens,
+        contextWindow: undefined,
+        signal,
+      })
+      if (overflowAdmission !== undefined) await overflowAdmission
       if (prune !== undefined) {
         prune.pruneSession(agent.session)
         measurement = meter.measure(agent.session)
       }
       const range = selectCompactableRange(agent.session, measurement, 0)
       if (range === null) return null
-      return this.compactRegion(range.start, range.end, agent, signal)
+      return this.compactRegion(range.start, range.end, agent, signal, 'context-overflow')
     }
 
     const context = (await this.ctx.llm.resolveModelInfo(target.provider, target.model, signal)).context
@@ -299,6 +327,18 @@ export class BasicCompactionEngine extends CompactionEngine {
     }
     const spec = resolveCompactSpec(policy, context.contextWindow)
     if (measurement.totalTokens < spec.thresholdTokens) return null
+
+    // Nothing destructive has happened yet — measuring and resolving capacity
+    // are reads — so the policy still refuses an operation whose surface is
+    // untouched.
+    const pressureAdmission = this.admitPolicy(agent.session, {
+      trigger: 'pressure',
+      beforeTokens: measurement.totalTokens,
+      maxTokens: spec.maxTokens,
+      contextWindow: context.contextWindow,
+      signal,
+    })
+    if (pressureAdmission !== undefined) await pressureAdmission
 
     // Once pressure qualifies, land the model-free pass before choosing a
     // summary range, then remeasure through the singleton replay fold.
@@ -335,6 +375,9 @@ export class BasicCompactionEngine extends CompactionEngine {
    * @param end - inclusive last surface-node seq.
    * @param agent - owner of the target session, used by the summarizer.
    * @param signal - optional summarization cancellation signal.
+   * @param trigger - the entry opening this transaction, reported to an
+   *   installed policy's audit. A direct caller that names no entry is recorded
+   *   as the pressure entry, the only claim such a call makes.
    * @returns the successful durable compaction result.
    */
   override async compactRegion(
@@ -342,14 +385,15 @@ export class BasicCompactionEngine extends CompactionEngine {
     end: SessionSeq,
     agent: Agent,
     signal?: AbortSignal,
+    trigger: CompactionPolicyTrigger = 'pressure',
   ): Promise<CompactionResult> {
     return compactSurfaceRegion(
-      this.regionDependencies(),
+      this.regionDependencies(agent),
       agent.session,
       start,
       end,
       agent,
-      { owner: 'current-turn', stability: 'whole-surface' },
+      { owner: 'current-turn', stability: 'whole-surface', trigger },
       signal,
     )
   }
@@ -361,6 +405,8 @@ export class BasicCompactionEngine extends CompactionEngine {
    * @param signal - cancellation scoped to this compaction request.
    * @param sourceCommandId - initiating command identity for presentation correlation.
    * @returns the committed result, or `null` when no safe useful range exists.
+   * @throws CompactionPolicyRejectionError, unwrapped, when an installed policy
+   *   refuses the operation before any marker or replacement is written.
    */
   override compactNow(
     agent: Agent,
@@ -373,6 +419,22 @@ export class BasicCompactionEngine extends CompactionEngine {
         const operationSignal = AbortSignal.any([agentSignal, signal])
         try {
           operationSignal.throwIfAborted()
+          // Admission runs before the range is even selected, so a refusal
+          // leaves no marker, no replacement, and no narrowed surface behind —
+          // and it surfaces as the policy's own block rather than being
+          // classified as one of this call's own failure modes.
+          const manualTarget = conversationTarget(agent)
+          const manualPolicy = manualTarget === undefined
+            ? this.config
+            : resolveTargetPolicy(this.config, manualTarget)
+          const manualAdmission = this.admitPolicy(agent.session, {
+            trigger: 'manual',
+            beforeTokens: this.ctx.tokenMeter.measure(agent.session).totalTokens,
+            maxTokens: manualPolicy.maxTokens,
+            contextWindow: undefined,
+            signal: operationSignal,
+          })
+          if (manualAdmission !== undefined) await manualAdmission
           const range = selectCompactableRange(
             agent.session,
             this.ctx.tokenMeter.measure(agent.session),
@@ -380,7 +442,7 @@ export class BasicCompactionEngine extends CompactionEngine {
           )
           if (range === null) return null
           return await compactSurfaceRegion(
-            this.regionDependencies(),
+            this.regionDependencies(agent),
             agent.session,
             range.start,
             range.end,
@@ -388,6 +450,7 @@ export class BasicCompactionEngine extends CompactionEngine {
             {
               owner: null,
               stability: 'selected-span',
+              trigger: 'manual',
               ...sourceCommandId === undefined ? {} : { sourceCommandId },
               flush: async () => {
                 await this.ctx.sessions.flush(agent.session)
@@ -416,17 +479,77 @@ export class BasicCompactionEngine extends CompactionEngine {
     }
   }
 
-  /** Bind the effective token meter and dynamically dispatched summarizer hook. */
-  private regionDependencies(): Parameters<typeof compactSurfaceRegion>[0] {
+  /**
+   * Ask an installed candidate policy whether this operation may proceed.
+   *
+   * Called before any tool-result pruning or truncation, so a refusal leaves
+   * the surface exactly as it was found. With no policy mounted this is a
+   * no-op and the backend behaves precisely as it did before the seam existed.
+   * @param session - the session whose surface would be compacted.
+   * @param facts - the entry, the priced surface, and the resolved capacity.
+   * @throws CompactionPolicyRejectionError carrying the policy's own block.
+   */
+  private admitPolicy(
+    session: Session,
+    facts: {
+      readonly trigger: CompactionPolicyTrigger
+      readonly beforeTokens: number
+      readonly maxTokens: number
+      readonly contextWindow: number | undefined
+      readonly signal: AbortSignal | undefined
+    },
+  ): Promise<void> | undefined {
+    const policy = this.ctx.get('compactionCandidatePolicy')
+    // Returning `undefined` rather than an already-resolved promise is
+    // deliberate: with no policy mounted the caller must not gain a suspension
+    // point, so its synchronous progression is the one it had upstream.
+    if (policy === undefined) return undefined
+    return Promise.resolve(policy.assess({
+      session,
+      trigger: facts.trigger,
+      beforeTokens: facts.beforeTokens,
+      maxTokens: facts.maxTokens,
+      ...facts.contextWindow === undefined ? {} : { contextWindow: facts.contextWindow },
+      ...facts.signal === undefined ? {} : { signal: facts.signal },
+    })).then((admission) => {
+      if (!admission.admitted) throw new CompactionPolicyRejectionError(policy.id, admission.block)
+    })
+  }
+
+  /**
+   * Bind the effective token meter, the dynamically dispatched summarizer
+   * hook, and — only when a deployment mounted one — the optional candidate
+   * policy seam every compaction transaction then consults.
+   * @param agent - supplies the routed target the auxiliary request will use.
+   * @returns the region dependencies for one compaction transaction.
+   */
+  private regionDependencies(agent: Agent): Parameters<typeof compactSurfaceRegion>[0] {
+    const target = conversationTarget(agent)
+    const config = target === undefined ? this.config : resolveTargetPolicy(this.config, target)
+    const candidatePolicy = this.ctx.get('compactionCandidatePolicy')
+    const summarizationTarget = resolveSummaryTarget(config, agent)
+    // Without a resolved auxiliary route there is no request for a policy to
+    // protect, and the summarization call itself fails closed, so no
+    // unprotected replacement can be published from this path.
+    const policy: CompactionPolicySeam | undefined =
+      candidatePolicy === undefined || summarizationTarget === undefined
+        ? undefined
+        : {
+          policy: candidatePolicy,
+          summarizationTarget,
+          maxTokens: config.maxTokens,
+          validationRetries: config.maxSummaryValidationRetries,
+        }
     return {
       meter: this.ctx.tokenMeter,
-      summarize: (input, owner, abort) => this.summarize(input, owner, abort),
-      recover: (error, agent, sourceEventSeqs, signal) => this.ctx.waterfall('compaction/summary-error', {
-        session: agent.session,
+      summarize: (input, owner, abort, decoration) => this.summarize(input, owner, abort, decoration),
+      recover: (error, owner, sourceEventSeqs, signal) => this.ctx.waterfall('compaction/summary-error', {
+        session: owner.session,
         sourceEventSeqs,
         error,
         ...signal === undefined ? {} : { signal },
       }, () => false),
+      ...policy === undefined ? {} : { policy },
     }
   }
 }

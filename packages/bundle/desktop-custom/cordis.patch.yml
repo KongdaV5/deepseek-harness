@@ -1,0 +1,57 @@
+# The dsh-desktop-custom bundle patch: the DS Harness Desktop capability layer,
+# applied last over dsh-base and dsh-web-app.
+#
+# This layer contributes no client row, replaces no executor, adds no durable
+# Session event, and holds no mutable state. It mounts the three DS Harness
+# host-plane services the surface's own capabilities are built on, and it
+# states the deployment's semantic-validation budget on the inherited
+# compaction executor.
+#
+# A patch replaces the targeted row's whole `config`, so each row below restates
+# every key it owns.
+
+- insert:
+    # Durable Task authority. Mounting it registers the `taskCheckpoint` and
+    # `taskResults` session projections and the guarded-continuation seam; the
+    # task-aware compaction policy below reads it through `ctx.get` rather than
+    # folding its own copy. It owns no storage and writes only through the
+    # Session's own single writer.
+    - id: task-checkpoint
+      name: '@deepseek-ai/dsh-task-checkpoint'
+
+    # The bounded automatic run policy over the upstream retry executor. It
+    # prepends one outermost `agent/request-error` listener and replaces no
+    # executor, adapter policy, backoff, retry identity, or durable event; the
+    # per-step budget it enforces is folded from committed retry events, so it
+    # survives a restart.
+    - id: agent-run-policy
+      name: '@deepseek-ai/dsh-agent-run-policy'
+
+    # The DS Harness compaction policy: the optional `compactionCandidatePolicy`
+    # service the existing compaction executor resolves with `ctx.get`. It
+    # protects the durable Task authority across a compaction, pins the
+    # auxiliary summarization reasoning below the recorded main Run, and
+    # refuses a candidate it cannot prove. A session that tracks no Task is
+    # admitted exactly as if no policy were installed, so this row can never
+    # widen what the compact surface publishes.
+    - id: compaction-task-aware-policy
+      name: '@deepseek-ai/dsh-compaction-task-aware-policy'
+
+# ── the inherited compaction executor ───────────────────────────────────────
+#
+# dsh-web-app disables this base row because on the Web surface a mounted agent
+# preset owns the compaction backend. The DS Harness product owns it on the
+# host plane instead, so the task-aware policy governs one known executor
+# instance rather than one instance per mounted preset, and the deployment
+# states its semantic-validation budget here.
+#
+# `maxSummaryValidationRetries` counts the further summary candidates a
+# validating policy may ask for. The upstream default is 0 — one candidate and
+# no semantic retry — which is what a deployment with no validating policy
+# keeps. The DS Harness policy validates its candidate deterministically, so it
+# gets exactly one further candidate to repair a rejected summary; the ladder is
+# bounded by the policy itself and never by this number alone.
+- id: compaction-basic
+  disabled: false
+  config:
+    maxSummaryValidationRetries: 1

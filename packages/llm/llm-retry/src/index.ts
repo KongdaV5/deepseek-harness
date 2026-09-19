@@ -2,6 +2,11 @@
  * Provider-routed model-request retry policy on the agent loop's request
  * recovery extension point. Each scheduled retry is durable before its cancellable wait.
  *
+ * One failure class is deliberately never scheduled here: a context overflow.
+ * Re-sending an identical envelope cannot fit a window it already did not fit,
+ * and a different mechanism owns that condition, so this executor passes the
+ * failure straight down the recovery chain in both modes.
+ *
  * @module @deepseek-ai/dsh-llm-retry
  */
 
@@ -10,6 +15,7 @@ import type { Context, Events } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import { z as zod } from 'zod'
 import type { Agent, RequestErrorAction } from '@deepseek-ai/dsh-agent'
+import { CONTEXT_WINDOW_EXCEEDED_CODE } from '@deepseek-ai/dsh-llm'
 import type { LlmFailure, ResolvedRetryPolicy } from '@deepseek-ai/dsh-llm'
 import type {} from '@deepseek-ai/dsh-session-projection'
 import { RetryId } from './brand.ts'
@@ -196,6 +202,14 @@ export function apply(ctx: Context, config: Config = {}, internals: RetryInterna
     next: () => Promise<RequestErrorAction>,
   ): Promise<RequestErrorAction> {
     if (policy === undefined) return next()
+    // A context overflow is never a request this executor may re-send: the
+    // identical envelope cannot fit a window it already did not fit, so a
+    // scheduled attempt would be a guaranteed repeat failure that also spends
+    // retry identity and delay. The failure is instead handed to the recovery
+    // that owns it, which is what `next()` reaches. This precedes the mode
+    // branches on purpose, so `always` mode's blanket declaration cannot
+    // override it either.
+    if (failure.code === CONTEXT_WINDOW_EXCEEDED_CODE) return next()
     if (policy.mode === 'always') {
       if (signal.aborted || lifetime.signal.aborted) return
       const fusedSignal = AbortSignal.any([signal, lifetime.signal])

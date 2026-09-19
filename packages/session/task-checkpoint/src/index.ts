@@ -42,6 +42,18 @@ export type {
 export { default } from './service.ts'
 export type { TaskDiagnostics, TaskResumeAdmission, TaskResumeRequest } from './service.ts'
 
+export {
+  readableTaskAuthority,
+  taskAuthoritySnapshot,
+  taskRevisionResolves,
+} from './authority.ts'
+export type {
+  TaskAuthorityLookups,
+  TaskAuthorityReadings,
+  TaskAuthoritySnapshot,
+  TaskAuthoritySnapshotOptions,
+} from './authority.ts'
+
 export type {
   AttemptId,
   ClassifiedRunError,

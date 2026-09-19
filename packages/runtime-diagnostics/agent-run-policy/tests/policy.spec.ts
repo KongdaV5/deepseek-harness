@@ -148,7 +148,6 @@ describe('G: cancellation gets zero retries', () => {
 
 describe('H, I, J, K, L: the no-retry categories', () => {
   const cases: readonly [string, string, string][] = [
-    ['H', 'CONTEXT_WINDOW_EXCEEDED', 'CONTEXT_OVERFLOW'],
     ['I', 'INVALID_REASONING_PARAMETER', 'INVALID_REASONING_PARAMETER'],
     ['I', 'INVALID_MODEL_CONFIG', 'INVALID_MODEL_CONFIG'],
     ['K', 'MAX_TOKENS', 'MAX_TOKENS'],
@@ -160,10 +159,46 @@ describe('H, I, J, K, L: the no-retry categories', () => {
     expect(decision).toMatchObject({ kind: 'deny', reason: 'NO_RETRY_CATEGORY', category })
   })
 
-  it('denies the context overflow that Stage 10 owns rather than repeating it', () => {
+  it('H: hands the context overflow to the recovery that owns it instead of retrying it', () => {
+    // The recovery that owns a context overflow shrinks the surface first, and
+    // it only sees the failure if the waterfall keeps descending. Refusing here
+    // would suppress the failure before that recovery ever ran, so the category
+    // is delegated rather than denied — and no retry is scheduled.
+    const decision = decide({ failure: failure('CONTEXT_WINDOW_EXCEEDED') })
+    expect(decision).toMatchObject({
+      kind: 'delegate-compaction',
+      reason: 'COMPACTION_RECOVERY',
+      category: 'CONTEXT_OVERFLOW',
+    })
+    expect(decision).not.toHaveProperty('nextAttempt')
+  })
+
+  it('H: delegates the overflow even under an always policy, which could only repeat it', () => {
     // The same failure under an always policy, which would otherwise retry it.
     expect(decide({ failure: failure('CONTEXT_LENGTH_EXCEEDED'), retryPolicy: ALWAYS_POLICY }))
-      .toMatchObject({ kind: 'deny', reason: 'NO_RETRY_CATEGORY', category: 'CONTEXT_OVERFLOW' })
+      .toMatchObject({
+        kind: 'delegate-compaction',
+        reason: 'COMPACTION_RECOVERY',
+        category: 'CONTEXT_OVERFLOW',
+      })
+  })
+
+  it('H: delegates the overflow regardless of the bounded budget it never spends', () => {
+    // An exhausted budget denies every retryable category; a delegation is not a
+    // retry, so the budget has no say in it and no ordinal is consumed.
+    expect(decide({
+      failure: failure('CONTEXT_OVERFLOW'),
+      retryCount: MAX_AUTOMATIC_RETRIES,
+    })).toMatchObject({
+      kind: 'delegate-compaction',
+      reason: 'COMPACTION_RECOVERY',
+      retryCount: MAX_AUTOMATIC_RETRIES,
+    })
+  })
+
+  it('H: lets cancellation win over the overflow delegation', () => {
+    expect(decide({ failure: failure('CONTEXT_OVERFLOW'), signalAborted: true }))
+      .toMatchObject({ kind: 'deny', reason: 'CANCELLED', category: 'CONTEXT_OVERFLOW' })
   })
 
   it('denies an interrupted Session that needs guarded resume rather than retry', () => {

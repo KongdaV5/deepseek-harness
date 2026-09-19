@@ -656,6 +656,15 @@ const SERVICE_ROLES: ServiceRole[] = [
     note: 'The basic backend consumes post-step pressure and request-error recovery events; there is no model-facing compact tool.',
   },
   {
+    key: 'compactionCandidatePolicy',
+    pkg: 'compaction',
+    title: 'Optional compaction candidate policy',
+    mode: 'seam',
+    implementations: ['compaction-task-aware-policy'],
+    consumers: ['compaction-basic'],
+    note: 'A deployment may mount one policy; the basic backend consults it before any destructive step and again immediately before publication, and keeps its upstream behavior exactly when none is mounted.',
+  },
+  {
     key: 'subagents',
     pkg: 'subagent',
     title: 'Subagent provider and continuation service',

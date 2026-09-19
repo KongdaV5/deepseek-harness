@@ -149,6 +149,16 @@ export function apply(ctx: Context, config: Config = {}): void {
     // reach the executor.
     if (lifetime.signal.aborted) return Promise.resolve<RequestErrorAction>(undefined)
     const decision = decide(payload, payload.agent.session)
+    if (decision.kind === 'delegate-compaction') {
+      // Continue the waterfall so the recovery that owns this condition sees
+      // the failure. The executor below is never invited to schedule the
+      // identical request, and no retry budget is spent by this delegation.
+      ctx.logger.debug(
+        `agent-run-policy: delegating ${decision.category} for turn ${payload.turn} `
+        + `step ${payload.step} to the recovery that owns it (no retry scheduled)`,
+      )
+      return next()
+    }
     if (decision.kind === 'delegate') return next()
     if (decision.reason !== 'NO_STRUCTURED_RETRYABILITY') {
       ctx.logger.debug(

@@ -9,6 +9,7 @@ import { contentHasImage, createUserMessage, BlockAssembler, LlmError } from '@d
 import type {
   ContentBlock, FinishReason, GenerateOptions, Message, TokenUsage, ToolSchema,
 } from '@deepseek-ai/dsh-llm'
+import type { CompactionRequestDecoration } from '@deepseek-ai/dsh-compaction'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 
 interface SummaryConfig {
@@ -90,6 +91,13 @@ export type SummaryResult = {
   maxTokens?: number
   /** Provider-reported usage for this summarization request. */
   usage?: TokenUsage
+  /**
+   * Whether the provider ended the candidate at its generation cap. The default
+   * summarizer never returns one — it fails on `max-tokens` instead — but a
+   * template or remote summarizer can report an incomplete narrative here
+   * rather than throwing.
+   */
+  truncated?: boolean
 } & (
   | {
     /** Complete provider output before the text-only summary projection. */
@@ -106,23 +114,20 @@ export type SummaryResult = {
 )
 
 /**
- * Run the default cache-reusing `ctx.llm.stream()` summarization call: replay
- * the conversation prefix, then append the compaction instruction as the final
- * user message so the provider's warm prefix cache is reused.
- * @param ctx - context providing the LLM service.
+ * Resolve the one provider/model the auxiliary request will actually use.
+ *
+ * The precedence is the backend's own: an explicitly configured summarization
+ * pair, then the latest durably routed request, then the agent's fallback
+ * options. Extracted so the executor and a candidate policy agree on the exact
+ * route rather than each deriving it.
  * @param config - resolved backend configuration.
- * @param input - replayed conversation prefix (system, tools, and leading messages) to condense.
- * @param agent - supplies routed-model history, fallback model, and session id.
- * @param signal - optional cancellation forwarded to the adapter.
- * @returns safe text-only summary blocks and the exact call envelope and output.
+ * @param agent - supplies routed-model history and fallback model.
+ * @returns the resolved route, or `undefined` when no route exists at all.
  */
-export async function summarizeWithLlm(
-  ctx: Context,
+export function resolveSummaryTarget(
   config: SummaryConfig,
-  input: SummarizationInput,
   agent: Agent,
-  signal?: AbortSignal,
-): Promise<SummaryResult> {
+): { provider: string; model: string } | undefined {
   const latest = agent.session.requestHeader()?.config
   const configured = config.summarizationProvider.length === 0
     ? undefined
@@ -133,7 +138,33 @@ export async function summarizeWithLlm(
     && agent.options.model.length > 0
     ? { provider: agent.options.provider, model: agent.options.model }
     : undefined
-  const target = configured ?? latest ?? agentTarget
+  return configured ?? latest ?? agentTarget
+}
+
+/**
+ * Run the default cache-reusing `ctx.llm.stream()` summarization call: replay
+ * the conversation prefix, then append the compaction instruction as the final
+ * user message so the provider's warm prefix cache is reused.
+ * @param ctx - context providing the LLM service.
+ * @param config - resolved backend configuration.
+ * @param input - replayed conversation prefix (system, tools, and leading messages) to condense.
+ * @param agent - supplies routed-model history, fallback model, and session id.
+ * @param signal - optional cancellation forwarded to the adapter.
+ * @param decoration - optional policy-supplied request decoration; the only
+ *   fields it can carry are an auxiliary reasoning effort and supplemental
+ *   messages inserted before the fixed final instruction, so the cacheable
+ *   conversation prefix stays intact.
+ * @returns safe text-only summary blocks and the exact call envelope and output.
+ */
+export async function summarizeWithLlm(
+  ctx: Context,
+  config: SummaryConfig,
+  input: SummarizationInput,
+  agent: Agent,
+  signal?: AbortSignal,
+  decoration?: CompactionRequestDecoration,
+): Promise<SummaryResult> {
+  const target = resolveSummaryTarget(config, agent)
   if (target === undefined) {
     throw new Error(
       'no provider/model available for summarization: set both BasicCompactionConfig summarization fields, route one request, or set both AgentOptions fields',
@@ -143,6 +174,7 @@ export async function summarizeWithLlm(
   const assembler = new BlockAssembler()
   const messages: Message[] = [
     ...input.messages,
+    ...decoration?.supplementalMessages ?? [],
     createUserMessage({
       content: [{ type: 'text', text: COMPACTION_INSTRUCTION }],
       source: { kind: 'plugin', plugin: 'dsh-compaction-basic' },
@@ -156,6 +188,9 @@ export async function summarizeWithLlm(
     maxTokens: config.maxTokens,
     sessionId: agent.session.id,
     purpose: 'compaction',
+    ...decoration?.reasoningEffort === undefined
+      ? {}
+      : { reasoningEffort: decoration.reasoningEffort },
     ...signal === undefined ? {} : { signal },
   }
   for await (const chunk of ctx.llm.stream(options)) assembler.push(chunk)

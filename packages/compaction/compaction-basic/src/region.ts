@@ -9,12 +9,22 @@ import { randomUUID } from 'node:crypto'
 import { isDeepStrictEqual } from 'node:util'
 import {
   CompactionId,
+  CompactionPolicyRejectionError,
   ManualCompactionError,
   compactCheckpointSource,
   toolPairingBalancedAfter,
   toolPairingBalancedBefore,
 } from '@deepseek-ai/dsh-compaction'
-import type { CompactionResult } from '@deepseek-ai/dsh-compaction'
+import type {
+  CompactionCandidatePolicy,
+  CompactionCandidateView,
+  CompactionPolicyAudit,
+  CompactionPolicyTransaction,
+  CompactionPolicyTrigger,
+  CompactionRequestDecoration,
+  CompactionRequestDraft,
+  CompactionResult,
+} from '@deepseek-ai/dsh-compaction'
 import type { CommandId } from '@deepseek-ai/dsh-commands/brand'
 import { createUserMessage, errorChain } from '@deepseek-ai/dsh-llm'
 import type { Message, UserMessage } from '@deepseek-ai/dsh-llm'
@@ -24,10 +34,41 @@ import type { Agent } from '@deepseek-ai/dsh-agent'
 import { frameSummary } from './summarizer.ts'
 import type { SummarizationInput, SummaryResult } from './summarizer.ts'
 
+/**
+ * The optional candidate policy a backend consults for one transaction.
+ *
+ * Absent everywhere upstream: a context with no policy mounted builds no seam,
+ * so `compactSurfaceRegion` takes exactly the path it took before this existed.
+ */
+export interface CompactionPolicySeam {
+  /** The installed policy service. */
+  readonly policy: CompactionCandidatePolicy
+  /**
+   * The exact auxiliary route the backend will summarize on, resolved once
+   * here so the policy prices reasoning against the route the request really
+   * uses instead of re-deriving one.
+   */
+  readonly summarizationTarget: { readonly provider: string; readonly model: string }
+  /** The generation cap the auxiliary request carries. */
+  readonly maxTokens: number
+  /**
+   * Further candidates the policy may ask for after the first. Defaults to
+   * `0`, which is the upstream single-candidate behavior.
+   */
+  readonly validationRetries: number
+}
+
 interface RegionDependencies {
   readonly meter: TokenMeter
-  summarize(input: SummarizationInput, agent: Agent, signal?: AbortSignal): Promise<SummaryResult>
+  summarize(
+    input: SummarizationInput,
+    agent: Agent,
+    signal?: AbortSignal,
+    decoration?: CompactionRequestDecoration,
+  ): Promise<SummaryResult>
   recover(error: unknown, agent: Agent, sourceEventSeqs: readonly SessionSeq[], signal?: AbortSignal): boolean
+  /** Optional task-agnostic candidate policy for this transaction. */
+  readonly policy?: CompactionPolicySeam
 }
 
 /** One validated inclusive span of current surface positions. */
@@ -51,6 +92,10 @@ interface PreparedCompaction extends SurfaceSelection {
 
 type SummarizedCompaction = PreparedCompaction & SummaryResult & {
   readonly checkpointMessage: UserMessage
+  /** Priced size of the framed replacement, including any policy-supplied content. */
+  readonly framedTokenCount: number
+  /** Zero-based ordinal of this candidate within the transaction. */
+  readonly candidateAttempt: number
 }
 
 interface CompactionTransactionOptions {
@@ -58,6 +103,8 @@ interface CompactionTransactionOptions {
   readonly owner: 'current-turn' | null
   /** Surface relationship that must survive asynchronous summarization. */
   readonly stability: 'whole-surface' | 'selected-span'
+  /** Which entry opened this transaction, reported to an optional policy. */
+  readonly trigger: CompactionPolicyTrigger
   /** Optional durability checkpoint after a successfully closed bracket. */
   readonly flush?: () => Promise<void>
   /** Manual command that initiated this transaction, when present. */
@@ -221,6 +268,14 @@ export async function compactSurfaceRegion(
 
   try {
     const prepared = prepareCompaction(dependencies, session, selection)
+    // The policy transaction opens against the durable bracket that already
+    // exists, so the authority it captures is protected by the same lock that
+    // excludes every other compaction.
+    // Awaiting only when a seam exists keeps the policy-free path free of any
+    // new suspension point, so it advances exactly as it did upstream.
+    const transaction = dependencies.policy === undefined
+      ? undefined
+      : await beginPolicyTransaction(dependencies, session, options, prepared, compactionId, signal)
     const summarized = await summarizeCompaction(
       dependencies,
       prepared,
@@ -228,12 +283,19 @@ export async function compactSurfaceRegion(
       compactionId,
       options.sourceCommandId,
       assertStable,
+      transaction,
+      session,
       signal,
     )
     if (options.owner === null) signal?.throwIfAborted()
     assertStable(dependencies, session, summarized)
+    // The policy's publication guard is synchronous by contract and runs in the
+    // same uninterrupted block as the replacement append below: the authority
+    // proof and the write it authorizes can never be separated by an await.
+    transaction?.assertPublishable()
+    const policyAudit = transaction?.audit()
     stage = 'commit'
-    const pending = commitCompactionBody(session, startEvent, summarized)
+    const pending = commitCompactionBody(session, startEvent, summarized, policyAudit)
     closing = true
     const endEvent = session.append('compaction/end', lifecycle)
     closed = true
@@ -384,7 +446,92 @@ function prepareCompaction(
   }
 }
 
-/** Run the summarizer and frame its replacement checkpoint. */
+/**
+ * Open the optional policy transaction against the durable bracket that already
+ * exists, so the authority it captures is protected by the same lock that
+ * excludes every other compaction.
+ * @param dependencies - conversation meter, summarizer hook, and optional policy seam.
+ * @param session - session whose authority the policy protects.
+ * @param options - bracket owner, stability rule, and the entry that opened it.
+ * @param prepared - the priced, selected span the transaction will replace.
+ * @param compactionId - the durable bracket identity already committed.
+ * @param signal - cancellation for the operation this transaction belongs to.
+ * @returns the live transaction, or `undefined` with no policy installed.
+ */
+async function beginPolicyTransaction(
+  dependencies: RegionDependencies,
+  session: Session,
+  options: CompactionTransactionOptions,
+  prepared: PreparedCompaction,
+  compactionId: CompactionResult['compactionId'],
+  signal?: AbortSignal,
+): Promise<CompactionPolicyTransaction | undefined> {
+  const seam = dependencies.policy
+  if (seam === undefined) return undefined
+  return seam.policy.begin({
+    session,
+    trigger: options.trigger,
+    beforeTokens: prepared.measurement.totalTokens,
+    maxTokens: seam.maxTokens,
+    ...signal === undefined ? {} : { signal },
+    compactionId,
+    start: prepared.start,
+    end: prepared.end,
+    shadowedSeqs: prepared.shadowedSeqs,
+    shadowedTokenCount: prepared.shadowedTokenCount,
+    summarizationTarget: seam.summarizationTarget,
+  })
+}
+
+/** The auxiliary request draft the policy decorates for one candidate. */
+function candidateDraft(
+  seam: CompactionPolicySeam,
+  session: Session,
+  prepared: PreparedCompaction,
+  candidateAttempt: number,
+): CompactionRequestDraft {
+  return {
+    provider: seam.summarizationTarget.provider,
+    model: seam.summarizationTarget.model,
+    messages: prepared.input.messages,
+    ...prepared.input.tools === undefined ? {} : { tools: prepared.input.tools },
+    maxTokens: seam.maxTokens,
+    sessionId: session.id,
+    candidateAttempt,
+  }
+}
+
+/** The candidate and its priced facts, exactly as the policy sees them. */
+function candidateView(summarized: SummarizedCompaction): CompactionCandidateView {
+  return {
+    summary: summarized.summary,
+    rawOutput: summarized.rawOutput ?? summarized.summary,
+    truncated: summarized.truncated === true,
+    checkpointContent: summarized.checkpointMessage.content,
+    framedTokenCount: summarized.framedTokenCount,
+    shadowedRouteTokenCount: summarized.shadowedRouteTokenCount,
+    candidateAttempt: summarized.candidateAttempt,
+  }
+}
+
+/**
+ * Produce candidates until the policy accepts one.
+ *
+ * The recovery loop and the validation loop are deliberately separate. An
+ * error the backend recovered from re-derives the same candidate; only the
+ * policy's own `retry` verdict spends a new one, and the budget for those is
+ * the backend's, not the policy's.
+ * @param dependencies - conversation meter, summarizer hook, and optional policy seam.
+ * @param prepared - the priced, selected span this transaction replaces.
+ * @param agent - agent used by the summarizer.
+ * @param compactionId - the durable bracket identity.
+ * @param sourceCommandId - manual command that initiated this transaction, when present.
+ * @param assertStable - the backend's own surface stability rule.
+ * @param transaction - the live policy transaction, when a policy is installed.
+ * @param session - the session being compacted.
+ * @param signal - optional summarization cancellation signal.
+ * @returns the accepted candidate and its framed replacement.
+ */
 async function summarizeCompaction(
   dependencies: RegionDependencies,
   prepared: PreparedCompaction,
@@ -392,39 +539,117 @@ async function summarizeCompaction(
   compactionId: CompactionResult['compactionId'],
   sourceCommandId: CommandId | undefined,
   assertStable: StabilityCheck,
+  transaction: CompactionPolicyTransaction | undefined,
+  session: Session,
   signal?: AbortSignal,
 ): Promise<SummarizedCompaction> {
+  const seam = dependencies.policy
+  const retries = seam?.validationRetries ?? 0
+  for (let candidateAttempt = 0; ; candidateAttempt += 1) {
+    const decorate = seam === undefined || transaction === undefined
+      ? undefined
+      : (current: PreparedCompaction): CompactionRequestDecoration => (
+        transaction.decorateRequest(candidateDraft(seam, session, current, candidateAttempt))
+      )
+    const summarized = await produceCandidate(
+      dependencies,
+      prepared,
+      agent,
+      compactionId,
+      sourceCommandId,
+      assertStable,
+      transaction,
+      decorate,
+      candidateAttempt,
+      signal,
+    )
+    if (transaction === undefined || seam === undefined) return summarized
+    const verdict = transaction.validateCandidate(candidateView(summarized))
+    if (verdict.kind === 'accept') return summarized
+    if (verdict.kind === 'retry' && candidateAttempt < retries) continue
+    throw new CompactionPolicyRejectionError(
+      seam.policy.id,
+      verdict.kind === 'reject' ? verdict.block : {
+        code: 'COMPACTION_POLICY_RETRY_EXHAUSTED',
+        reason: 'retry-exhausted',
+        detail: `the policy asked for a further candidate (${verdict.reason}) after all ${String(retries)} permitted retries`,
+      },
+    )
+  }
+}
+
+/**
+ * Produce one candidate, following the backend's own summary-error recovery
+ * until a summary exists or the failure is not recoverable.
+ * @param dependencies - conversation meter, summarizer hook, and optional policy seam.
+ * @param initial - the priced, selected span as first prepared.
+ * @param agent - agent used by the summarizer.
+ * @param compactionId - the durable bracket identity.
+ * @param sourceCommandId - manual command that initiated this transaction, when present.
+ * @param assertStable - the backend's own surface stability rule.
+ * @param transaction - the live policy transaction, when a policy is installed.
+ * @param decorate - names the policy's request changes for a re-derived input.
+ * @param candidateAttempt - zero-based ordinal of this candidate.
+ * @param signal - optional summarization cancellation signal.
+ * @returns the one candidate this call produced.
+ */
+async function produceCandidate(
+  dependencies: RegionDependencies,
+  initial: PreparedCompaction,
+  agent: Agent,
+  compactionId: CompactionResult['compactionId'],
+  sourceCommandId: CommandId | undefined,
+  assertStable: StabilityCheck,
+  transaction: CompactionPolicyTransaction | undefined,
+  decorate: ((prepared: PreparedCompaction) => CompactionRequestDecoration) | undefined,
+  candidateAttempt: number,
+  signal?: AbortSignal,
+): Promise<SummarizedCompaction> {
+  let prepared = initial
   let summaryResult: SummaryResult
+  let decoration: CompactionRequestDecoration | undefined
   for (;;) {
     signal?.throwIfAborted()
+    // Decorating happens outside the recovery block on purpose: a policy that
+    // cannot legally decorate this request has failed the compaction closed,
+    // and that is not a summarizer error the backend may recover from.
+    decoration = decorate?.(prepared)
     try {
-      summaryResult = await dependencies.summarize(prepared.input, agent, signal)
+      summaryResult = await dependencies.summarize(prepared.input, agent, signal, decoration)
       break
     } catch (error: unknown) {
       if (signal?.aborted === true) throw error
       assertStable(dependencies, agent.session, prepared)
       if (!dependencies.recover(error, agent, prepared.shadowedSeqs, signal)) throw error
+      // The backend's own recovery mutated the source, so the policy follows
+      // that mutation instead of being carried onto a surface it never captured.
+      transaction?.rebaseAfterOwnedRecovery('summary-error-recovery')
       prepared = prepareCompaction(dependencies, agent.session,
         validateSurfaceRegion(agent.session, prepared.start, prepared.end))
     }
   }
+  // Code-rendered policy content is appended after the model's narrative, so
+  // the narrative can never author it and the published replacement carries
+  // exactly the bytes the policy will later prove are there.
   const checkpointMessage = createUserMessage({
-    content: frameSummary(summaryResult.summary),
+    content: [...frameSummary(summaryResult.summary), ...decoration?.replacementContent ?? []],
     source: compactCheckpointSource(compactionId, sourceCommandId),
   })
   // The checkpoint is text-only, so its fixed-heuristic price IS its route
   // price; comparing it against the span's route price asks the real
   // question — does the replacement lower the next request's pressure.
-  const framedSummaryTokenCount = dependencies.meter.estimateMessage(checkpointMessage)
-  if (framedSummaryTokenCount >= prepared.shadowedRouteTokenCount) {
+  const framedTokenCount = dependencies.meter.estimateMessage(checkpointMessage)
+  if (framedTokenCount >= prepared.shadowedRouteTokenCount) {
     throw new Error(
-      `summary is not smaller than the shadowed content (${framedSummaryTokenCount} estimated framed tokens >= ${prepared.shadowedRouteTokenCount})`,
+      `summary is not smaller than the shadowed content (${framedTokenCount} estimated framed tokens >= ${prepared.shadowedRouteTokenCount})`,
     )
   }
   return {
     ...prepared,
     ...summaryResult,
     checkpointMessage,
+    framedTokenCount,
+    candidateAttempt,
   }
 }
 
@@ -473,6 +698,7 @@ function commitCompactionBody(
   session: Session,
   startEvent: SessionEvent<'compaction/start'>,
   summarized: SummarizedCompaction,
+  policyAudit: CompactionPolicyAudit | undefined,
 ): Omit<CompactionResult, 'endSeq'> {
   const {
     start,
@@ -503,6 +729,7 @@ function commitCompactionBody(
     model,
     ...maxTokens === undefined ? {} : { maxTokens },
     ...usage === undefined ? {} : { usage },
+    ...policyAudit === undefined ? {} : { policyAudit },
   })
   session.append('user/message', checkpointMessage, {
     surfaceOp: { op: 'replace', startSeq: start, endSeq: end },

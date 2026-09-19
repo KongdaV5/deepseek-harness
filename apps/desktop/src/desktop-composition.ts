@@ -8,16 +8,37 @@ import {
 const UPSTREAM_WEB_PROFILE = PROFILE_TEMPLATES.web as ProfileTemplate
 
 /**
+ * The DS Harness capability layer, appended after the inherited upstream
+ * layers. It is an ordinary bundle: its rows live in its own
+ * `cordis.patch.yml`, which the profile composer stacks through the
+ * `dsh.bundle.patch` manifest field. Its package name does not extend the
+ * upstream bundle list, so the inherited prefix stays exactly upstream.
+ */
+const DESKTOP_CUSTOM_BUNDLE = '@deepseek-ai/dsh-desktop-custom'
+
+/**
+ * The Cordis rows the DS Harness layer inserts over the inherited surface.
+ * Each names a DS Harness host-plane service; none replaces an upstream
+ * executor or adds a durable Session event.
+ */
+const DESKTOP_CUSTOM_ENTRY_IDS = [
+  'task-checkpoint',
+  'agent-run-policy',
+  'compaction-task-aware-policy',
+] as const
+
+/**
  * Current upstream layers used by both the official Desktop surface and the
- * DS Harness Desktop flavor.  The flavor is expressed by the Electron
- * product/profile contract; it does not fork or duplicate Cordis rows.
+ * DS Harness Desktop flavor, followed by the DS Harness capability layer.  The
+ * flavor is expressed by the Electron product/profile contract; it does not
+ * fork or duplicate Cordis rows, and the layer appends rather than patches the
+ * upstream prefix.
  */
 export const DESKTOP_CUSTOM_COMPOSITION = Object.freeze({
   profileName: 'desktop-custom',
   upstreamTemplate: 'web',
-  bundles: Object.freeze([...UPSTREAM_WEB_PROFILE.bundles]),
-  /** Stage 5 deliberately contributes no custom Cordis rows. */
-  customEntryIds: Object.freeze([] as readonly string[]),
+  bundles: Object.freeze([...UPSTREAM_WEB_PROFILE.bundles, DESKTOP_CUSTOM_BUNDLE]),
+  customEntryIds: Object.freeze([...DESKTOP_CUSTOM_ENTRY_IDS] as readonly string[]),
 })
 
 const LEGACY_CUSTOM_COMPOSITION = '@deepseek-ai/dsh-desktop-custom-composition'

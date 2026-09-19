@@ -84,6 +84,16 @@ export type RetryDenyReason =
 /** Why this policy let the upstream retry mechanism decide. */
 export type RetryPermitReason = 'UPSTREAM_RETRYABLE'
 
+/**
+ * Why this policy handed the failure to a recovery mechanism that is not retry.
+ *
+ * A context overflow is the one condition a different mechanism owns: the
+ * surface is shrunk before any further request is made. That is a recovery, not
+ * a retry — it changes the request instead of repeating it — so it is a
+ * distinct delegation rather than a permitted retry.
+ */
+export type RecoveryPermitReason = 'COMPACTION_RECOVERY'
+
 /** Fields every decision carries, so a consumer can explain any outcome. */
 interface RetryDecisionBase {
   /** Structured category of the failure, from the Stage 7 authority. */
@@ -115,5 +125,19 @@ export interface RetryDenied extends RetryDecisionBase {
   readonly reason: RetryDenyReason
 }
 
-/** One complete bounded-retry decision. */
-export type RetryDecision = RetryPermitted | RetryDenied
+/**
+ * The failure is delegated to a recovery that is not retry.
+ *
+ * The policy has established that the existing retry mechanism must not handle
+ * this failure; it has *not* established that the failure is a dead end. A
+ * consumer must therefore let the recovery chain continue rather than
+ * suppressing the failure — and must not schedule an attempt, spend a retry
+ * ordinal, or write a retry event, because none of those happened.
+ */
+export interface RecoveryPermitted extends RetryDecisionBase {
+  readonly kind: 'delegate-compaction'
+  readonly reason: RecoveryPermitReason
+}
+
+/** One complete decision for a failed attempt: retry, recover elsewhere, or deny. */
+export type RetryDecision = RetryPermitted | RetryDenied | RecoveryPermitted

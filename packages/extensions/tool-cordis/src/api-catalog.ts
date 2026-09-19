@@ -721,6 +721,36 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
+    key: 'compactionCandidatePolicy',
+    summary: 'An optional, task-agnostic policy a compaction backend may consult.',
+    description: 'An optional, task-agnostic policy a compaction backend may consult.\n\nA backend that finds no registered policy behaves exactly as it did before this seam existed. A backend that finds one still owns selection, pricing, summarization, stability validation, and publication; the policy only advises and gates.',
+    methods: [
+      {
+        signature: 'readonly id: string',
+        description: 'Stable policy identity recorded in the audit.',
+        parameters: [],
+      },
+      {
+        signature: 'readonly version: string',
+        description: 'Policy contract version recorded in the audit.',
+        parameters: [],
+      },
+      {
+        signature: 'assess(input: CompactionAssessInput): CompactionPolicyAdmission | Promise<CompactionPolicyAdmission>',
+        description: 'Decide whether this operation may proceed, before anything destructive.\n\nRuns before any tool-result pruning or truncation, so a refusal never leaves the surface already narrowed for an operation that then declined.',
+        parameters: [{ name: 'input', description: 'the session, the entry, and already-priced read-only facts.' }],
+        returns: 'the admission decision.',
+      },
+      {
+        signature: 'begin(input: CompactionBeginInput): CompactionPolicyTransaction | Promise<CompactionPolicyTransaction>',
+        description: 'Open the policy transaction for an admitted operation.\n\nRuns after the backend\'s durable bracket exists and before the first summarization request, so the policy can capture exactly the authority it will later re-check at publication.',
+        parameters: [{ name: 'input', description: 'the admitted operation and its selected span.' }],
+        returns: 'the live transaction.',
+        throws: ['when the authority the policy would protect cannot be read, which fails the compaction closed before any model call.'],
+      },
+    ],
+  },
+  {
     key: 'computerUse',
     summary: 'Owns one optional provider registration in the shared computer-use service.',
     description: 'Owns one optional provider registration in the shared computer-use service.',
@@ -2759,6 +2789,13 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         throws: ['TaskContinuityError when the turn is not durable or the plan is invalid.'],
       },
       {
+        signature: 'authoritySnapshot( session: Session, options: TaskAuthoritySnapshotOptions = {}, ): TaskAuthoritySnapshot',
+        description: 'Read one consistent, detached cut of this Session\'s durable Task authority.\n\nEvery registered projection is materialized at the Session cursor in one synchronous pass, so the returned Task revision, result manifests, repair hazards, and successful tool results all describe the same log position. The value is a reader: it appends nothing, mutates nothing, and exposes no writer capability. Callers must re-read rather than retain it as authority across a later mutation.',
+        parameters: [{ name: 'session', description: 'the Session whose durable Task authority is read.' }, { name: 'options', description: 'the Task to address; defaults to the latest tracked Task.' }],
+        returns: 'the detached snapshot at the current commit cursor.',
+        throws: ['TaskContinuityError with `TASK_AUTHORITY_UNAVAILABLE` when a required projection is unregistered or holds a failed fold.'],
+      },
+      {
         signature: 'diagnostics( session: Session, options: { readonly taskId?: TaskId readonly requestedExecution?: TaskExecutionMetadata readonly context?: TaskResumeContextBudget } = {}, ): TaskDiagnostics',
         description: 'Read the durable Task continuity diagnostics for one Session.',
         parameters: [{ name: 'session', description: 'the Session whose durable Task state is read.' }, { name: 'options', description: 'optional Task selection, proposed execution, and context budget.' }],
@@ -4364,8 +4401,56 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface CompactionAgentContext {\n    session: Session;\n    options: {\n        provider?: string;\n        model?: string;\n    };\n}',
   },
   {
+    name: 'CompactionAssessInput',
+    declaration: 'export interface CompactionAssessInput {\n    readonly session: Session;\n    readonly trigger: CompactionPolicyTrigger;\n    readonly beforeTokens: number;\n    readonly contextWindow?: number;\n    readonly maxTokens: number;\n    readonly signal?: AbortSignal;\n}',
+  },
+  {
+    name: 'CompactionBeginInput',
+    declaration: 'export interface CompactionBeginInput extends CompactionAssessInput {\n    readonly compactionId: CompactionId;\n    readonly start: SessionSeq;\n    readonly end: SessionSeq;\n    readonly shadowedSeqs: readonly SessionSeq[];\n    readonly shadowedTokenCount: number;\n    readonly summarizationTarget: {\n        readonly provider: string;\n        readonly model: string;\n    };\n}',
+  },
+  {
+    name: 'CompactionCandidateView',
+    declaration: 'export interface CompactionCandidateView {\n    readonly summary: readonly ContentBlock[];\n    readonly rawOutput: readonly ContentBlock[];\n    readonly truncated: boolean;\n    readonly checkpointContent: readonly ContentBlock[];\n    readonly framedTokenCount: number;\n    readonly shadowedRouteTokenCount: number;\n    readonly candidateAttempt: number;\n}',
+  },
+  {
     name: 'CompactionId',
     declaration: 'export type CompactionId = Branded<\'CompactionId\'>;',
+  },
+  {
+    name: 'CompactionOwnedRecoveryCause',
+    declaration: 'export type CompactionOwnedRecoveryCause = \'summary-error-recovery\';',
+  },
+  {
+    name: 'CompactionPolicyAdmission',
+    declaration: 'export type CompactionPolicyAdmission = {\n    readonly admitted: true;\n} | {\n    readonly admitted: false;\n    readonly block: CompactionPolicyBlock;\n};',
+  },
+  {
+    name: 'CompactionPolicyAudit',
+    declaration: 'export interface CompactionPolicyAudit {\n    readonly policyId: string;\n    readonly policyVersion: string;\n    readonly trigger: CompactionPolicyTrigger;\n    readonly candidateAttempts: number;\n    readonly authorityAsOfSeq?: number;\n    readonly protectionHash?: string;\n    readonly auxiliaryReasoning?: {\n        readonly requested?: string;\n        readonly resolved?: string;\n        readonly source?: string;\n    };\n    readonly supplementalMessages?: readonly Message[];\n}',
+  },
+  {
+    name: 'CompactionPolicyBlock',
+    declaration: 'export interface CompactionPolicyBlock {\n    readonly code: string;\n    readonly reason?: string | undefined;\n    readonly detail: string;\n}',
+  },
+  {
+    name: 'CompactionPolicyTransaction',
+    declaration: 'export interface CompactionPolicyTransaction {\n    decorateRequest(draft: CompactionRequestDraft): CompactionRequestDecoration;\n    validateCandidate(candidate: CompactionCandidateView): CompactionPolicyVerdict;\n    rebaseAfterOwnedRecovery(cause: CompactionOwnedRecoveryCause): void;\n    assertPublishable(): void;\n    audit(): CompactionPolicyAudit;\n}',
+  },
+  {
+    name: 'CompactionPolicyTrigger',
+    declaration: 'export type CompactionPolicyTrigger = CompactionTrigger | \'manual\';',
+  },
+  {
+    name: 'CompactionPolicyVerdict',
+    declaration: 'export type CompactionPolicyVerdict = {\n    readonly kind: \'accept\';\n} | {\n    readonly kind: \'retry\';\n    readonly reason: string;\n} | {\n    readonly kind: \'reject\';\n    readonly block: CompactionPolicyBlock;\n};',
+  },
+  {
+    name: 'CompactionRequestDecoration',
+    declaration: 'export interface CompactionRequestDecoration {\n    readonly reasoningEffort?: ReasoningEffortId;\n    readonly supplementalMessages?: readonly Message[];\n    readonly replacementContent?: readonly ContentBlock[];\n}',
+  },
+  {
+    name: 'CompactionRequestDraft',
+    declaration: 'export interface CompactionRequestDraft {\n    readonly provider: string;\n    readonly model: string;\n    readonly messages: readonly Message[];\n    readonly tools?: readonly ToolSchema[];\n    readonly maxTokens: number;\n    readonly sessionId: string;\n    readonly candidateAttempt: number;\n}',
   },
   {
     name: 'CompactionResult',
@@ -6608,6 +6693,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface SubprocessTerminalSpawnSpec {\n    argv: readonly string[];\n    cwd: string;\n    env?: Record<string, string> | undefined;\n    rows: number;\n    cols: number;\n    terminalType: string;\n    shellActivity?: boolean | undefined;\n    graceMs: number;\n    signal?: AbortSignal | undefined;\n}',
   },
   {
+    name: 'SuccessfulTaskToolResult',
+    declaration: 'export interface SuccessfulTaskToolResult {\n    readonly eventSeq: SessionSeq;\n    readonly callId: string;\n}',
+  },
+  {
     name: 'SurfaceEvent',
     declaration: 'export type SurfaceEvent = SessionEvent<SurfaceEventType>;',
   },
@@ -6642,6 +6731,14 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'TableValueOf',
     declaration: 'export type TableValueOf<S extends DomainSpec, N extends keyof S[\'tables\']> = S[\'tables\'][N] extends DomainTableSpec<string, infer V> ? V : never;',
+  },
+  {
+    name: 'TaskAuthoritySnapshot',
+    declaration: 'export interface TaskAuthoritySnapshot {\n    readonly task?: TaskCheckpoint;\n    readonly latestTaskId?: TaskId;\n    readonly results: readonly ResultManifest[];\n    readonly repairHazards: readonly TaskRepairHazard[];\n    readonly successfulToolResults: readonly SuccessfulTaskToolResult[];\n    readonly asOfSeq: SessionSeq;\n    readonly lastTurn: number;\n    readonly openRun: boolean;\n}',
+  },
+  {
+    name: 'TaskAuthoritySnapshotOptions',
+    declaration: 'export interface TaskAuthoritySnapshotOptions {\n    readonly taskId?: TaskId;\n}',
   },
   {
     name: 'TaskCheckpoint',

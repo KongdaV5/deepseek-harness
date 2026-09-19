@@ -31,6 +31,8 @@ import type { Context } from '@deepseek-ai/cordis'
 import type { Session } from '@deepseek-ai/dsh-session'
 import type {} from '@deepseek-ai/dsh-agent'
 import { TaskContinuityError } from './errors.ts'
+import { readableTaskAuthority, taskAuthoritySnapshot } from './authority.ts'
+import type { TaskAuthoritySnapshot, TaskAuthoritySnapshotOptions } from './authority.ts'
 import { resultManifestProjectionDefinition, taskCheckpointProjectionDefinition } from './projection.ts'
 import {
   appendTaskCheckpointUpdate,
@@ -203,6 +205,37 @@ export default class TaskCheckpointService extends Service {
    */
   recordAcceptedResume(session: Session, input: AcceptedResumeInput): TaskCheckpoint {
     return recordAcceptedResume(this.authority(session), input)
+  }
+
+  /**
+   * Read one consistent, detached cut of this Session's durable Task authority.
+   *
+   * Every registered projection is materialized at the Session cursor in one
+   * synchronous pass, so the returned Task revision, result manifests, repair
+   * hazards, and successful tool results all describe the same log position.
+   * The value is a reader: it appends nothing, mutates nothing, and exposes no
+   * writer capability. Callers must re-read rather than retain it as authority
+   * across a later mutation.
+   *
+   * @param session - the Session whose durable Task authority is read.
+   * @param options - the Task to address; defaults to the latest tracked Task.
+   * @returns the detached snapshot at the current commit cursor.
+   * @throws TaskContinuityError with `TASK_AUTHORITY_UNAVAILABLE` when a required
+   *   projection is unregistered or holds a failed fold.
+   */
+  authoritySnapshot(
+    session: Session,
+    options: TaskAuthoritySnapshotOptions = {},
+  ): TaskAuthoritySnapshot {
+    const boundary = this.ctx.sessionProjections.stateOf(session, 'turnBoundary')
+    return taskAuthoritySnapshot(readableTaskAuthority({
+      sessionId: session.id,
+      checkpoint: this.ctx.sessionProjections.stateOf(session, 'taskCheckpoint'),
+      results: this.ctx.sessionProjections.stateOf(session, 'taskResults'),
+      sequence: session.seq,
+      lastTurn: boundary?.lastTurn ?? 0,
+      openRun: boundary !== undefined && boundary.openTurnStartSeq !== null,
+    }), options)
   }
 
   /**

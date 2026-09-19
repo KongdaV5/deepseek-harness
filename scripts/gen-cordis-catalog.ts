@@ -74,6 +74,7 @@ export const SERVICE_PAGE: Record<string, string> = {
   computerUse: 'computer-use.md',
   commands: 'commands.md',
   compaction: 'compaction.md',
+  compactionCandidatePolicy: 'compaction.md',
   cordisInspect: 'extensions.md',
   authorization: 'credentials.md',
   credentials: 'credentials.md',
@@ -851,6 +852,12 @@ export const TYPE_LINK_EXEMPTIONS: Readonly<Record<string, string>> = {
   TaskResumeContextBudget: 'task resume context budget is owned by packages/session/task-checkpoint/README.md',
   TaskDiagnostics: 'task diagnostics read model is owned by packages/session/task-checkpoint/src/service.ts',
   TaskResumeAdmission: 'task resume admission is owned by packages/session/task-checkpoint/src/service.ts',
+  TaskAuthoritySnapshot: 'detached task authority cut is owned by packages/session/task-checkpoint/src/authority.ts',
+  TaskAuthoritySnapshotOptions: 'task authority addressing input is owned by packages/session/task-checkpoint/src/authority.ts',
+  CompactionAssessInput: 'candidate-policy admission input is owned by packages/compaction/compaction/src/candidate-policy.ts',
+  CompactionBeginInput: 'candidate-policy transaction input is owned by packages/compaction/compaction/src/candidate-policy.ts',
+  CompactionPolicyAdmission: 'candidate-policy admission decision is owned by packages/compaction/compaction/src/candidate-policy.ts',
+  CompactionPolicyTransaction: 'candidate-policy live transaction is owned by packages/compaction/compaction/src/candidate-policy.ts',
   TaskResumeRequest: 'task resume request is owned by packages/session/task-checkpoint/src/service.ts',
 }
 

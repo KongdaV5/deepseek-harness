@@ -14,6 +14,28 @@ import type { CompactionResult } from './types.ts'
 
 export type { CompactionResult } from './types.ts'
 export { CompactionId } from './brand.ts'
+// The optional candidate-policy seam a backend may consult. Declaring it here
+// keeps the contract task-agnostic: a backend reads `ctx.compactionCandidatePolicy`
+// without importing any policy implementation, and a policy implementation
+// never has to be visible to the backend that calls it.
+export type {
+  CompactionAssessInput,
+  CompactionBeginInput,
+  CompactionCandidatePolicy,
+  CompactionCandidateView,
+  CompactionOwnedRecoveryCause,
+  CompactionPolicyAdmission,
+  CompactionPolicyAudit,
+  CompactionPolicyBlock,
+  CompactionPolicyTransaction,
+  CompactionPolicyTrigger,
+  CompactionPolicyVerdict,
+  CompactionRequestDecoration,
+  CompactionRequestDraft,
+} from './candidate-policy.ts'
+// The refusal a policy-driven backend raises, so a caller can route on the
+// policy's own block without importing the policy implementation.
+export { CompactionPolicyRejectionError } from './candidate-policy.ts'
 export { toolPairingBalancedAfter, toolPairingBalancedBefore } from './tool-pairing.ts'
 // The checkpoint source constructor and predicate are declared on the cordis-free
 // `./checkpoint` leaf so client and wire programs can name them without this

@@ -216,6 +216,9 @@ importers:
       '@deepseek-ai/dsh-cordis-client-runner':
         specifier: workspace:^
         version: link:../../packages/extensions/cordis-client-runner
+      '@deepseek-ai/dsh-desktop-custom':
+        specifier: workspace:^
+        version: link:../../packages/bundle/desktop-custom
       '@deepseek-ai/dsh-experimental-agent-team-profile':
         specifier: workspace:^
         version: link:../../packages/experimental/agent-team-profile
@@ -1884,6 +1887,31 @@ importers:
       '@deepseek-ai/cordis':
         specifier: workspace:^
         version: link:../../../vendor/cordis
+
+  packages/bundle/desktop-custom:
+    dependencies:
+      '@deepseek-ai/dsh-agent-run-policy':
+        specifier: workspace:^
+        version: link:../../runtime-diagnostics/agent-run-policy
+      '@deepseek-ai/dsh-compaction-task-aware-policy':
+        specifier: workspace:^
+        version: link:../../compaction/compaction-task-aware-policy
+      '@deepseek-ai/dsh-task-checkpoint':
+        specifier: workspace:^
+        version: link:../../session/task-checkpoint
+    devDependencies:
+      '@deepseek-ai/cordis':
+        specifier: workspace:^
+        version: link:../../../vendor/cordis
+      '@deepseek-ai/cordis-plugin-include':
+        specifier: workspace:^
+        version: link:../../../vendor/include
+      '@deepseek-ai/cordis-plugin-loader':
+        specifier: workspace:^
+        version: link:../../../vendor/loader
+      js-yaml:
+        specifier: ^4.2.0
+        version: 4.3.1
 
   packages/bundle/headless:
     dependencies:
@@ -5413,6 +5441,37 @@ importers:
       '@deepseek-ai/dsh-session-projection':
         specifier: workspace:^
         version: link:../../session/session-projection
+      '@deepseek-ai/dsh-token-meter':
+        specifier: workspace:^
+        version: link:../../llm/token-meter
+
+  packages/compaction/compaction-task-aware-policy:
+    dependencies:
+      '@deepseek-ai/dsh-reasoning-policy':
+        specifier: workspace:^
+        version: link:../../runtime-diagnostics/reasoning-policy
+      '@deepseek-ai/schemastery':
+        specifier: link:../../../vendor/schemastery
+        version: link:../../../vendor/schemastery
+    devDependencies:
+      '@deepseek-ai/cordis':
+        specifier: workspace:^
+        version: link:../../../vendor/cordis
+      '@deepseek-ai/dsh-compaction':
+        specifier: workspace:^
+        version: link:../compaction
+      '@deepseek-ai/dsh-llm':
+        specifier: workspace:^
+        version: link:../../llm/llm
+      '@deepseek-ai/dsh-session':
+        specifier: workspace:^
+        version: link:../../core/session
+      '@deepseek-ai/dsh-session-projection':
+        specifier: workspace:^
+        version: link:../../session/session-projection
+      '@deepseek-ai/dsh-task-checkpoint':
+        specifier: workspace:^
+        version: link:../../session/task-checkpoint
       '@deepseek-ai/dsh-token-meter':
         specifier: workspace:^
         version: link:../../llm/token-meter

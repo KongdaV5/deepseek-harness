@@ -11,6 +11,7 @@ import type { ContentBlock, TokenUsage } from '@deepseek-ai/dsh-llm'
 import type { CommandId } from '@deepseek-ai/dsh-commands/brand'
 import type { SessionSeq } from '@deepseek-ai/dsh-session/types'
 import type { CompactionId } from './brand.ts'
+import type { CompactionPolicyAudit } from './candidate-policy.ts'
 
 export type { CompactionId }
 
@@ -51,6 +52,14 @@ declare module '@deepseek-ai/dsh-session/types' {
       maxTokens?: number
       /** Provider-reported token usage for the summarization request, when emitted. */
       usage?: TokenUsage
+      /**
+       * Structured report from an installed compaction candidate policy, when
+       * one gated this compaction. Optional and additive: an event written with
+       * no policy installed omits it and stays byte-identical to what the
+       * upstream backend recorded. It is a report, never authority — the
+       * protected facts it names were already durable in their own events.
+       */
+      policyAudit?: CompactionPolicyAudit
     } & (
       | {
         /** Complete provider output before the backend's safe summary projection. */

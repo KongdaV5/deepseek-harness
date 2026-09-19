@@ -24,6 +24,13 @@ export interface CompactionPolicyConfig {
   compactionRetries?: number
   /** Maximum retries after canonical context overflow; `0` disables recovery. Defaults to `1`. */
   maxOverflowRetries?: number
+  /**
+   * Further summary candidates an installed compaction candidate policy may ask
+   * for after the first one. Defaults to `0`, which keeps the upstream
+   * single-candidate behavior byte-identical; `1` permits exactly one
+   * semantic retry. Only consulted when a policy is installed.
+   */
+  maxSummaryValidationRetries?: number
 }
 
 /** Exact provider/model override merged over the default compaction policy. */
@@ -55,6 +62,7 @@ interface ResolvedPolicyFields {
   readonly maxTokens: number
   readonly compactionRetries: number
   readonly maxOverflowRetries: number
+  readonly maxSummaryValidationRetries: number
 }
 
 /** Validated immutable config whose target-specific defaults remain unresolved. */

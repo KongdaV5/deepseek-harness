@@ -22,6 +22,14 @@ const DEFAULT_THRESHOLD_RATIO = 0.8
 /** Default verbatim-tail fraction for every routed model. */
 const DEFAULT_RETAIN_RATIO = 0.16
 
+/**
+ * Default number of further summary candidates a policy may ask for.
+ *
+ * Zero is the upstream behavior: one candidate, no semantic retry. A deployment
+ * that mounts a validating policy raises it deliberately.
+ */
+const DEFAULT_MAX_SUMMARY_VALIDATION_RETRIES = 0
+
 /** Fields shared by top-level defaults and exact-target overrides. */
 const POLICY_CONFIG_KEYS = [
   'thresholdRatio',
@@ -32,6 +40,7 @@ const POLICY_CONFIG_KEYS = [
   'maxTokens',
   'compactionRetries',
   'maxOverflowRetries',
+  'maxSummaryValidationRetries',
 ] as const
 
 /** Complete public top-level configuration key set. */
@@ -91,6 +100,8 @@ export function resolveConfig(config: BasicCompactionConfig = {}): ResolvedConfi
     maxTokens: config.maxTokens ?? 8192,
     compactionRetries: config.compactionRetries ?? 1,
     maxOverflowRetries: config.maxOverflowRetries ?? 1,
+    maxSummaryValidationRetries:
+      config.maxSummaryValidationRetries ?? DEFAULT_MAX_SUMMARY_VALIDATION_RETRIES,
     modelPolicies,
     auto: config.auto ?? true,
   })
@@ -121,6 +132,8 @@ export function resolveTargetPolicy(
     maxTokens: override?.maxTokens ?? config.maxTokens,
     compactionRetries: override?.compactionRetries ?? config.compactionRetries,
     maxOverflowRetries: override?.maxOverflowRetries ?? config.maxOverflowRetries,
+    maxSummaryValidationRetries:
+      override?.maxSummaryValidationRetries ?? config.maxSummaryValidationRetries,
   })
 }
 
@@ -163,6 +176,7 @@ export function resolveCompactSpec(
     maxTokens: policy.maxTokens,
     compactionRetries: policy.compactionRetries,
     maxOverflowRetries: policy.maxOverflowRetries,
+    maxSummaryValidationRetries: policy.maxSummaryValidationRetries,
   })
 }
 
@@ -234,6 +248,7 @@ function validatePolicy(
   const maxTokens = config.maxTokens
   const compactionRetries = config.compactionRetries
   const maxOverflowRetries = config.maxOverflowRetries
+  const maxSummaryValidationRetries = config.maxSummaryValidationRetries
   if (thresholdRatio !== undefined) assertRatio(`${name}.thresholdRatio`, thresholdRatio)
   if (retainRatio !== undefined) assertRatio(`${name}.retainRatio`, retainRatio)
   if (retainTokens !== undefined) assertNonNegativeInteger(`${name}.retainTokens`, retainTokens)
@@ -246,6 +261,9 @@ function validatePolicy(
   }
   if (maxOverflowRetries !== undefined) {
     assertNonNegativeInteger(`${name}.maxOverflowRetries`, maxOverflowRetries)
+  }
+  if (maxSummaryValidationRetries !== undefined) {
+    assertNonNegativeInteger(`${name}.maxSummaryValidationRetries`, maxSummaryValidationRetries)
   }
 
   validateSummarizationPair(config, name)

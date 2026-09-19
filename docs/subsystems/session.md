@@ -1124,6 +1124,24 @@ publishResultManifest(session: Session, candidate: ResultManifest, runTurn: numb
 recordAcceptedResume(session: Session, input: AcceptedResumeInput): TaskCheckpoint
 
 /**
+ * Read one consistent, detached cut of this Session's durable Task authority.
+ *
+ * Every registered projection is materialized at the Session cursor in one
+ * synchronous pass, so the returned Task revision, result manifests, repair
+ * hazards, and successful tool results all describe the same log position.
+ * The value is a reader: it appends nothing, mutates nothing, and exposes no
+ * writer capability. Callers must re-read rather than retain it as authority
+ * across a later mutation.
+ *
+ * @param session - the Session whose durable Task authority is read.
+ * @param options - the Task to address; defaults to the latest tracked Task.
+ * @returns the detached snapshot at the current commit cursor.
+ * @throws TaskContinuityError with `TASK_AUTHORITY_UNAVAILABLE` when a required
+ *   projection is unregistered or holds a failed fold.
+ */
+authoritySnapshot( session: Session, options: TaskAuthoritySnapshotOptions = {}, ): TaskAuthoritySnapshot
+
+/**
  * Read the durable Task continuity diagnostics for one Session.
  * @param session - the Session whose durable Task state is read.
  * @param options - optional Task selection, proposed execution, and context budget.
