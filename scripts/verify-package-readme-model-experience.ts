@@ -211,6 +211,8 @@ const SENTENCE_MODEL_EXPERIENCE: Readonly<Record<string, SentenceContract>> = {
   'packages/workflow/workflow': { kind: 'indirect', reason: 'The service delegates parent and child model rendering to its consumer and engine.' },
   'packages/runtime-diagnostics/agent-lifecycle-facts': { kind: 'none', reason: 'The adapter folds already-committed Session events for diagnostics; it registers no prompt, schema, tool, or result text.' },
   'packages/runtime-diagnostics/agent-run-state': { kind: 'none', reason: 'The package derives run identity and diagnostics from committed Session turns and facts; it registers no prompt, schema, tool, or result text.' },
+  'packages/runtime-diagnostics/reasoning-policy': { kind: 'indirect', reason: 'The resolution is written onto the LlmCallConfig that dsh-llm serializes, so the provider, not this library, owns the model-visible field.' },
+  'packages/runtime-diagnostics/agent-run-policy': { kind: 'indirect', reason: 'The gate decides whether dsh-llm-retry may redeliver; the executor owns the model-visible retry, and denial re-sends nothing.' },
   'packages/session/task-checkpoint': { kind: 'none', reason: 'The package owns durable task facts and the guarded resume decision; the events stay out of model context and the service registers no prompt, schema, tool, or result text.' },
 }
 

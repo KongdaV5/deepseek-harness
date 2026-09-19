@@ -161,6 +161,26 @@ export type PresetTrust = 'system' | 'user'
 
 来源：[`packages/preset/agent-presets/src/preset.ts:52`](../packages/preset/agent-presets/src/preset.ts)
 
+<a id="deepseek-aidsh-agent-run-policy"></a>
+
+## `@deepseek-ai/dsh-agent-run-policy`
+
+需要：`sessionProjections`
+
+```ts config-catalog
+/** Deployment-owned ceiling on automatic in-run retries. */
+export interface Config {
+  /**
+   * Maximum automatic retries after the initial attempt. `0` disables automatic
+   * in-run retry entirely. Never above {@link MAX_AUTOMATIC_RETRIES}: the
+   * ceiling is a product invariant, not a tunable.
+   */
+  readonly maxRetryCount?: number
+}
+```
+
+来源：[`packages/runtime-diagnostics/agent-run-policy/src/index.ts:63`](../packages/runtime-diagnostics/agent-run-policy/src/index.ts)
+
 <a id="deepseek-aidsh-agent-tool-presentation"></a>
 
 ## `@deepseek-ai/dsh-agent-tool-presentation`
@@ -3922,6 +3942,7 @@ export interface Config {
 - `@deepseek-ai/dsh-native-command`（[`packages/util/native-command/src/index.ts`](../packages/util/native-command/src/index.ts)）
 - `@deepseek-ai/dsh-output-retention`（[`packages/util/output-retention/src/index.ts`](../packages/util/output-retention/src/index.ts)）
 - `@deepseek-ai/dsh-package-manifest` ([`packages/util/package-manifest/src/index.ts`](../packages/util/package-manifest/src/index.ts))
+- `@deepseek-ai/dsh-reasoning-policy`（[`packages/runtime-diagnostics/reasoning-policy/src/index.ts`](../packages/runtime-diagnostics/reasoning-policy/src/index.ts)）
 - `@deepseek-ai/dsh-remote-mock`（[`packages/test-support/remote-mock/src/index.ts`](../packages/test-support/remote-mock/src/index.ts)）
 - `@deepseek-ai/dsh-sandbox-windows-acl`（[`packages/sandbox/sandbox-windows-acl/src/index.ts`](../packages/sandbox/sandbox-windows-acl/src/index.ts)）
 - `@deepseek-ai/dsh-scope`（[`packages/core/scope/src/index.ts`](../packages/core/scope/src/index.ts)）

@@ -304,8 +304,10 @@ flowchart TD
   end
   subgraph group_runtime_diagnostics["packages/runtime-diagnostics"]
     pkg_agent_lifecycle_facts["agent-lifecycle-facts"]
+    pkg_agent_run_policy["agent-run-policy"]
     pkg_agent_run_state["agent-run-state"]
     pkg_invariants["invariants"]
+    pkg_reasoning_policy["reasoning-policy"]
   end
   subgraph group_sandbox["packages/sandbox"]
     pkg_sandbox["sandbox"]
@@ -475,6 +477,8 @@ flowchart TD
   pkg_app_boot --> pkg_launch_environment
   pkg_app_boot --> pkg_system_prompt
   pkg_persona --> pkg_system_prompt
+  pkg_reasoning_policy --> pkg_llm
+  pkg_reasoning_policy --> pkg_session
   pkg_sandbox --> pkg_llm
   pkg_sandbox --> pkg_session
   pkg_session_format_catalog --> pkg_session
@@ -522,10 +526,6 @@ flowchart TD
   pkg_session_turn_outline --> pkg_llm
   pkg_session_turn_outline --> pkg_session
   pkg_session_turn_outline --> pkg_session_projection
-  pkg_task_checkpoint --> pkg_brand
-  pkg_task_checkpoint --> pkg_llm
-  pkg_task_checkpoint --> pkg_session
-  pkg_task_checkpoint --> pkg_session_projection
   pkg_settings_file --> pkg_atomic_write
   pkg_settings_file --> pkg_home_paths
   pkg_settings_file --> pkg_settings
@@ -1019,12 +1019,23 @@ flowchart TD
   pkg_mcp_client --> pkg_system_prompt
   pkg_mcp_client --> pkg_timeout
   pkg_mcp_client --> pkg_tools
+  pkg_agent_run_policy --> pkg_agent
+  pkg_agent_run_policy --> pkg_agent_run_state
+  pkg_agent_run_policy --> pkg_llm
+  pkg_agent_run_policy --> pkg_session
+  pkg_agent_run_policy --> pkg_session_projection
   pkg_session_telemetry_otel --> pkg_anonymous_user_id
   pkg_session_telemetry_otel --> pkg_command_feedback
   pkg_session_telemetry_otel --> pkg_llm
   pkg_session_telemetry_otel --> pkg_message_feedback
   pkg_session_telemetry_otel --> pkg_session
   pkg_session_telemetry_otel --> pkg_session_telemetry
+  pkg_task_checkpoint --> pkg_agent
+  pkg_task_checkpoint --> pkg_agent_run_state
+  pkg_task_checkpoint --> pkg_brand
+  pkg_task_checkpoint --> pkg_llm
+  pkg_task_checkpoint --> pkg_session
+  pkg_task_checkpoint --> pkg_session_projection
   pkg_tool_bash --> pkg_agent
   pkg_tool_bash --> pkg_jobs
   pkg_tool_bash --> pkg_llm
@@ -1453,6 +1464,7 @@ flowchart TD
 | [`spill`](../packages/spill/spill) | `spill` | [`brand`](../packages/util/brand), [`llm`](../packages/llm/llm), [`session`](../packages/core/session) |
 | [`app-boot`](../packages/boot/app-boot) | `boot` | [`home-paths`](../packages/util/home-paths), [`launch-environment`](../packages/util/launch-environment), [`system-prompt`](../packages/core/system-prompt) |
 | [`persona`](../packages/preset/persona) | `preset` | [`system-prompt`](../packages/core/system-prompt) |
+| [`reasoning-policy`](../packages/runtime-diagnostics/reasoning-policy) | `runtime-diagnostics` | [`llm`](../packages/llm/llm), [`session`](../packages/core/session) |
 | [`sandbox`](../packages/sandbox/sandbox) | `sandbox` | [`llm`](../packages/llm/llm), [`session`](../packages/core/session) |
 | [`session-format-catalog`](../packages/session/session-format-catalog) | `session` | [`session`](../packages/core/session) |
 | [`session-log-deepseek`](../packages/session/session-log-deepseek) | `session` | [`deepseek-llm-api-extensions`](../packages/llm/deepseek-llm-api-extensions), [`invariants`](../packages/runtime-diagnostics/invariants), [`session`](../packages/core/session) |
@@ -1471,7 +1483,6 @@ flowchart TD
 | [`session-projection-cache`](../packages/session/session-projection-cache) | `session` | [`session`](../packages/core/session), [`session-projection`](../packages/session/session-projection), [`storage-domain`](../packages/storage/storage-domain) |
 | [`session-stats`](../packages/session/session-stats) | `session` | [`llm`](../packages/llm/llm), [`session`](../packages/core/session), [`session-projection`](../packages/session/session-projection) |
 | [`session-turn-outline`](../packages/session/session-turn-outline) | `session` | [`llm`](../packages/llm/llm), [`session`](../packages/core/session), [`session-projection`](../packages/session/session-projection) |
-| [`task-checkpoint`](../packages/session/task-checkpoint) | `session` | [`brand`](../packages/util/brand), [`llm`](../packages/llm/llm), [`session`](../packages/core/session), [`session-projection`](../packages/session/session-projection) |
 | [`settings-file`](../packages/settings/settings-file) | `settings` | [`atomic-write`](../packages/util/atomic-write), [`home-paths`](../packages/util/home-paths), [`settings`](../packages/settings/settings) |
 | [`shell`](../packages/shell/shell) | `shell` | [`sandbox`](../packages/sandbox/sandbox), [`settings`](../packages/settings/settings), [`subprocess`](../packages/subprocess/subprocess) |
 | [`workspace`](../packages/workspace/workspace) | `workspace` | [`invariants`](../packages/runtime-diagnostics/invariants), [`session`](../packages/core/session), [`session-persistence`](../packages/session/session-persistence), [`storage`](../packages/storage/storage), [`storage-domain`](../packages/storage/storage-domain), [`typert-protocol`](../packages/typert/protocol) |
@@ -1570,7 +1581,9 @@ flowchart TD
 | [`tool-cordis`](../packages/extensions/tool-cordis) | `extensions` | [`agent`](../packages/core/agent), [`cordis-host-runner`](../packages/extensions/cordis-host-runner), [`system-prompt`](../packages/core/system-prompt), [`tools`](../packages/core/tools) |
 | [`host-plugin-inventory`](../packages/host/plugin-inventory) | `host` | [`agent-presets`](../packages/preset/agent-presets), [`brand`](../packages/util/brand), [`typert-protocol`](../packages/typert/protocol) |
 | [`mcp-client`](../packages/mcp/mcp-client) | `mcp` | [`attachment`](../packages/attachment/attachment), [`llm`](../packages/llm/llm), [`mcp-resources`](../packages/mcp/mcp-resources), [`scope`](../packages/core/scope), [`subprocess`](../packages/subprocess/subprocess), [`system-prompt`](../packages/core/system-prompt), [`timeout`](../packages/util/timeout), [`tools`](../packages/core/tools) |
+| [`agent-run-policy`](../packages/runtime-diagnostics/agent-run-policy) | `runtime-diagnostics` | [`agent`](../packages/core/agent), [`agent-run-state`](../packages/runtime-diagnostics/agent-run-state), [`llm`](../packages/llm/llm), [`session`](../packages/core/session), [`session-projection`](../packages/session/session-projection) |
 | [`session-telemetry-otel`](../packages/session/session-telemetry-otel) | `session` | [`anonymous-user-id`](../packages/identity/anonymous-user-id), [`command-feedback`](../packages/feedback/command-feedback), [`llm`](../packages/llm/llm), [`message-feedback`](../packages/feedback/message-feedback), [`session`](../packages/core/session), [`session-telemetry`](../packages/session/session-telemetry) |
+| [`task-checkpoint`](../packages/session/task-checkpoint) | `session` | [`agent`](../packages/core/agent), [`agent-run-state`](../packages/runtime-diagnostics/agent-run-state), [`brand`](../packages/util/brand), [`llm`](../packages/llm/llm), [`session`](../packages/core/session), [`session-projection`](../packages/session/session-projection) |
 | [`tool-bash`](../packages/shell/tool-bash) | `shell` | [`agent`](../packages/core/agent), [`jobs`](../packages/jobs/jobs), [`llm`](../packages/llm/llm), [`sandbox`](../packages/sandbox/sandbox), [`sandbox-policy`](../packages/sandbox/sandbox-policy), [`shell`](../packages/shell/shell), [`shell-env`](../packages/shell/shell-env), [`system-prompt`](../packages/core/system-prompt), [`tools`](../packages/core/tools), [`user-approval`](../packages/interaction/user-approval) |
 | [`tool-pwsh`](../packages/shell/tool-pwsh) | `shell` | [`agent`](../packages/core/agent), [`jobs`](../packages/jobs/jobs), [`llm`](../packages/llm/llm), [`sandbox`](../packages/sandbox/sandbox), [`sandbox-policy`](../packages/sandbox/sandbox-policy), [`shell`](../packages/shell/shell), [`shell-env`](../packages/shell/shell-env), [`system-prompt`](../packages/core/system-prompt), [`tools`](../packages/core/tools), [`user-approval`](../packages/interaction/user-approval) |
 | [`fs-ssh`](../packages/ssh/fs-ssh) | `ssh` | [`fs`](../packages/fs/fs), [`sandbox`](../packages/sandbox/sandbox), [`sandbox-policy`](../packages/sandbox/sandbox-policy), [`ssh`](../packages/ssh/ssh) |

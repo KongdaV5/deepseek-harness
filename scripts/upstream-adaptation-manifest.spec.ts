@@ -105,8 +105,8 @@ describe('Phase 8C upstream adaptation manifest', () => {
   it('locks the audited target and immutable source baselines', () => {
     expect(manifest).toMatchObject({
       formatVersion: 1,
-      phase: '8C.2g',
-      status: 'stage-8-complete',
+      phase: '8C.2h',
+      status: 'stage-9-complete',
       target: { sha: 'ddefc45fbc7f8e46dd73185e68295696d1297887' },
       source: {
         productBaselineTag: 'ds-harness-product-baseline-2026-09-17',
@@ -152,10 +152,10 @@ describe('Phase 8C upstream adaptation manifest', () => {
       expect(stage.tests.length).toBeGreaterThan(0)
       expect(stage.stopGate.length).toBeGreaterThan(10)
     }
-    expect(manifest.portOrder.slice(0, 8).map(stage => stage.status)).toEqual([
-      'COMPLETE', 'COMPLETE', 'COMPLETE', 'COMPLETE', 'COMPLETE', 'COMPLETE', 'COMPLETE', 'COMPLETE',
+    expect(manifest.portOrder.slice(0, 9).map(stage => stage.status)).toEqual([
+      'COMPLETE', 'COMPLETE', 'COMPLETE', 'COMPLETE', 'COMPLETE', 'COMPLETE', 'COMPLETE', 'COMPLETE', 'COMPLETE',
     ])
-    expect(manifest.portOrder.slice(8).every(stage => stage.status === 'PENDING')).toBe(true)
+    expect(manifest.portOrder.slice(9).every(stage => stage.status === 'PENDING')).toBe(true)
     expect(manifest.compositionQualification).toEqual({
       profile: 'desktop-custom',
       upstreamTemplate: 'web',
@@ -239,8 +239,8 @@ describe('Phase 8C upstream adaptation manifest', () => {
     ])
     // Stages beyond the completed prefix stay pending, and Stage 7 introduces
     // no new durable event.
-    expect(manifest.portOrder.filter(stage => stage.stage > 8).map(stage => stage.status))
-      .toEqual(['PENDING', 'PENDING', 'PENDING', 'PENDING', 'PENDING'])
+    expect(manifest.portOrder.filter(stage => stage.stage > 9).map(stage => stage.status))
+      .toEqual(['PENDING', 'PENDING', 'PENDING', 'PENDING'])
     expect(manifest.dataBoundary.sessionCompatibility.restoredFirstPartyRequiredEvents)
       .toEqual(['task/checkpoint', 'task/result-manifest'])
     expect(manifest.capabilities.filter(capability =>
@@ -275,8 +275,35 @@ describe('Phase 8C upstream adaptation manifest', () => {
     // Stage 8 restores guarded task continuity without adding a durable event.
     expect(manifest.dataBoundary.sessionCompatibility.restoredFirstPartyRequiredEvents)
       .toEqual(['task/checkpoint', 'task/result-manifest'])
-    expect(manifest.portOrder.filter(stage => stage.stage > 8).map(stage => stage.status))
-      .toEqual(['PENDING', 'PENDING', 'PENDING', 'PENDING', 'PENDING'])
+    expect(manifest.portOrder.filter(stage => stage.stage > 9).map(stage => stage.status))
+      .toEqual(['PENDING', 'PENDING', 'PENDING', 'PENDING'])
+  })
+
+  it('records the Stage 9 reasoning and bounded retry policies and its fifteen locked decisions', () => {
+    const stageNine = manifest.portOrder.filter(stage => stage.stage === 9)
+    expect(stageNine.length).toBe(1)
+    expect(stageNine.map(stage => stage.status)).toEqual(['COMPLETE'])
+    expect(stageNine.map(stage => stage.deliverables)).toEqual([[
+      'packages/runtime-diagnostics/reasoning-policy',
+      'packages/runtime-diagnostics/agent-run-policy',
+    ]])
+    expect(stageNine.flatMap(stage => stage.decisions ?? [])
+      .map(decision => decision.slice(0, decision.indexOf(' ')))).toEqual([
+      'D9.1', 'D9.2', 'D9.3', 'D9.4', 'D9.5', 'D9.6', 'D9.7', 'D9.8',
+      'D9.9', 'D9.10', 'D9.11', 'D9.12', 'D9.13', 'D9.14', 'D9.15',
+    ])
+    expect(manifest.capabilities.filter(capability =>
+      capability.id === 'reasoning' || capability.id === 'run-policy',
+    ).map(capability => capability.implementationStatus)).toEqual([
+      'IMPLEMENTED_STAGE_9_BOUNDED_GATE_OVER_LLM_RETRY',
+      'IMPLEMENTED_STAGE_9_CAPABILITY_RESOLVED_REQUESTED_VS_RESOLVED',
+    ])
+    // Stage 9 bounds reasoning and retry without adding a durable event, so the
+    // restored required-event set is exactly the Stage 6 pair.
+    expect(manifest.dataBoundary.sessionCompatibility.restoredFirstPartyRequiredEvents)
+      .toEqual(['task/checkpoint', 'task/result-manifest'])
+    expect(manifest.portOrder.filter(stage => stage.stage > 9).map(stage => stage.status))
+      .toEqual(['PENDING', 'PENDING', 'PENDING', 'PENDING'])
   })
 
   it('keeps compatibility debt unresolved and every cited contract path discoverable', () => {

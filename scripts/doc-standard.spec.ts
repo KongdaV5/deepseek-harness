@@ -68,6 +68,7 @@ const PACKAGE_LIBRARIES: Readonly<Record<string, string>> = {
   'packages/identity/anonymous-user-id': 'Harness-home identity helper with no plugin registration.',
   'packages/runtime-diagnostics/agent-lifecycle-facts': 'Read-only lifecycle fact extraction over committed Session events; plain function and type exports, no plugin entry.',
   'packages/runtime-diagnostics/agent-run-state': 'Read-only run identity, projection, and diagnostics over committed Session turns; plain function and type exports, no plugin entry.',
+  'packages/runtime-diagnostics/reasoning-policy': 'Capability-aware reasoning resolution over the current adapter capability contract; plain function and type exports, no plugin entry.',
   'packages/sandbox/sandbox-windows-acl': 'Windows ACL sandbox library consumed by sandbox-local.',
   'packages/sdk/client': 'Client-process library; the spawned runtime owns plugin behavior.',
   'packages/sdk/protocol': 'Wire-protocol library with type declarations only.',
