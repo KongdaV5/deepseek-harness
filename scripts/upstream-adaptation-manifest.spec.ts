@@ -311,7 +311,7 @@ describe('Phase 8C upstream adaptation manifest', () => {
       .toEqual(['PENDING', 'PENDING', 'PENDING'])
   })
 
-  it('records the Stage 10 task-aware compaction adapter and its sixteen locked decisions', () => {
+  it('records the Stage 10 task-aware compaction adapter and its twenty-two locked decisions', () => {
     const stageTen = manifest.portOrder.filter(stage => stage.stage === 10)
     expect(stageTen.length).toBe(1)
     expect(stageTen.map(stage => stage.status)).toEqual(['COMPLETE'])
@@ -325,11 +325,46 @@ describe('Phase 8C upstream adaptation manifest', () => {
       'packages/llm/llm-retry',
       'apps/desktop',
     ]])
-    expect(stageTen.flatMap(stage => stage.decisions ?? [])
-      .map(decision => decision.slice(0, decision.indexOf(' ')))).toEqual([
+    const decisions = stageTen.flatMap(stage => stage.decisions ?? [])
+    expect(decisions.map(decision => decision.slice(0, decision.indexOf(' ')))).toEqual([
       'D10.1', 'D10.2', 'D10.3', 'D10.4', 'D10.5', 'D10.6', 'D10.7', 'D10.8',
       'D10.9', 'D10.10', 'D10.11', 'D10.12', 'D10.13', 'D10.14', 'D10.15', 'D10.16',
+      'D10.17', 'D10.18', 'D10.19', 'D10.20', 'D10.21', 'D10.22',
     ])
+    // Every locked decision is pinned by its unique semantic anchor, so removing
+    // a decision, renumbering it, or restating it more weakly fails this test
+    // instead of passing on a count alone. The anchors are the architecture
+    // review's D10.1-D10.22 claims, one per decision.
+    const anchors: readonly (readonly [string, string])[] = [
+      ['D10.1', 'sole compaction executor'],
+      ['D10.2', 'thin generic candidate-policy seam'],
+      ['D10.3', 'append-only replacement and audit events'],
+      ['D10.4', 'latest authoritative TaskCheckpoint'],
+      ['D10.5', 'completed-step evidence identities'],
+      ['D10.6', 'ResultManifest remains separate authority'],
+      ['D10.7', 'TOOL_NOT_STARTED and TOOL_OUTCOME_UNKNOWN remain distinct'],
+      ['D10.8', 'objective, constraints, decisions, and criticalContext are protected'],
+      ['D10.9', 'only non-authoritative historical narrative and context may be summarized'],
+      ['D10.10', 'only safely discardable model-context material may be pruned'],
+      ['D10.11', 'does not invent generic tool/result blob offload'],
+      ['D10.12', 'protected context over capacity fails closed'],
+      ['D10.13', 'stale compaction candidates fail publication'],
+      ['D10.14', 'no second lock, lease, or generation'],
+      ['D10.15', 'no projection cache and no new invalidation authority'],
+      ['D10.16', 'deterministic and structural'],
+      ['D10.17', 'low then at most medium'],
+      ['D10.18', 'remain unchanged by auxiliary compaction reasoning'],
+      ['D10.19', 'delegates to compaction recovery rather than ordinary Stage 9 retry'],
+      ['D10.20', 'typed read-only compaction diagnostics'],
+      ['D10.21', 'adds no new Session event type'],
+      ['D10.22', 'package ownership'],
+    ]
+    expect(anchors.map(([id]) => id)).toEqual(decisions.map(decision => decision.slice(0, decision.indexOf(' '))))
+    for (const [id, anchor] of anchors) {
+      const decision = decisions.find(candidate => candidate.startsWith(`${id} `))
+      expect(decision, id).toBeDefined()
+      expect(decision, id).toContain(anchor)
+    }
     expect(manifest.capabilities.find(capability => capability.id === 'compaction'))
       .toMatchObject({ implementationStatus: 'IMPLEMENTED_STAGE_10_TASK_AWARE_CANDIDATE_POLICY' })
     // The custom layer appends to the upstream composition prefix instead of
