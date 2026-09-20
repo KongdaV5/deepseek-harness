@@ -1,5 +1,5 @@
 ---
-description: "The DS Harness Desktop capability layer over the web surface: the durable Task authority, the bounded run policy, and the task-aware compaction policy, for users composing or customizing the DS Harness Desktop profile."
+description: "The DS Harness Desktop capability layer over the web surface: the durable Task authority, the bounded run policy, the task-aware compaction policy, the transient diagnostics transport, and the read-only Run Details surface, for users composing or customizing the DS Harness Desktop profile."
 kind: "package-bundle"
 ---
 
@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-The DS Harness Desktop profile composes `dsh-base`, `dsh-web-app`, and this layer last, so that surface gains the durable Task authority, the bounded run policy, and the task-aware compaction policy the DS Harness product is built on. It mounts three host-plane services and states one deployment value on the inherited compaction executor. It adds no client row, replaces no executor, and adds no Session event, so a profile without this layer is an ordinary web surface.
+The DS Harness Desktop profile composes `dsh-base`, `dsh-web-app`, and this layer last, so that surface gains the durable Task authority, the bounded run policy, the task-aware compaction policy, the transient diagnostics transport, and the read-only Run Details surface the DS Harness product is built on. It mounts six host-plane services, one browser surface, and states one deployment value on the inherited compaction executor. It replaces no executor and adds no Session event, so a profile without this layer is an ordinary web surface.
 
 ## Table of Contents
 
@@ -40,13 +40,17 @@ In-box bundles resolve from the dsh installation; `dsh plugin --profile <name> a
 
 ### What you get
 
-Three host-plane rows and one restated deployment value:
+Six host-plane rows, one browser row, and one restated deployment value:
 
 | Row | What the surface gains |
 |---|---|
 | `task-checkpoint` | Durable Task authority: the `taskCheckpoint` and `taskResults` projections plus the guarded-continuation seam. |
 | `agent-run-policy` | One outermost `agent/request-error` listener that bounds automatic retries over the upstream retry executor. |
 | `compaction-task-aware-policy` | The optional `compactionCandidatePolicy` service the existing compaction executor resolves with `ctx.get`. |
+| `runtime-diagnostics-controller` | The generic transient-diagnostics transport: one topic-keyed provider registry behind a typed Remote stream per topic and Session, plus the browser resource protocol that reads it. |
+| `compaction-task-aware-diagnostics-transport` | The adapter that registers the task-aware compaction topic with that transport, so a running compaction's process-local status is readable without a Session event. |
+| `run-details` | The read-only Run Details projection over the lifecycle fold, the run state, the durable request header, and the committed compaction audit. |
+| `ui-run-details` | The browser strip docked above the composer: the Run's facts, durable task continuity, and the transient compaction status, with no control a click could reach. |
 | `compaction-basic` | The inherited executor, re-enabled on the host plane with the deployment's `maxSummaryValidationRetries` budget. |
 
 Each row's behavior, invariants, and configuration belong to the package that owns it; this layer only places the rows.
@@ -71,7 +75,7 @@ The layer is a static patch document applied after `dsh-web-app`. It mounts no s
 
 | File | Role |
 |---|---|
-| [`cordis.patch.yml`](cordis.patch.yml) | The bundle substance: the three insert rows and the restated executor row, with per-row rationale as inline comments |
+| [`cordis.patch.yml`](cordis.patch.yml) | The bundle substance: the seven insert rows and the restated executor row, with per-row rationale as inline comments |
 | [`src/index.ts`](src/index.ts) | Package entry; carries no runtime API |
 | — | No invariant companion is published because the package is a static patch-list carrier (a YAML document of loader rows owned by other packages); it mounts no service, emits no events, and owns no mutable relation to check. Each inserted row's own package carries that row's invariants. |
 | [`tests/desktop-custom.spec.ts`](tests/desktop-custom.spec.ts) | Manifest declaration, inserted-row set, and restated-executor checks |
@@ -108,7 +112,7 @@ These limits are current package constraints, not a general comparison or a task
 
 - **A patch replaces whole settings blocks** — restating `compaction-basic` here replaces its entire configuration, so a later layer that wants to change one key restates every key it keeps.
 - **The layer depends on the web surface** — it restates a row `dsh-web-app` disables and inserts rows that read the web surface's session projections; it is not a standalone bundle.
-- **No client row ships here** — Run Details and the diagnostics transport belong to a later stage, so a client that expects them renders its own empty state.
+- **The browser row renders only what the host publishes** — the Run Details strip reads one projection and one resource, so a profile that omits this layer renders its own empty state rather than a degraded strip.
 
 <a id="dev-note"></a>
 ### Dev Note

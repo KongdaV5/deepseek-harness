@@ -15,11 +15,32 @@ import type { RunDetailsView } from '@deepseek-ai/dsh-run-details/client'
 import type { TaskCheckpointProjection } from '@deepseek-ai/dsh-task-checkpoint/client'
 import type { RunDetailsDockProps } from '../src/client/RunDetailsDock.tsx'
 import { RunDetailsDock, RunDetailsPanel } from '../src/client/RunDetailsDock.tsx'
+import {
+  TRANSIENT_COMPACTION_SCHEMA,
+  TRANSIENT_COMPACTION_TOPIC,
+  transientCompaction,
+  transientCompactionAddress,
+  type TransientCompaction,
+  type TransientResourceSnapshot,
+} from '../src/client/transient.ts'
 import { NS, en, zh } from '../src/client/locales.ts'
-import { apply } from '../src/client/index.ts'
+import { apply, inject as requiredServices } from '../src/client/index.ts'
 import { apply as nodeApply } from '../src/index.ts'
 
 const t: RunDetailsDockProps['t'] = makeTranslate(zh, commonZh)
+
+/** The transient row's absent state: no transport is mounted to ask. */
+const HIDDEN: TransientCompaction = { state: 'hidden' }
+
+/** One resource snapshot, as the resource model would report it. */
+function snapshot(overrides: Partial<TransientResourceSnapshot> = {}): TransientResourceSnapshot {
+  return { status: 'loading', value: undefined, failure: undefined, ...overrides }
+}
+
+/** One served transient observation, as the transport delivers it. */
+function observed(value: object) {
+  return { status: 'live' as const, value: { present: true as const, value: value as never }, failure: undefined }
+}
 
 afterEach(cleanup)
 
@@ -40,7 +61,6 @@ function cut(overrides: Partial<Extract<RunDetailsView, { hasRun: true }>> = {})
     stepCount: 2,
     openStep: 1,
     retryCount: 1,
-    maxRetryCount: 3,
     secondaryErrors: [],
     backend: {
       observerId: 'run-details:none' as never,
@@ -102,7 +122,7 @@ function resume(overrides: Record<string, unknown> = {}): Record<string, unknown
 
 describe('RunDetailsPanel', () => {
   it('renders the Run identity, phase, and health the host served', () => {
-    render(<RunDetailsPanel details={cut()} task={undefined} t={t} />)
+    render(<RunDetailsPanel details={cut()} task={undefined} transient={HIDDEN} t={t} />)
     expect(screen.getByTestId('run-details')).toBeTruthy()
     expect(screen.getByTestId('run-details-run-id').textContent).toBe('s1#1')
     expect(screen.getByTestId('run-details-phase').textContent).toBe('执行中')
@@ -110,18 +130,71 @@ describe('RunDetailsPanel', () => {
   })
 
   it('keeps an unobserved backend at Unknown instead of a friendlier answer', () => {
-    render(<RunDetailsPanel details={cut()} task={undefined} t={t} />)
+    render(<RunDetailsPanel details={cut()} task={undefined} transient={HIDDEN} t={t} />)
     expect(screen.getByTestId('run-details-backend').textContent).toBe('未知')
   })
 
   it('shows steps and retries from the durable cut', () => {
-    render(<RunDetailsPanel details={cut({ stepCount: 2, openStep: 1, retryCount: 1, maxRetryCount: 3 })} task={undefined} t={t} />)
+    render(<RunDetailsPanel
+      details={cut({ stepCount: 2, openStep: 1, retryCount: 1, maxRetryCount: 3 })}
+      task={undefined}
+      transient={HIDDEN}
+      t={t}
+    />)
     expect(screen.getByTestId('run-details-steps').textContent).toBe('2 步 · 第 1 步进行中')
     expect(screen.getByTestId('run-details-retries').textContent).toBe('1 / 3 次')
   })
 
+  it('shows a step count alone while no step is open', () => {
+    // The absence is rendered as an absence: with nothing in flight the row is
+    // the count and nothing else, so a finished step can never read as a running
+    // one and no synthetic step number is invented to fill the gap.
+    render(<RunDetailsPanel details={cut({ openStep: null })} task={undefined} transient={HIDDEN} t={t} />)
+    expect(screen.getByTestId('run-details-steps').textContent).toBe('2 步')
+  })
+
+  it('shows a retry count without a limit when the host serves none', () => {
+    // A Run whose durable events never carried a ceiling must not borrow one:
+    // the row drops the `/ max` half rather than showing an invented bound.
+    render(<RunDetailsPanel details={cut({ retryCount: 1 })} task={undefined} transient={HIDDEN} t={t} />)
+    expect(screen.getByTestId('run-details-retries').textContent).toBe('1 次')
+  })
+
+  it('falls back to the requested reasoning effort when the host resolved none', () => {
+    render(<RunDetailsPanel
+      details={cut({ reasoning: { requested: 'high', adapterMaterialized: false, atSeq: 0 as never, at: 0 } })}
+      task={undefined}
+      transient={HIDDEN}
+      t={t}
+    />)
+    expect(screen.getByTestId('run-details-reasoning').textContent).toBe('high')
+    cleanup()
+    render(<RunDetailsPanel
+      details={cut({ reasoning: { adapterMaterialized: false, atSeq: 0 as never, at: 0 } })}
+      task={undefined}
+      transient={HIDDEN}
+      t={t}
+    />)
+    // Neither resolved nor requested is a rendered absence, not a guessed effort.
+    expect(screen.getByTestId('run-details-reasoning').textContent).toBe('未设置')
+  })
+
+  it('reports no task when the latest task id names no checkpoint', () => {
+    // A dangling pointer is an absence, not a task: the row says no task rather
+    // than echoing an id that no committed checkpoint backs.
+    render(<RunDetailsPanel details={cut()} task={{ ...task(), latestTaskId: 'task-2' as never }} transient={HIDDEN} t={t} />)
+    expect(screen.getByTestId('run-details-task').textContent).toBe('无任务')
+  })
+
+  it('shows a run id whole when it carries no derivable scheme', () => {
+    // The strip shortens only the identity this programme issued; anything that
+    // does not carry the run scheme is shown verbatim rather than reshaped.
+    render(<RunDetailsPanel details={cut({ runId: 'run:v1' as never })} task={undefined} transient={HIDDEN} t={t} />)
+    expect(screen.getByTestId('run-details-run-id').textContent).toBe('run:v1')
+  })
+
   it('renders no control a click could reach', () => {
-    const { container } = render(<RunDetailsPanel details={cut()} task={task()} t={t} />)
+    const { container } = render(<RunDetailsPanel details={cut()} task={task()} transient={HIDDEN} t={t} />)
     expect(container.querySelectorAll('button, input, select, textarea, a[href]')).toHaveLength(0)
   })
 
@@ -129,6 +202,7 @@ describe('RunDetailsPanel', () => {
     render(<RunDetailsPanel
       details={cut({ reasoning: { requested: 'high', resolved: 'high', adapterMaterialized: false, atSeq: 0 as never, at: 0 } })}
       task={undefined}
+      transient={HIDDEN}
       t={t}
     />)
     expect(screen.getByTestId('run-details-reasoning').textContent).toBe('high')
@@ -136,6 +210,7 @@ describe('RunDetailsPanel', () => {
     render(<RunDetailsPanel
       details={cut({ reasoning: { resolved: 'medium', adapterMaterialized: true, atSeq: 0 as never, at: 0 } })}
       task={undefined}
+      transient={HIDDEN}
       t={t}
     />)
     expect(screen.getByTestId('run-details-reasoning').textContent).toBe('medium (适配器默认)')
@@ -156,27 +231,27 @@ describe('RunDetailsPanel', () => {
         at: 4_000,
       },
     })
-    render(<RunDetailsPanel details={details} task={undefined} t={t} />)
+    render(<RunDetailsPanel details={details} task={undefined} transient={HIDDEN} t={t} />)
     expect(screen.getByTestId('run-details-reasoning').textContent).toBe('high')
     expect(screen.getByTestId('run-details-compaction').textContent).toBe('context-overflow，2 次候选')
     expect(screen.getByTestId('run-details-compaction-reasoning').textContent).toBe('low')
   })
 
   it('omits compaction rows before a summary commits an audit', () => {
-    render(<RunDetailsPanel details={cut()} task={undefined} t={t} />)
+    render(<RunDetailsPanel details={cut()} task={undefined} transient={HIDDEN} t={t} />)
     expect(screen.queryByTestId('run-details-compaction')).toBeNull()
     expect(screen.queryByTestId('run-details-compaction-reasoning')).toBeNull()
     expect(screen.getByTestId('run-details-reasoning').textContent).toBe('未设置')
   })
 
   it('renders durable task continuity and its repair hazards', () => {
-    render(<RunDetailsPanel details={cut()} task={task(true)} t={t} />)
+    render(<RunDetailsPanel details={cut()} task={task(true)} transient={HIDDEN} t={t} />)
     expect(screen.getByTestId('run-details-task').textContent).toBe('task-1 · running')
     expect(screen.getByTestId('run-details-hazards').textContent).toBe('1 处修复隐患')
   })
 
   it('reports no task rather than inventing one', () => {
-    render(<RunDetailsPanel details={cut()} task={{ tasks: [], repairHazards: [] }} t={t} />)
+    render(<RunDetailsPanel details={cut()} task={{ tasks: [], repairHazards: [] }} transient={HIDDEN} t={t} />)
     expect(screen.getByTestId('run-details-task').textContent).toBe('无任务')
     expect(screen.queryByTestId('run-details-hazards')).toBeNull()
   })
@@ -185,13 +260,14 @@ describe('RunDetailsPanel', () => {
     render(<RunDetailsPanel
       details={cut({ primaryError: { code: 'CONTEXT_OVERFLOW', message: 'overflow', severity: 'fatal', origin: 'provider', time: 5 } })}
       task={undefined}
+      transient={HIDDEN}
       t={t}
     />)
     expect(screen.getByTestId('run-details-error').textContent).toBe('CONTEXT_OVERFLOW')
   })
 
   it('renders the guarded-resume decision class and its raw reason code', () => {
-    render(<RunDetailsPanel details={cut({ guardedResume: resume() as never })} task={undefined} t={t} />)
+    render(<RunDetailsPanel details={cut({ guardedResume: resume() as never })} task={undefined} transient={HIDDEN} t={t} />)
     // The class is a label, the reason stays the structured Stage 8 code, and the
     // admissible plan is shown as a count rather than offered as an action.
     expect(screen.getByTestId('run-details-guarded-resume').textContent).toBe('可继续 · PENDING_ONLY · 1 步待续')
@@ -204,6 +280,7 @@ describe('RunDetailsPanel', () => {
     render(<RunDetailsPanel
       details={cut({ guardedResume: resume({ decision: 'requires_confirmation', reason: 'TOOL_OUTCOME_UNKNOWN', hazardCodes: ['TOOL_OUTCOME_UNKNOWN'], planStepCount: 0 }) as never })}
       task={undefined}
+      transient={HIDDEN}
       t={t}
     />)
     expect(screen.getByTestId('run-details-guarded-resume').textContent).toBe('需确认 · TOOL_OUTCOME_UNKNOWN · 1 处隐患')
@@ -211,6 +288,7 @@ describe('RunDetailsPanel', () => {
     render(<RunDetailsPanel
       details={cut({ guardedResume: resume({ hazardCodes: ['TOOL_NOT_STARTED'] }) as never })}
       task={undefined}
+      transient={HIDDEN}
       t={t}
     />)
     const text = screen.getByTestId('run-details-guarded-resume').textContent ?? ''
@@ -220,14 +298,160 @@ describe('RunDetailsPanel', () => {
   })
 
   it('renders no guarded-resume row when the host serves no decision', () => {
-    render(<RunDetailsPanel details={cut()} task={undefined} t={t} />)
+    render(<RunDetailsPanel details={cut()} task={undefined} transient={HIDDEN} t={t} />)
     expect(screen.queryByTestId('run-details-guarded-resume')).toBeNull()
   })
 })
 
-/** Dock props stub: the adapter reads two projections; the owner share is unused. */
-function dockProps(values: Record<string, unknown>): RunDetailsDockProps {
-  return { useProjection: (key: string) => values[key], t } as unknown as RunDetailsDockProps
+describe('the transient compaction row', () => {
+  it('renders nothing at all when no transport is mounted to ask', () => {
+    render(<RunDetailsPanel details={cut()} task={undefined} transient={HIDDEN} t={t} />)
+    expect(screen.queryByTestId('run-details-compaction-live')).toBeNull()
+  })
+
+  it('reads loading, none, live, and failed as four different states', () => {
+    render(<RunDetailsPanel details={cut()} task={undefined} transient={transientCompaction(snapshot())} t={t} />)
+    expect(screen.getByTestId('run-details-compaction-live').textContent).toBe('加载中')
+    cleanup()
+    render(<RunDetailsPanel
+      details={cut()}
+      task={undefined}
+      transient={transientCompaction(snapshot({ status: 'live', value: { present: false } }))}
+      t={t}
+    />)
+    expect(screen.getByTestId('run-details-compaction-live').textContent).toBe('无进行中的压缩')
+    cleanup()
+    render(<RunDetailsPanel
+      details={cut()}
+      task={undefined}
+      transient={transientCompaction(snapshot(observed({ status: 'summarizing', candidateAttempt: 2 })))}
+      t={t}
+    />)
+    expect(screen.getByTestId('run-details-compaction-live').textContent).toBe('summarizing · 候选 2')
+    cleanup()
+    render(<RunDetailsPanel
+      details={cut()}
+      task={undefined}
+      transient={transientCompaction(snapshot({ status: 'failed', failure: { code: 'runtime-diagnostics/unexpected-frame' } }))}
+      t={t}
+    />)
+    expect(screen.getByTestId('run-details-compaction-live').textContent).toBe('runtime-diagnostics/unexpected-frame')
+  })
+
+  it('never renders an idle observation as a live compaction', () => {
+    render(<RunDetailsPanel
+      details={cut()}
+      task={undefined}
+      transient={transientCompaction(snapshot(observed({ status: 'idle' })))}
+      t={t}
+    />)
+    expect(screen.getByTestId('run-details-compaction-live').textContent).toBe('无进行中的压缩')
+  })
+
+  it('keeps the transient row separate from the durable audit row', () => {
+    const details = cut({
+      compaction: {
+        policyId: 'p',
+        policyVersion: '1',
+        trigger: 'context-overflow',
+        candidateAttempts: 1,
+        atSeq: 4 as never,
+        at: 4_000,
+      },
+    })
+    render(<RunDetailsPanel
+      details={details}
+      task={undefined}
+      transient={transientCompaction(snapshot(observed({ status: 'validating' })))}
+      t={t}
+    />)
+    // The durable row is the audit a committed summary published; the transient
+    // row is what the policy is doing right now. Both are visible, and neither
+    // is derived from the other.
+    expect(screen.getByTestId('run-details-compaction').textContent).toBe('context-overflow，1 次候选')
+    expect(screen.getByTestId('run-details-compaction-live').textContent).toBe('validating')
+  })
+
+  it('renders no control a click could reach in either compaction row', () => {
+    const { container } = render(<RunDetailsPanel
+      details={cut({
+        compaction: {
+          policyId: 'p',
+          policyVersion: '1',
+          trigger: 'context-overflow',
+          candidateAttempts: 1,
+          atSeq: 4 as never,
+          at: 4_000,
+        },
+      })}
+      task={undefined}
+      transient={transientCompaction(snapshot(observed({ status: 'applied' })))}
+      t={t}
+    />)
+    expect(container.querySelectorAll('button, input, select, textarea, a[href]')).toHaveLength(0)
+  })
+})
+
+describe('transientCompaction', () => {
+  it('maps the resource model four statuses onto the row', () => {
+    expect(transientCompaction({ status: 'none', value: undefined, failure: undefined })).toEqual({ state: 'hidden' })
+    expect(transientCompaction({ status: 'loading', value: undefined, failure: undefined })).toEqual({ state: 'loading' })
+    expect(transientCompaction({ status: 'failed', value: undefined, failure: { code: 'x' } })).toEqual({ state: 'failed', code: 'x' })
+  })
+
+  it('falls back to a classified code when a failure carries none', () => {
+    expect(transientCompaction({ status: 'failed', value: undefined, failure: undefined }))
+      .toEqual({ state: 'failed', code: 'runtime-diagnostics/transport-failure' })
+  })
+
+  it('treats a value it cannot read a status from as none rather than as a status', () => {
+    // The transport proves a value is detached JSON, never what its fields mean,
+    // so a non-record or a non-textual status is unrenderable and reads as no
+    // compaction instead of being cast into the row.
+    expect(transientCompaction({
+      status: 'live',
+      value: { present: true, value: 'not-a-record' as never },
+      failure: undefined,
+    })).toEqual({ state: 'none' })
+    expect(transientCompaction({
+      status: 'live',
+      value: { present: true, value: { status: 7 } as never },
+      failure: undefined,
+    })).toEqual({ state: 'none' })
+  })
+
+  it('omits the candidate attempt when the observation carries none', () => {
+    expect(transientCompaction(observed({ status: 'assessing' }))).toEqual({ state: 'live', status: 'assessing' })
+  })
+
+  it('pins the topic, schema, and address the transport parses strictly', () => {
+    expect(TRANSIENT_COMPACTION_TOPIC).toBe('task-aware-compaction')
+    expect(TRANSIENT_COMPACTION_SCHEMA).toEqual({
+      schemaId: 'dsh.task-aware-compaction-diagnostics',
+      schemaVersion: 1,
+    })
+    expect(transientCompactionAddress('s1')).toBe('dsh-resource://runtime-diagnostics/task-aware-compaction/s1')
+    // The transport re-encodes every segment and refuses an over- or
+    // under-escaped one, so the address must be built escaped.
+    expect(transientCompactionAddress('a/b')).toBe('dsh-resource://runtime-diagnostics/task-aware-compaction/a%2Fb')
+  })
+})
+
+/**
+ * Dock props stub: the adapter reads two projections and one resource address.
+ * The owner share and the session kit beyond `sessionId` are unused.
+ */
+function dockProps(
+  values: Record<string, unknown>,
+  resource: TransientResourceSnapshot = { status: 'none', value: undefined, failure: undefined },
+  addresses: string[] = [],
+): RunDetailsDockProps {
+  return {
+    useProjection: (key: string) => values[key],
+    useResource: (address: string) => { addresses.push(address); return resource },
+    sessionId: 's1',
+    t,
+  } as unknown as RunDetailsDockProps
 }
 
 describe('RunDetailsDock', () => {
@@ -248,28 +472,53 @@ describe('RunDetailsDock', () => {
     expect(screen.getByTestId('run-details-task').textContent).toBe('task-1 · running')
   })
 
-  it('opens only the two projection seats and offers no way to act on the decision', () => {
+  it('reads the transient observation from the address of the Session it shows', () => {
+    const addresses: string[] = []
+    render(<RunDetailsDock
+      {...dockProps({ runDetails: cut() }, snapshot(observed({ status: 'validating' })), addresses)}
+    />)
+    expect(addresses).toEqual(['dsh-resource://runtime-diagnostics/task-aware-compaction/s1'])
+    expect(screen.getByTestId('run-details-compaction-live').textContent).toBe('validating')
+  })
+
+  it('keeps the transient row absent when no transport is mounted', () => {
+    render(<RunDetailsDock {...dockProps({ runDetails: cut() })} />)
+    expect(screen.queryByTestId('run-details-compaction-live')).toBeNull()
+    expect(screen.getByTestId('run-details')).toBeTruthy()
+  })
+
+  it('reads the two projection seats plus one address and offers no way to act', () => {
     // The guarded-resume decision is read from the runDetails cut it is folded
-    // into; the dock subscribes to no third channel, so it cannot become a second
-    // authority, and it exposes no control a reader could use to force a resume.
+    // into, and the transient observation from a resource the host owns: the dock
+    // subscribes to no third channel of its own, so it cannot become a second
+    // authority, and it exposes no control a reader could use to force a resume
+    // or a compaction.
     const keys: string[] = []
     const values: Record<string, unknown> = { runDetails: cut({ guardedResume: resume() as never }), taskCheckpoint: task() }
-    const props = { useProjection: (key: string) => { keys.push(key); return values[key] }, t } as unknown as RunDetailsDockProps
+    const props = {
+      useProjection: (key: string) => { keys.push(key); return values[key] },
+      useResource: () => snapshot(observed({ status: 'summarizing' })),
+      sessionId: 's1',
+      t,
+    } as unknown as RunDetailsDockProps
     const { container } = render(<RunDetailsDock {...props} />)
     expect(keys).toEqual(['runDetails', 'taskCheckpoint'])
     expect(screen.getByTestId('run-details-guarded-resume')).toBeTruthy()
+    expect(screen.getByTestId('run-details-compaction-live').textContent).toBe('summarizing')
     expect(container.querySelectorAll('button, input, select, textarea, a[href]')).toHaveLength(0)
   })
 })
 
 describe('ui-run-details plugin', () => {
-  it('registers one read-only dock entry with its locale namespace', () => {
+  it('registers one read-only dock entry, its copy, and its transient topic', () => {
     const register = vi.fn(() => () => undefined)
     const inject = vi.fn((_name: string, callback: () => () => void) => callback())
     const localeRegister = vi.fn(() => () => undefined)
+    const declare = vi.fn(() => () => undefined)
     const ctx = {
       slots: { inject, register },
       locale: { register: localeRegister },
+      runtimeDiagnosticsTopics: { declare },
       effect: (fn: () => () => void) => fn(),
     }
     apply(ctx as never)
@@ -279,6 +528,15 @@ describe('ui-run-details plugin', () => {
       RunDetailsDock,
     )
     expect(localeRegister).toHaveBeenCalledWith(NS, { zh, en })
+    // The transient row may only open a topic whose schema this client declares.
+    expect(declare).toHaveBeenCalledWith(TRANSIENT_COMPACTION_TOPIC, TRANSIENT_COMPACTION_SCHEMA)
+  })
+
+  it('requires the module seats the strip actually reads', () => {
+    // The registry is a requirement, not an optional lookup: without it the
+    // plugin does not activate, so the strip can never open a resource whose
+    // frames nobody validated.
+    expect(requiredServices).toEqual(['slots', 'locale', 'runtimeDiagnosticsTopics'])
   })
 
   it('keeps the node half inert', () => {

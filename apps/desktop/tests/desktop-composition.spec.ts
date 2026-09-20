@@ -37,6 +37,8 @@ describe('desktop-custom current-upstream composition', () => {
       'task-checkpoint',
       'agent-run-policy',
       'compaction-task-aware-policy',
+      'runtime-diagnostics-controller',
+      'compaction-task-aware-diagnostics-transport',
       'run-details',
       'ui-run-details',
     ])

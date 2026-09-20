@@ -1,11 +1,11 @@
 # The dsh-desktop-custom bundle patch: the DS Harness Desktop capability layer,
 # applied last over dsh-base and dsh-web-app.
 #
-# This layer contributes no client row, replaces no executor, adds no durable
-# Session event, and holds no mutable state. It mounts the three DS Harness
-# host-plane services the surface's own capabilities are built on, and it
-# states the deployment's semantic-validation budget on the inherited
-# compaction executor.
+# This layer replaces no executor, adds no durable Session event, and holds no
+# mutable state of its own. It mounts the DS Harness host-plane services the
+# surface's capabilities are built on, one client row for the read-only Run
+# Details strip, and states the deployment's semantic-validation budget on the
+# inherited compaction executor.
 #
 # A patch replaces the targeted row's whole `config`, so each row below restates
 # every key it owns.
@@ -36,6 +36,26 @@
     # widen what the compact surface publishes.
     - id: compaction-task-aware-policy
       name: '@deepseek-ai/dsh-compaction-task-aware-policy'
+
+    # The generic transient-diagnostics transport. It owns routing and delivery
+    # only: which provider serves a topic, one stream per topic + Session, and
+    # each frame in the order its provider committed it. It reads no phase,
+    # keeps no current-value map, and never writes to a provider, so a
+    # reconnecting client re-reads the owner instead of replaying anything the
+    # transport remembered. Its browser half mounts the generated contribution
+    # and serves the `runtime-diagnostics` resource protocol.
+    - id: runtime-diagnostics-controller
+      name: '@deepseek-ai/dsh-api-runtime-diagnostics-controller'
+
+    # The transport face of the Stage 10 diagnostics store: the one adapter
+    # that registers the task-aware compaction topic with the controller above,
+    # so the process-local status a running compaction publishes becomes
+    # readable without a Session event, a second Remote authority, or
+    # persistence. It registers only when the mounted policy exposes the
+    # read/subscribe face, publishes nothing otherwise, and retires with its
+    # own fiber — so a deployment without the store stays exactly as it was.
+    - id: compaction-task-aware-diagnostics-transport
+      name: '@deepseek-ai/dsh-compaction-task-aware-policy/diagnostics-transport'
 
     # The read-only Run Details transport. Mounting it registers the
     # `runDetails` session projection over the Stage 6 lifecycle fold, Stage 7

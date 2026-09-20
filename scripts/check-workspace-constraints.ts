@@ -203,6 +203,10 @@ const packageFileExtras: Readonly<Record<string, readonly string[]>> = {
   // The headless entry and its startup row share the JSON projection code
   // through a hashed tsdown chunk; both import it by relative path.
   '@deepseek-ai/dsh-headless': ['lib/json-stream-*.js'],
+  // The opt-in diagnostics transport is a second Loader entry beside the policy:
+  // a deployment mounts the read-only stream without the policy core importing a
+  // carrier, so it cannot ride inside the package entry.
+  '@deepseek-ai/dsh-compaction-task-aware-policy': ['lib/diagnostics-transport.js'],
 }
 
 function sameStringList(actual: readonly string[] | undefined, expected: readonly string[]): boolean {

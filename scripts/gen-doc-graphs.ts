@@ -316,6 +316,14 @@ const SERVICE_ROLES: ServiceRole[] = [
     note: 'Associates generated Remote descriptors with live Cordis services, resolves registered identities, and exposes unary calls through the shared Connection RPC carrier.',
   },
   {
+    key: 'runtimeDiagnostics',
+    pkg: 'api-runtime-diagnostics-controller',
+    title: 'Generic transient-diagnostics transport',
+    mode: 'core',
+    consumers: ['compaction-task-aware-policy', 'client-ui-run-details'],
+    note: 'Routes a topic-keyed provider registry onto a typed Remote stream per topic and Session. A domain package registers the topic it owns and the Client declares the schema that topic must repeat, so the generic layer transports observations without interpreting them.',
+  },
+  {
     key: 'sessionPersistence',
     pkg: 'session-persistence',
     title: 'Durable session persistence seam',

@@ -114,6 +114,7 @@ flowchart TD
   subgraph group_api["packages/api"]
     pkg_api_gateway["api-gateway"]
     pkg_api_remotes["api-remotes"]
+    pkg_api_runtime_diagnostics_controller["api-runtime-diagnostics-controller"]
     pkg_api_session_controller["api-session-controller"]
     pkg_api_settings_controller["api-settings-controller"]
     pkg_api_terminal_controller["api-terminal-controller"]
@@ -1028,14 +1029,6 @@ flowchart TD
   pkg_agent_run_policy --> pkg_llm
   pkg_agent_run_policy --> pkg_session
   pkg_agent_run_policy --> pkg_session_projection
-  pkg_run_details --> pkg_agent_lifecycle_facts
-  pkg_run_details --> pkg_agent_run_state
-  pkg_run_details --> pkg_compaction
-  pkg_run_details --> pkg_llm
-  pkg_run_details --> pkg_llm_retry
-  pkg_run_details --> pkg_reasoning_policy
-  pkg_run_details --> pkg_session
-  pkg_run_details --> pkg_session_projection
   pkg_session_telemetry_otel --> pkg_anonymous_user_id
   pkg_session_telemetry_otel --> pkg_command_feedback
   pkg_session_telemetry_otel --> pkg_llm
@@ -1159,6 +1152,15 @@ flowchart TD
   pkg_compaction_tool_result_pruner --> pkg_llm
   pkg_compaction_tool_result_pruner --> pkg_session
   pkg_compaction_tool_result_pruner --> pkg_token_meter
+  pkg_run_details --> pkg_agent_lifecycle_facts
+  pkg_run_details --> pkg_agent_run_state
+  pkg_run_details --> pkg_compaction
+  pkg_run_details --> pkg_llm
+  pkg_run_details --> pkg_llm_retry
+  pkg_run_details --> pkg_reasoning_policy
+  pkg_run_details --> pkg_session
+  pkg_run_details --> pkg_session_projection
+  pkg_run_details --> pkg_task_checkpoint
   pkg_webhook_github --> pkg_credentials
   pkg_webhook_github --> pkg_host_webserver
   pkg_webhook_github --> pkg_session
@@ -1363,6 +1365,7 @@ flowchart TD
 | [`deepseek-llm-api-extensions`](../packages/llm/deepseek-llm-api-extensions) | `llm` | — |
 | [`llm`](../packages/llm/llm) | `llm` | — |
 | [`api-gateway`](../packages/api/gateway) | `api` | — |
+| [`api-runtime-diagnostics-controller`](../packages/api/runtime-diagnostics-controller) | `api` | — |
 | [`api-workspace-files`](../packages/api/workspace-files) | `api` | — |
 | [`cmdline`](../packages/boot/cmdline) | `boot` | — |
 | [`acp-app`](../packages/bundle/acp-app) | `bundle` | — |
@@ -1603,7 +1606,6 @@ flowchart TD
 | [`host-plugin-inventory`](../packages/host/plugin-inventory) | `host` | [`agent-presets`](../packages/preset/agent-presets), [`brand`](../packages/util/brand), [`typert-protocol`](../packages/typert/protocol) |
 | [`mcp-client`](../packages/mcp/mcp-client) | `mcp` | [`attachment`](../packages/attachment/attachment), [`llm`](../packages/llm/llm), [`mcp-resources`](../packages/mcp/mcp-resources), [`scope`](../packages/core/scope), [`subprocess`](../packages/subprocess/subprocess), [`system-prompt`](../packages/core/system-prompt), [`timeout`](../packages/util/timeout), [`tools`](../packages/core/tools) |
 | [`agent-run-policy`](../packages/runtime-diagnostics/agent-run-policy) | `runtime-diagnostics` | [`agent`](../packages/core/agent), [`agent-run-state`](../packages/runtime-diagnostics/agent-run-state), [`llm`](../packages/llm/llm), [`session`](../packages/core/session), [`session-projection`](../packages/session/session-projection) |
-| [`run-details`](../packages/runtime-diagnostics/run-details) | `runtime-diagnostics` | [`agent-lifecycle-facts`](../packages/runtime-diagnostics/agent-lifecycle-facts), [`agent-run-state`](../packages/runtime-diagnostics/agent-run-state), [`compaction`](../packages/compaction/compaction), [`llm`](../packages/llm/llm), [`llm-retry`](../packages/llm/llm-retry), [`reasoning-policy`](../packages/runtime-diagnostics/reasoning-policy), [`session`](../packages/core/session), [`session-projection`](../packages/session/session-projection) |
 | [`session-telemetry-otel`](../packages/session/session-telemetry-otel) | `session` | [`anonymous-user-id`](../packages/identity/anonymous-user-id), [`command-feedback`](../packages/feedback/command-feedback), [`llm`](../packages/llm/llm), [`message-feedback`](../packages/feedback/message-feedback), [`session`](../packages/core/session), [`session-telemetry`](../packages/session/session-telemetry) |
 | [`task-checkpoint`](../packages/session/task-checkpoint) | `session` | [`agent`](../packages/core/agent), [`agent-run-state`](../packages/runtime-diagnostics/agent-run-state), [`brand`](../packages/util/brand), [`llm`](../packages/llm/llm), [`session`](../packages/core/session), [`session-projection`](../packages/session/session-projection) |
 | [`tool-bash`](../packages/shell/tool-bash) | `shell` | [`agent`](../packages/core/agent), [`jobs`](../packages/jobs/jobs), [`llm`](../packages/llm/llm), [`sandbox`](../packages/sandbox/sandbox), [`sandbox-policy`](../packages/sandbox/sandbox-policy), [`shell`](../packages/shell/shell), [`shell-env`](../packages/shell/shell-env), [`system-prompt`](../packages/core/system-prompt), [`tools`](../packages/core/tools), [`user-approval`](../packages/interaction/user-approval) |
@@ -1621,6 +1623,7 @@ flowchart TD
 | [`headless`](../packages/bundle/headless) | `bundle` | [`agent`](../packages/core/agent), [`agent-default-model`](../packages/core/agent-default-model), [`fs`](../packages/fs/fs), [`llm`](../packages/llm/llm), [`session`](../packages/core/session), [`session-query`](../packages/session-query/session-query) |
 | [`compaction-task-aware-policy`](../packages/compaction/compaction-task-aware-policy) | `compaction` | [`compaction`](../packages/compaction/compaction), [`llm`](../packages/llm/llm), [`reasoning-policy`](../packages/runtime-diagnostics/reasoning-policy), [`session`](../packages/core/session), [`session-projection`](../packages/session/session-projection), [`task-checkpoint`](../packages/session/task-checkpoint), [`token-meter`](../packages/llm/token-meter) |
 | [`compaction-tool-result-pruner`](../packages/compaction/compaction-tool-result-pruner) | `compaction` | [`compaction`](../packages/compaction/compaction), [`llm`](../packages/llm/llm), [`session`](../packages/core/session), [`token-meter`](../packages/llm/token-meter) |
+| [`run-details`](../packages/runtime-diagnostics/run-details) | `runtime-diagnostics` | [`agent-lifecycle-facts`](../packages/runtime-diagnostics/agent-lifecycle-facts), [`agent-run-state`](../packages/runtime-diagnostics/agent-run-state), [`compaction`](../packages/compaction/compaction), [`llm`](../packages/llm/llm), [`llm-retry`](../packages/llm/llm-retry), [`reasoning-policy`](../packages/runtime-diagnostics/reasoning-policy), [`session`](../packages/core/session), [`session-projection`](../packages/session/session-projection), [`task-checkpoint`](../packages/session/task-checkpoint) |
 | [`webhook-github`](../packages/webhook/webhook-github) | `webhook` | [`credentials`](../packages/credentials/credentials), [`host-webserver`](../packages/host/webserver), [`session`](../packages/core/session), [`webhook`](../packages/webhook/webhook) |
 | [`subagent-acp`](../packages/subagent/subagent-acp) | `subagent` | [`agent`](../packages/core/agent), [`llm`](../packages/llm/llm), [`session`](../packages/core/session), [`subagent`](../packages/subagent/subagent), [`subprocess`](../packages/subprocess/subprocess), [`timeout`](../packages/util/timeout) |
 | [`subagent-claude-code`](../packages/subagent/subagent-claude-code) | `subagent` | [`llm`](../packages/llm/llm), [`session`](../packages/core/session), [`subagent`](../packages/subagent/subagent), [`subprocess`](../packages/subprocess/subprocess), [`timeout`](../packages/util/timeout) |

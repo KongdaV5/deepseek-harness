@@ -114,6 +114,8 @@ import type {
 | `textOfContent(content)` | The text projection used by validation and pricing. |
 | `TaskAwarePolicyError` | The structured refusal, carrying a `TaskAwareBlockCode`. |
 | `TaskAwareCompactionDiagnostics` | The transient per-Session observation, read through the service's `diagnostics(sessionId)`. |
+| `TASK_AWARE_COMPACTION_DIAGNOSTICS_TOPIC` / `TASK_AWARE_COMPACTION_DIAGNOSTICS_SCHEMA` ([`./diagnostics-transport`](../../../packages/compaction/compaction-task-aware-policy/src/diagnostics-transport.ts)) | The topic this policy publishes and the schema identity every frame on it must repeat. |
+| `createTaskAwareCompactionDiagnosticsProvider(source)` / `isTaskAwareDiagnosticsSource(value)` ([`./diagnostics-transport`](../../../packages/compaction/compaction-task-aware-policy/src/diagnostics-transport.ts)) | The transport adapter: the read/subscribe face the generic runtime-diagnostics controller registers, and the structural check that decides whether the mounted policy can serve that face at all. |
 
 <a id="model-experience"></a>
 ## Model Experience

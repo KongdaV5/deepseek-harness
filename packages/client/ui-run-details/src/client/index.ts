@@ -2,11 +2,13 @@
  * Run Details surface plugin, browser half: the read-only strip in the
  * `conversation.input.dock` row above the composer.
  *
- * Both facts it renders arrive through the standard projection seats —
+ * The facts it renders arrive through the standard projection seats —
  * `runDetails` for the Run's own cut and `taskCheckpoint` for durable task
- * continuity — so the strip holds no domain logic, no Remote call, and no
- * polling: the host is the only computation site. The entry contributes no
- * injected face at all, which is what makes the surface structurally read-only.
+ * continuity — plus one resource address for the transient compaction
+ * observation. All three are host-owned reads: the strip holds no domain logic,
+ * makes no Remote call, and polls nothing, so the host remains the only
+ * computation site. The entry contributes no injected face at all, which is what
+ * makes the surface structurally read-only.
  */
 
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
@@ -22,11 +24,21 @@ import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 // Type-only: pulls the renderer-owned slots service.
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
+// Type-only: pulls the resource model's global seat and the transient topic registry merge.
+import type {} from '@deepseek-ai/dsh-api-runtime-diagnostics-controller/client'
 import { en, NS, zh, type RunDetailsKey } from './locales.ts'
+import { TRANSIENT_COMPACTION_SCHEMA, TRANSIENT_COMPACTION_TOPIC } from './transient.ts'
 import { RunDetailsDock } from './RunDetailsDock.tsx'
 
 export { RunDetailsDock, RunDetailsPanel } from './RunDetailsDock.tsx'
 export type { RunDetailsDockProps, RunDetailsPanelProps } from './RunDetailsDock.tsx'
+export {
+  TRANSIENT_COMPACTION_SCHEMA,
+  TRANSIENT_COMPACTION_TOPIC,
+  transientCompaction,
+  transientCompactionAddress,
+} from './transient.ts'
+export type { TransientCompaction, TransientResourceSnapshot } from './transient.ts'
 export { NS, en, zh } from './locales.ts'
 export type { RunDetailsKey } from './locales.ts'
 
@@ -37,15 +49,29 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
   }
 }
 
-/** Required services for the dock slot and the strip's copy. */
-export const inject = ['slots', 'locale']
+/**
+ * Required services for the dock slot, the strip's copy, and the transient topic
+ * registry. The registry is what makes the transient read possible at all: with
+ * it the strip serves its three rows, and without it the plugin simply does not
+ * activate rather than opening a resource it could not validate.
+ */
+export const inject = ['slots', 'locale', 'runtimeDiagnosticsTopics']
 
 /**
- * Client plugin body: the Run Details dock entry.
+ * Client plugin body: the Run Details dock entry and its transient topic.
  * @param ctx - client root context.
  */
 export function apply(ctx: ClientContext): void {
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-run-details: dictionaries')
+
+  // The topic's schema is declared on the transport's registry rather than in
+  // this surface. A topic nobody declared fails the resource closed, so this is
+  // what lets the row open without ever rendering an observation the client
+  // cannot name the schema for.
+  ctx.effect(
+    () => ctx.runtimeDiagnosticsTopics.declare(TRANSIENT_COMPACTION_TOPIC, TRANSIENT_COMPACTION_SCHEMA),
+    'ui-run-details: transient compaction topic',
+  )
 
   ctx.slots.inject('conversation.input.dock', () => ctx.slots.register({
     name: 'conversation.input.dock',

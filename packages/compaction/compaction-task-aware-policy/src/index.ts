@@ -79,6 +79,8 @@ import { validateTaskAwareCandidate } from './validation.ts'
 import type { TaskCandidateValidationContext } from './validation.ts'
 import type {
   TaskAwareCompactionDiagnostics,
+  TaskAwareDiagnosticsListener,
+  TaskAwareDiagnosticsSource,
   TaskProtection,
   TaskProtectionSnapshot,
 } from './types.ts'
@@ -110,6 +112,8 @@ export type { TaskCandidateValidationContext } from './validation.ts'
 export { AUXILIARY_REASONING_LADDER, resolveAuxiliaryReasoning } from './reasoning.ts'
 export type { AuxiliaryReasoningStep } from './reasoning.ts'
 export { TaskAwareDiagnosticsStore } from './diagnostics.ts'
+export type { TaskAwareDiagnosticsUpdate } from './diagnostics.ts'
+export type { TaskAwareDiagnosticsListener, TaskAwareDiagnosticsSource } from './types.ts'
 
 export const name = 'compactionTaskAwarePolicy'
 
@@ -412,7 +416,7 @@ class UnprotectedTransaction implements CompactionPolicyTransaction {
  * Mounting it is a deployment decision: the official profile does not, so its
  * compaction behaves exactly as the current upstream does.
  */
-export default class TaskAwareCompactionPolicy extends Service implements CompactionCandidatePolicy {
+export default class TaskAwareCompactionPolicy extends Service implements CompactionCandidatePolicy, TaskAwareDiagnosticsSource {
   /** Service name the executor resolves. */
   static override readonly name = 'compactionCandidatePolicy'
 
@@ -425,13 +429,22 @@ export default class TaskAwareCompactionPolicy extends Service implements Compac
   /** Policy contract version recorded in every audit. */
   readonly version = TASK_AWARE_POLICY_VERSION
 
-  private readonly diagnosticsStore = new TaskAwareDiagnosticsStore()
+  private readonly diagnosticsStore: TaskAwareDiagnosticsStore
 
   /**
    * @param ctx - the owning context; its fiber owns the service registration.
    */
   constructor(ctx: Context) {
     super(ctx, 'compactionCandidatePolicy')
+    // An observer failure is reported, never rethrown: it belongs to the
+    // listener, and a compaction must not fail because a reader of its
+    // diagnostics did.
+    this.diagnosticsStore = new TaskAwareDiagnosticsStore((sessionId, error) => {
+      ctx.logger.warn(
+        `compaction diagnostics observer failed for session ${sessionId}: `
+        + (error instanceof Error ? error.message : String(error)),
+      )
+    })
   }
 
   /**
@@ -441,6 +454,21 @@ export default class TaskAwareCompactionPolicy extends Service implements Compac
    */
   diagnostics(sessionId: string): TaskAwareCompactionDiagnostics | undefined {
     return this.diagnosticsStore.read(sessionId)
+  }
+
+  /**
+   * Observe one Session's task-aware observations until the disposer runs.
+   *
+   * This is the read-only seam a transport binds to. It delivers replacement
+   * observations and nothing else: it never triggers a compaction, never
+   * records a diagnostic, and delivers no value on registration, so a caller
+   * can subscribe and then read with nothing in between.
+   * @param sessionId - the Session identity to observe.
+   * @param listener - receives each complete replacement, or `undefined` on removal.
+   * @returns an idempotent disposer that stops future notifications.
+   */
+  subscribeDiagnostics(sessionId: string, listener: TaskAwareDiagnosticsListener): () => void {
+    return this.diagnosticsStore.subscribe(sessionId, listener)
   }
 
   /**

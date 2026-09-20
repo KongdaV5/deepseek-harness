@@ -114,6 +114,8 @@ import type {
 | `textOfContent(content)` | 校验与计价所用的文本投影。 |
 | `TaskAwarePolicyError` | 结构化拒绝，携带一个 `TaskAwareBlockCode`。 |
 | `TaskAwareCompactionDiagnostics` | 瞬态的按 Session 观测，通过服务的 `diagnostics(sessionId)` 读取。 |
+| `TASK_AWARE_COMPACTION_DIAGNOSTICS_TOPIC` / `TASK_AWARE_COMPACTION_DIAGNOSTICS_SCHEMA`（[`./diagnostics-transport`](../../../packages/compaction/compaction-task-aware-policy/src/diagnostics-transport.ts)） | 本策略发布的 topic，以及该 topic 上每一帧必须重复的 schema 身份。 |
+| `createTaskAwareCompactionDiagnosticsProvider(source)` / `isTaskAwareDiagnosticsSource(value)`（[`./diagnostics-transport`](../../../packages/compaction/compaction-task-aware-policy/src/diagnostics-transport.ts)） | 传输适配器：通用 runtime-diagnostics 控制器注册的 read/subscribe 面，以及判断已挂载策略能否提供该面的结构检查。 |
 
 <a id="model-experience"></a>
 ## 模型体验

@@ -287,3 +287,40 @@ export interface ResolvedTaskProtection {
   /** The manifest revisions the checkpoint's evidence depends on. */
   readonly manifests: readonly ResultManifest[]
 }
+
+/**
+ * One observer of a Session's latest transient compaction diagnostics.
+ *
+ * The listener is called with the *complete* replacement observation, or with
+ * `undefined` when the Session no longer holds one (a `clear`, or the Session
+ * being evicted). It is an observer and never a participant: it is notified
+ * after the owner has already committed, and a listener that throws is reported
+ * and dropped rather than allowed to fail the write or the compaction.
+ */
+export type TaskAwareDiagnosticsListener = (
+  diagnostics: TaskAwareCompactionDiagnostics | undefined,
+) => void
+
+/**
+ * The read-only observation surface Stage 11 transports.
+ *
+ * This is the whole seam a transport may bind to: it can read the current
+ * observation and observe replacements, and it can do nothing else. It exposes
+ * no compaction verb, no phase authority, and no writer, so a transport built on
+ * it cannot become a second owner of transient state.
+ */
+export interface TaskAwareDiagnosticsSource {
+  /**
+   * Read the most recent observation for one Session.
+   * @param sessionId - the Session identity.
+   * @returns the observation, or `undefined` when the policy has not run for it.
+   */
+  diagnostics(sessionId: string): TaskAwareCompactionDiagnostics | undefined
+  /**
+   * Observe one Session's observations until the returned disposer is called.
+   * @param sessionId - the Session identity to observe.
+   * @param listener - receives each complete replacement, or `undefined` on removal.
+   * @returns an idempotent disposer that stops future notifications.
+   */
+  subscribeDiagnostics(sessionId: string, listener: TaskAwareDiagnosticsListener): () => void
+}

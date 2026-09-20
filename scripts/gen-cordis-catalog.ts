@@ -128,6 +128,7 @@ export const SERVICE_PAGE: Record<string, string> = {
   tools: 'tools.md',
   typert: 'typert.md',
   typertGateway: 'typert.md',
+  runtimeDiagnostics: 'typert.md',
   userQuestions: 'user-questions.md',
   web: 'web.md',
   workflowEngine: 'workflow.md',
@@ -193,6 +194,7 @@ export const SERVICE_WALK_EXEMPTIONS: Record<string, string> = {
   sidebarRight: 'client-side right-Sidebar navigation face — packages/client/ui-sidebar-right/README.md owns the API',
   sidebarRightTabs: 'client-side right-Sidebar tab-type registry — packages/client/ui-sidebar-right/README.md owns the API',
   documentPreviews: 'client-side document renderer registry — docs/subsystems/sidebar-right.md owns the API',
+  runtimeDiagnosticsTopics: 'client-side transient diagnostics topic registry — packages/api/runtime-diagnostics-controller/README.md owns the API',
 }
 
 /**
@@ -859,6 +861,9 @@ export const TYPE_LINK_EXEMPTIONS: Readonly<Record<string, string>> = {
   CompactionPolicyAdmission: 'candidate-policy admission decision is owned by packages/compaction/compaction/src/candidate-policy.ts',
   CompactionPolicyTransaction: 'candidate-policy live transaction is owned by packages/compaction/compaction/src/candidate-policy.ts',
   TaskResumeRequest: 'task resume request is owned by packages/session/task-checkpoint/src/service.ts',
+  RuntimeDiagnosticsProvider: 'transient diagnostics provider face is owned by packages/api/runtime-diagnostics-controller/README.md',
+  RuntimeDiagnosticsFollowRequest: 'transient diagnostics follow request is owned by packages/api/runtime-diagnostics-controller/README.md',
+  RuntimeDiagnosticsFrame: 'transient diagnostics stream frame is owned by packages/api/runtime-diagnostics-controller/README.md',
 }
 
 /** Repository data policy consumed by the Cordis catalog projector. */

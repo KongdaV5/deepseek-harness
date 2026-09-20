@@ -35,6 +35,7 @@
   },
   "dependencies": {
     "@deepseek-ai/dsh-agent-run-policy": "workspace:^",
+    "@deepseek-ai/dsh-api-runtime-diagnostics-controller": "workspace:^",
     "@deepseek-ai/dsh-client-ui-run-details": "workspace:^",
     "@deepseek-ai/dsh-compaction-task-aware-policy": "workspace:^",
     "@deepseek-ai/dsh-run-details": "workspace:^",

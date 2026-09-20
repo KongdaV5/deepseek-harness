@@ -1055,6 +1055,31 @@ importers:
         specifier: ^4.4.3
         version: 4.4.3
 
+  packages/api/runtime-diagnostics-controller:
+    dependencies:
+      '@deepseek-ai/dsh-typert-protocol':
+        specifier: workspace:^
+        version: link:../../typert/protocol
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
+    devDependencies:
+      '@deepseek-ai/cordis':
+        specifier: workspace:^
+        version: link:../../../vendor/cordis
+      '@deepseek-ai/dsh-api-gateway':
+        specifier: workspace:^
+        version: link:../gateway
+      '@deepseek-ai/dsh-client-resources':
+        specifier: workspace:^
+        version: link:../../client/resources
+      '@deepseek-ai/dsh-client-test-runtime':
+        specifier: workspace:^
+        version: link:../../test-support/client-runtime
+      '@deepseek-ai/dsh-client-ui-slots':
+        specifier: workspace:^
+        version: link:../../client/ui-slots
+
   packages/api/session-controller:
     dependencies:
       '@deepseek-ai/dsh-brand':
@@ -1893,6 +1918,9 @@ importers:
       '@deepseek-ai/dsh-agent-run-policy':
         specifier: workspace:^
         version: link:../../runtime-diagnostics/agent-run-policy
+      '@deepseek-ai/dsh-api-runtime-diagnostics-controller':
+        specifier: workspace:^
+        version: link:../../api/runtime-diagnostics-controller
       '@deepseek-ai/dsh-client-ui-run-details':
         specifier: workspace:^
         version: link:../../client/ui-run-details
@@ -3969,6 +3997,9 @@ importers:
       '@deepseek-ai/cordis':
         specifier: workspace:^
         version: link:../../../vendor/cordis
+      '@deepseek-ai/dsh-api-runtime-diagnostics-controller':
+        specifier: workspace:^
+        version: link:../../api/runtime-diagnostics-controller
       '@deepseek-ai/dsh-api-session-controller':
         specifier: workspace:^
         version: link:../../api/session-controller

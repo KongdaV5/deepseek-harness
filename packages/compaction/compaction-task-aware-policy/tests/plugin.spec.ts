@@ -166,3 +166,41 @@ describe('authority that cannot be read', () => {
     expect(ctx.get('compactionCandidatePolicy')).toBeUndefined()
   })
 })
+
+describe('the read-only diagnostics source a transport binds to', () => {
+  it('streams replacements without emitting a snapshot on registration', async () => {
+    const ctx = await mount()
+    const policy = requirePolicy(ctx)
+    const session = bareSession(ctx)
+    const id = String(session.id)
+    const seen: unknown[] = []
+    const dispose = policy.subscribeDiagnostics(id, value => seen.push(value))
+    // Registration is silent, so a caller pairs it with an immediate read.
+    expect(seen).toEqual([])
+    expect(policy.diagnostics(id)).toBeUndefined()
+    await policy.assess({ session, trigger: 'manual', beforeTokens: 10, maxTokens: 1 })
+    const observed = seen.length
+    expect(observed).toBeGreaterThan(0)
+    expect(seen.at(-1)).toMatchObject({ status: 'idle', trigger: 'manual' })
+    // Disposal stops delivery, and a second call is harmless.
+    dispose()
+    dispose()
+    await policy.assess({ session, trigger: 'manual', beforeTokens: 10, maxTokens: 1 })
+    expect(seen).toHaveLength(observed)
+  })
+
+  it('reports an observer failure as a warning instead of failing the write', async () => {
+    const ctx = await mount()
+    const policy = requirePolicy(ctx)
+    const session = bareSession(ctx)
+    const id = String(session.id)
+    const warnings: string[] = []
+    ctx.logger.warn = ((message: string) => void warnings.push(message)) as typeof ctx.logger.warn
+    policy.subscribeDiagnostics(id, () => { throw new Error('observer exploded') })
+    // The compaction-facing call still resolves normally and records its state.
+    await expect(policy.assess({ session, trigger: 'manual', beforeTokens: 10, maxTokens: 1 }))
+      .resolves.toEqual({ admitted: true })
+    expect(policy.diagnostics(id)).toMatchObject({ status: 'idle' })
+    expect(warnings.join('\n')).toContain('observer exploded')
+  })
+})

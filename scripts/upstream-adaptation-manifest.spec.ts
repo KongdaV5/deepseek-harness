@@ -170,6 +170,8 @@ describe('Phase 8C upstream adaptation manifest', () => {
         'task-checkpoint',
         'agent-run-policy',
         'compaction-task-aware-policy',
+        'runtime-diagnostics-controller',
+        'compaction-task-aware-diagnostics-transport',
         'run-details',
         'ui-run-details',
       ],
@@ -380,8 +382,9 @@ describe('Phase 8C upstream adaptation manifest', () => {
       '@deepseek-ai/dsh-web-app',
       '@deepseek-ai/dsh-desktop-custom',
     ])
-    // Stage 10 left three custom rows; Stage 11 appended the two Run Details
-    // rows to the same tail layer, so the Stage 10 prefix is still first.
+    // Stage 10 left three custom rows; Stage 11 appended the diagnostics
+    // carrier and the two Run Details rows to the same tail layer, so the
+    // Stage 10 prefix is still first.
     expect(manifest.compositionQualification.customEntryIds.slice(0, 3)).toEqual([
       'task-checkpoint',
       'agent-run-policy',
@@ -395,12 +398,14 @@ describe('Phase 8C upstream adaptation manifest', () => {
       .toEqual(['PENDING', 'PENDING'])
   })
 
-  it('records the Stage 11 current-client Run Details integration and its sixteen locked decisions', () => {
+  it('records the Stage 11 current-client Run Details integration and its twenty locked decisions', () => {
     const stageEleven = manifest.portOrder.filter(stage => stage.stage === 11)
     expect(stageEleven.length).toBe(1)
     expect(stageEleven.map(stage => stage.status)).toEqual(['COMPLETE'])
     expect(stageEleven.map(stage => stage.deliverables)).toEqual([[
       'packages/runtime-diagnostics/run-details',
+      'packages/api/runtime-diagnostics-controller',
+      'packages/compaction/compaction-task-aware-policy',
       'packages/client/ui-run-details',
       'packages/session/task-checkpoint',
       'packages/bundle/desktop-custom',
@@ -410,7 +415,7 @@ describe('Phase 8C upstream adaptation manifest', () => {
     expect(decisions.map(decision => decision.slice(0, decision.indexOf(' ')))).toEqual([
       'D11.1', 'D11.2', 'D11.3', 'D11.4', 'D11.5', 'D11.6', 'D11.7',
       'D11.8', 'D11.9', 'D11.10', 'D11.11', 'D11.12', 'D11.13', 'D11.14',
-      'D11.15', 'D11.16',
+      'D11.15', 'D11.16', 'D11.17', 'D11.18', 'D11.19', 'D11.20',
     ])
     // Every locked decision is pinned by its unique semantic anchor, so removing
     // a decision, renumbering it, or restating it more weakly fails this test
@@ -423,7 +428,7 @@ describe('Phase 8C upstream adaptation manifest', () => {
       ['D11.5', 'no backend adapter'],
       ['D11.6', 'classified structured code'],
       ['D11.7', 'separate rows'],
-      ['D11.8', 'transient compaction diagnostics are neither persisted nor displayed, and the read-only UI for them is blocked'],
+      ['D11.8', 'consumed through one read-only reactive stream instead of staying unread'],
       ['D11.9', 'read-only'],
       ['D11.10', 'no new Session event type'],
       ['D11.11', 'desktop-custom tail patch'],
@@ -432,6 +437,10 @@ describe('Phase 8C upstream adaptation manifest', () => {
       ['D11.14', 'taskCheckpoint projection'],
       ['D11.15', 'guarded-resume decision is consumed read-only'],
       ['D11.16', 'distinct fact from the process-local transient diagnostics'],
+      ['D11.17', 'generic transport-agnostic controller'],
+      ['D11.18', 'separate ./diagnostics-transport entry point'],
+      ['D11.19', 'existing ResourceRegistry useResource seat'],
+      ['D11.20', 'never promoted to durable authority'],
     ]
     expect(anchors.map(([id]) => id)).toEqual(decisions.map(decision => decision.slice(0, decision.indexOf(' '))))
     for (const [id, anchor] of anchors) {
@@ -441,13 +450,16 @@ describe('Phase 8C upstream adaptation manifest', () => {
     }
     expect(manifest.capabilities.find(capability => capability.id === 'diagnostics-ui'))
       .toMatchObject({ implementationStatus: 'IMPLEMENTED_STAGE_11_READ_ONLY_PROJECTION_AND_DOCK' })
-    // Stage 11 inserts into the current client instead of forking it: both rows
-    // are appended to the same tail layer, so base and web-app stay first and
-    // the official client roster is untouched.
+    // Stage 11 inserts into the current client instead of forking it: the
+    // diagnostics carrier and both Run Details rows are appended to the same
+    // tail layer, so base and web-app stay first and the official client roster
+    // is untouched.
     expect(manifest.compositionQualification.customEntryIds).toEqual([
       'task-checkpoint',
       'agent-run-policy',
       'compaction-task-aware-policy',
+      'runtime-diagnostics-controller',
+      'compaction-task-aware-diagnostics-transport',
       'run-details',
       'ui-run-details',
     ])

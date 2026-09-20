@@ -18,6 +18,9 @@
       "path": "../../api/session-controller/tsconfig.client.json"
     },
     {
+      "path": "../../api/runtime-diagnostics-controller/tsconfig.client.json"
+    },
+    {
       "path": "../ui-conversation"
     },
     {

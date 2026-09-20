@@ -1648,6 +1648,26 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
+    key: 'runtimeDiagnostics',
+    summary: 'Host service backing the generated `ctx.remote.runtimeDiagnostics` namespace.',
+    description: 'Host service backing the generated `ctx.remote.runtimeDiagnostics` namespace.\n\nA deployment that mounts no provider registers the namespace but serves no topic, so a follow for any topic fails as provider-unavailable rather than opening a stream that can never carry anything.',
+    methods: [
+      {
+        signature: 'registerProvider(provider: RuntimeDiagnosticsProvider): () => void',
+        description: 'Register the one provider that serves a topic.\n\nA second provider for the same topic is a wiring error rather than a precedence question, so it fails fast instead of silently shadowing the first.',
+        parameters: [{ name: 'provider', description: 'the topic\'s read-only observation face.' }],
+        returns: 'an idempotent disposer that also ends the provider\'s live streams.',
+        throws: ['Error when the topic already has a provider.'],
+      },
+      {
+        signature: '@Remote({ mode: \'stream\' }) follow( request: RuntimeDiagnosticsFollowRequest, signal: AbortSignal, ): AsyncIterable<RuntimeDiagnosticsFrame>',
+        description: 'Open one generation of a topic\'s observations for one Session.',
+        parameters: [{ name: 'request', description: 'the topic and Session to follow.' }, { name: 'signal', description: 'generation cancellation, supplied by the Remote carrier.' }],
+        returns: 'the opening snapshot followed by ordered complete replacements.',
+      },
+    ],
+  },
+  {
     key: 'sandbox',
     summary: 'Abstract process-sandbox service.',
     description: 'Abstract process-sandbox service. confine must return enforcing argv or fail closed at wrap or runner-execution time; silent unconfined passthrough is forbidden. Functional probes arbitrate multi-runner chains and may be skipped for a sole candidate, whose own refusal remains the fail-closed end.',
@@ -5779,6 +5799,34 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'RunnerFailureRule',
     declaration: 'export interface RunnerFailureRule {\n    allowedExitCodes?: readonly number[];\n    fatalSignatures: readonly string[];\n    informationalLines?: readonly string[];\n}',
+  },
+  {
+    name: 'RuntimeDiagnosticsFollowRequest',
+    declaration: 'export interface RuntimeDiagnosticsFollowRequest {\n    readonly topic: string;\n    readonly sessionId: string;\n}',
+  },
+  {
+    name: 'RuntimeDiagnosticsFrame',
+    declaration: 'export interface RuntimeDiagnosticsFrame {\n    readonly type: \'snapshot\' | \'change\';\n    readonly topic: string;\n    readonly sessionId: string;\n    readonly schemaId: string;\n    readonly schemaVersion: number;\n    readonly observation: RuntimeDiagnosticsObservation;\n}',
+  },
+  {
+    name: 'RuntimeDiagnosticsObservation',
+    declaration: 'export type RuntimeDiagnosticsObservation = {\n    readonly present: false;\n} | {\n    readonly present: true;\n    readonly value: RuntimeDiagnosticsValue;\n};',
+  },
+  {
+    name: 'RuntimeDiagnosticsProvider',
+    declaration: 'export interface RuntimeDiagnosticsProvider extends RuntimeDiagnosticsTopicDeclaration {\n    read(sessionId: string): RuntimeDiagnosticsProviderObservation | undefined;\n    subscribe(sessionId: string, listener: (observation: RuntimeDiagnosticsProviderObservation | undefined) => void): () => void;\n}',
+  },
+  {
+    name: 'RuntimeDiagnosticsProviderObservation',
+    declaration: 'export type RuntimeDiagnosticsProviderObservation = {\n    readonly present: false;\n} | {\n    readonly present: true;\n    readonly value: object;\n};',
+  },
+  {
+    name: 'RuntimeDiagnosticsTopicDeclaration',
+    declaration: 'export interface RuntimeDiagnosticsTopicDeclaration {\n    readonly topic: string;\n    readonly schemaId: string;\n    readonly schemaVersion: number;\n}',
+  },
+  {
+    name: 'RuntimeDiagnosticsValue',
+    declaration: 'export type RuntimeDiagnosticsValue = null | boolean | number | string | readonly RuntimeDiagnosticsValue[] | {\n    readonly [key: string]: RuntimeDiagnosticsValue;\n};',
   },
   {
     name: 'SandboxEnforcement',

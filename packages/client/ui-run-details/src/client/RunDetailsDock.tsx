@@ -19,6 +19,15 @@ import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots
 import type { RunDetailsRunView, RunGuardedResumeFacts } from '@deepseek-ai/dsh-run-details/client'
 // Type-only: the `taskCheckpoint` projection-key merge and its payload contract.
 import type { TaskCheckpoint, TaskCheckpointProjection } from '@deepseek-ai/dsh-task-checkpoint/client'
+// Type-only: pulls the Session standard `sessionId` seat and the global `useResource` seat.
+import type {} from '@deepseek-ai/dsh-client-ui-session/client'
+// Type-only: pulls the resource model's global `useResource` seat and its `runtime-diagnostics` protocol merge.
+import type {} from '@deepseek-ai/dsh-api-runtime-diagnostics-controller/client'
+import {
+  transientCompaction,
+  transientCompactionAddress,
+  type TransientCompaction,
+} from './transient.ts'
 import css from './RunDetailsDock.module.css'
 
 /** Props for the dock entry: the session standard kit plus the locale seat. */
@@ -29,7 +38,7 @@ function Row({ label, testId, children }: { label: string; testId?: string; chil
   return (
     <div className={css.row}>
       <span className={css.label}>{label}</span>
-      <span className={css.value} {...testId === undefined ? {} : { 'data-testid': testId }}>{children}</span>
+      <span className={css.value} data-testid={testId}>{children}</span>
     </div>
   )
 }
@@ -75,6 +84,28 @@ function auxiliaryText(details: RunDetailsRunView, t: RunDetailsDockProps['t']):
   return effort ?? t('reasoning.none')
 }
 
+/**
+ * The *in-flight* compaction status, read from the transient transport.
+ *
+ * This is the row that keeps a running compaction from being confused with a
+ * committed one: the durable `policyAudit` above describes a summary that has
+ * already been published, while this describes what the policy is doing now.
+ * The status is rendered as the raw structured code the policy reported rather
+ * than paraphrased, and a transport that failed renders its own classified code
+ * instead of the last value it managed to deliver.
+ */
+function transientText(transient: Exclude<TransientCompaction, { state: 'hidden' }>, t: RunDetailsDockProps['t']): string {
+  switch (transient.state) {
+    case 'loading': return t('transient.loading')
+    case 'none': return t('transient.none')
+    case 'failed': return t('transient.failed', { code: transient.code })
+    case 'live':
+      return transient.candidateAttempt === undefined
+        ? t('transient.live', { status: transient.status })
+        : t('transient.live', { status: transient.status }) + t('transient.attempt', { count: transient.candidateAttempt })
+  }
+}
+
 /** Durable task continuity, read from the separate task projection. */
 function taskText(
   task: TaskCheckpointProjection | undefined,
@@ -113,12 +144,14 @@ export interface RunDetailsPanelProps {
   details: RunDetailsRunView
   /** Durable task continuity, or undefined when the projection is not serving. */
   task: TaskCheckpointProjection | undefined
+  /** The transient in-flight compaction state, from its own resource address. */
+  transient: TransientCompaction
   /** The dock entry's locale seat, passed down as a plain prop. */
   t: RunDetailsDockProps['t']
 }
 
 /** The strip body: one summary line plus one label/value line per fact group. */
-export function RunDetailsPanel({ details, task, t }: RunDetailsPanelProps) {
+export function RunDetailsPanel({ details, task, transient, t }: RunDetailsPanelProps) {
   const auxiliary = auxiliaryText(details, t)
   return (
     <section className={css.root} data-testid="run-details" aria-label={t('aria')}>
@@ -145,6 +178,11 @@ export function RunDetailsPanel({ details, task, t }: RunDetailsPanelProps) {
               trigger: details.compaction.trigger,
               attempts: details.compaction.candidateAttempts,
             })}
+          </Row>
+        )}
+        {transient.state === 'hidden' ? null : (
+          <Row label={t('label.compactionLive')} testId="run-details-compaction-live">
+            {transientText(transient, t)}
           </Row>
         )}
         {auxiliary === null ? null : (
@@ -176,13 +214,21 @@ export function RunDetailsPanel({ details, task, t }: RunDetailsPanelProps) {
 }
 
 /**
- * Dock adapter: reads the two projections and renders nothing when there is no
- * Run. `undefined` (not yet served) and `hasRun: false` (no durable turn) are
- * both absences, and neither produces a placeholder.
+ * Dock adapter: reads the two projections and one resource address, and renders
+ * nothing when there is no Run. `undefined` (not yet served) and `hasRun: false`
+ * (no durable turn) are both absences, and neither produces a placeholder.
+ *
+ * The third read is the transient compaction observation. It is a *read* of a
+ * transport the host owns, not a third authority: the address is derived from
+ * the Session the dock already has, and when no transport is mounted the
+ * resource answers `none` and the row is simply absent.
  */
-export function RunDetailsDock({ useProjection, t }: RunDetailsDockProps) {
+export function RunDetailsDock({ useProjection, useResource, sessionId, t }: RunDetailsDockProps) {
   const details = useProjection('runDetails')
   const task = useProjection('taskCheckpoint')
+  const transient = transientCompaction(
+    useResource<'runtime-diagnostics'>(transientCompactionAddress(sessionId)),
+  )
   if (details === undefined || !details.hasRun) return null
-  return <RunDetailsPanel details={details} task={task} t={t} />
+  return <RunDetailsPanel details={details} task={task} transient={transient} t={t} />
 }

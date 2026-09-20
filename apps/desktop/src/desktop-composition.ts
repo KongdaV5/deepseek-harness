@@ -18,13 +18,15 @@ const DESKTOP_CUSTOM_BUNDLE = '@deepseek-ai/dsh-desktop-custom'
 
 /**
  * The Cordis rows the DS Harness layer inserts over the inherited surface.
- * Each names a DS Harness host-plane service; none replaces an upstream
- * executor or adds a durable Session event.
+ * Each names a DS Harness service; none replaces an upstream executor or adds
+ * a durable Session event.
  */
 const DESKTOP_CUSTOM_ENTRY_IDS = [
   'task-checkpoint',
   'agent-run-policy',
   'compaction-task-aware-policy',
+  'runtime-diagnostics-controller',
+  'compaction-task-aware-diagnostics-transport',
   'run-details',
   'ui-run-details',
 ] as const

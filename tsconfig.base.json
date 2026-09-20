@@ -194,6 +194,9 @@
       "@deepseek-ai/dsh-api-workspace-files": ["./packages/api/workspace-files/src"],
       "@deepseek-ai/dsh-api-workspace-files/types": ["./packages/api/workspace-files/src/types.ts"],
       "@deepseek-ai/dsh-api-workspace-files/client": ["./packages/api/workspace-files/src/client/index.ts"],
+      "@deepseek-ai/dsh-api-runtime-diagnostics-controller": ["./packages/api/runtime-diagnostics-controller/src"],
+      "@deepseek-ai/dsh-api-runtime-diagnostics-controller/types": ["./packages/api/runtime-diagnostics-controller/src/types.ts"],
+      "@deepseek-ai/dsh-api-runtime-diagnostics-controller/client": ["./packages/api/runtime-diagnostics-controller/src/client/index.ts"],
       "@deepseek-ai/dsh-client-resources": ["./packages/client/resources/src"],
       "@deepseek-ai/dsh-client-resources/client": ["./packages/client/resources/src/client"],
       "@deepseek-ai/dsh-client-ui-sidebar-files": ["./packages/client/ui-sidebar-files/src"],
@@ -307,6 +310,9 @@
       // browser half imports for the `runDetails` projection key.
       "@deepseek-ai/dsh-run-details/types": ["./packages/runtime-diagnostics/run-details/src/types.ts"],
       "@deepseek-ai/dsh-run-details/client": ["./packages/runtime-diagnostics/run-details/src/client.ts"],
+      // Stage 10's opt-in diagnostics transport is its own Loader entry, so the
+      // composition patch and the tsx source launch resolve it to source here.
+      "@deepseek-ai/dsh-compaction-task-aware-policy/diagnostics-transport": ["./packages/compaction/compaction-task-aware-policy/src/diagnostics-transport.ts"],
       // BEGIN generated package aliases — pnpm run gen-tsconfig-paths
       "@deepseek-ai/dsh-acp": ["./packages/acp/acp/src"],
       "@deepseek-ai/dsh-acp-app": ["./packages/bundle/acp-app/src"],

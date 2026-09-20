@@ -37,6 +37,9 @@
     },
     {
       "path": "../../llm/token-meter"
+    },
+    {
+      "path": "../../api/runtime-diagnostics-controller/tsconfig.host.json"
     }
   ]
 }

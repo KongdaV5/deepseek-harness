@@ -243,6 +243,38 @@ interface TypertClientRemote extends TypertRemoteNamespaceMap {
 
 Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnpm run verify-cordis-catalog` in doc-sync; regenerate with `pnpm run gen-cordis-catalog`) — the language sides differ only in locale-specific paired document paths. Signature blocks use a `ts cordis-catalog` fence and keep the original source JSDoc; dispatch modes are defined in the [primer](../cordis-primer.md#dispatch-modes), and the framework-inherited `ctx` API lives in [cordis-api/inherited.md](../cordis-api/inherited.md).
 
+<a id="ctxruntimediagnostics--runtimediagnosticscontroller"></a>
+
+### `ctx.runtimeDiagnostics` — `RuntimeDiagnosticsController`
+
+Host service backing the generated `ctx.remote.runtimeDiagnostics` namespace.
+
+A deployment that mounts no provider registers the namespace but serves no topic, so a follow for any topic fails as provider-unavailable rather than opening a stream that can never carry anything.
+
+```ts cordis-catalog
+/**
+ * Register the one provider that serves a topic.
+ *
+ * A second provider for the same topic is a wiring error rather than a
+ * precedence question, so it fails fast instead of silently shadowing the
+ * first.
+ * @param provider - the topic's read-only observation face.
+ * @returns an idempotent disposer that also ends the provider's live streams.
+ * @throws Error when the topic already has a provider.
+ */
+registerProvider(provider: RuntimeDiagnosticsProvider): () => void
+
+/**
+ * Open one generation of a topic's observations for one Session.
+ * @param request - the topic and Session to follow.
+ * @param signal - generation cancellation, supplied by the Remote carrier.
+ * @returns the opening snapshot followed by ordered complete replacements.
+ */
+@Remote({ mode: 'stream' }) follow( request: RuntimeDiagnosticsFollowRequest, signal: AbortSignal, ): AsyncIterable<RuntimeDiagnosticsFrame>
+```
+
+Source: [`packages/api/runtime-diagnostics-controller/src/index.ts`](../../packages/api/runtime-diagnostics-controller/src/index.ts)
+
 <a id="ctxtypert--typertregistry"></a>
 
 ### `ctx.typert` — `TypertRegistry`
