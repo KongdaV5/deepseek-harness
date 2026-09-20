@@ -499,28 +499,48 @@ describe('Phase 8C upstream adaptation manifest', () => {
     // a decision, renumbering it, or restating it more weakly fails this test
     // instead of passing on a count alone.
     const anchors: readonly (readonly [string, string])[] = [
-      ['D12.1', 'repository-plane only'],
-      ['D12.2', 'eleven stable seam IDs'],
-      ['D12.3', 'no new seam'],
-      ['D12.4', 'retained even though the historical package-set implementation is retired'],
-      ['D12.5', 'read-only and separate from fetch'],
-      ['D12.6', 'no commit identifier is embedded'],
-      ['D12.7', 'no migration'],
-      ['D12.8', 'advances only after'],
-      ['D12.9', 'debounced'],
-      ['D12.10', 'cannot trigger a notification'],
-      ['D12.11', 'pending'],
-      ['D12.12', 'lexical stable'],
-      ['D12.13', 'ownership'],
-      ['D12.14', 'never auto-adapts'],
-      ['D12.15', 'retired package roots'],
-      ['D12.16', 'temporary'],
+      ['D12.1', 'repository/user-level tooling only'],
+      ['D12.2', 'does not fetch or mutate Git topology'],
+      ['D12.3', 'never collapsed into one status or authority'],
+      ['D12.4', 'only after the complete monitor transaction succeeds'],
+      ['D12.5', 'stable semantic seam ownership'],
+      ['D12.6', 'fail closed to review-required semantics'],
+      ['D12.7', 'no live monitor-state migration is required or performed'],
+      ['D12.8', 'no root, no sudo, no LaunchDaemon'],
+      ['D12.9', 'no versioned Cellar pin'],
+      ['D12.10', 'new material upstream evidence'],
+      ['D12.11', 'notification failure must not invalidate an already committed monitor cursor'],
+      ['D12.12', 'refuse unknown ownership'],
+      ['D12.13', 'offline/synthetic'],
+      ['D12.14', 'must never automatically merge'],
+      ['D12.15', 'no Session event, schema, or version'],
+      ['D12.16', 'Stage 13 remains the sole owner'],
     ]
     expect(anchors.map(([id]) => id)).toEqual(decisions.map(decision => decision.slice(0, decision.indexOf(' '))))
     for (const [id, anchor] of anchors) {
       const decision = decisions.find(candidate => candidate.startsWith(`${id} `))
       expect(decision, id).toBeDefined()
       expect(decision, id).toContain(anchor)
+    }
+    // Implementation-specific facts are folded under the matching locked
+    // decision rather than given their own identity, so a future edit cannot
+    // drop a preserved detail while keeping the decision anchor intact.
+    const preserved: readonly (readonly [string, string])[] = [
+      ['D12.1', 'tracked maintenance scripts'],
+      ['D12.3', 'no commit identifier is embedded in source'],
+      ['D12.5', 'eleven stable seam IDs'],
+      ['D12.5', 'introduces no new seam'],
+      ['D12.5', 'package-set-custom-composition implementation is retired'],
+      ['D12.5', 'retired package roots removed'],
+      ['D12.7', 'is preserved exactly'],
+      ['D12.9', 'rejecting a Cellar prefix'],
+      ['D12.9', 'pnpm-internal path'],
+      ['D12.13', 'temporary Git repositories'],
+      ['D12.16', 'runtime compatibility, native loadability, UI correctness, or migration safety'],
+    ]
+    for (const [id, detail] of preserved) {
+      const decision = decisions.find(candidate => candidate.startsWith(`${id} `))
+      expect(decision, `${id} ${detail}`).toContain(detail)
     }
     // The maintenance plane lands outside the product runtime, adds no capability,
     // and leaves the debt classification and the eleven seams untouched.
