@@ -14,6 +14,8 @@
  * merge-extensible union that plugins extend, so validating it as a closed set
  * of variants would reject a future variant the log legitimately carries; the
  * schema proves the discriminant and preserves the payload verbatim instead.
+ * The Task halves of the fold state reuse Stage 8's own state schemas, so this
+ * package cannot drift from the authority it reads.
  *
  * @module @deepseek-ai/dsh-run-details/schema
  */
@@ -34,10 +36,19 @@ import type {
   RunId,
   RunPhase,
 } from '@deepseek-ai/dsh-agent-run-state/types'
+import {
+  resultManifestProjectionStateSchema,
+  taskCheckpointProjectionStateSchema,
+} from '@deepseek-ai/dsh-task-checkpoint'
+import type {
+  GuardedResumeDecisionClass,
+  GuardedResumeReason,
+} from '@deepseek-ai/dsh-task-checkpoint'
 import type {
   RunCompactionFacts,
   RunDetailsState,
   RunDetailsView,
+  RunGuardedResumeFacts,
   RunReasoningFacts,
 } from './types.ts'
 
@@ -93,6 +104,36 @@ const runErrorCodeSchema: ZodType<RunErrorCode> = z.enum([
   'SESSION_INTERRUPTED',
   'RETRY_FAILED',
   'UNKNOWN',
+])
+
+/**
+ * Stage 8's decision vocabulary, closed on purpose.
+ *
+ * These are Stage 8's own semantic constants, not a merge-extensible log union:
+ * a fifth class or a new reason code is a policy change, and this schema should
+ * refuse to serve a value the panel has no words for rather than invent one.
+ */
+const guardedResumeDecisionSchema: ZodType<GuardedResumeDecisionClass> = z.enum([
+  'allowed', 'requires_confirmation', 'blocked', 'not_applicable',
+])
+
+const guardedResumeReasonSchema: ZodType<GuardedResumeReason> = z.enum([
+  'NO_CHECKPOINT',
+  'TASK_COMPLETED',
+  'TASK_CANCELLED',
+  'TASK_BLOCKED',
+  'TASK_FAILED_FATAL',
+  'TASK_FAILED_RECOVERABLE',
+  'TOOL_OUTCOME_UNKNOWN',
+  'NO_PENDING_WORK',
+  'RUN_STILL_OPEN',
+  'SESSION_DIVERGED',
+  'MODEL_CHANGED',
+  'MISSING_RESULT_MANIFEST',
+  'UNSETTLED_RESULT_MANIFEST',
+  'MISSING_COMPLETED_EVIDENCE',
+  'CONTEXT_OVER_BUDGET',
+  'PENDING_ONLY',
 ])
 
 const classifiedRunErrorObjectSchema = z.object({
@@ -204,6 +245,19 @@ const runCompactionFactsObjectSchema = z.object({
 
 const runCompactionFactsSchema = runCompactionFactsObjectSchema as unknown as ZodType<RunCompactionFacts>
 
+const runGuardedResumeFactsObjectSchema = z.object({
+  decision: guardedResumeDecisionSchema,
+  reason: guardedResumeReasonSchema,
+  detail: z.string().min(1),
+  taskId: z.string().min(1).optional(),
+  checkpointRevision: z.number().int().positive().optional(),
+  pendingStepCount: z.number().int().nonnegative(),
+  hazardCodes: z.array(z.enum(['TOOL_NOT_STARTED', 'TOOL_OUTCOME_UNKNOWN'])),
+  planStepCount: z.number().int().nonnegative(),
+}).strict()
+
+const runGuardedResumeFactsSchema = runGuardedResumeFactsObjectSchema as unknown as ZodType<RunGuardedResumeFacts>
+
 /** The idle cut: no Run, so no run fields exist to render. */
 const runDetailsIdleViewObjectSchema = z.object({
   sessionId: sessionIdSchema,
@@ -235,6 +289,7 @@ const runDetailsRunViewObjectSchema = z.object({
   backend: backendObservationSchema,
   reasoning: runReasoningFactsSchema.nullable(),
   compaction: runCompactionFactsSchema.nullable(),
+  guardedResume: runGuardedResumeFactsSchema.nullable(),
 }).strict()
 
 /** Validates the whole client-visible cut before it leaves the host. */
@@ -243,10 +298,17 @@ export const runDetailsViewSchema = z.discriminatedUnion('hasRun', [
   runDetailsRunViewObjectSchema,
 ]) as unknown as ZodType<RunDetailsView>
 
-/** Validates persisted fold state before it seeds a fold. */
+/**
+ * Validates persisted fold state before it seeds a fold.
+ *
+ * The Task halves are Stage 8's own state schemas: this package continues those
+ * folds, so it must accept exactly the state they produce.
+ */
 export const runDetailsStateSchema = z.object({
   sessionId: sessionIdSchema,
   lifecycle: lifecycleFactsSchema,
+  task: taskCheckpointProjectionStateSchema,
+  results: resultManifestProjectionStateSchema,
   reasoning: runReasoningFactsSchema.nullable(),
   compaction: runCompactionFactsSchema.nullable(),
   cut: runDetailsViewSchema,

@@ -3,8 +3,9 @@
  * Run Details display acceptance: the dock adapter hides the strip when there
  * is no Run (never a "Run: None" placeholder), renders the host-computed cut
  * verbatim, keeps an unobserved backend at `Unknown`, keeps a compaction's
- * auxiliary reasoning in its own row rather than beside the main run's, and
- * carries no control a click could reach.
+ * auxiliary reasoning in its own row rather than beside the main run's, shows
+ * the Stage 8 guarded-resume decision read-only, and carries no control a click
+ * could reach.
  */
 import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -51,6 +52,7 @@ function cut(overrides: Partial<Extract<RunDetailsView, { hasRun: true }>> = {})
     },
     reasoning: null,
     compaction: null,
+    guardedResume: null,
     ...overrides,
   }
 }
@@ -80,6 +82,21 @@ function task(withHazard = false): TaskCheckpointProjection {
     repairHazards: withHazard
       ? [{ taskId: 'task-1' as never, callId: 'c1', code: 'TOOL_NOT_STARTED', eventSeq: 3 as never } as never]
       : [],
+  }
+}
+
+/** A guarded-resume fact row, as the Stage 8 decision is projected to the wire. */
+function resume(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    decision: 'allowed',
+    reason: 'PENDING_ONLY',
+    detail: 'Continue only the pending steps.',
+    taskId: 'task-1',
+    checkpointRevision: 1,
+    pendingStepCount: 1,
+    hazardCodes: [],
+    planStepCount: 1,
+    ...overrides,
   }
 }
 
@@ -172,6 +189,40 @@ describe('RunDetailsPanel', () => {
     />)
     expect(screen.getByTestId('run-details-error').textContent).toBe('CONTEXT_OVERFLOW')
   })
+
+  it('renders the guarded-resume decision class and its raw reason code', () => {
+    render(<RunDetailsPanel details={cut({ guardedResume: resume() as never })} task={undefined} t={t} />)
+    // The class is a label, the reason stays the structured Stage 8 code, and the
+    // admissible plan is shown as a count rather than offered as an action.
+    expect(screen.getByTestId('run-details-guarded-resume').textContent).toBe('可继续 · PENDING_ONLY · 1 步待续')
+  })
+
+  it('keeps an unstarted tool distinct from an unknown tool outcome', () => {
+    // The distinction the strip must preserve is the one the decision encodes: an
+    // unknown outcome is what gates resumption behind a confirmation, while an
+    // unstarted tool stays admissible and must never be relabelled as unknown.
+    render(<RunDetailsPanel
+      details={cut({ guardedResume: resume({ decision: 'requires_confirmation', reason: 'TOOL_OUTCOME_UNKNOWN', hazardCodes: ['TOOL_OUTCOME_UNKNOWN'], planStepCount: 0 }) as never })}
+      task={undefined}
+      t={t}
+    />)
+    expect(screen.getByTestId('run-details-guarded-resume').textContent).toBe('需确认 · TOOL_OUTCOME_UNKNOWN · 1 处隐患')
+    cleanup()
+    render(<RunDetailsPanel
+      details={cut({ guardedResume: resume({ hazardCodes: ['TOOL_NOT_STARTED'] }) as never })}
+      task={undefined}
+      t={t}
+    />)
+    const text = screen.getByTestId('run-details-guarded-resume').textContent ?? ''
+    expect(text).toContain('PENDING_ONLY')
+    expect(text).not.toContain('TOOL_OUTCOME_UNKNOWN')
+    expect(text).not.toContain('需确认')
+  })
+
+  it('renders no guarded-resume row when the host serves no decision', () => {
+    render(<RunDetailsPanel details={cut()} task={undefined} t={t} />)
+    expect(screen.queryByTestId('run-details-guarded-resume')).toBeNull()
+  })
 })
 
 /** Dock props stub: the adapter reads two projections; the owner share is unused. */
@@ -195,6 +246,19 @@ describe('RunDetailsDock', () => {
     render(<RunDetailsDock {...dockProps({ runDetails: cut(), taskCheckpoint: task() })} />)
     expect(screen.getByTestId('run-details')).toBeTruthy()
     expect(screen.getByTestId('run-details-task').textContent).toBe('task-1 · running')
+  })
+
+  it('opens only the two projection seats and offers no way to act on the decision', () => {
+    // The guarded-resume decision is read from the runDetails cut it is folded
+    // into; the dock subscribes to no third channel, so it cannot become a second
+    // authority, and it exposes no control a reader could use to force a resume.
+    const keys: string[] = []
+    const values: Record<string, unknown> = { runDetails: cut({ guardedResume: resume() as never }), taskCheckpoint: task() }
+    const props = { useProjection: (key: string) => { keys.push(key); return values[key] }, t } as unknown as RunDetailsDockProps
+    const { container } = render(<RunDetailsDock {...props} />)
+    expect(keys).toEqual(['runDetails', 'taskCheckpoint'])
+    expect(screen.getByTestId('run-details-guarded-resume')).toBeTruthy()
+    expect(container.querySelectorAll('button, input, select, textarea, a[href]')).toHaveLength(0)
   })
 })
 

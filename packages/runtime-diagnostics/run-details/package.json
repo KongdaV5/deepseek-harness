@@ -1,6 +1,6 @@
 {
   "name": "@deepseek-ai/dsh-run-details",
-  "description": "Read-only Run Details transport projection for the current client: one client-visible session projection combining durable Stage 6 lifecycle, Stage 7 run state, Stage 9 reasoning and Stage 10 compaction facts without inventing any",
+  "description": "Read-only Run Details transport projection for the current client: one client-visible session projection combining durable Stage 6 lifecycle, Stage 7 run state, Stage 8 guarded-resume decision, Stage 9 reasoning and Stage 10 compaction facts without inventing any",
   "version": "0.1.6-alpha.2",
   "publishConfig": {
     "access": "public"
@@ -47,7 +47,8 @@
     "@deepseek-ai/dsh-llm-retry": "workspace:^",
     "@deepseek-ai/dsh-reasoning-policy": "workspace:^",
     "@deepseek-ai/dsh-session": "workspace:^",
-    "@deepseek-ai/dsh-session-projection": "workspace:^"
+    "@deepseek-ai/dsh-session-projection": "workspace:^",
+    "@deepseek-ai/dsh-task-checkpoint": "workspace:^"
   },
   "devDependencies": {
     "@deepseek-ai/cordis": "workspace:^",
@@ -58,6 +59,7 @@
     "@deepseek-ai/dsh-llm-retry": "workspace:^",
     "@deepseek-ai/dsh-reasoning-policy": "workspace:^",
     "@deepseek-ai/dsh-session": "workspace:^",
-    "@deepseek-ai/dsh-session-projection": "workspace:^"
+    "@deepseek-ai/dsh-session-projection": "workspace:^",
+    "@deepseek-ai/dsh-task-checkpoint": "workspace:^"
   }
 }

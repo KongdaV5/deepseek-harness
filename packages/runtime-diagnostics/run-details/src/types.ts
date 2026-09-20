@@ -7,10 +7,11 @@
  *
  * - **It computes nothing of its own.** Every field is a projection of a fact
  *   another stage already owns: Stage 6 lifecycle boundaries, Stage 7 run
- *   identity/phase/health/errors, Stage 9 reasoning metadata, Stage 10
- *   compaction policy audit. A value no source proves is absent, never
- *   defaulted: an unobserved backend stays `unknown`, and an unresolved run
- *   phase stays `unknown`.
+ *   identity/phase/health/errors, Stage 8's guarded-resume decision, Stage 9
+ *   reasoning metadata, Stage 10 compaction policy audit. A value no source
+ *   proves is absent, never defaulted: an unobserved backend stays `unknown`,
+ *   an unresolved run phase stays `unknown`, and an unreadable Task authority
+ *   yields no decision rather than a guessed one.
  * - **It carries no controls.** The wire value is display-only. There is no
  *   retry, resume, cancel, or compact verb here, and no field a client could
  *   write back through, so the surface cannot mutate the run it describes.
@@ -32,6 +33,14 @@ import type {
   RunPhase,
 } from '@deepseek-ai/dsh-agent-run-state/types'
 import type { SessionId, SessionSeq } from '@deepseek-ai/dsh-session/types'
+import type {
+  GuardedResumeDecisionClass,
+  GuardedResumeReason,
+  ResultManifestProjectionState,
+  TaskCheckpointProjectionState,
+  TaskId,
+  TaskRepairHazard,
+} from '@deepseek-ai/dsh-task-checkpoint'
 
 export type { BackendObservation, ClassifiedRunError, RunErrorCode, RunHealth, RunPhase }
 
@@ -92,6 +101,39 @@ export interface RunCompactionFacts {
   readonly at: number
 }
 
+/**
+ * Stage 8's guarded-resume decision, folded into this cut read-only.
+ *
+ * The decision is not made here. It is the return value of Stage 8's pure
+ * `decideGuardedResume` over the durable Task authority this fold already
+ * carries, projected to the fields a panel renders. Because nothing on this
+ * path calls `armResume`, `recordAcceptedResume`, or any producer, the value
+ * describes a possible continuation and never causes one: it is a diagnostic,
+ * not an admission.
+ */
+export interface RunGuardedResumeFacts {
+  /** Stage 8's four semantic classes: allowed, requires_confirmation, blocked, not_applicable. */
+  readonly decision: GuardedResumeDecisionClass
+  /** The structured reason code the class was reached for, verbatim from Stage 8. */
+  readonly reason: GuardedResumeReason
+  /** Stage 8's one-sentence explanation, computed from durable facts and never from model prose. */
+  readonly detail: string
+  /** The Task the decision addressed, when one exists. */
+  readonly taskId?: TaskId
+  /** The exact checkpoint revision the decision was computed over. */
+  readonly checkpointRevision?: number
+  /** How many unfinished steps the checkpoint records. */
+  readonly pendingStepCount: number
+  /**
+   * The Task-scoped repair hazard codes behind the decision, in Task order and
+   * not de-duplicated. They are carried so a reader can tell "the tool never
+   * started" from "the tool's outcome is unknown" even when both classes agree.
+   */
+  readonly hazardCodes: readonly TaskRepairHazard['code'][]
+  /** How many unfinished steps an `allowed` decision would admit; `0` for every other class. */
+  readonly planStepCount: number
+}
+
 /** The cut when no durable turn has ever been observed; the client hides the panel. */
 export interface RunDetailsIdleView {
   readonly sessionId: SessionId
@@ -138,23 +180,39 @@ export interface RunDetailsRunView {
   readonly reasoning: RunReasoningFacts | null
   /** Last durable compaction audit, or `null` when none has been written. */
   readonly compaction: RunCompactionFacts | null
+  /**
+   * Stage 8's guarded-resume decision over the Session's latest durable Task, or
+   * `null` when there is no Task to decide about or its authority could not be
+   * read as one consistent cut. `null` is capability absence: the client renders
+   * no row instead of an "unknown" decision.
+   */
+  readonly guardedResume: RunGuardedResumeFacts | null
 }
 
 /** The whole client-visible Run Details cut. */
 export type RunDetailsView = RunDetailsIdleView | RunDetailsRunView
 
 /**
- * Fold state: the Stage 6 lifecycle facts this fold continues, the two
- * non-lifecycle captures, and the derived cut.
+ * Fold state: the Stage 6 lifecycle facts this fold continues, Stage 8's two
+ * durable Task folds, the two non-lifecycle captures, and the derived cut.
  *
  * The cut is stored rather than recomputed on read so the wire value keeps one
  * identity between changes, which is what keeps the projection change feed
  * quiet. It is a shortcut only: a `stateVersion` bump or a schema rejection
  * discards it and the fold replays from the log.
+ *
+ * The Task folds are continued through Stage 8's own exported step functions,
+ * not reimplemented, so this unit reads the very normalization that produced the
+ * Task authority rather than a second copy of it. `lastTurn` and `openRun` come
+ * from the Stage 6 turn facts the same way upstream's `turnBoundary` unit
+ * derives them, so the decision this fold computes is the decision Stage 8
+ * computes for the same log.
  */
 export interface RunDetailsState {
   readonly sessionId: SessionId
   readonly lifecycle: LifecycleFacts
+  readonly task: TaskCheckpointProjectionState
+  readonly results: ResultManifestProjectionState
   readonly reasoning: RunReasoningFacts | null
   readonly compaction: RunCompactionFacts | null
   readonly cut: RunDetailsView
@@ -162,7 +220,7 @@ export interface RunDetailsState {
 
 declare module '@deepseek-ai/dsh-session-projection/types' {
   interface SessionProjectionStateMap {
-    /** Read-only Run Details fold state (lifecycle facts plus the derived cut). */
+    /** Read-only Run Details fold state (lifecycle and Task facts plus the derived cut). */
     runDetails: RunDetailsState
   }
   interface SessionProjectionMap {

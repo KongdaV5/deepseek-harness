@@ -9058,6 +9058,9 @@ importers:
       '@deepseek-ai/dsh-session-projection':
         specifier: workspace:^
         version: link:../../session/session-projection
+      '@deepseek-ai/dsh-task-checkpoint':
+        specifier: workspace:^
+        version: link:../../session/task-checkpoint
 
   packages/sandbox/sandbox:
     dependencies:

@@ -395,7 +395,7 @@ describe('Phase 8C upstream adaptation manifest', () => {
       .toEqual(['PENDING', 'PENDING'])
   })
 
-  it('records the Stage 11 current-client Run Details integration and its fourteen locked decisions', () => {
+  it('records the Stage 11 current-client Run Details integration and its sixteen locked decisions', () => {
     const stageEleven = manifest.portOrder.filter(stage => stage.stage === 11)
     expect(stageEleven.length).toBe(1)
     expect(stageEleven.map(stage => stage.status)).toEqual(['COMPLETE'])
@@ -410,6 +410,7 @@ describe('Phase 8C upstream adaptation manifest', () => {
     expect(decisions.map(decision => decision.slice(0, decision.indexOf(' ')))).toEqual([
       'D11.1', 'D11.2', 'D11.3', 'D11.4', 'D11.5', 'D11.6', 'D11.7',
       'D11.8', 'D11.9', 'D11.10', 'D11.11', 'D11.12', 'D11.13', 'D11.14',
+      'D11.15', 'D11.16',
     ])
     // Every locked decision is pinned by its unique semantic anchor, so removing
     // a decision, renumbering it, or restating it more weakly fails this test
@@ -422,13 +423,15 @@ describe('Phase 8C upstream adaptation manifest', () => {
       ['D11.5', 'no backend adapter'],
       ['D11.6', 'classified structured code'],
       ['D11.7', 'separate rows'],
-      ['D11.8', 'transient compaction diagnostics'],
+      ['D11.8', 'transient compaction diagnostics are neither persisted nor displayed, and the read-only UI for them is blocked'],
       ['D11.9', 'read-only'],
       ['D11.10', 'no new Session event type'],
       ['D11.11', 'desktop-custom tail patch'],
       ['D11.12', 'all folding happens in the host'],
       ['D11.13', 'change feed quiet'],
       ['D11.14', 'taskCheckpoint projection'],
+      ['D11.15', 'guarded-resume decision is consumed read-only'],
+      ['D11.16', 'distinct fact from the process-local transient diagnostics'],
     ]
     expect(anchors.map(([id]) => id)).toEqual(decisions.map(decision => decision.slice(0, decision.indexOf(' '))))
     for (const [id, anchor] of anchors) {

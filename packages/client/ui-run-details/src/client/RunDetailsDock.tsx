@@ -16,7 +16,7 @@
 
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 // Type-only: the `runDetails` projection-key merge and its payload contract.
-import type { RunDetailsRunView } from '@deepseek-ai/dsh-run-details/client'
+import type { RunDetailsRunView, RunGuardedResumeFacts } from '@deepseek-ai/dsh-run-details/client'
 // Type-only: the `taskCheckpoint` projection-key merge and its payload contract.
 import type { TaskCheckpoint, TaskCheckpointProjection } from '@deepseek-ai/dsh-task-checkpoint/client'
 import css from './RunDetailsDock.module.css'
@@ -87,6 +87,27 @@ function taskText(
   return `${checkpoint.taskId} · ${t('task.status', { status: checkpoint.status })}`
 }
 
+/**
+ * The guarded-resume decision as read-only text.
+ *
+ * The class is rendered through its locale label, but the reason is kept as the
+ * raw Stage 8 code: it is the structured fact the decision was computed from, so
+ * showing it verbatim lets a reader match the strip against the host fold rather
+ * than trust a paraphrase. Nothing here is derived beyond that — the panel still
+ * computes no policy of its own and offers no way to act on the decision.
+ */
+function guardedResumeText(resume: RunGuardedResumeFacts, t: RunDetailsDockProps['t']): string {
+  const parts = [
+    t('guardedResume.summary', {
+      decision: t(`guardedResume.decision.${resume.decision}`),
+      reason: resume.reason,
+    }),
+  ]
+  if (resume.planStepCount > 0) parts.push(t('guardedResume.plan', { count: resume.planStepCount }))
+  if (resume.hazardCodes.length > 0) parts.push(t('guardedResume.hazards', { count: resume.hazardCodes.length }))
+  return parts.join(' · ')
+}
+
 export interface RunDetailsPanelProps {
   /** The served Run cut; the dock adapter has already ruled out the idle case. */
   details: RunDetailsRunView
@@ -137,6 +158,11 @@ export function RunDetailsPanel({ details, task, t }: RunDetailsPanelProps) {
         {task === undefined || task.repairHazards.length === 0 ? null : (
           <Row label={t('label.task')} testId="run-details-hazards">
             {t('task.hazards', { count: task.repairHazards.length })}
+          </Row>
+        )}
+        {details.guardedResume === null ? null : (
+          <Row label={t('label.guardedResume')} testId="run-details-guarded-resume">
+            {guardedResumeText(details.guardedResume, t)}
           </Row>
         )}
         {details.primaryError === undefined ? null : (

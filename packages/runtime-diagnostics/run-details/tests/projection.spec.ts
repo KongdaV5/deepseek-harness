@@ -8,10 +8,13 @@
  */
 
 import { describe, expect, it } from 'vitest'
-import { SessionId, SessionSeq } from '@deepseek-ai/dsh-session'
+import { SessionId, SessionSeq, TOOL_NOT_STARTED, TOOL_OUTCOME_UNKNOWN } from '@deepseek-ai/dsh-session'
 import type { SessionEvent, SessionEventMap, SessionEventType } from '@deepseek-ai/dsh-session/types'
+import { ToolCallId, createToolResultMessage } from '@deepseek-ai/dsh-llm'
 import { RetryId } from '@deepseek-ai/dsh-llm-retry'
 import { runIdFor } from '@deepseek-ai/dsh-agent-run-state'
+import { taskIdFromString, taskStepIdFromString } from '@deepseek-ai/dsh-task-checkpoint'
+import type { TaskCheckpoint } from '@deepseek-ai/dsh-task-checkpoint'
 import { emptyRunDetailsState, runDetailsProjectionDefinition } from '@deepseek-ai/dsh-run-details'
 import { runDetailsStateSchema, runDetailsViewSchema } from '@deepseek-ai/dsh-run-details'
 import type { RunDetailsState, RunDetailsView } from '@deepseek-ai/dsh-run-details/types'
@@ -95,6 +98,71 @@ const summaryWithAudit = (seq: number): SessionEvent => event('compaction/summar
     auxiliaryReasoning: { requested: 'low', resolved: 'low', source: 'policy' },
   },
 } as unknown as SessionEventMap['compaction/summary'])
+
+const TASK = taskIdFromString('task-1')
+const PENDING_STEP = taskStepIdFromString('step-draft')
+
+/**
+ * A whole valid durable checkpoint naming the Run this Session reached.
+ *
+ * `latestRunId` is derived from the turn the caller says the Session reached,
+ * because that equality is what Stage 8's decision compares: a fixture that
+ * hard-coded it would silently turn every case into `SESSION_DIVERGED`.
+ */
+function checkpoint(overrides: Partial<TaskCheckpoint> = {}, turn = 1): TaskCheckpoint {
+  return {
+    version: 1,
+    taskId: TASK,
+    revision: 1,
+    taskType: 'report',
+    sessionId: SESSION,
+    originRunId: runIdFor(SESSION, turn),
+    latestRunId: runIdFor(SESSION, turn),
+    status: 'running',
+    originalExecution: { provider: 'deepseek', model: 'chat' },
+    latestExecution: { provider: 'deepseek', model: 'chat' },
+    modelRelation: 'same-model',
+    completedSteps: [],
+    pendingSteps: [{ id: PENDING_STEP, title: 'Draft' }],
+    createdAt: 1_000,
+    lastActivityAt: 1_000,
+    resumeContext: { objective: 'write the report', constraints: [], decisions: [], criticalContext: [] },
+    outputs: [],
+    ...overrides,
+  }
+}
+
+const checkpointEvent = (seq: number, value: TaskCheckpoint = checkpoint()): SessionEvent =>
+  event('task/checkpoint', seq, { kind: 'task/checkpoint', version: 1, checkpoint: value })
+
+/** A durable failed tool result, which Stage 8's own fold turns into repair evidence. */
+const toolFailure = (seq: number, callId: string, code: string): SessionEvent =>
+  event('tool/result', seq, {
+    turn: 1,
+    step: 1,
+    message: createToolResultMessage({
+      callId: ToolCallId(callId),
+      isError: true,
+      content: [{ type: 'text', text: 'result' }],
+    }),
+    error: { name: 'ToolError', code },
+  })
+
+/** One closed durable turn, so the Session's last turn is not left open. */
+const closedTurn = (seq: number, turn: number): SessionEvent[] => [
+  turnStart(seq, turn),
+  turnEnd(seq + 1, turn, 'completed'),
+]
+
+/** Read the guarded-resume row from a log, failing the test when it is absent. */
+function guardedResumeOf(events: readonly SessionEvent[]): NonNullable<
+  Extract<RunDetailsView, { hasRun: true }>['guardedResume']
+> {
+  const cut = view(events)
+  if (!cut.hasRun) throw new Error('expected a run')
+  if (cut.guardedResume === null) throw new Error('expected a guarded-resume decision')
+  return cut.guardedResume
+}
 
 describe('run details transport', () => {
   it('serves no Run at all for an empty log, so a client has nothing to placeholder', () => {
@@ -281,6 +349,116 @@ describe('run details transport', () => {
     // The fold is a pure state transition: it returns a value and touches
     // nothing else, which is what keeps this surface read-only.
     const state = fold([turnStart(0, 1)])
-    expect(Object.keys(state)).toEqual(['sessionId', 'lifecycle', 'reasoning', 'compaction', 'cut'])
+    expect(Object.keys(state)).toEqual([
+      'sessionId', 'lifecycle', 'task', 'results', 'reasoning', 'compaction', 'cut',
+    ])
+  })
+})
+
+/**
+ * Stage 8's guarded-resume decision, consumed read-only.
+ *
+ * Every case here is decided by Stage 8's own `decideGuardedResume` over the
+ * durable authority this fold continues; this surface only carries the answer.
+ * So the assertions are about *which* Stage 8 class each durable state reaches,
+ * and about the two things a panel must never do — invent a decision from
+ * authority it could not read, and turn a never-started tool into an unknown
+ * outcome.
+ */
+describe('run details guarded resume', () => {
+  const SAFE = [turnStart(0, 1), turnEnd(1, 1, 'completed'), checkpointEvent(2)]
+
+  it('reports an allowed decision for a safe unfinished Task, with its plan size', () => {
+    const decision = guardedResumeOf(SAFE)
+    expect(decision).toEqual({
+      decision: 'allowed',
+      reason: 'PENDING_ONLY',
+      detail: 'The Task records unfinished steps and no known unsafe side effect.',
+      taskId: TASK,
+      checkpointRevision: 1,
+      pendingStepCount: 1,
+      hazardCodes: [],
+      planStepCount: 1,
+    })
+  })
+
+  it('keeps an unknown tool outcome at requires_confirmation', () => {
+    const decision = guardedResumeOf([...SAFE, toolFailure(3, 'call-1', TOOL_OUTCOME_UNKNOWN)])
+    expect(decision.decision).toBe('requires_confirmation')
+    expect(decision.reason).toBe('TOOL_OUTCOME_UNKNOWN')
+    expect(decision.hazardCodes).toEqual(['TOOL_OUTCOME_UNKNOWN'])
+    // The class is not `allowed`, so no plan is advertised for a Task whose
+    // external effect has not been confirmed.
+    expect(decision.planStepCount).toBe(0)
+  })
+
+  it('never reports a never-started tool as an unknown outcome', () => {
+    // Stage 8 keeps `TOOL_NOT_STARTED` admissible: an undisturbed effect needs
+    // no confirmation. The evidence still travels verbatim so a reader can tell
+    // the two hazards apart, and the reason code must stay `PENDING_ONLY`.
+    const decision = guardedResumeOf([...SAFE, toolFailure(3, 'call-1', TOOL_NOT_STARTED)])
+    expect(decision.decision).toBe('allowed')
+    expect(decision.reason).toBe('PENDING_ONLY')
+    expect(decision.hazardCodes).toEqual(['TOOL_NOT_STARTED'])
+    expect(decision.hazardCodes).not.toContain('TOOL_OUTCOME_UNKNOWN')
+  })
+
+  it('reports a blocked Task as blocked', () => {
+    const decision = guardedResumeOf([
+      turnStart(0, 1),
+      turnEnd(1, 1, 'completed'),
+      checkpointEvent(2, checkpoint({ status: 'blocked' })),
+    ])
+    expect(decision.decision).toBe('blocked')
+    expect(decision.reason).toBe('TASK_BLOCKED')
+  })
+
+  it('preserves Stage 8 not_applicable semantics for a terminal Task', () => {
+    // A completed Task is schema-valid only with no step still in flight, so the
+    // fixture must drop the default pending step the `checkpoint` helper adds.
+    const completed = guardedResumeOf([
+      ...closedTurn(0, 1),
+      checkpointEvent(2, checkpoint({ status: 'completed', pendingSteps: [] })),
+    ])
+    expect(completed.decision).toBe('not_applicable')
+    expect(completed.reason).toBe('TASK_COMPLETED')
+    expect(completed.planStepCount).toBe(0)
+    const cancelled = guardedResumeOf([
+      ...closedTurn(0, 1),
+      checkpointEvent(2, checkpoint({ status: 'cancelled' })),
+    ])
+    expect(cancelled.decision).toBe('not_applicable')
+    expect(cancelled.reason).toBe('TASK_CANCELLED')
+  })
+
+  it('serves no decision when the Session tracks no Task', () => {
+    const cut = view([...closedTurn(0, 1)])
+    if (!cut.hasRun) throw new Error('expected a run')
+    expect(cut.guardedResume).toBeNull()
+  })
+
+  it('serves no decision over a Task authority it could not read as one cut', () => {
+    // A checkpoint that opens above revision 1 poisons Stage 8's fold, which
+    // retains the failure. Deciding over that fold would be deciding over a
+    // value the log does not actually hold, so the surface serves nothing.
+    const state = fold([...closedTurn(0, 1), checkpointEvent(2, checkpoint({ revision: 2 }))])
+    expect(state.task.failure).not.toBeNull()
+    const cut = state.cut
+    if (!cut.hasRun) throw new Error('expected a run')
+    expect(cut.guardedResume).toBeNull()
+    expect(runDetailsStateSchema.safeParse(JSON.parse(JSON.stringify(state))).success).toBe(true)
+  })
+
+  it('updates the decision when durable authority moves, through the same state', () => {
+    // The decision is derived state, not a cache: a later durable revision that
+    // blocks the Task must produce a new cut the change feed can publish.
+    const allowed = fold(SAFE)
+    const blockedEvent = checkpointEvent(3, checkpoint({ revision: 2, status: 'blocked', lastActivityAt: 2_000 }))
+    const next = runDetailsProjectionDefinition.apply(allowed, blockedEvent)
+    expect(next).not.toBe(allowed)
+    expect(next.cut).not.toBe(allowed.cut)
+    if (!next.cut.hasRun) throw new Error('expected a run')
+    expect(next.cut.guardedResume?.decision).toBe('blocked')
+    expect(runDetailsViewSchema.safeParse(next.cut).success).toBe(true)
   })
 })
