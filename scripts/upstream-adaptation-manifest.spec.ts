@@ -105,8 +105,8 @@ describe('Phase 8C upstream adaptation manifest', () => {
   it('locks the audited target and immutable source baselines', () => {
     expect(manifest).toMatchObject({
       formatVersion: 1,
-      phase: '8C.2j',
-      status: 'stage-11-complete',
+      phase: '8C.2k',
+      status: 'stage-12-complete',
       target: { sha: 'ddefc45fbc7f8e46dd73185e68295696d1297887' },
       source: {
         productBaselineTag: 'ds-harness-product-baseline-2026-09-17',
@@ -152,11 +152,11 @@ describe('Phase 8C upstream adaptation manifest', () => {
       expect(stage.tests.length).toBeGreaterThan(0)
       expect(stage.stopGate.length).toBeGreaterThan(10)
     }
-    expect(manifest.portOrder.slice(0, 11).map(stage => stage.status)).toEqual([
+    expect(manifest.portOrder.slice(0, 12).map(stage => stage.status)).toEqual([
       'COMPLETE', 'COMPLETE', 'COMPLETE', 'COMPLETE', 'COMPLETE', 'COMPLETE', 'COMPLETE', 'COMPLETE', 'COMPLETE',
-      'COMPLETE', 'COMPLETE',
+      'COMPLETE', 'COMPLETE', 'COMPLETE',
     ])
-    expect(manifest.portOrder.slice(11).every(stage => stage.status === 'PENDING')).toBe(true)
+    expect(manifest.portOrder.slice(12).every(stage => stage.status === 'PENDING')).toBe(true)
     expect(manifest.compositionQualification).toEqual({
       profile: 'desktop-custom',
       upstreamTemplate: 'web',
@@ -252,8 +252,8 @@ describe('Phase 8C upstream adaptation manifest', () => {
     ])
     // Stages beyond the completed prefix stay pending, and Stage 7 introduces
     // no new durable event.
-    expect(manifest.portOrder.filter(stage => stage.stage > 11).map(stage => stage.status))
-      .toEqual(['PENDING', 'PENDING'])
+    expect(manifest.portOrder.filter(stage => stage.stage > 12).map(stage => stage.status))
+      .toEqual(['PENDING'])
     expect(manifest.dataBoundary.sessionCompatibility.restoredFirstPartyRequiredEvents)
       .toEqual(['task/checkpoint', 'task/result-manifest'])
     expect(manifest.capabilities.filter(capability =>
@@ -288,8 +288,8 @@ describe('Phase 8C upstream adaptation manifest', () => {
     // Stage 8 restores guarded task continuity without adding a durable event.
     expect(manifest.dataBoundary.sessionCompatibility.restoredFirstPartyRequiredEvents)
       .toEqual(['task/checkpoint', 'task/result-manifest'])
-    expect(manifest.portOrder.filter(stage => stage.stage > 11).map(stage => stage.status))
-      .toEqual(['PENDING', 'PENDING'])
+    expect(manifest.portOrder.filter(stage => stage.stage > 12).map(stage => stage.status))
+      .toEqual(['PENDING'])
   })
 
   it('records the Stage 9 reasoning and bounded retry policies and its fifteen locked decisions', () => {
@@ -315,8 +315,8 @@ describe('Phase 8C upstream adaptation manifest', () => {
     // restored required-event set is exactly the Stage 6 pair.
     expect(manifest.dataBoundary.sessionCompatibility.restoredFirstPartyRequiredEvents)
       .toEqual(['task/checkpoint', 'task/result-manifest'])
-    expect(manifest.portOrder.filter(stage => stage.stage > 11).map(stage => stage.status))
-      .toEqual(['PENDING', 'PENDING'])
+    expect(manifest.portOrder.filter(stage => stage.stage > 12).map(stage => stage.status))
+      .toEqual(['PENDING'])
   })
 
   it('records the Stage 10 task-aware compaction adapter and its twenty-two locked decisions', () => {
@@ -394,8 +394,8 @@ describe('Phase 8C upstream adaptation manifest', () => {
     // restored required-event set is exactly the Stage 6 pair.
     expect(manifest.dataBoundary.sessionCompatibility.restoredFirstPartyRequiredEvents)
       .toEqual(['task/checkpoint', 'task/result-manifest'])
-    expect(manifest.portOrder.filter(stage => stage.stage > 11).map(stage => stage.status))
-      .toEqual(['PENDING', 'PENDING'])
+    expect(manifest.portOrder.filter(stage => stage.stage > 12).map(stage => stage.status))
+      .toEqual(['PENDING'])
   })
 
   it('records the Stage 11 current-client Run Details integration and its twenty locked decisions', () => {
@@ -467,8 +467,80 @@ describe('Phase 8C upstream adaptation manifest', () => {
     // restored required-event set is still exactly the Stage 6 pair.
     expect(manifest.dataBoundary.sessionCompatibility.restoredFirstPartyRequiredEvents)
       .toEqual(['task/checkpoint', 'task/result-manifest'])
-    expect(manifest.portOrder.filter(stage => stage.stage > 11).map(stage => stage.status))
-      .toEqual(['PENDING', 'PENDING'])
+    expect(manifest.portOrder.filter(stage => stage.stage > 12).map(stage => stage.status))
+      .toEqual(['PENDING'])
+  })
+
+  it('records the Stage 12 maintenance plane port and its sixteen locked decisions', () => {
+    const stageTwelve = manifest.portOrder.filter(stage => stage.stage === 12)
+    expect(stageTwelve.length).toBe(1)
+    expect(stageTwelve.map(stage => stage.status)).toEqual(['COMPLETE'])
+    expect(stageTwelve.map(stage => stage.deliverables)).toEqual([[
+      'scripts/upstream-audit.ts',
+      'scripts/upstream-monitor.ts',
+      'scripts/upstream-schedule.ts',
+      'scripts/upstream-tracking-seams.json',
+      'scripts/upstream-audit.spec.ts',
+      'scripts/upstream-tracking-seams.spec.ts',
+      'scripts/upstream-monitor.spec.ts',
+      'scripts/upstream-schedule.spec.ts',
+      '.agents/notes/implemented/architecture/2026-09-17-upstream-tracking-read-only-auditor.md',
+      '.agents/notes/implemented/architecture/2026-09-17-incremental-upstream-monitor.md',
+      '.agents/notes/implemented/architecture/2026-09-17-upstream-monitor-scheduling-and-notification.md',
+      '.agents/notes/implemented/architecture/2026-09-17-upstream-scheduler-maintenance-runtime-resilience.md',
+      'package.json',
+    ]])
+    const decisions = stageTwelve.flatMap(stage => stage.decisions ?? [])
+    expect(decisions.map(decision => decision.slice(0, decision.indexOf(' ')))).toEqual([
+      'D12.1', 'D12.2', 'D12.3', 'D12.4', 'D12.5', 'D12.6', 'D12.7', 'D12.8',
+      'D12.9', 'D12.10', 'D12.11', 'D12.12', 'D12.13', 'D12.14', 'D12.15', 'D12.16',
+    ])
+    // Every locked decision is pinned by its unique semantic anchor, so removing
+    // a decision, renumbering it, or restating it more weakly fails this test
+    // instead of passing on a count alone.
+    const anchors: readonly (readonly [string, string])[] = [
+      ['D12.1', 'repository-plane only'],
+      ['D12.2', 'eleven stable seam IDs'],
+      ['D12.3', 'no new seam'],
+      ['D12.4', 'retained even though the historical package-set implementation is retired'],
+      ['D12.5', 'read-only and separate from fetch'],
+      ['D12.6', 'no commit identifier is embedded'],
+      ['D12.7', 'no migration'],
+      ['D12.8', 'advances only after'],
+      ['D12.9', 'debounced'],
+      ['D12.10', 'cannot trigger a notification'],
+      ['D12.11', 'pending'],
+      ['D12.12', 'lexical stable'],
+      ['D12.13', 'ownership'],
+      ['D12.14', 'never auto-adapts'],
+      ['D12.15', 'retired package roots'],
+      ['D12.16', 'temporary'],
+    ]
+    expect(anchors.map(([id]) => id)).toEqual(decisions.map(decision => decision.slice(0, decision.indexOf(' '))))
+    for (const [id, anchor] of anchors) {
+      const decision = decisions.find(candidate => candidate.startsWith(`${id} `))
+      expect(decision, id).toBeDefined()
+      expect(decision, id).toContain(anchor)
+    }
+    // The maintenance plane lands outside the product runtime, adds no capability,
+    // and leaves the debt classification and the eleven seams untouched.
+    expect(manifest.compositionQualification.customEntryIds).toEqual([
+      'task-checkpoint',
+      'agent-run-policy',
+      'compaction-task-aware-policy',
+      'runtime-diagnostics-controller',
+      'compaction-task-aware-diagnostics-transport',
+      'run-details',
+      'ui-run-details',
+    ])
+    expect(manifest.seams.map(seam => seam.id).sort()).toEqual([...seamIds].sort())
+    expect(manifest.compatibilityDebt).toMatchObject({
+      severity: 'CRITICAL', impact: 'BLOCKING_CHANGE', resolution: 'UNRESOLVED',
+    })
+    // Stage 12 touches no Session event, so the restored required-event set is
+    // still exactly the Stage 6 pair.
+    expect(manifest.dataBoundary.sessionCompatibility.restoredFirstPartyRequiredEvents)
+      .toEqual(['task/checkpoint', 'task/result-manifest'])
   })
 
   it('keeps compatibility debt unresolved and every cited contract path discoverable', () => {
