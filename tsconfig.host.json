@@ -341,6 +341,7 @@
     { "path": "./packages/runtime-diagnostics/agent-run-state" },
     { "path": "./packages/runtime-diagnostics/invariants" },
     { "path": "./packages/runtime-diagnostics/reasoning-policy" },
+    { "path": "./packages/runtime-diagnostics/run-details" },
     { "path": "./packages/test-support/agent-loop-testkit" },
     { "path": "./packages/acp/acp" },
     { "path": "./packages/bundle/acp-app" },

@@ -69,7 +69,12 @@ facts.seedBoundary
 ## API
 
 ```ts
-import { lifecycleFactsFrom, isRepairClosure } from '@deepseek-ai/dsh-agent-lifecycle-facts'
+import {
+  applyLifecycleFacts,
+  emptyLifecycleFacts,
+  isRepairClosure,
+  lifecycleFactsFrom,
+} from '@deepseek-ai/dsh-agent-lifecycle-facts'
 
 import type { LifecycleFacts, TurnLifecycleFact } from '@deepseek-ai/dsh-agent-lifecycle-facts/types'
 ```
@@ -77,6 +82,8 @@ import type { LifecycleFacts, TurnLifecycleFact } from '@deepseek-ai/dsh-agent-l
 | 导出 | 职责 |
 |---|---|
 | `lifecycleFactsFrom(events)` | 按递增序号顺序折叠一段事件范围，得到全部归一后的事实。 |
+| `applyLifecycleFacts(state, event)` | 以一个已提交事件推进一份事实集，供按 Session 投影方式累积状态的消费方使用；当该事件不贡献任何事实时返回同一份事实集。 |
+| `emptyLifecycleFacts()` | 空范围的事实集——逐步折叠的起点。 |
 | `isRepairClosure(reason)` | 判断某终止原因是否为事后崩溃修复（`kind: 'interrupted'`）。 |
 | `LifecycleFacts` | `seedBoundary`、`turns`、`retryChains`，以及恒为 `null` 的 `durableAttemptIdentity`。 |
 | `TurnLifecycleFact` | `turn`、`startSeq`、可选的 `endSeq` 与 `terminal`、`repairClosure`、`steps`。 |
@@ -87,6 +94,8 @@ import type { LifecycleFacts, TurnLifecycleFact } from '@deepseek-ai/dsh-agent-l
 | `DurableRetryMode` | `'normal'` 或 `'always'`，与持久重试事件记录的一致。 |
 
 `/types` 出口承载上述契约，不含运行时导入。
+
+`lifecycleFactsFrom` 就是 `applyLifecycleFacts` 在整段范围上的重复，因此整体折叠与逐步折叠两种形态永不会出现分歧。需要逐事件获取这些事实的投影，因此消费本适配器，而不是在其旁边另行归一化原始载荷。
 
 <a id="model-experience"></a>
 ## 模型体验

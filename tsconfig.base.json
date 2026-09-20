@@ -235,6 +235,8 @@
       "@deepseek-ai/dsh-client-ui-commands": ["./packages/client/ui-commands/src"],
       "@deepseek-ai/dsh-client-ui-model-selection": ["./packages/client/ui-model-selection/src"],
       "@deepseek-ai/dsh-client-ui-goal": ["./packages/client/ui-goal/src"],
+      "@deepseek-ai/dsh-client-ui-run-details": ["./packages/client/ui-run-details/src"],
+      "@deepseek-ai/dsh-client-ui-run-details/client": ["./packages/client/ui-run-details/src/client"],
       "@deepseek-ai/dsh-client-ui-message-feedback": ["./packages/client/ui-message-feedback/src"],
       "@deepseek-ai/dsh-client-ui-agent-preset": ["./packages/client/ui-agent-preset/src"],
       "@deepseek-ai/dsh-client-ui-permission-presets": ["./packages/client/ui-permission-presets/src"],
@@ -292,12 +294,19 @@
       // The Stage 6 read-compatibility packages publish a type-only outlet, so
       // documentation fragments resolve their declared `/types` subpath to source.
       "@deepseek-ai/dsh-task-checkpoint/types": ["./packages/session/task-checkpoint/src/types.ts"],
+      // Stage 11's client surface reads the durable task projection, so the
+      // package publishes a client outlet too.
+      "@deepseek-ai/dsh-task-checkpoint/client": ["./packages/session/task-checkpoint/src/client.ts"],
       "@deepseek-ai/dsh-agent-lifecycle-facts/types": ["./packages/runtime-diagnostics/agent-lifecycle-facts/src/types.ts"],
       "@deepseek-ai/dsh-agent-run-state/types": ["./packages/runtime-diagnostics/agent-run-state/src/types.ts"],
       // Stage 9 publishes the same type-only outlet, so its documentation
       // fragments resolve the declared `/types` subpath to source too.
       "@deepseek-ai/dsh-agent-run-policy/types": ["./packages/runtime-diagnostics/agent-run-policy/src/types.ts"],
       "@deepseek-ai/dsh-reasoning-policy/types": ["./packages/runtime-diagnostics/reasoning-policy/src/types.ts"],
+      // Stage 11 publishes the same type-only outlet plus a client outlet the
+      // browser half imports for the `runDetails` projection key.
+      "@deepseek-ai/dsh-run-details/types": ["./packages/runtime-diagnostics/run-details/src/types.ts"],
+      "@deepseek-ai/dsh-run-details/client": ["./packages/runtime-diagnostics/run-details/src/client.ts"],
       // BEGIN generated package aliases — pnpm run gen-tsconfig-paths
       "@deepseek-ai/dsh-acp": ["./packages/acp/acp/src"],
       "@deepseek-ai/dsh-acp-app": ["./packages/bundle/acp-app/src"],
@@ -396,6 +405,7 @@
       "@deepseek-ai/dsh-reasoning-policy": ["./packages/runtime-diagnostics/reasoning-policy/src"],
       "@deepseek-ai/dsh-remote-mock": ["./packages/test-support/remote-mock/src"],
       "@deepseek-ai/dsh-repeat-tool-reminder": ["./packages/guard/repeat-tool-reminder/src"],
+      "@deepseek-ai/dsh-run-details": ["./packages/runtime-diagnostics/run-details/src"],
       "@deepseek-ai/dsh-sandbox": ["./packages/sandbox/sandbox/src"],
       "@deepseek-ai/dsh-sandbox-local": ["./packages/sandbox/sandbox-local/src"],
       "@deepseek-ai/dsh-sandbox-policy": ["./packages/sandbox/sandbox-policy/src"],

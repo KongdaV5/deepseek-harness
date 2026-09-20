@@ -37,6 +37,8 @@ describe('desktop-custom current-upstream composition', () => {
       'task-checkpoint',
       'agent-run-policy',
       'compaction-task-aware-policy',
+      'run-details',
+      'ui-run-details',
     ])
     expect(new Set(DESKTOP_CUSTOM_COMPOSITION.bundles).size).toBe(DESKTOP_CUSTOM_COMPOSITION.bundles.length)
   })

@@ -174,6 +174,7 @@ flowchart TD
     pkg_client_ui_primitives["client-ui-primitives"]
     pkg_client_ui_reference["client-ui-reference"]
     pkg_client_ui_renderer["client-ui-renderer"]
+    pkg_client_ui_run_details["client-ui-run-details"]
     pkg_client_ui_schedule["client-ui-schedule"]
     pkg_client_ui_session["client-ui-session"]
     pkg_client_ui_settings["client-ui-settings"]
@@ -310,6 +311,7 @@ flowchart TD
     pkg_agent_run_state["agent-run-state"]
     pkg_invariants["invariants"]
     pkg_reasoning_policy["reasoning-policy"]
+    pkg_run_details["run-details"]
   end
   subgraph group_sandbox["packages/sandbox"]
     pkg_sandbox["sandbox"]
@@ -1026,6 +1028,14 @@ flowchart TD
   pkg_agent_run_policy --> pkg_llm
   pkg_agent_run_policy --> pkg_session
   pkg_agent_run_policy --> pkg_session_projection
+  pkg_run_details --> pkg_agent_lifecycle_facts
+  pkg_run_details --> pkg_agent_run_state
+  pkg_run_details --> pkg_compaction
+  pkg_run_details --> pkg_llm
+  pkg_run_details --> pkg_llm_retry
+  pkg_run_details --> pkg_reasoning_policy
+  pkg_run_details --> pkg_session
+  pkg_run_details --> pkg_session_projection
   pkg_session_telemetry_otel --> pkg_anonymous_user_id
   pkg_session_telemetry_otel --> pkg_command_feedback
   pkg_session_telemetry_otel --> pkg_llm
@@ -1390,6 +1400,7 @@ flowchart TD
 | [`client-ui-primitives`](../packages/client/ui-primitives) | `client` | — |
 | [`client-ui-reference`](../packages/client/ui-reference) | `client` | — |
 | [`client-ui-renderer`](../packages/client/ui-renderer) | `client` | — |
+| [`client-ui-run-details`](../packages/client/ui-run-details) | `client` | — |
 | [`client-ui-schedule`](../packages/client/ui-schedule) | `client` | — |
 | [`client-ui-session`](../packages/client/ui-session) | `client` | — |
 | [`client-ui-settings`](../packages/client/ui-settings) | `client` | — |
@@ -1592,6 +1603,7 @@ flowchart TD
 | [`host-plugin-inventory`](../packages/host/plugin-inventory) | `host` | [`agent-presets`](../packages/preset/agent-presets), [`brand`](../packages/util/brand), [`typert-protocol`](../packages/typert/protocol) |
 | [`mcp-client`](../packages/mcp/mcp-client) | `mcp` | [`attachment`](../packages/attachment/attachment), [`llm`](../packages/llm/llm), [`mcp-resources`](../packages/mcp/mcp-resources), [`scope`](../packages/core/scope), [`subprocess`](../packages/subprocess/subprocess), [`system-prompt`](../packages/core/system-prompt), [`timeout`](../packages/util/timeout), [`tools`](../packages/core/tools) |
 | [`agent-run-policy`](../packages/runtime-diagnostics/agent-run-policy) | `runtime-diagnostics` | [`agent`](../packages/core/agent), [`agent-run-state`](../packages/runtime-diagnostics/agent-run-state), [`llm`](../packages/llm/llm), [`session`](../packages/core/session), [`session-projection`](../packages/session/session-projection) |
+| [`run-details`](../packages/runtime-diagnostics/run-details) | `runtime-diagnostics` | [`agent-lifecycle-facts`](../packages/runtime-diagnostics/agent-lifecycle-facts), [`agent-run-state`](../packages/runtime-diagnostics/agent-run-state), [`compaction`](../packages/compaction/compaction), [`llm`](../packages/llm/llm), [`llm-retry`](../packages/llm/llm-retry), [`reasoning-policy`](../packages/runtime-diagnostics/reasoning-policy), [`session`](../packages/core/session), [`session-projection`](../packages/session/session-projection) |
 | [`session-telemetry-otel`](../packages/session/session-telemetry-otel) | `session` | [`anonymous-user-id`](../packages/identity/anonymous-user-id), [`command-feedback`](../packages/feedback/command-feedback), [`llm`](../packages/llm/llm), [`message-feedback`](../packages/feedback/message-feedback), [`session`](../packages/core/session), [`session-telemetry`](../packages/session/session-telemetry) |
 | [`task-checkpoint`](../packages/session/task-checkpoint) | `session` | [`agent`](../packages/core/agent), [`agent-run-state`](../packages/runtime-diagnostics/agent-run-state), [`brand`](../packages/util/brand), [`llm`](../packages/llm/llm), [`session`](../packages/core/session), [`session-projection`](../packages/session/session-projection) |
 | [`tool-bash`](../packages/shell/tool-bash) | `shell` | [`agent`](../packages/core/agent), [`jobs`](../packages/jobs/jobs), [`llm`](../packages/llm/llm), [`sandbox`](../packages/sandbox/sandbox), [`sandbox-policy`](../packages/sandbox/sandbox-policy), [`shell`](../packages/shell/shell), [`shell-env`](../packages/shell/shell-env), [`system-prompt`](../packages/core/system-prompt), [`tools`](../packages/core/tools), [`user-approval`](../packages/interaction/user-approval) |

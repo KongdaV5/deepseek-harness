@@ -69,7 +69,12 @@ Every attempt that shares one durable `RetryId` belongs to one chain, so the cha
 ## API
 
 ```ts
-import { lifecycleFactsFrom, isRepairClosure } from '@deepseek-ai/dsh-agent-lifecycle-facts'
+import {
+  applyLifecycleFacts,
+  emptyLifecycleFacts,
+  isRepairClosure,
+  lifecycleFactsFrom,
+} from '@deepseek-ai/dsh-agent-lifecycle-facts'
 
 import type { LifecycleFacts, TurnLifecycleFact } from '@deepseek-ai/dsh-agent-lifecycle-facts/types'
 ```
@@ -77,6 +82,8 @@ import type { LifecycleFacts, TurnLifecycleFact } from '@deepseek-ai/dsh-agent-l
 | Export | Role |
 |---|---|
 | `lifecycleFactsFrom(events)` | Fold one event range, in ascending sequence order, into every normalized lifecycle fact. |
+| `applyLifecycleFacts(state, event)` | Advance one fact set by one committed event, for a consumer that accumulates state the way a Session projection does; returns the same fact set when the event contributes nothing. |
+| `emptyLifecycleFacts()` | The fact set of an empty range — the starting point of the stepwise fold. |
 | `isRepairClosure(reason)` | Whether a terminal reason is an after-the-fact crash repair (`kind: 'interrupted'`). |
 | `LifecycleFacts` | `seedBoundary`, `turns`, `retryChains`, and the always-`null` `durableAttemptIdentity`. |
 | `TurnLifecycleFact` | `turn`, `startSeq`, optional `endSeq` and `terminal`, `repairClosure`, `steps`. |
@@ -87,6 +94,8 @@ import type { LifecycleFacts, TurnLifecycleFact } from '@deepseek-ai/dsh-agent-l
 | `DurableRetryMode` | `'normal'` or `'always'`, as the durable retry events record them. |
 
 The `/types` outlet carries the contracts with no runtime import.
+
+`lifecycleFactsFrom` is exactly `applyLifecycleFacts` repeated over the range, so the whole-range and stepwise shapes can never disagree. A projection that needs these facts one event at a time therefore consumes this adapter instead of normalizing raw payloads beside it.
 
 <a id="model-experience"></a>
 ## Model Experience

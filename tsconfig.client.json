@@ -86,6 +86,9 @@
     { "path": "./packages/client/ui-commands" },
     { "path": "./packages/client/ui-skill" },
     { "path": "./packages/client/ui-reference" },
+    // Read-only Run Details strip: its test imports the package source, so the
+    // package project must be listed here for the redirect to resolve.
+    { "path": "./packages/client/ui-run-details" },
     { "path": "./packages/client/ui-subagent" },
     { "path": "./packages/experimental/client-ui-agent-team" },
     { "path": "./packages/client/ui-dockkit" },

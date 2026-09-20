@@ -14,7 +14,12 @@ import { describe, expect, it } from 'vitest'
 import { SessionSeq } from '@deepseek-ai/dsh-session'
 import type { SessionEvent, SessionEventMap, SessionEventType } from '@deepseek-ai/dsh-session/types'
 import { RetryId } from '@deepseek-ai/dsh-llm-retry'
-import { isRepairClosure, lifecycleFactsFrom } from '@deepseek-ai/dsh-agent-lifecycle-facts'
+import {
+  applyLifecycleFacts,
+  emptyLifecycleFacts,
+  isRepairClosure,
+  lifecycleFactsFrom,
+} from '@deepseek-ai/dsh-agent-lifecycle-facts'
 
 /** Build one committed log-only event; `data` stays typed at the call site. */
 function event<T extends SessionEventType>(type: T, seq: number, data: SessionEventMap[T]): SessionEvent {
@@ -304,5 +309,60 @@ describe('absent durable attempt identity', () => {
     expect(lifecycleFactsFrom([]).durableAttemptIdentity).toBeNull()
     expect(lifecycleFactsFrom([retryNormal(0, 1, 'retry-1'), retryStarted(1, 1, 'retry-1')]).durableAttemptIdentity)
       .toBeNull()
+  })
+})
+
+describe('stepwise accumulation', () => {
+  const log = [
+    event('turn/start', 0, { turn: 1 }),
+    event('step/start', 1, { turn: 1, step: 1 }),
+    retryNormal(2, 1, 'retry-1'),
+    retryStarted(3, 1, 'retry-1'),
+    event('step/end', 4, { turn: 1, step: 1 }),
+    event('turn/end', 5, { turn: 1, reason: { kind: 'completed' } }),
+    event('turn/start', 6, { turn: 2 }),
+    event('step/start', 7, { turn: 2, step: 1 }),
+  ]
+
+  /** Fold the shared log one event at a time through the incremental step. */
+  const stepwise = (events: readonly SessionEvent[]): ReturnType<typeof emptyLifecycleFacts> => {
+    let facts = emptyLifecycleFacts()
+    for (const one of events) facts = applyLifecycleFacts(facts, one)
+    return facts
+  }
+
+  it('agrees with the whole-range fold over the same log', () => {
+    expect(stepwise(log)).toEqual(lifecycleFactsFrom(log))
+  })
+
+  it('keeps agreeing at every prefix of the log', () => {
+    for (let end = 1; end <= log.length; end++) {
+      expect(stepwise(log.slice(0, end))).toEqual(lifecycleFactsFrom(log.slice(0, end)))
+    }
+  })
+
+  it('starts from an empty fact set that matches the empty range', () => {
+    expect(emptyLifecycleFacts()).toEqual(lifecycleFactsFrom([]))
+  })
+
+  it('returns the same fact set for an event it does not track', () => {
+    const facts = lifecycleFactsFrom([event('turn/start', 0, { turn: 1 })])
+    const noise = event('assistant/attempt', 1, { turn: 1, step: 1, stream: [] })
+    expect(applyLifecycleFacts(facts, noise)).toBe(facts)
+  })
+
+  it('returns the same fact set for an event naming facts the range does not hold', () => {
+    const facts = lifecycleFactsFrom([event('turn/start', 0, { turn: 1 })])
+    expect(applyLifecycleFacts(facts, event('turn/end', 1, { turn: 9, reason: { kind: 'completed' } }))).toBe(facts)
+    expect(applyLifecycleFacts(facts, event('step/end', 2, { turn: 1, step: 4 }))).toBe(facts)
+    expect(applyLifecycleFacts(facts, retryStarted(3, 1, 'retry-absent'))).toBe(facts)
+  })
+
+  it('detaches each result from the fact set that produced it', () => {
+    const before = lifecycleFactsFrom([event('turn/start', 0, { turn: 1 })])
+    const after = applyLifecycleFacts(before, event('turn/start', 1, { turn: 2 }))
+    expect(after).not.toBe(before)
+    expect(before.turns).toHaveLength(1)
+    expect(after.turns).toHaveLength(2)
   })
 })

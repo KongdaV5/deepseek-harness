@@ -37,6 +37,21 @@
     - id: compaction-task-aware-policy
       name: '@deepseek-ai/dsh-compaction-task-aware-policy'
 
+    # The read-only Run Details transport. Mounting it registers the
+    # `runDetails` session projection over the Stage 6 lifecycle fold, Stage 7
+    # run state, the durable request header, and the committed compaction audit.
+    # It folds committed events only: it emits no Session event, installs no
+    # backend observer, and exposes no control verb.
+    - id: run-details
+      name: '@deepseek-ai/dsh-run-details'
+
+    # The Run Details browser surface: one read-only strip in the composer
+    # context stack, fed by the `runDetails` and `taskCheckpoint` projections.
+    # A `dsh.client` row, so the modules node half scans it into the browser
+    # roster; it contributes no host behavior of its own.
+    - id: ui-run-details
+      name: '@deepseek-ai/dsh-client-ui-run-details'
+
 # ── the inherited compaction executor ───────────────────────────────────────
 #
 # dsh-web-app disables this base row because on the Web surface a mounted agent

@@ -25,6 +25,8 @@ const DESKTOP_CUSTOM_ENTRY_IDS = [
   'task-checkpoint',
   'agent-run-policy',
   'compaction-task-aware-policy',
+  'run-details',
+  'ui-run-details',
 ] as const
 
 /**

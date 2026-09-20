@@ -1,0 +1,102 @@
+.root {
+  box-sizing: border-box;
+  flex: none;
+  overflow: hidden;
+  margin: 0 auto;
+  width: calc(
+    100% -
+    var(--dsh-composer-side-clearance) -
+    var(--dsh-composer-side-clearance) -
+    var(--dsh-composer-dock-inset) -
+    var(--dsh-composer-dock-inset) -
+    var(--dsh-composer-dock-inset) -
+    var(--dsh-composer-dock-inset)
+  );
+  max-width: calc(
+    var(--dsh-composer-card-max-width) -
+    var(--dsh-composer-dock-inset) -
+    var(--dsh-composer-dock-inset) -
+    var(--dsh-composer-dock-inset) -
+    var(--dsh-composer-dock-inset)
+  );
+  border: 0.5px solid var(--dsw-alias-border-l1);
+  border-radius: 12px;
+  background: var(--dsw-specific-tip);
+}
+
+.headline {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px 0;
+  min-width: 0;
+}
+
+.runId {
+  flex: none;
+  max-width: 40%;
+  overflow: hidden;
+  font-size: 12px;
+  line-height: 20px;
+  font-family: var(--dsh-font-mono, ui-monospace, monospace);
+  color: var(--dsw-alias-label-secondary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.badge {
+  flex: none;
+  padding: 0 6px;
+  border-radius: 6px;
+  background: var(--dsw-alias-fill-l2);
+  font-size: 12px;
+  line-height: 20px;
+  color: var(--dsw-alias-label-secondary);
+}
+
+/* A terminal or unhealthy Run reads louder than a live one; the strip never
+   implies a verdict the classifier did not reach, so `unknown` stays neutral. */
+.badge[data-phase='failed'],
+.badge[data-health='fatal'] {
+  color: var(--dsw-alias-state-danger-primary);
+}
+
+.badge[data-phase='completed'] {
+  color: var(--dsw-alias-state-success-primary);
+}
+
+.badge[data-health='stalled'],
+.badge[data-health='degraded'] {
+  color: var(--dsw-alias-state-warning-primary);
+}
+
+.rows {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px 12px 8px;
+}
+
+.row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.label {
+  flex: none;
+  width: 96px;
+  color: var(--dsw-alias-label-caption);
+}
+
+.value {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--dsw-alias-label-secondary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

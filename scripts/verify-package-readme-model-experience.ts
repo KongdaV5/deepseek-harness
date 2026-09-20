@@ -215,6 +215,8 @@ const SENTENCE_MODEL_EXPERIENCE: Readonly<Record<string, SentenceContract>> = {
   'packages/runtime-diagnostics/reasoning-policy': { kind: 'indirect', reason: 'The resolution is written onto the LlmCallConfig that dsh-llm serializes, so the provider, not this library, owns the model-visible field.' },
   'packages/runtime-diagnostics/agent-run-policy': { kind: 'indirect', reason: 'The gate decides whether dsh-llm-retry may redeliver; the executor owns the model-visible retry, and denial re-sends nothing.' },
   'packages/session/task-checkpoint': { kind: 'none', reason: 'The package owns durable task facts and the guarded resume decision; the events stay out of model context and the service registers no prompt, schema, tool, or result text.' },
+  'packages/runtime-diagnostics/run-details': { kind: 'none', reason: 'The unit folds already-committed Session events into a client-facing read model of run diagnostics; it registers no prompt, schema, tool, or result text.' },
+  'packages/client/ui-run-details': { kind: 'none', reason: 'Browser-side read-only projection of run diagnostics; the strip carries no control and nothing it displays enters a model request.' },
 }
 
 interface Failure {
