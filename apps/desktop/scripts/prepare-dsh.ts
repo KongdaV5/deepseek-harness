@@ -4,6 +4,7 @@ import { spawn, execFile } from 'node:child_process'
 import { copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { delimiter, join, relative, resolve } from 'node:path'
+import { prepareDesktopRuntimePackageManifests } from './prepare-runtime-package-manifests.ts'
 import { desktopNodeEnvironment } from '../src/node-environment.ts'
 import { createRuntimeProjectMetadata } from '../src/project-manager.ts'
 import { DESKTOP_HOST_PROTOCOL_VERSION } from '../src/host-protocol.ts'
@@ -152,6 +153,7 @@ async function main(): Promise<void> {
       await signMacOSRuntime(join(RUNTIME_ROOT, 'primary-runtime'), appId, resolveMacOSSigningEnvironment(process.env))
     }
     smokePrimaryRuntime(join(RUNTIME_ROOT, 'primary-runtime'))
+    await prepareDesktopRuntimePackageManifests(DSH_OUTPUT_ROOT)
     writeDesktopRuntime(DSH_OUTPUT_ROOT, release, packageSet.packages.map(entry => entry.name), target)
     const descriptor = await verifyDesktopRuntime(DSH_OUTPUT_ROOT, release.version, target)
     await new Promise<void>((accept, reject) => {
