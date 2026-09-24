@@ -42,6 +42,19 @@ function client() {
 }
 
 describe('mountRuntimeDiagnostics', () => {
+  it('activates inside the real plugin context after providing its topic service', async () => {
+    const { ctx, registered } = client()
+    const fiber = ctx.plugin({
+      inject,
+      apply: async pluginCtx => mountRuntimeDiagnostics(pluginCtx, CONTRIBUTION),
+    })
+    await fiber.await()
+
+    expect(ctx.get('runtimeDiagnosticsTopics')).toBeInstanceOf(RuntimeDiagnosticsTopics)
+    expect(registered.map(provider => provider.protocol)).toEqual(['runtime-diagnostics'])
+    await ctx.fiber.dispose()
+  })
+
   it('mounts the contribution and registers the protocol provider', async () => {
     const { ctx, remote, registered, released } = client()
     const dispose = await mountRuntimeDiagnostics(ctx, CONTRIBUTION)

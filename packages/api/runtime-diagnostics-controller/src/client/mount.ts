@@ -104,7 +104,10 @@ export async function mountRuntimeDiagnostics(
   contribution: TypertRemoteContribution,
 ): Promise<() => Promise<void>> {
   await ctx.plugin(RuntimeDiagnosticsTopics)
-  const topics = ctx.runtimeDiagnosticsTopics
+  // This plugin creates the service during apply, so it cannot list it in its
+  // own inject requirements. Resolve the newly provided service explicitly.
+  const topics = ctx.get('runtimeDiagnosticsTopics')
+  if (topics === undefined) throw new Error('runtime diagnostics topic service did not activate')
   ctx.effect(
     () => ctx.resources.register(createRuntimeDiagnosticsProvider(ctx.remote, topic => topics.schemaFor(topic))),
     'runtime-diagnostics-controller: resource provider',
