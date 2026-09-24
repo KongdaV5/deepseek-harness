@@ -1,18 +1,20 @@
 /**
- * Advisory per-agent repeat-call detector. It enriches post-execute decisions
- * with logged model context without vetoing or rewriting calls. Configuration
+ * Per-agent repeat-call detector. It enriches post-execute decisions with
+ * advisory context, then stops a turn after identical results persist past
+ * every reminder. Configuration
  * and chain semantics live in the package README; rationale lives in the
  * repeat-tool-reminder Agent Note.
  * @module @deepseek-ai/dsh-repeat-tool-reminder
  */
 
 import type { Context } from '@deepseek-ai/cordis'
+import { createHash } from 'node:crypto'
 import z from '@deepseek-ai/schemastery'
 import type { Agent, PreStepDecision } from '@deepseek-ai/dsh-agent'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import type { MessageSource } from '@deepseek-ai/dsh-llm'
 import type { UserMessage } from '@deepseek-ai/dsh-session'
-import type { PostToolDecision, ToolExecution } from '@deepseek-ai/dsh-tools'
+import type { PostToolDecision, ToolExecution, ToolExecutionResult } from '@deepseek-ai/dsh-tools'
 
 export const name = 'repeat-tool-reminder'
 
@@ -152,6 +154,8 @@ function prependContext(ours: UserMessage, theirs: UserMessage[] | undefined): U
 interface Chain {
   key: string
   count: number
+  observation?: string
+  identicalResults: number
 }
 
 /**
@@ -163,6 +167,8 @@ export function apply(ctx: Context, config: Config): void {
   // schemastery's .default() guarantees the fields are set after validation.
   const thresholds = validateThresholds(config.thresholds as number[])
   const thresholdSet = new Set(thresholds)
+  // Give the model one more chance after the last advisory (8 -> 10 by default).
+  const hardThreshold = Math.max(...thresholds) + 2
   const includePatterns = (config.include as string[]).map(wildcardToRegExp)
   const excludePatterns = (config.exclude as string[]).map(wildcardToRegExp)
   const argumentsPreviewChars = config.argumentsPreviewChars as number
@@ -186,16 +192,44 @@ export function apply(ctx: Context, config: Config): void {
    * same pipeline), and a model hammering a denied call is exactly the loop
    * worth breaking.
    */
-  function observe(exec: ToolExecution): UserMessage | undefined {
+  function observe(exec: ToolExecution, result: Readonly<ToolExecutionResult>, decision: PostToolDecision): UserMessage | undefined {
     // A direct `ctx.tools.execute()` caller has no model to remind and no id
     // to key on; only agent-loop calls participate.
     if (!exec.agent) return undefined
-    if (!tracked(exec.name)) return undefined
+    if (!tracked(exec.name)) {
+      // Excluded bookkeeping remains advisory-transparent, but may have
+      // changed state: it cannot be transparent to a hard no-progress claim.
+      const chain = chains.get(exec.agent)
+      if (chain) chains.set(exec.agent, { key: chain.key, count: chain.count, identicalResults: 0 })
+      return undefined
+    }
     const canonical = canonicalize(exec.arguments)
     const key = JSON.stringify([exec.name, canonical])
     const chain = chains.get(exec.agent)
     const count = chain !== undefined && chain.key === key ? chain.count + 1 : 1
-    chains.set(exec.agent, { key, count })
+    // Compare the effective model-facing result after downstream policy. The
+    // digest bounds per-agent memory even when a tool returns a large file.
+    const observed = decision.kind === 'block'
+      ? { isError: true, content: decision.feedback, additionalContexts: decision.additionalContexts }
+      : {
+        isError: result.isError,
+        content: decision.content ?? result.content,
+        value: 'value' in decision ? decision.value : result.value,
+        error: result.error,
+        meta: result.meta,
+        additionalContexts: [...result.additionalContexts ?? [], ...decision.additionalContexts ?? []],
+      }
+    const observation = createHash('sha256').update(canonicalize(observed)).digest('hex')
+    const identicalResults = exec.parent === undefined && chain?.key === key && chain.observation === observation
+      ? chain.identicalResults + 1
+      : 1
+    chains.set(exec.agent, { key, count, observation, identicalResults })
+    if (exec.parent === undefined && identicalResults >= hardThreshold && !exec.signal.aborted) {
+      exec.agent.cancel(
+        { kind: 'hook', reason: `repeat-tool-reminder: ${exec.name} returned an identical result ${identicalResults} times` },
+        { keepInbox: true },
+      )
+    }
     if (!thresholdSet.has(count)) return undefined
     const text = count === thresholds[0]
       ? GENTLE_REMINDER
@@ -206,13 +240,11 @@ export function apply(ctx: Context, config: Config): void {
     })
   }
 
-  // Observe-and-enrich, never veto: count first (state advances regardless of
-  // the downstream outcome), DELEGATE so a later listener can still block or
-  // replace, then fold the reminder onto whatever came back — additionalContexts
-  // rides both decision variants, so a blocked call still gets the nudge.
-  ctx.on('tools/post-execute', async (exec, _result, next): Promise<PostToolDecision> => {
-    const reminder = observe(exec)
+  // Delegate first so the hard guard compares the effective observation; on
+  // saturation cancel the active turn, not merely block one tool result.
+  ctx.on('tools/post-execute', async (exec, result, next): Promise<PostToolDecision> => {
     const downstream = await next()
+    const reminder = observe(exec, result, downstream)
     if (!reminder) return downstream
     if (downstream.kind === 'block') {
       return { kind: 'block', feedback: downstream.feedback, additionalContexts: prependContext(reminder, downstream.additionalContexts) }

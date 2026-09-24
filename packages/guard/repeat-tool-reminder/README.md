@@ -1,5 +1,5 @@
 ---
-description: "Advisory loop-hygiene guard that nudges the model out of identical tool-call loops, for users and maintainers choosing, configuring, or debugging the plugin."
+description: "Repeat-tool guard that nudges the model and stops identical-result livelocks, for users and maintainers choosing, configuring, or debugging the plugin."
 kind: "package-reference"
 ---
 
@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-This package helps a model escape loops in which it calls the same tool with identical arguments without making progress. At configured repeat counts, it asks the model to inspect the previous result and change approach or finish. The reminder is advisory: it never blocks or delays a legitimate repeated call. Repeats are tracked separately for each agent and cleared by a new user message. The `dsh` base bundle enables the package with reminders at 3, 5, and 8 repeats.
+This package helps a model escape loops in which it calls the same tool with identical arguments without making progress. At configured repeat counts, it asks the model to inspect the previous result and change approach or finish. If identical calls keep returning identical results, it stops the active turn two calls after the last reminder (10 by default). Repeats are tracked separately for each agent and cleared by a new user message. The `dsh` base bundle enables the package with reminders at 3, 5, and 8 repeats.
 
 ## Table of Contents
 
@@ -29,7 +29,7 @@ Mount this plugin when the model should catch itself looping on identical tool c
 
 ### When to choose it
 
-Choose it when the model works autonomously for long stretches and a stuck loop is the failure you want to break with advice rather than force. Avoid it when identical repeats are legitimate and must run undisturbed — the guard only reminds, and a reminder is a small extra message after the repeated call — and when near-identical variants must be caught, because only exact repeats (same tool, same arguments regardless of property order) are detected.
+Choose it when the model works autonomously for long stretches and an identical-result loop must end without user intervention. Avoid it when identical results from legitimate polling must run undisturbed, or when near-identical variants must be caught: only exact calls (same tool and arguments regardless of property order) are detected.
 
 ### Setting the thresholds and scope
 
@@ -55,7 +55,7 @@ Invalid configuration fails at startup with a clear error — an empty `threshol
 
 ### What you get
 
-With the defaults, a model that repeats the same call with identical arguments receives a short reminder on the third repeat — to analyze the previous result before calling again — and detailed reminders on the fifth and eighth, naming the tool and the repeated arguments so it can decide whether to change approach, gather more evidence, or finish. A new user message clears the count, so a fresh instruction is never treated as a loop. Reminders appear in the conversation after the repeated call's result, attributed to the plugin, so the model reads them like any other message.
+With the defaults, a model that repeats the same call with identical arguments receives a short reminder on the third repeat and detailed reminders on the fifth and eighth. If the effective result also remains identical for ten consecutive calls, the guard cancels the turn with an auditable hook reason. A different tool call or changed result resets that hard evidence; a new user message clears the chain. Reminders appear after the repeated call's result, attributed to the plugin.
 
 -----
 
@@ -71,7 +71,7 @@ This section explains how the guard detects repeats and delivers reminders, and 
 
 The guard is built on four commitments:
 
-- **Advisory, not veto.** The guard enriches post-execute decisions with model context; it never blocks or rewrites a call, so `PostToolDecision` blocking stays a later listener's job.
+- **Advisory, then hard stop.** The guard enriches post-execute decisions with model context. When identical effective results persist past every reminder, it cancels the active turn with an explicit hook reason rather than relying on model compliance.
 - **Count in post-execute.** Detection runs on `tools/post-execute`, which also fires for denied calls; counting there lets one listener cover every attempt with no cross-event state.
 - **Exact-match canonicalization.** Arguments reach the guard as the loop's `JSON.parse` output (or its raw-string fallback), so JSON's value domain is the whole input domain and a deep key-sort plus `JSON.stringify` is a complete, deterministic identity — no bigint, cycle, or `undefined` handling exists because no input path can produce them.
 - **Fail loud at load.** `thresholds` and `argumentsPreviewChars` validate in `apply` and throw, never falling back to defaults.
@@ -80,11 +80,11 @@ The guard is built on four commitments:
 
 Each agent's chain is keyed by `(tool name, canonical arguments)` — two calls with the same tool and canonically identical arguments (property order ignored) count as consecutive, and a different tracked call resets the count to 1. The chain lives in a `WeakMap<Agent, Chain>`.
 
-- **Untracked calls are transparent to the chain.** A call excluded by `include`/`exclude` neither increments nor resets the counter, so `grep X → todo_write → grep X` still counts as two consecutive `grep X` when `todo_write` is excluded — bookkeeping tools interleaved into a loop do not launder it.
+- **Untracked calls are advisory-transparent.** A call excluded by `include`/`exclude` neither increments nor resets reminder counts, so `grep X → todo_write → grep X` still counts as two consecutive `grep X` when `todo_write` is excluded. It does reset hard-stop evidence because it may have changed relevant state.
 - **Denied calls count.** Detection sits on `tools/post-execute`, which also runs for calls a `tools/pre-execute` listener denied; a model hammering a denied call is exactly the loop worth breaking.
 - **Calls without an agent are ignored.** A direct `ctx.tools.execute()` caller has no model to remind and no live agent object to key on.
 - **Per-agent keying, reset on user prompts.** One agent's repetition never trips another's reminder; a user prompt (`agent/pre-step`) deletes the submitting agent's chain, and object lifetime bounds the weak entry without a disposal listener.
-- **In-memory only.** A session resumed from persistence starts with a fresh chain — the guard is a heuristic nudge, not a logged invariant, so reminders after a resume are the accepted cost.
+- **In-memory only.** A session resumed from persistence starts with a fresh chain. Compaction within the same live agent keeps its chain.
 
 ### Reminder delivery
 
@@ -168,7 +168,7 @@ These limits define when the guard is a poor fit. They are current package const
 
 - **Exact-match detection only** — canonicalization is a deep key-sort, so near-identical variants (a tweaked path, extra whitespace inside a value) evade the chain; fuzzy matching is rejected pending evidence of need.
 - **Compaction does not reset chains** — a chain spanning a compaction checkpoint keeps counting.
-- **Advisory only** — escalating to a blocking form at a high threshold is not implemented, though `PostToolDecision` already supports blocking.
+- **Hard stop requires identical observations** — a changed result or another tool call resets hard evidence. An out-of-band state change that leaves the effective result identical is not observable by this guard.
 - **No subagent chain-sharing** — chains stay isolated per agent; a parent and its subagent repeating the same call never combine.
 - **Legitimate idempotent polling still draws nudges** past the thresholds — the pressure valves are the `thresholds`/`exclude` config.
 - **Past the highest threshold a chain goes silent** — reminders fire only at exact configured counts, never beyond them.

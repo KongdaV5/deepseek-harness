@@ -437,7 +437,7 @@
         subagentProvider: spawn
         maxRounds: 64
 
-    # Consecutive-repeat reminders on the tool chain.
+    # Consecutive-repeat reminders, then a hard stop on identical results.
     - id: repeat-tool-reminder
       name: '@deepseek-ai/dsh-repeat-tool-reminder'
       config:

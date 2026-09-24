@@ -366,6 +366,103 @@ describe('fold onto the downstream decision', () => {
   })
 })
 
+describe('repeated-result hard guard', () => {
+  it('ends the incident loop without another model request or a manual stop', async () => {
+    const ctx = await harness()
+    let executions = 0
+    ctx.tools.register(defineContentToolFixture({
+      name: 'read', description: 'read', parameters: {},
+      async execute() { executions++; return [{ type: 'text', text: 'unchanged injected.js lines' }] },
+    }))
+    const adapter = new MockAdapter([
+      ...Array.from({ length: 17 }, (_, i) => toolCallResponse(`read-${i}`, 'read', { path: 'injected.js', offset: 204, limit: 20 })),
+      textResponse('model finally stopped'),
+    ])
+    ctx.llm.registerAdapter(['mock'], adapter)
+    const agent = await ctx.agentLoop.create(SessionId('incident'), { provider: 'mock', model: 'mock' })
+    agent.followup(createUserMessage({ content: [{ type: 'text', text: 'go' }], source: { kind: 'user' } }))
+    await waitForIdle(ctx, agent)
+
+    expect(executions).toBe(10)
+    expect(adapter.requests).toHaveLength(10)
+    expect(reminders(agent).some(item => item.text.includes('repeating the exact same tool call'))).toBe(true)
+    const end = agent.session.snapshotEvents().find((event): event is SessionEvent<'turn/end'> => event.type === 'turn/end')
+    expect(end?.data.reason.kind).toBe('aborted')
+    if (end?.data.reason.kind !== 'aborted') throw new Error('expected aborted turn')
+    expect(end.data.reason.reason.kind).toBe('hook')
+    if (end.data.reason.reason.kind !== 'hook') throw new Error('expected hook cancellation')
+    expect(end.data.reason.reason.reason).toContain('repeat-tool-reminder')
+  })
+
+  it('allows repeated reads when their observations change', async () => {
+    const ctx = await harness()
+    let revision = 0
+    ctx.tools.register(defineContentToolFixture({
+      name: 'read', description: 'read', parameters: {},
+      async execute() { return [{ type: 'text', text: `revision ${++revision}` }] },
+    }))
+    const adapter = new MockAdapter([
+      ...Array.from({ length: 12 }, (_, i) => toolCallResponse(`read-${i}`, 'read', { path: 'injected.js' })),
+      textResponse('done'),
+    ])
+    ctx.llm.registerAdapter(['mock'], adapter)
+    const agent = await ctx.agentLoop.create(SessionId('changing-observation'), { provider: 'mock', model: 'mock' })
+    agent.followup(createUserMessage({ content: [{ type: 'text', text: 'go' }], source: { kind: 'user' } }))
+    await waitForIdle(ctx, agent)
+
+    expect(adapter.requests).toHaveLength(13)
+    expect(agent.session.snapshotEvents().find(event => event.type === 'turn/end'))
+      .toMatchObject({ data: { reason: { kind: 'completed' } } })
+  })
+
+  it('allows the same read after an excluded edit changes the file state', async () => {
+    const ctx = await harness({ exclude: ['edit'] })
+    let edits = 0
+    let reads = 0
+    ctx.tools.register(defineContentToolFixture({
+      name: 'read', description: 'read', parameters: {},
+      async execute() { reads++; return [{ type: 'text', text: 'same visible lines' }] },
+    }))
+    ctx.tools.register(defineContentToolFixture({
+      name: 'edit', description: 'edit', parameters: {},
+      async execute() { edits++; return [{ type: 'text', text: 'file changed outside read window' }] },
+    }))
+    const adapter = new MockAdapter([
+      ...Array.from({ length: 9 }, (_, i) => toolCallResponse(`before-${i}`, 'read', { path: 'injected.js', offset: 204, limit: 20 })),
+      toolCallResponse('edit', 'edit', { path: 'injected.js' }),
+      ...Array.from({ length: 9 }, (_, i) => toolCallResponse(`after-${i}`, 'read', { path: 'injected.js', offset: 204, limit: 20 })),
+      textResponse('done'),
+    ])
+    ctx.llm.registerAdapter(['mock'], adapter)
+    const agent = await ctx.agentLoop.create(SessionId('edited-file'), { provider: 'mock', model: 'mock' })
+    agent.followup(createUserMessage({ content: [{ type: 'text', text: 'go' }], source: { kind: 'user' } }))
+    await waitForIdle(ctx, agent)
+
+    expect({ edits, reads }).toEqual({ edits: 1, reads: 18 })
+    expect(agent.session.snapshotEvents().find(event => event.type === 'turn/end'))
+      .toMatchObject({ data: { reason: { kind: 'completed' } } })
+  })
+
+  it('allows different arguments and a strategy change after the gentle reminder', async () => {
+    const ctx = await harness()
+    const adapter = new MockAdapter([
+      ...Array.from({ length: 12 }, (_, i) => toolCallResponse(`arg-${i}`, 'probe', { offset: i })),
+      ...Array.from({ length: 3 }, (_, i) => toolCallResponse(`same-${i}`, 'probe', { offset: 99 })),
+      toolCallResponse('new-strategy', 'other', {}),
+      textResponse('done'),
+    ])
+    ctx.llm.registerAdapter(['mock'], adapter)
+    const agent = await ctx.agentLoop.create(SessionId('strategy-change'), { provider: 'mock', model: 'mock' })
+    agent.followup(createUserMessage({ content: [{ type: 'text', text: 'go' }], source: { kind: 'user' } }))
+    await waitForIdle(ctx, agent)
+
+    expect(adapter.requests).toHaveLength(17)
+    expect(reminders(agent).some(item => item.text.includes('repeating the exact same tool call'))).toBe(true)
+    expect(agent.session.snapshotEvents().find(event => event.type === 'turn/end'))
+      .toMatchObject({ data: { reason: { kind: 'completed' } } })
+  })
+})
+
 describe('config validation fails loud', () => {
   async function spine(): Promise<Context> {
     const ctx = new Context()
