@@ -2,7 +2,10 @@ import { createHash } from 'node:crypto'
 import { createRequire } from 'node:module'
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { Writable } from 'node:stream'
+import { finished } from 'node:stream/promises'
+import { join, resolve } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { afterEach, expect, it } from 'vitest'
 import { prepareDesktopRuntimePackageManifests } from '../scripts/prepare-runtime-package-manifests.ts'
 import { writeDesktopRuntime, verifyDesktopRuntime } from '../src/runtime-tree.ts'
@@ -10,7 +13,12 @@ import { runtimeFixture, writePackage } from './runtime-fixture.ts'
 
 const require = createRequire(import.meta.url)
 const builderRequire = createRequire(require.resolve('app-builder-lib/package.json'))
-const { createPackageWithOptions, extractFile } = builderRequire('@electron/asar') as {
+const asarUrl = pathToFileURL(builderRequire.resolve('@electron/asar'))
+type AsarFileSystem = Pick<typeof import('node:fs'), 'createWriteStream'>
+const { wrappedFs: asarFs } = await import(new URL('./wrapped-fs.js', asarUrl).href) as {
+  wrappedFs: AsarFileSystem
+}
+const { createPackageWithOptions, extractFile } = await import(asarUrl.href) as {
   createPackageWithOptions: (source: string, destination: string, options: { unpack: string }) => Promise<void>
   extractFile: (archive: string, path: string) => Buffer
 }
@@ -21,6 +29,53 @@ const { createTransformer } = builderRequire('app-builder-lib/out/fileTransforme
 
 const roots: string[] = []
 afterEach(() => { for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true }) })
+
+async function createArchiveAndWaitForFinish(
+  archivePath: string,
+  createArchive: () => Promise<void>,
+  fileSystem: AsarFileSystem = asarFs,
+): Promise<void> {
+  const originalCreateWriteStream = fileSystem.createWriteStream
+  let archiveFinished: Promise<void> | undefined
+  fileSystem.createWriteStream = (...args) => {
+    const stream = originalCreateWriteStream(...args)
+    if (resolve(String(args[0])) === resolve(archivePath)) {
+      archiveFinished = finished(stream)
+      void archiveFinished.catch(() => undefined)
+    }
+    return stream
+  }
+  try {
+    await createArchive()
+    if (archiveFinished === undefined) throw new Error(`ASAR output stream was not observed for ${archivePath}`)
+    await archiveFinished
+  } finally {
+    fileSystem.createWriteStream = originalCreateWriteStream
+  }
+}
+
+it('waits for the ASAR output stream after the packaging API returns', async () => {
+  const archive = join(tmpdir(), 'controlled-runtime.asar')
+  const output = new Writable({ write(_chunk, _encoding, callback) { callback() } })
+  const controlledFs: AsarFileSystem = {
+    createWriteStream: (() => output) as unknown as AsarFileSystem['createWriteStream'],
+  }
+  let packageApiReturned = false
+  let completionWaitReturned = false
+  const waiting = createArchiveAndWaitForFinish(archive, async () => {
+    controlledFs.createWriteStream(archive)
+    packageApiReturned = true
+  }, controlledFs).then(() => { completionWaitReturned = true })
+
+  await Promise.resolve()
+  expect(packageApiReturned).toBe(true)
+  expect(output.writableFinished).toBe(false)
+  expect(completionWaitReturned).toBe(false)
+
+  output.end()
+  await waiting
+  expect(completionWaitReturned).toBe(true)
+})
 
 it('seals Electron Builder-transformed manifests while retaining ordinary integrity checks', async () => {
   const root = mkdtempSync(join(tmpdir(), 'desktop-runtime-manifests-'))
@@ -42,7 +97,7 @@ it('seals Electron Builder-transformed manifests while retaining ordinary integr
   const builderTransform = createTransformer(dsh, {}, undefined, null)
   expect(await builderTransform(manifest)).toBeNull()
   const archive = join(root, 'runtime.asar')
-  await createPackageWithOptions(dsh, archive, { unpack: '**/*.node' })
+  await createArchiveAndWaitForFinish(archive, () => createPackageWithOptions(dsh, archive, { unpack: '**/*.node' }))
 
   const relativeManifest = 'node_modules/runtime-manifest-fixture/package.json'
   const relativeOrdinaryFile = 'node_modules/runtime-manifest-fixture/index.js'
