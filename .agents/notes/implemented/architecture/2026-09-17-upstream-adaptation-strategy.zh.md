@@ -143,6 +143,14 @@ Stage 13 仅对 `verify-client-domain-graph` 和 `duplication` 采用相对于�
 
 此决策不适用于 signing、runtime 或 package integrity、native runtime、startup/restart、crash/process health、Official/Custom 或 profile/data isolation、live-data safety、Session/Task/Run correctness、rollback、destructive operations，以及 security/safety sentinels；这些门禁即使历史上已有同类失败，也仍须阻断资格验证。Stage 13 保持 `PENDING`。两项 hygiene 债务须在建立新的 Final Product baseline 或 cutover review 时另行作出明确决定，或在独立 hygiene remediation 阶段关闭。
 
+### Stage 13 静态文档债务资格验证决策
+
+与静态 hygiene 决策分开，Stage 13 仅对 `verify-repository-references` 和 `verify-concrete-terms` 采用相对于基线的资格判断。比较基线是上文标识的原 Stage 13 candidate Git tree `656c3bcfede57e3cba2fa19c8c8d9026fa3bf9fd`。在每次资格验证的 HEAD，只有 finding identity 和 rule 与该基线一致、源码位置和语义目标没有实质变化、candidate 也没有新增或扩大 finding 时，才能将其分类为 `PRE_EXISTING_UNCHANGED_DOCUMENTATION_DEBT`。原始 gate 结果仍记录为 `FAIL`，candidate regressions 记为零。任何新增或变化的 finding、范围扩大或 candidate 修改造成的 violation 都阻断资格验证；后续 candidate 不得自动继承本决策。
+
+明确批准的 repository-reference 记录为 `FAIL — 15 PRE_EXISTING_UNCHANGED_DOCUMENTATION_DEBT; candidate regressions: 0`：15 条 file/location/rule identity 均与原 candidate 一致，new 0、changed 0。另行批准的 concrete-term 记录为 `FAIL — 3 PRE_EXISTING_UNCHANGED_DOCUMENTATION_DEBT; candidate regressions: 0`：strategy 英文、中文及 runtime-diagnostics type 中的 finding identity 和含义均与原 candidate 一致，new 0、changed 0。两个原始 gate 仍为失败，全部 18 条 finding 均未解决。继续 Stage 13 前，须在本次文档治理提交的 HEAD 重新运行两个 gate 并核对 finding identity。
+
+本决策不适用于生成文档的新鲜度，包括已单独修复 candidate regression 并恢复通过的 `verify-config-catalog`。它也不适用于 runtime 或 package integrity、signing、startup/restart、process health、Official/Custom 与 data/profile isolation、Session/Task/Run 和 Agent Runtime correctness、rollback safety，以及 security/safety sentinels；这些门禁失败仍须阻断资格验证。Stage 13 保持 `PENDING`。文档债务须在建立新的 Final Product baseline 或 cutover review 时另行作出明确决定，或在独立 remediation 阶段关闭。
+
 ## 后果
 
 ### 安全、native、maintenance 与未决 contract

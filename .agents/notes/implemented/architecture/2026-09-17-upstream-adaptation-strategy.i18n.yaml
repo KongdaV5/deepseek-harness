@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/architecture/2026-09-17-upstream-adaptation-strategy.md
-2026-09-17-upstream-adaptation-strategy.md: ef54b48087d651387197540b52b19014aeeb2e44
-2026-09-17-upstream-adaptation-strategy.zh.md: c3862ba69248a09f8b8b96420c227f2849e35fd1
+2026-09-17-upstream-adaptation-strategy.md: 6eb915ba9d1f632d161f7ed1b1b5c73f3923a1b1
+2026-09-17-upstream-adaptation-strategy.zh.md: f088e7a130e702c20d43c1570ed64765606d3fd4

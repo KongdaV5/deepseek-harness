@@ -143,6 +143,14 @@ The approved, explicitly named client-domain architecture exception is `FAIL —
 
 This decision does not apply to signing, runtime or package integrity, native runtime, startup/restart, crash/process health, Official/Custom or profile/data isolation, live-data safety, Session/Task/Run correctness, rollback, destructive operations, or security/safety sentinels; any failure there still blocks qualification, even if historically present. Stage 13 remains `PENDING`. The two hygiene debts require a separate explicit decision at a new Final Product baseline or cutover review, or closure in an independent hygiene remediation phase.
 
+### Stage 13 static documentation debt qualification decision
+
+Separately from the static hygiene decision, Stage 13 uses baseline-relative qualification only for `verify-repository-references` and `verify-concrete-terms`. The comparison baseline is the original Stage 13 candidate tree `656c3bcfede57e3cba2fa19c8c8d9026fa3bf9fd` identified above. At each qualification HEAD, a finding may be classified as `PRE_EXISTING_UNCHANGED_DOCUMENTATION_DEBT` only when its identity and rule match that baseline, its source location and semantic target have not materially changed, and the candidate has introduced or expanded no finding. Keep the raw gate result as `FAIL` and record candidate regressions as zero. Any new or changed finding, expanded scope, or candidate-caused violation blocks qualification; this decision cannot be inherited automatically by a later candidate.
+
+The explicitly approved repository-reference record is `FAIL — 15 PRE_EXISTING_UNCHANGED_DOCUMENTATION_DEBT; candidate regressions: 0`: all 15 file/location/rule identities match the original candidate, with new 0 and changed 0. The separately approved concrete-term record is `FAIL — 3 PRE_EXISTING_UNCHANGED_DOCUMENTATION_DEBT; candidate regressions: 0`: the strategy English and Chinese findings and the runtime-diagnostics type finding have the same identities and meanings as in the original candidate, with new 0 and changed 0. Both raw gates remain failing, and all 18 findings remain unresolved. Rerun both gates and compare finding identities at the documentation-governance commit HEAD before continuing Stage 13.
+
+This documentation-debt decision excludes generated-document freshness, including `verify-config-catalog`, which passed after its separate candidate regression repair. It also excludes runtime and package integrity, signing, startup/restart, process health, Official/Custom and data/profile isolation, Session/Task/Run and Agent Runtime correctness, rollback safety, and security/safety sentinels; any failure in those gates still blocks qualification. Stage 13 remains `PENDING`. Reconsider the documentation debts explicitly at a new Final Product baseline or cutover review, or close them in independent remediation.
+
 ## Consequences
 
 ### Safety, native, maintenance, and unresolved contracts
