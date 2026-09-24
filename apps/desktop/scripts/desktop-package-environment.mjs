@@ -72,7 +72,7 @@ function requireReadableFile(environment, name) {
  * Validate release configuration before preparation without invoking a token or Apple's services.
  * @param {NodeJS.ProcessEnv} environment File-owned release settings.
  * @param {{ platform: 'win32' | 'darwin', arch: string }} target Selected release target.
- * @param {{ unsigned?: boolean, prepareOnly?: boolean }} options Explicit packaging mode.
+ * @param {{ unsigned?: boolean, prepareOnly?: boolean, directory?: boolean }} options Explicit packaging mode.
  * @returns {void}
  */
 export function validateDesktopPackageEnvironment(environment, target, options = {}) {

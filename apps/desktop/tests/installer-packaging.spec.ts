@@ -56,6 +56,43 @@ describe('installer preparation preserves application dependencies', () => {
       .toThrow('limited to the ds-harness flavor')
   })
 
+  it('reserves credential-free macOS configuration for DS Harness local qualification', async () => {
+    const { createElectronBuilderConfig } = await import('../scripts/electron-builder-config.mjs')
+    const { validateDesktopPackageEnvironment } = await import('../scripts/desktop-package-environment.mjs')
+    const target = { platform: 'darwin', arch: 'arm64' } as const
+    const local = {
+      DSH_DESKTOP_PRODUCT_FLAVOR: 'ds-harness',
+      DSH_DESKTOP_LOCAL_MACOS_QUALIFICATION: '1',
+      DSH_DESKTOP_TARGET_PLATFORM: 'darwin',
+      DSH_DESKTOP_TARGET_ARCH: 'arm64',
+    }
+    expect(() => { validateDesktopPackageEnvironment(local, target, { directory: true }) }).not.toThrow()
+    expect(createElectronBuilderConfig(local, 'darwin', 'arm64')).toMatchObject({
+      appId: 'dev.dsh.desktop.custom',
+      productName: 'DS Harness',
+      publish: null,
+      mac: { identity: undefined, forceCodeSigning: false, hardenedRuntime: false, notarize: false },
+    })
+
+    const standard = { DSH_DESKTOP_PRODUCT_FLAVOR: 'ds-harness', DSH_DESKTOP_TARGET_PLATFORM: 'darwin' }
+    expect(() => { validateDesktopPackageEnvironment(standard, target, { directory: true }) })
+      .toThrow(/DSH_DESKTOP_MACOS_SIGNING_IDENTITY/u)
+    expect(() => createElectronBuilderConfig(standard, 'darwin', 'arm64'))
+      .toThrow(/DSH_DESKTOP_MACOS_SIGNING_IDENTITY/u)
+    expect(() => createElectronBuilderConfig({ ...standard,
+      DSH_DESKTOP_MACOS_SIGNING_IDENTITY: 'Example Company (TEAMID1234)',
+      DSH_DESKTOP_MACOS_TEAM_ID: 'TEAMID1234',
+    }, 'darwin', 'arm64')).toThrow(/macOS packaging requires/u)
+
+    const official = { DSH_DESKTOP_APP_ID: 'com.example.desktop',
+      DSH_DESKTOP_MANDATORY_UPDATE_TEST_ORIGIN: 'https://policy.example.com',
+      DSH_DESKTOP_TARGET_PLATFORM: 'darwin' }
+    expect(() => createElectronBuilderConfig(official, 'darwin', 'arm64'))
+      .toThrow(/DSH_DESKTOP_MACOS_SIGNING_IDENTITY/u)
+    expect(() => createElectronBuilderConfig({ ...official, DSH_DESKTOP_LOCAL_MACOS_QUALIFICATION: '1' }, 'darwin', 'arm64'))
+      .toThrow('limited to the ds-harness flavor')
+  })
+
   it.each(['win32', 'darwin'] as const)('rejects a missing production policy before signing on %s', async (platform) => {
     const { createElectronBuilderConfig } = await import('../scripts/electron-builder-config.mjs')
     expect(() => createElectronBuilderConfig({ DSH_DESKTOP_APP_ID: 'com.example.installer',

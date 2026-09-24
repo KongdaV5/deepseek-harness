@@ -187,6 +187,8 @@ macOS 配置使用必填发布环境，不会接受钥匙串中最先发现的�
 
 macOS 签名遍历真实文件，不跟随 Framework 的软链接别名。PAK 资源保留全部随附语言，由外层 Framework 或应用签名记录完整性，不逐个签名。[发布策略](../../.agents/notes/implemented/architecture/2026-08-25-electron-desktop-packaging-and-updates.zh.md)负责依赖补丁和验证要求。
 
+在 `.env.macos` 中显式设置 `DSH_DESKTOP_PRODUCT_FLAVOR=ds-harness` 和 `DSH_DESKTOP_LOCAL_MACOS_QUALIFICATION=1`，只对 macOS `--dir` 临时应用启用例外：构建配置不读取 Developer ID 与公证凭据、关闭发布，打包命令对生成的应用执行 ad-hoc 签名及严格验证。普通目录打包仍要求发布凭据；该临时应用不是已完成正式签名和公证的发布包。
+
 可通过公司代理加速向 Apple 公证服务上传。代理配置参见公司内部文档。
 
 ### 未签名 Windows 测试安装包

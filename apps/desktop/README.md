@@ -186,6 +186,8 @@ The macOS configuration uses the required release environment instead of accepti
 
 macOS signing visits real files without following Framework symlink aliases. PAK resources retain all shipped languages and are sealed by the enclosing Framework or application signature instead of receiving individual signatures. The [release policy](../../.agents/notes/implemented/architecture/2026-08-25-electron-desktop-packaging-and-updates.md) owns the dependency patch and verification requirements.
 
+An explicit `DSH_DESKTOP_PRODUCT_FLAVOR=ds-harness` and `DSH_DESKTOP_LOCAL_MACOS_QUALIFICATION=1` in `.env.macos` select the macOS `--dir` staging exception: the builder omits Developer ID and notarization credentials, disables publishing, and the package command ad-hoc-signs and strictly verifies the resulting app. An ordinary directory build still requires release credentials; this staging app is not a signed or notarized release.
+
 Company proxies can accelerate uploads to Apple's notarization service. See the company internal documentation for configuration.
 
 ### Unsigned Windows test installer
