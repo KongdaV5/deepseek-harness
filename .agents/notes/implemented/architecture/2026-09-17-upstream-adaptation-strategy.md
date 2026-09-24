@@ -135,6 +135,14 @@ The single selected strategy is **B: fresh latest-upstream branch plus semantic 
 12. Port the Phase 8B repository maintenance plane. Stop if it joins runtime composition or changes monitor state/debt.
 13. Run full isolated regression and packaged candidate qualification. Any failed invariant prevents install, tag, or new baseline.
 
+### Stage 13 static hygiene qualification decision
+
+Stage 13 uses baseline-relative qualification only for `verify-client-domain-graph` and `duplication`. The locked comparison commit is the original Stage 13 candidate `f79d05f32398d284cb32026758b378fc5a3f1a73`; the verified product candidate is `7f0904f37ff476cdc66c12b3f907c7c4e23e67ae`. An unchanged finding requires the same identity and rule/category, no candidate change to the relevant source, and no material change in count, import relationship, or clone scope. Keep the raw gate result as `FAIL`, classify such findings as `PRE_EXISTING_UNCHANGED_DEBT`, and record zero candidate regressions. Any new finding, changed rule/category, expanded relationship or clone scope, or candidate-caused violation blocks qualification. Recheck both gates and their finding identities at the governance-commit HEAD before continuing Stage 13.
+
+The approved, explicitly named client-domain architecture exception is `FAIL — 38 PRE_EXISTING_UNCHANGED_DEBT; candidate regressions: 0`: all 38 rule/source/import identities matched the original candidate, with zero new or changed findings and no candidate change to their source files. These violations of the client-domain layering rule remain unresolved. The duplication result is `FAIL — 7 PRE_EXISTING_UNCHANGED_DEBT; candidate regressions: 0`: all seven file-pair/range clone groups matched, with 69 duplicated lines and 567 duplicated tokens on both commits, zero new or changed groups, and no candidate change to their source files. This maintainability debt remains unresolved. Neither raw gate is recorded as passing.
+
+This decision does not apply to signing, runtime or package integrity, native runtime, startup/restart, crash/process health, Official/Custom or profile/data isolation, live-data safety, Session/Task/Run correctness, rollback, destructive operations, or security/safety sentinels; any failure there still blocks qualification, even if historically present. Stage 13 remains `PENDING`. The two hygiene debts require a separate explicit decision at a new Final Product baseline or cutover review, or closure in an independent hygiene remediation phase.
+
 ## Consequences
 
 ### Safety, native, maintenance, and unresolved contracts
