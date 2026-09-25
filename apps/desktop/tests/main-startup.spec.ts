@@ -121,7 +121,7 @@ const harness = await vi.hoisted(async () => {
     getLocale: (): string => 'en-US',
     getVersion: () => '1.0.0',
     getAppPath: () => 'desktop-test-app',
-    getPath: (name: string) => name === 'appData' ? 'desktop-test-app-data' : `desktop-test-${name}`,
+    getPath: (name: string) => name === 'appData' ? '/desktop-test-app-data' : `desktop-test-${name}`,
     setPath: vi.fn(),
     setName: vi.fn((name: string) => { app.name = name }),
     setAboutPanelOptions: vi.fn<(options: Electron.AboutPanelOptionsOptions) => void>(),
@@ -372,6 +372,26 @@ describe('desktop main startup', () => {
       .toEqual(['About DS Harness', 'separator', 'Exit'])
     expect(harness.updateCheck).not.toHaveBeenCalled()
     expect(testAuth.login).not.toHaveBeenCalled()
+  })
+
+  it('starts packaged DS Harness without rehearsal variables in its stable Custom data root', async () => {
+    harness.productFlavor = 'ds-harness'
+    vi.stubEnv('DSH_HOME', '/legacy/shared/.dsh')
+    const host = await readyForUpdate()
+    await vi.advanceTimersByTimeAsync(0)
+    const root = '/desktop-test-app-data/@deepseek-ai'
+    expect(harness.app.setPath.mock.calls).toEqual([
+      ['userData', join(root, 'dsh-harness-custom', 'electron')],
+      ['sessionData', join(root, 'dsh-harness-custom', 'electron')],
+    ])
+    expect(host.profile).toBe('desktop-custom-test-profile')
+    expect(host.environment?.DSH_HOME).toBe(join(root, 'dsh-harness-custom'))
+    expect(host.environment?.DSH_DESKTOP_DATA_MODE).toBeUndefined()
+    expect(host.environment?.DSH_DESKTOP_REHEARSAL_ROOT).toBeUndefined()
+    expect(host.environment?.DSH_HOME).not.toContain('/legacy/shared')
+    expect(harness.app.setPath.mock.invocationCallOrder[0])
+      .toBeLessThan(harness.app.requestSingleInstanceLock.mock.invocationCallOrder[0]!)
+    expect(harness.updateCheck).not.toHaveBeenCalled()
   })
 
   it('shows one explained startup login before Host readiness and joins concurrent checks without reopening it', async () => {

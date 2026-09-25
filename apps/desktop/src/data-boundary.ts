@@ -1,6 +1,6 @@
 /** Explicit Desktop ownership for DSH data and Electron state. */
 
-import { isAbsolute, join, relative, resolve } from 'node:path'
+import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { resolveDshHome } from '@deepseek-ai/dsh-home-paths'
 import type { DesktopProductFlavor } from './product-flavor.ts'
 
@@ -11,13 +11,13 @@ export const DESKTOP_DATA_MODE_ENV = 'DSH_DESKTOP_DATA_MODE'
 export const DESKTOP_REHEARSAL_ROOT_ENV = 'DSH_DESKTOP_REHEARSAL_ROOT'
 
 /** Data modes admitted by the Desktop entry point. */
-export type DesktopDataMode = 'upstream-default' | 'candidate-rehearsal'
+export type DesktopDataMode = 'upstream-default' | 'candidate-rehearsal' | 'custom-default'
 
 /** Stable store-sharing policy independent of product display text. */
 export interface DesktopDataPolicy {
   readonly profile: 'flavor-isolated'
-  readonly settings: 'shared-global'
-  readonly sessions: 'shared-global'
+  readonly settings: 'shared-global' | 'flavor-isolated'
+  readonly sessions: 'shared-global' | 'flavor-isolated'
   readonly electronState: 'flavor-isolated'
 }
 
@@ -35,7 +35,7 @@ export interface DesktopDataBoundary {
     readonly path: string
   }
   readonly migration: {
-    readonly historicalSessionRead: 'upstream-native' | 'fixture-copy-only'
+    readonly historicalSessionRead: 'upstream-native' | 'fixture-copy-only' | 'disabled'
     readonly liveSharedDataMigrationAllowed: boolean
   }
   readonly approvedRoots: readonly string[]
@@ -45,6 +45,13 @@ const DATA_POLICY: DesktopDataPolicy = {
   profile: 'flavor-isolated',
   settings: 'shared-global',
   sessions: 'shared-global',
+  electronState: 'flavor-isolated',
+}
+
+const CUSTOM_DATA_POLICY: DesktopDataPolicy = {
+  profile: 'flavor-isolated',
+  settings: 'flavor-isolated',
+  sessions: 'flavor-isolated',
   electronState: 'flavor-isolated',
 }
 
@@ -106,16 +113,19 @@ function rehearsalBoundary(
 
 /**
  * Resolve Desktop data authorities before profile or Host startup.
- * Official mode without an override preserves upstream paths and migration.
- * DS Harness remains rehearsal-only until a later qualification explicitly
- * authorizes its shared live stores.
+ * Official mode without an override preserves upstream paths and migration;
+ * standalone DS Harness uses its own stable appData root without migration.
+ * Qualification rehearsals use a disposable root; standalone DS Harness uses
+ * a product-owned root and never migrates legacy or Official data.
  * @param flavor - explicit product flavor; product display text has no authority.
  * @param environment - process environment supplying mode and root overrides.
+ * @param appDataPath - Electron's stable per-user Application Support directory.
  * @returns the complete immutable data authority set.
  */
 export function resolveDesktopDataBoundary(
   flavor: DesktopProductFlavor,
   environment: NodeJS.ProcessEnv = process.env,
+  appDataPath?: string,
 ): DesktopDataBoundary {
   const requested = environment[DESKTOP_DATA_MODE_ENV]
   if (requested === 'candidate-rehearsal') return rehearsalBoundary(flavor, environment)
@@ -123,7 +133,44 @@ export function resolveDesktopDataBoundary(
     throw new Error(`desktop data: unsupported ${DESKTOP_DATA_MODE_ENV} ${JSON.stringify(requested)}`)
   }
   if (flavor.id === 'ds-harness') {
-    throw new Error('desktop data: DS Harness candidate cannot use live shared data; select candidate-rehearsal')
+    if (flavor.userData.mode !== 'isolated') {
+      throw new Error('desktop data: Custom flavor must declare isolated Electron userData')
+    }
+    if (appDataPath === undefined || !isAbsolute(appDataPath)) {
+      throw new Error('desktop data: normal DS Harness startup requires Electron appData')
+    }
+    const electronUserData = join(appDataPath, ...flavor.userData.pathSegments)
+    const root = dirname(electronUserData)
+    const dshHome = root
+    const profiles = join(dshHome, 'profiles')
+    const resolved: DesktopDataBoundary = {
+      mode: 'custom-default',
+      policy: CUSTOM_DATA_POLICY,
+      dshHome,
+      settings: join(dshHome, 'settings.yaml'),
+      profiles,
+      profile: join(profiles, flavor.profileName),
+      sessions: join(dshHome, 'sessions'),
+      electronUserData: { mode: 'explicit', path: electronUserData },
+      migration: {
+        historicalSessionRead: 'disabled',
+        liveSharedDataMigrationAllowed: false,
+      },
+      approvedRoots: [root],
+    }
+    for (const candidate of [
+      resolved.dshHome,
+      resolved.settings,
+      resolved.profiles,
+      resolved.profile,
+      resolved.sessions,
+      electronUserData,
+    ]) {
+      if (!isWithin(root, candidate)) {
+        throw new Error(`desktop data: Custom path escapes its product root: ${candidate}`)
+      }
+    }
+    return resolved
   }
   const dshHome = resolveDshHome(undefined, environment)
   const profiles = join(dshHome, 'profiles')

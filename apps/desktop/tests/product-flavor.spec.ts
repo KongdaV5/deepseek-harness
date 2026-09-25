@@ -68,8 +68,8 @@ describe('desktop product flavor', () => {
       id: 'ds-harness', productName: 'DS Harness', appId: 'dev.dsh.desktop.custom',
       profileName: 'desktop-custom', updateBehavior: 'disabled',
     })
-    expect(paths.get('userData')).toBe(join(root, '@deepseek-ai', 'dsh-desktop-custom'))
-    expect(paths.get('sessionData')).toBe(join(root, '@deepseek-ai', 'dsh-desktop-custom'))
+    expect(paths.get('userData')).toBe(join(root, '@deepseek-ai', 'dsh-harness-custom', 'electron'))
+    expect(paths.get('sessionData')).toBe(join(root, '@deepseek-ai', 'dsh-harness-custom', 'electron'))
     expect(app.setName).toHaveBeenCalledWith('DS Harness')
     expect(resolveDesktopPaths(join(root, '.dsh'), flavor.profileName).profile)
       .toBe(join(root, '.dsh', 'profiles', 'desktop-custom'))

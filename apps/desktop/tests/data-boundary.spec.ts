@@ -44,9 +44,32 @@ describe('desktop data boundary', () => {
 
   it('fails closed before a DS Harness candidate can select live shared data', () => {
     expect(() => resolveDesktopDataBoundary(custom, {}))
-      .toThrow('DS Harness candidate cannot use live shared data')
+      .toThrow('normal DS Harness startup requires Electron appData')
     expect(() => resolveDesktopDataBoundary(custom, { [DESKTOP_DATA_MODE_ENV]: 'candidate-rehearsal' }))
       .toThrow(DESKTOP_REHEARSAL_ROOT_ENV)
+  })
+
+  it('gives standalone Custom a stable product-owned root and never reads ambient DSH_HOME', () => {
+    const appData = '/synthetic/app-data'
+    const boundary = resolveDesktopDataBoundary(custom, {
+      HOME: '/synthetic/home', DSH_HOME: '/synthetic/legacy-dsh-home',
+    }, appData)
+    const root = join(appData, '@deepseek-ai', 'dsh-harness-custom')
+    expect(boundary).toEqual({
+      mode: 'custom-default',
+      policy: {
+        profile: 'flavor-isolated', settings: 'flavor-isolated', sessions: 'flavor-isolated',
+        electronState: 'flavor-isolated',
+      },
+      dshHome: root,
+      settings: join(root, 'settings.yaml'),
+      profiles: join(root, 'profiles'),
+      profile: join(root, 'profiles', 'desktop-custom'),
+      sessions: join(root, 'sessions'),
+      electronUserData: { mode: 'explicit', path: join(root, 'electron') },
+      migration: { historicalSessionRead: 'disabled', liveSharedDataMigrationAllowed: false },
+      approvedRoots: [root],
+    })
   })
 
   it('keeps shared stores common and flavor-local state distinct inside one rehearsal root', () => {

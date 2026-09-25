@@ -48,7 +48,7 @@ import { resolveDesktopDataBoundary } from './data-boundary.ts'
 
 const applicationManifest = readDesktopApplicationManifest(app.getAppPath())
 const productFlavor = resolveDesktopRuntimeProductFlavor(app.isPackaged, applicationManifest)
-const dataBoundary = resolveDesktopDataBoundary(productFlavor)
+const dataBoundary = resolveDesktopDataBoundary(productFlavor, process.env, app.getPath('appData'))
 applyDesktopProductIdentity(
   app,
   productFlavor,
@@ -267,7 +267,7 @@ async function main(): Promise<void> {
   }
   const backend = new DesktopBackendController((onFailure) => {
     const hostInspectPort = developmentHostInspectPort(development)
-    const hostEnvironment = dataBoundary.mode === 'candidate-rehearsal'
+    const hostEnvironment = dataBoundary.mode === 'candidate-rehearsal' || dataBoundary.mode === 'custom-default'
       ? { ...process.env, DSH_HOME: dataBoundary.dshHome }
       : process.env
     const host = new DesktopHostProcess(resources.node, resources.dsh, activeProject,

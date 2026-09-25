@@ -13,7 +13,7 @@
     "profileName": "desktop-custom",
     "userData": {
       "mode": "isolated",
-      "pathSegments": ["@deepseek-ai", "dsh-desktop-custom"]
+      "pathSegments": ["@deepseek-ai", "dsh-harness-custom", "electron"]
     },
     "updates": { "mode": "disabled" },
     "artifactPrefix": "ds-harness"
