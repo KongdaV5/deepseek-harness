@@ -39,6 +39,8 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
     'runtime-diagnostics/unknown-schema': { readonly topic: string }
     /** A frame violated the stream contract (order, identity, or schema). */
     'runtime-diagnostics/unexpected-frame': { readonly detail: string }
+    /** The physical/local stream carrier failed without a Remote protocol failure. */
+    'runtime-diagnostics/transport-failure': { readonly detail: string }
   }
 }
 

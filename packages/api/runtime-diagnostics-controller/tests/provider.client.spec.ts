@@ -9,6 +9,7 @@
  * value.
  */
 import { RemoteError } from '@deepseek-ai/dsh-typert-protocol'
+import { RemoteStreamCarrierError } from '@deepseek-ai/dsh-api-gateway/client'
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import { describe, expect, it } from 'vitest'
 import { runtimeDiagnosticsAddress } from '../src/client/address.ts'
@@ -201,25 +202,22 @@ describe('createRuntimeDiagnosticsProvider', () => {
     })
   })
 
-  it('reports a non-Remote carrier throw as an unexpected-frame transport failure', async () => {
+  it('reports a Gateway carrier failure as a transport failure, not a frame violation', async () => {
     const stream = open()
     const pending = stream.iterator.next()
-    stream.host.fail(new TypeError('socket closed'))
+    stream.host.fail(new RemoteStreamCarrierError('socket closed'))
     const outcome = (await pending).value as RemoteResult<RuntimeDiagnosticsObservation>
     if (outcome.ok) throw new Error('expected a failure frame')
-    expect(outcome.error.code).toBe('runtime-diagnostics/unexpected-frame')
-    expect(outcome.error.details).toEqual({ detail: 'transport-failure' })
+    expect(outcome.error.code).toBe('runtime-diagnostics/transport-failure')
+    expect(outcome.error.details).toEqual({ detail: 'carrier-failure' })
     expect(outcome.error.message).toBe('socket closed')
   })
 
-  it('reports a carrier throw that is not an Error at all', async () => {
+  it('lets an unrelated thrown programming error escape instead of disguising it as a protocol failure', async () => {
     const stream = open()
     const pending = stream.iterator.next()
-    stream.host.fail('carrier exploded')
-    const outcome = (await pending).value as RemoteResult<RuntimeDiagnosticsObservation>
-    if (outcome.ok) throw new Error('expected a failure frame')
-    expect(outcome.error.details).toEqual({ detail: 'transport-failure' })
-    expect(outcome.error.message).toBe('carrier exploded')
+    stream.host.fail(new TypeError('programming fault'))
+    await expect(pending).rejects.toThrow('programming fault')
   })
 
   it('treats a stream that ends after a snapshot as unavailable rather than as current', async () => {

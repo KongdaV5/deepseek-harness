@@ -19,6 +19,7 @@
  */
 
 import type { ResourceProvider } from '@deepseek-ai/dsh-client-resources/client'
+import { RemoteStreamCarrierError } from '@deepseek-ai/dsh-api-gateway/client'
 import { RemoteError, remoteErrorOf } from '@deepseek-ai/dsh-typert-protocol'
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import { parseRuntimeDiagnosticsAddress, RUNTIME_DIAGNOSTICS_PROTOCOL } from './address.ts'
@@ -151,6 +152,11 @@ function unexpectedFrame(detail: string, message: string): RemoteError<'runtime-
   return new RemoteError('runtime-diagnostics/unexpected-frame', message, { detail })
 }
 
+/** A carrier failed outside the diagnostics frame contract. */
+function transportFailure(message: string): RemoteError<'runtime-diagnostics/transport-failure'> {
+  return new RemoteError('runtime-diagnostics/transport-failure', message, { detail: 'carrier-failure' })
+}
+
 /**
  * Build the `runtime-diagnostics` provider over one Remote face.
  * @param remote - the Remote face carrying `runtimeDiagnostics.follow`.
@@ -221,10 +227,13 @@ export function createRuntimeDiagnosticsProvider(
         }
       } catch (error) {
         if (signal.aborted) return
-        yield {
-          ok: false,
-          error: remoteErrorOf(error) ?? unexpectedFrame('transport-failure', error instanceof Error ? error.message : String(error)),
+        const remoteError = remoteErrorOf(error)
+        if (remoteError !== undefined) {
+          yield { ok: false, error: remoteError }
+          return
         }
+        if (!(error instanceof RemoteStreamCarrierError)) throw error
+        yield { ok: false, error: transportFailure(error.message) }
       }
     },
   }

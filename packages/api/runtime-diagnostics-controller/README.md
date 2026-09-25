@@ -56,7 +56,7 @@ const provider: RuntimeDiagnosticsProvider = {
 | `registerProvider(provider)` | disposer | Binds one topic to one provider; a second provider for the same topic throws, and the disposer terminates its open streams with `runtime-diagnostics/provider-unavailable` |
 | `follow({ topic, sessionId }, signal)` | stream of `RuntimeDiagnosticsFrame` | One generation: exactly one `snapshot` frame, then `change` frames in commit order |
 
-A deliberate provider withdrawal terminates its already-open generations with the typed `runtime-diagnostics/provider-unavailable` failure, after delivering any committed frames. An unannounced natural end remains `runtime-diagnostics/unexpected-frame`.
+A deliberate provider withdrawal terminates its already-open generations with the typed `runtime-diagnostics/provider-unavailable` failure, after delivering any committed frames. An unannounced natural end remains `runtime-diagnostics/unexpected-frame`; a non-Remote carrier exception is reported as `runtime-diagnostics/transport-failure`, not as a frame violation.
 
 ### Read an observation from the Client
 

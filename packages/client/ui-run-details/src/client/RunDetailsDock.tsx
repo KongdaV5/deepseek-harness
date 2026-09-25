@@ -98,7 +98,9 @@ function transientText(transient: Exclude<TransientCompaction, { state: 'hidden'
   switch (transient.state) {
     case 'loading': return t('transient.loading')
     case 'none': return t('transient.none')
-    case 'failed': return t('transient.failed', { code: transient.code })
+    case 'failed': return transient.detail === undefined
+      ? t('transient.failed', { code: transient.code })
+      : t('transient.failedDetail', { code: transient.code, detail: transient.detail })
     case 'live':
       return transient.candidateAttempt === undefined
         ? t('transient.live', { status: transient.status })

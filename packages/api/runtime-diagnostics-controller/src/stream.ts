@@ -155,7 +155,10 @@ export class DiagnosticsGeneration {
     this.waiter?.()
   }
 
-  /** End the generation, optionally reporting why its owner was retired. */
+  /**
+   * End the generation, optionally reporting why its owner was retired.
+   * @param error - the terminal failure, or `undefined` for normal completion.
+   */
   end(error?: Error): void {
     if (this.ended) return
     this.ended = true

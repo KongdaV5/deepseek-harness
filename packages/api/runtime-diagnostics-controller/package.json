@@ -43,6 +43,9 @@
         "@deepseek-ai/dsh-api-gateway",
         "@deepseek-ai/dsh-client-resources"
       ],
+      "external": [
+        "@deepseek-ai/dsh-api-gateway/client"
+      ],
       "platform": "web"
     }
   },

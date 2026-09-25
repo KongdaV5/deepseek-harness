@@ -34,7 +34,7 @@ Mount this plugin alongside `ui-conversation` and the Run Details transport pack
 - **Backend** — reachability and activity as one `Unknown` reading, because no observer is registered on this path.
 - **Run reasoning** — the effort the durable request header proves, marked when the adapter materialized it.
 - **Compaction** — the last committed policy audit, with its auxiliary reasoning in a row of its own so it is never mistaken for the main run's.
-- **Live compaction** — the status a running compaction publishes right now, read from the transient transport; a transport that failed shows its classified code instead of the last value it managed to deliver.
+- **Live compaction** — the status a running compaction publishes right now, read from the transient transport; a transport failure shows its classified code and reason instead of the last value it managed to deliver.
 - **Task** — the durable task checkpoint's identity and status, plus any crash-repair hazards.
 
 ### What it never does

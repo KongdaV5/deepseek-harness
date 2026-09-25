@@ -56,7 +56,7 @@ const provider: RuntimeDiagnosticsProvider = {
 | `registerProvider(provider)` | disposer | 把一个 topic 绑定到一个 provider；同一 topic 的第二个 provider 会抛错，disposer 会以 `runtime-diagnostics/provider-unavailable` 终止该 topic 上已打开的流 |
 | `follow({ topic, sessionId }, signal)` | `RuntimeDiagnosticsFrame` 流 | 一次代（generation）：恰好一帧 `snapshot`，随后按提交顺序给出 `change` 帧 |
 
-主动撤销 provider 时，已打开的代会先交付已经提交的帧，再以类型明确的 `runtime-diagnostics/provider-unavailable` 失败终止；没有撤销信号的自然结束仍是 `runtime-diagnostics/unexpected-frame`。
+主动撤销 provider 时，已打开的代会先交付已经提交的帧，再以类型明确的 `runtime-diagnostics/provider-unavailable` 失败终止；没有撤销信号的自然结束仍是 `runtime-diagnostics/unexpected-frame`；非 Remote 的载体异常会报告为 `runtime-diagnostics/transport-failure`，不会误报成帧协议违规。
 
 ### 在客户端读取观测
 

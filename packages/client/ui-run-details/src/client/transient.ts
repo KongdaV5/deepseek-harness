@@ -57,7 +57,7 @@ export interface TransientResourceSnapshot {
   /** The latest served observation, absent before the first frame. */
   readonly value: RuntimeDiagnosticsObservation | undefined
   /** The latest frame's failure, present only while `status` is `failed`. */
-  readonly failure: { readonly code: string } | undefined
+  readonly failure: { readonly code: string; readonly details?: object } | undefined
 }
 
 /**
@@ -71,7 +71,7 @@ export type TransientCompaction =
   | { readonly state: 'hidden' }
   | { readonly state: 'loading' }
   | { readonly state: 'none' }
-  | { readonly state: 'failed'; readonly code: string }
+  | { readonly state: 'failed'; readonly code: string; readonly detail?: string }
   | { readonly state: 'live'; readonly status: string; readonly candidateAttempt?: number }
 
 /** Read one field of an untrusted JSON observation, or nothing if it is not a record. */
@@ -98,7 +98,15 @@ export function transientCompaction(snapshot: TransientResourceSnapshot): Transi
   if (snapshot.status === 'none') return { state: 'hidden' }
   if (snapshot.status === 'loading') return { state: 'loading' }
   if (snapshot.status === 'failed') {
-    return { state: 'failed', code: snapshot.failure?.code ?? 'runtime-diagnostics/transport-failure' }
+    const details = snapshot.failure?.details
+    const detail = details !== undefined && 'detail' in details
+      ? details.detail
+      : undefined
+    return {
+      state: 'failed',
+      code: snapshot.failure?.code ?? 'runtime-diagnostics/transport-failure',
+      ...(typeof detail === 'string' ? { detail } : {}),
+    }
   }
   const observation = snapshot.value
   if (observation === undefined || !observation.present) return { state: 'none' }

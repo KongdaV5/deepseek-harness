@@ -336,6 +336,17 @@ describe('the transient compaction row', () => {
       t={t}
     />)
     expect(screen.getByTestId('run-details-compaction-live').textContent).toBe('runtime-diagnostics/unexpected-frame')
+    cleanup()
+    render(<RunDetailsPanel
+      details={cut()}
+      task={undefined}
+      transient={transientCompaction(snapshot({ status: 'failed', failure: {
+        code: 'runtime-diagnostics/transport-failure', details: { detail: 'carrier-failure' },
+      } }))}
+      t={t}
+    />)
+    expect(screen.getByTestId('run-details-compaction-live').textContent)
+      .toBe('runtime-diagnostics/transport-failure · carrier-failure')
   })
 
   it('never renders an idle observation as a live compaction', () => {
@@ -397,6 +408,10 @@ describe('transientCompaction', () => {
     expect(transientCompaction({ status: 'none', value: undefined, failure: undefined })).toEqual({ state: 'hidden' })
     expect(transientCompaction({ status: 'loading', value: undefined, failure: undefined })).toEqual({ state: 'loading' })
     expect(transientCompaction({ status: 'failed', value: undefined, failure: { code: 'x' } })).toEqual({ state: 'failed', code: 'x' })
+    expect(transientCompaction({
+      status: 'failed', value: undefined,
+      failure: { code: 'runtime-diagnostics/unexpected-frame', details: { detail: 'unexpected-end' } },
+    })).toEqual({ state: 'failed', code: 'runtime-diagnostics/unexpected-frame', detail: 'unexpected-end' })
   })
 
   it('falls back to a classified code when a failure carries none', () => {
