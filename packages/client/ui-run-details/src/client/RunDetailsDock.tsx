@@ -1,13 +1,12 @@
 /**
- * RunDetailsDock: the read-only Run Details strip docked above the message
+ * RunDetailsDock: the collapsible, read-only Run Details strip docked above the message
  * composer (input dock strip).
  *
  * Everything it renders arrives through projection seats — `runDetails` for the
  * Run's own facts and `taskCheckpoint` for durable task continuity — so the
  * strip computes nothing of its own and can never disagree with the host fold.
- * It renders **no controls**: there is no retry, resume, cancel, or compact verb
- * here, and no handler a click could reach, so the surface cannot mutate the Run
- * it describes.
+ * Its only control is a native disclosure summary. There is no retry, resume,
+ * cancel, or compact verb here, so the surface cannot mutate the Run it describes.
  *
  * Two absences are the point. A session with no Run renders nothing at all
  * rather than a "Run: None" placeholder, and an unobserved backend reads
@@ -34,37 +33,47 @@ import css from './RunDetailsDock.module.css'
 export type RunDetailsDockProps = PropsRuntime<'conversation.input.dock'> & PropsLocale<'runDetails'>
 
 /** One label/value line; `testId` lets the spec address the value without copy. */
-function Row({ label, testId, children }: { label: string; testId?: string; children: React.ReactNode }) {
+function Row({ label, testId, title, children }: {
+  label: string
+  testId?: string
+  title?: string
+  children: React.ReactNode
+}) {
   return (
     <div className={css.row}>
       <span className={css.label}>{label}</span>
-      <span className={css.value} data-testid={testId}>{children}</span>
+      <span className={css.value} data-testid={testId} title={title}>{children}</span>
     </div>
   )
 }
 
-/** Shorten a derived Run id for display without hiding the whole value. */
-function shortRunId(runId: string): string {
-  // `run:v1:<len>:<sessionId>:<turn>` — the Session and the turn are what a
-  // reader needs, so the strip keeps both and drops the scheme and length.
-  const parts = runId.split(':')
-  return parts.length > 3 ? parts.slice(3).join('#') : runId
-}
-
-/** The compact summary line: phase and health side by side. */
-function Headline({ details, t }: { details: RunDetailsRunView; t: RunDetailsDockProps['t'] }) {
+/** The one-line status summary; Session identity stays in the disclosure. */
+function Summary({ details, t }: { details: RunDetailsRunView; t: RunDetailsDockProps['t'] }) {
   return (
-    <div className={css.headline}>
-      <span className={css.runId} data-testid="run-details-run-id" title={details.runId}>
-        {shortRunId(details.runId)}
+    <summary className={css.summary} data-testid="run-details-toggle">
+      <span className={css.phase} data-phase={details.phase} data-testid="run-details-phase">
+        {details.phase === 'completed' && (
+          <svg className={css.completedIcon} viewBox="0 0 16 16" aria-hidden="true">
+            <path d="m3.25 8.25 3.1 3.1 6.4-6.7" />
+          </svg>
+        )}
+        <span>{t(`phase.${details.phase}`)}</span>
       </span>
-      <span className={css.badge} data-phase={details.phase} data-testid="run-details-phase">
-        {t(`phase.${details.phase}`)}
-      </span>
-      <span className={css.badge} data-health={details.health} data-testid="run-details-health">
+      <span className={css.health} data-health={details.health} data-testid="run-details-health">
         {t(`health.${details.health}`)}
       </span>
-    </div>
+      <span className={css.summarySteps} data-testid="run-details-summary-steps">
+        {t('steps.count', { count: details.stepCount })}
+      </span>
+      <span className={css.summarySpacer} />
+      <span className={css.summaryLabel}>
+        <span className={css.closedLabel}>{t('details.label')}</span>
+        <span className={css.openLabel}>{t('title')}</span>
+      </span>
+      <svg className={css.chevron} viewBox="0 0 16 16" aria-hidden="true">
+        <path d="m4 6 4 4 4-4" />
+      </svg>
+    </summary>
   )
 }
 
@@ -152,66 +161,84 @@ export interface RunDetailsPanelProps {
   t: RunDetailsDockProps['t']
 }
 
-/** The strip body: one summary line plus one label/value line per fact group. */
+/** The disclosure body: core Run facts first, lower-level diagnostics on demand. */
 export function RunDetailsPanel({ details, task, transient, t }: RunDetailsPanelProps) {
   const auxiliary = auxiliaryText(details, t)
   return (
-    <section className={css.root} data-testid="run-details" aria-label={t('aria')}>
-      <Headline details={details} t={t} />
-      <div className={css.rows}>
-        <Row label={t('label.steps')} testId="run-details-steps">
-          {t('steps.count', { count: details.stepCount })}
-          {details.openStep === null ? '' : ` · ${t('steps.open', { step: details.openStep })}`}
-        </Row>
-        <Row label={t('label.retries')} testId="run-details-retries">
-          {details.maxRetryCount === undefined
-            ? t('retries.count', { count: details.retryCount })
-            : t('retries.limit', { count: details.retryCount, max: details.maxRetryCount })}
-        </Row>
-        <Row label={t('label.backend')} testId="run-details-backend">
-          {t('backend.unknown')}
-        </Row>
-        <Row label={t('label.reasoning')} testId="run-details-reasoning">
-          {reasoningText(details, t)}
-        </Row>
-        {details.compaction === null ? null : (
-          <Row label={t('label.compaction')} testId="run-details-compaction">
-            {t('compaction.summary', {
-              trigger: details.compaction.trigger,
-              attempts: details.compaction.candidateAttempts,
-            })}
+    <details className={css.root} data-testid="run-details" aria-label={t('aria')}>
+      <Summary details={details} t={t} />
+      <div className={css.detailsBody}>
+        <div className={css.rows}>
+          <Row label={t('label.session')} testId="run-details-session" title={details.sessionId}>
+            {details.sessionId}
           </Row>
-        )}
-        {transient.state === 'hidden' ? null : (
-          <Row label={t('label.compactionLive')} testId="run-details-compaction-live">
-            {transientText(transient, t)}
+          <Row label={t('label.steps')} testId="run-details-steps">
+            {t('steps.count', { count: details.stepCount })}
+            {details.openStep === null ? '' : ` · ${t('steps.open', { step: details.openStep })}`}
           </Row>
-        )}
-        {auxiliary === null ? null : (
-          <Row label={t('label.compactionReasoning')} testId="run-details-compaction-reasoning">
-            {auxiliary}
+          <Row label={t('label.retries')} testId="run-details-retries">
+            {details.maxRetryCount === undefined
+              ? t('retries.count', { count: details.retryCount })
+              : t('retries.limit', { count: details.retryCount, max: details.maxRetryCount })}
           </Row>
-        )}
-        <Row label={t('label.task')} testId="run-details-task">
-          {taskText(task, t)}
-        </Row>
-        {task === undefined || task.repairHazards.length === 0 ? null : (
-          <Row label={t('label.task')} testId="run-details-hazards">
-            {t('task.hazards', { count: task.repairHazards.length })}
+          <Row label={t('label.task')} testId="run-details-task">
+            {taskText(task, t)}
           </Row>
-        )}
-        {details.guardedResume === null ? null : (
-          <Row label={t('label.guardedResume')} testId="run-details-guarded-resume">
-            {guardedResumeText(details.guardedResume, t)}
-          </Row>
-        )}
-        {details.primaryError === undefined ? null : (
-          <Row label={t('label.error')} testId="run-details-error">
-            {t('error.code', { code: details.primaryError.code })}
-          </Row>
-        )}
+          {task === undefined || task.repairHazards.length === 0 ? null : (
+            <Row label={t('label.task')} testId="run-details-hazards">
+              {t('task.hazards', { count: task.repairHazards.length })}
+            </Row>
+          )}
+        </div>
+        <details className={css.advanced}>
+          <summary className={css.advancedSummary} data-testid="run-details-advanced-toggle">
+            <span>{t('advanced.label')}</span>
+            <svg className={css.advancedChevron} viewBox="0 0 16 16" aria-hidden="true">
+              <path d="m4 6 4 4 4-4" />
+            </svg>
+          </summary>
+          <div className={css.rows}>
+            <Row label={t('label.runId')} testId="run-details-run-id" title={details.runId}>
+              {details.runId}
+            </Row>
+            <Row label={t('label.backend')} testId="run-details-backend">
+              {t('backend.unknown')}
+            </Row>
+            <Row label={t('label.reasoning')} testId="run-details-reasoning">
+              {reasoningText(details, t)}
+            </Row>
+            {details.compaction === null ? null : (
+              <Row label={t('label.compaction')} testId="run-details-compaction">
+                {t('compaction.summary', {
+                  trigger: details.compaction.trigger,
+                  attempts: details.compaction.candidateAttempts,
+                })}
+              </Row>
+            )}
+            {transient.state === 'hidden' ? null : (
+              <Row label={t('label.compactionLive')} testId="run-details-compaction-live">
+                {transientText(transient, t)}
+              </Row>
+            )}
+            {auxiliary === null ? null : (
+              <Row label={t('label.compactionReasoning')} testId="run-details-compaction-reasoning">
+                {auxiliary}
+              </Row>
+            )}
+            {details.guardedResume === null ? null : (
+              <Row label={t('label.guardedResume')} testId="run-details-guarded-resume">
+                {guardedResumeText(details.guardedResume, t)}
+              </Row>
+            )}
+            {details.primaryError === undefined ? null : (
+              <Row label={t('label.error')} testId="run-details-error">
+                {t('error.code', { code: details.primaryError.code })}
+              </Row>
+            )}
+          </div>
+        </details>
       </div>
-    </section>
+    </details>
   )
 }
 

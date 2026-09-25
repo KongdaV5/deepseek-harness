@@ -6,89 +6,161 @@
   width: calc(
     100% -
     var(--dsh-composer-side-clearance) -
-    var(--dsh-composer-side-clearance) -
-    var(--dsh-composer-dock-inset) -
-    var(--dsh-composer-dock-inset) -
-    var(--dsh-composer-dock-inset) -
-    var(--dsh-composer-dock-inset)
+    var(--dsh-composer-side-clearance)
   );
-  max-width: calc(
-    var(--dsh-composer-card-max-width) -
-    var(--dsh-composer-dock-inset) -
-    var(--dsh-composer-dock-inset) -
-    var(--dsh-composer-dock-inset) -
-    var(--dsh-composer-dock-inset)
-  );
+  max-width: var(--dsh-composer-card-max-width);
   border: 0.5px solid var(--dsw-alias-border-l1);
-  border-radius: 12px;
-  background: var(--dsw-specific-tip);
+  border-radius: 14px;
+  background: var(--dsw-specific-input-major);
 }
 
-.headline {
+.root > .summary,
+.advanced > .advancedSummary {
+  list-style: none;
+}
+
+.root > .summary::-webkit-details-marker,
+.advanced > .advancedSummary::-webkit-details-marker {
+  display: none;
+}
+
+.summary {
+  box-sizing: border-box;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 6px 12px 0;
-  min-width: 0;
+  gap: clamp(8px, 1.4vw, 14px);
+  min-height: calc(42px + var(--dsh-content-font-delta, 0px));
+  padding: 0 14px;
+  border-radius: inherit;
+  color: var(--dsw-alias-label-primary);
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 100ms ease;
 }
 
-.runId {
+.summary:hover,
+.summary:focus-visible {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.summary:focus-visible,
+.advancedSummary:focus-visible {
+  outline: 2px solid var(--dsw-alias-label-tertiary);
+  outline-offset: -3px;
+}
+
+.phase {
+  display: inline-flex;
   flex: none;
-  max-width: 40%;
-  overflow: hidden;
-  font-size: 12px;
-  line-height: 20px;
-  font-family: var(--dsh-font-mono, ui-monospace, monospace);
+  align-items: center;
+  gap: 6px;
   color: var(--dsw-alias-label-secondary);
-  text-overflow: ellipsis;
+  font-size: var(--dsh-content-font-size-secondary, 13px);
+  font-weight: 500;
+  line-height: calc(20px + var(--dsh-content-font-delta-secondary, 0px));
   white-space: nowrap;
 }
 
-.badge {
-  flex: none;
-  padding: 0 6px;
-  border-radius: 6px;
-  background: var(--dsw-alias-fill-l2);
-  font-size: 12px;
-  line-height: 20px;
-  color: var(--dsw-alias-label-secondary);
-}
-
-/* A terminal or unhealthy Run reads louder than a live one; the strip never
-   implies a verdict the classifier did not reach, so `unknown` stays neutral. */
-.badge[data-phase='failed'],
-.badge[data-health='fatal'] {
-  color: var(--dsw-alias-state-danger-primary);
-}
-
-.badge[data-phase='completed'] {
+.phase[data-phase='completed'] {
   color: var(--dsw-alias-state-success-primary);
 }
 
-.badge[data-health='stalled'],
-.badge[data-health='degraded'] {
+.phase[data-phase='failed'] {
+  color: var(--dsw-alias-state-danger-primary);
+}
+
+.completedIcon {
+  flex: none;
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
+.health,
+.summarySteps {
+  flex: none;
+  color: var(--dsw-alias-label-secondary);
+  font-size: var(--dsh-content-font-size-secondary, 13px);
+  line-height: calc(18px + var(--dsh-content-font-delta-secondary, 0px));
+  white-space: nowrap;
+}
+
+.health[data-health='stalled'],
+.health[data-health='degraded'] {
   color: var(--dsw-alias-state-warning-primary);
+}
+
+.health[data-health='fatal'] {
+  color: var(--dsw-alias-state-danger-primary);
+}
+
+.summarySteps {
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.summarySpacer {
+  flex: 1 1 auto;
+  min-width: 4px;
+}
+
+.summaryLabel {
+  flex: none;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: var(--dsh-content-font-size-secondary, 13px);
+  line-height: calc(18px + var(--dsh-content-font-delta-secondary, 0px));
+  white-space: nowrap;
+}
+
+.chevron,
+.advancedChevron {
+  flex: none;
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.7;
+  color: var(--dsw-alias-label-tertiary);
+  transition: transform 120ms ease;
+}
+
+.root[open] > .summary .chevron,
+.advanced[open] > .advancedSummary .advancedChevron {
+  transform: rotate(180deg);
+}
+
+.detailsBody {
+  border-top: 0.5px solid var(--dsw-alias-border-l1);
+  padding: 9px 14px 12px;
+}
+
+.root[open] > .detailsBody {
+  animation: reveal 140ms ease-out;
 }
 
 .rows {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 4px 12px 8px;
+  gap: 3px;
 }
 
 .row {
   display: flex;
   align-items: baseline;
-  gap: 8px;
+  gap: 10px;
   min-width: 0;
-  font-size: 12px;
-  line-height: 18px;
+  font-size: var(--dsh-content-font-size-secondary, 13px);
+  line-height: calc(19px + var(--dsh-content-font-delta-secondary, 0px));
 }
 
 .label {
   flex: none;
-  width: 96px;
+  width: 112px;
   color: var(--dsw-alias-label-caption);
 }
 
@@ -99,4 +171,69 @@
   color: var(--dsw-alias-label-secondary);
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.advanced {
+  margin-top: 8px;
+  border-top: 0.5px solid var(--dsw-alias-border-l1);
+  padding-top: 5px;
+}
+
+.advancedSummary {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 30px;
+  padding: 0 2px;
+  border-radius: 6px;
+  color: var(--dsw-alias-label-tertiary);
+  cursor: pointer;
+  font-size: calc(var(--dsh-content-font-size-secondary, 13px) - 1px);
+  line-height: calc(18px + var(--dsh-content-font-delta-secondary, 0px));
+  user-select: none;
+}
+
+.advancedSummary:hover {
+  color: var(--dsw-alias-label-secondary);
+}
+
+.advanced > .rows {
+  padding-top: 3px;
+}
+
+.openLabel {
+  display: none;
+}
+
+.root[open] > .summary .closedLabel {
+  display: none;
+}
+
+.root[open] > .summary .openLabel {
+  display: inline;
+}
+
+@keyframes reveal {
+  from {
+    opacity: 0;
+    transform: translateY(-2px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .summary,
+  .chevron,
+  .advancedChevron {
+    transition: none;
+  }
+
+  .root[open] > .detailsBody {
+    animation: none;
+  }
 }

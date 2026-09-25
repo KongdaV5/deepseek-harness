@@ -3,11 +3,11 @@
  * Run Details display acceptance: the dock adapter hides the strip when there
  * is no Run (never a "Run: None" placeholder), renders the host-computed cut
  * verbatim, keeps an unobserved backend at `Unknown`, keeps a compaction's
- * auxiliary reasoning in its own row rather than beside the main run's, shows
- * the Stage 8 guarded-resume decision read-only, and carries no control a click
- * could reach.
+ * auxiliary reasoning in its own advanced row rather than beside the main run's,
+ * shows the Stage 8 guarded-resume decision read-only, and exposes only native
+ * disclosure controls—not actions that can mutate the Run.
  */
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import { zh as commonZh } from '@deepseek-ai/dsh-client-locale/src/locales/zh.ts'
@@ -121,12 +121,41 @@ function resume(overrides: Record<string, unknown> = {}): Record<string, unknown
 }
 
 describe('RunDetailsPanel', () => {
-  it('renders the Run identity, phase, and health the host served', () => {
+  it('starts collapsed with a compact status summary and keeps Session identity out of it', () => {
     render(<RunDetailsPanel details={cut()} task={undefined} transient={HIDDEN} t={t} />)
-    expect(screen.getByTestId('run-details')).toBeTruthy()
-    expect(screen.getByTestId('run-details-run-id').textContent).toBe('s1#1')
+    const panel = screen.getByTestId('run-details') as HTMLDetailsElement
+    expect(panel.open).toBe(false)
+    expect(screen.getByTestId('run-details-session').textContent).toBe('s1')
+    expect(screen.getByTestId('run-details-toggle').tagName).toBe('SUMMARY')
+    expect(screen.getByTestId('run-details-toggle').textContent).not.toContain('s1')
     expect(screen.getByTestId('run-details-phase').textContent).toBe('执行中')
     expect(screen.getByTestId('run-details-health').textContent).toBe('未知')
+    expect(screen.getByTestId('run-details-summary-steps').textContent).toBe('2 步')
+  })
+
+  it('opens the Session facts and keeps engineering diagnostics in Advanced details', () => {
+    render(<RunDetailsPanel details={cut({ phase: 'completed', health: 'healthy', stepCount: 4 })} task={undefined} transient={HIDDEN} t={t} />)
+    const panel = screen.getByTestId('run-details') as HTMLDetailsElement
+    const toggle = screen.getByTestId('run-details-toggle')
+    expect(toggle.textContent).toContain('已完成')
+    expect(toggle.textContent).toContain('健康')
+    expect(toggle.textContent).toContain('4 步')
+    expect(toggle.textContent).toContain('详情')
+    expect(toggle.querySelector('svg')?.getAttribute('aria-hidden')).toBe('true')
+
+    fireEvent.click(toggle)
+    expect(panel.open).toBe(true)
+    expect(screen.getByTestId('run-details-session').textContent).toBe('s1')
+    expect(screen.getByTestId('run-details-steps').textContent).toBe('4 步 · 第 1 步进行中')
+    expect(screen.getByTestId('run-details-task').textContent).toBe('无任务')
+
+    const advanced = screen.getByTestId('run-details-advanced-toggle')
+    expect(advanced.textContent).toContain('高级详情')
+    expect((advanced.parentElement as HTMLDetailsElement).open).toBe(false)
+    fireEvent.click(advanced)
+    expect((advanced.parentElement as HTMLDetailsElement).open).toBe(true)
+    expect(screen.getByTestId('run-details-backend').textContent).toBe('未知')
+    expect(screen.getByTestId('run-details-reasoning').textContent).toBe('未设置')
   })
 
   it('keeps an unobserved backend at Unknown instead of a friendlier answer', () => {
@@ -193,9 +222,11 @@ describe('RunDetailsPanel', () => {
     expect(screen.getByTestId('run-details-run-id').textContent).toBe('run:v1')
   })
 
-  it('renders no control a click could reach', () => {
+  it('offers disclosure only and no Run-mutating controls', () => {
     const { container } = render(<RunDetailsPanel details={cut()} task={task()} transient={HIDDEN} t={t} />)
     expect(container.querySelectorAll('button, input, select, textarea, a[href]')).toHaveLength(0)
+    expect(container.querySelectorAll('[data-testid="run-details-toggle"]')).toHaveLength(1)
+    expect(container.querySelectorAll('[data-testid="run-details-advanced-toggle"]')).toHaveLength(1)
   })
 
   it('renders the main run reasoning, and calls out an adapter-materialized effort', () => {
@@ -383,7 +414,7 @@ describe('the transient compaction row', () => {
     expect(screen.getByTestId('run-details-compaction-live').textContent).toBe('validating')
   })
 
-  it('renders no control a click could reach in either compaction row', () => {
+  it('keeps compaction observations read-only apart from disclosure controls', () => {
     const { container } = render(<RunDetailsPanel
       details={cut({
         compaction: {
@@ -400,6 +431,7 @@ describe('the transient compaction row', () => {
       t={t}
     />)
     expect(container.querySelectorAll('button, input, select, textarea, a[href]')).toHaveLength(0)
+    expect(container.querySelectorAll('[data-testid="run-details-toggle"]')).toHaveLength(1)
   })
 })
 
@@ -502,7 +534,7 @@ describe('RunDetailsDock', () => {
     expect(screen.getByTestId('run-details')).toBeTruthy()
   })
 
-  it('reads the two projection seats plus one address and offers no way to act', () => {
+  it('reads the projection seats and exposes disclosure without any Run action', () => {
     // The guarded-resume decision is read from the runDetails cut it is folded
     // into, and the transient observation from a resource the host owns: the dock
     // subscribes to no third channel of its own, so it cannot become a second
@@ -521,6 +553,7 @@ describe('RunDetailsDock', () => {
     expect(screen.getByTestId('run-details-guarded-resume')).toBeTruthy()
     expect(screen.getByTestId('run-details-compaction-live').textContent).toBe('summarizing')
     expect(container.querySelectorAll('button, input, select, textarea, a[href]')).toHaveLength(0)
+    expect(container.querySelectorAll('[data-testid="run-details-toggle"]')).toHaveLength(1)
   })
 })
 

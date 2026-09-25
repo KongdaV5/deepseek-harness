@@ -1,5 +1,5 @@
 ---
-description: "Run Details surface for the Web GUI: a read-only composer-context strip showing the current Run's identity, phase, health, steps, retries, reasoning, compaction audit, and task continuity; for users and maintainers of the run diagnostics experience."
+description: "Run Details surface for the Web GUI: a collapsed composer-width status strip with expandable Run identity, steps, retries, reasoning, compaction audit, and task continuity; for users and maintainers of the run diagnostics experience."
 kind: "package-reference"
 ---
 
@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-The Web GUI Run Details surface shows the current Run's identity, phase, health, step and retry counts, the main run's reasoning, the last durable compaction audit, and durable task continuity — all read-only. It renders nothing when there is no Run, so an idle session shows no "Run: None" placeholder, and an unobserved backend reads `Unknown` rather than being upgraded to reachable, idle, or healthy. The strip carries no control of any kind.
+The Web GUI Run Details surface is a one-line, default-collapsed status strip showing the current Run's phase, health, and step count. Expanding it reveals Session identity, retries, and task continuity; lower-level backend, reasoning, compaction, and Run diagnostics stay under a second **Advanced details** disclosure. It renders nothing when there is no Run, so an idle session shows no "Run: None" placeholder, and an unobserved backend reads `Unknown` rather than being upgraded to reachable, idle, or healthy. The only controls reveal information; the surface has no retry, resume, cancel, or compact action.
 
 ## Table of Contents
 
@@ -29,7 +29,7 @@ Mount this plugin alongside `ui-conversation` and the Run Details transport pack
 
 ### What it shows
 
-- **Run** — the derived Run id (Session and turn), with phase and health badges.
+- **Status summary** — phase, health, and step count; Session and Run ids are available after expanding the details.
 - **Steps / Retries** — the durable counts, plus which step is still open.
 - **Backend** — reachability and activity as one `Unknown` reading, because no observer is registered on this path.
 - **Run reasoning** — the effort the durable request header proves, marked when the adapter materialized it.
@@ -39,7 +39,7 @@ Mount this plugin alongside `ui-conversation` and the Run Details transport pack
 
 ### What it never does
 
-It offers no retry, resume, cancel, or compact action. Every value arrives from a host-computed projection, so the strip cannot disagree with the fold and cannot write back to the Run it describes.
+Its disclosure controls only show or hide read-only information: there is no retry, resume, cancel, or compact action. Every value arrives from a host-computed projection, so the strip cannot disagree with the fold and cannot write back to the Run it describes.
 
 -----
 
@@ -49,9 +49,9 @@ It offers no retry, resume, cancel, or compact action. Every value arrives from 
 <details>
 <summary>Implementation internals — click to expand</summary>
 
-The Run cut arrives through `useProjection('runDetails')`, task continuity through `useProjection('taskCheckpoint')`, and the in-flight compaction status through `useResource` on the address derived from the Session. The two projections are whole values the host computes and the resource is a stream the host owns, so this package performs no domain folding. The entry contributes no injected face at all, which is what makes the surface structurally read-only: there is no verb to call and no handler to click.
+The Run cut arrives through `useProjection('runDetails')`, task continuity through `useProjection('taskCheckpoint')`, and the in-flight compaction status through `useResource` on the address derived from the Session. The two projections are whole values the host computes and the resource is a stream the host owns, so this package performs no domain folding. Native disclosure summaries default to collapsed; the nested Advanced details disclosure keeps lower-level diagnostics out of the everyday summary. These are the only interactions—the entry contributes no injected face and cannot invoke a Run action.
 
-The component is a pure function of those reads. It returns `null` when the projection has not served yet or when the cut reports `hasRun: false`, so the dock row occupies no space and no placeholder text is produced. Copy comes from the `runDetails` locale namespace; every label and value is a dictionary lookup with no client-side formatting of domain values beyond shortening the Run id for display.
+The component is a pure function of those reads. It returns `null` when the projection has not served yet or when the cut reports `hasRun: false`, so the dock row occupies no space and no placeholder text is produced. Copy comes from the `runDetails` locale namespace; values remain host-served facts, with only presentation text composed for counts, task state, reasoning, and diagnostic summaries.
 
 </details>
 
