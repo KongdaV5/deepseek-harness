@@ -141,7 +141,7 @@ Stage 13 仅对 `verify-client-domain-graph` 和 `duplication` 采用相对于�
 
 本次明确命名的 client-domain 架构例外记录为 `FAIL — 38 PRE_EXISTING_UNCHANGED_DEBT; candidate regressions: 0`：38 条的 rule/source/import identity 均与原 candidate 一致，没有新增或变化的 finding，candidate 也未修改对应源文件。这些违反 client-domain 分层规则的债务仍未解决。Duplication 结果记录为 `FAIL — 7 PRE_EXISTING_UNCHANGED_DEBT; candidate regressions: 0`：七组 file-pair/range clone 均一致，两次提交的 duplicated lines 为 69、duplicated tokens 为 567，没有新增或变化的组，candidate 也未修改对应源文件。这些可维护性债务仍未解决。两个原始 gate 都不得记为通过。
 
-此决策不适用于 signing、runtime 或 package integrity、native runtime、startup/restart、crash/process health、Official/Custom 或 profile/data isolation、live-data safety、Session/Task/Run correctness、rollback、destructive operations，以及 security/safety sentinels；这些门禁即使历史上已有同类失败，也仍须阻断资格验证。Stage 13 保持 `PENDING`。两项 hygiene 债务须在建立新的 Final Product baseline 或 cutover review 时另行作出明确决定，或在独立 hygiene remediation 阶段关闭。
+此决策不适用于 signing、runtime 或 package integrity、native runtime、startup/restart、crash/process health、Official/Custom 或 profile/data isolation、live-data safety、Session/Task/Run correctness、rollback、destructive operations，以及 security/safety sentinels；这些门禁即使历史上已有同类失败，也仍须阻断资格验证。此政策获批时 Stage 13 为 `PENDING`；后续资格结果记录如下。两项 hygiene 债务仍未解决，须在新的 Final Product baseline 或 cutover review 时另行作出明确决定，或在独立 hygiene remediation 阶段关闭。
 
 ### Stage 13 静态文档债务资格验证决策
 
@@ -149,7 +149,17 @@ Stage 13 仅对 `verify-client-domain-graph` 和 `duplication` 采用相对于�
 
 明确批准的 repository-reference 记录为 `FAIL — 15 PRE_EXISTING_UNCHANGED_DOCUMENTATION_DEBT; candidate regressions: 0`：15 条 file/location/rule identity 均与原 candidate 一致，new 0、changed 0。另行批准的 concrete-term 记录为 `FAIL — 3 PRE_EXISTING_UNCHANGED_DOCUMENTATION_DEBT; candidate regressions: 0`：strategy 英文、中文及 runtime-diagnostics type 中的 finding identity 和含义均与原 candidate 一致，new 0、changed 0。两个原始 gate 仍为失败，全部 18 条 finding 均未解决。继续 Stage 13 前，须在本次文档治理提交的 HEAD 重新运行两个 gate 并核对 finding identity。
 
-本决策不适用于生成文档的新鲜度，包括已单独修复 candidate regression 并恢复通过的 `verify-config-catalog`。它也不适用于 runtime 或 package integrity、signing、startup/restart、process health、Official/Custom 与 data/profile isolation、Session/Task/Run 和 Agent Runtime correctness、rollback safety，以及 security/safety sentinels；这些门禁失败仍须阻断资格验证。Stage 13 保持 `PENDING`。文档债务须在建立新的 Final Product baseline 或 cutover review 时另行作出明确决定，或在独立 remediation 阶段关闭。
+本决策不适用于生成文档的新鲜度，包括已单独修复 candidate regression 并恢复通过的 `verify-config-catalog`。它也不适用于 runtime 或 package integrity、signing、startup/restart、process health、Official/Custom 与 data/profile isolation、Session/Task/Run 和 Agent Runtime correctness、rollback safety，以及 security/safety sentinels；这些门禁失败仍须阻断资格验证。此政策获批时 Stage 13 为 `PENDING`；后续资格结果记录如下。尚未解决的文档债务须在新的 Final Product baseline 或 cutover review 时另行作出明确决定，或在独立 remediation 阶段关闭。
+
+### Stage 13 最终资格结果 — 2026-09-25
+
+Stage 13 对 candidate source tree `db94d1276d03250ed11523257e999091a6e220bc` 判定为 `PASS`，packaged app 位于 `apps/desktop/.desktop-build/qualification/final/DS Harness Qualification.app`。应用身份为 Product `DS Harness`、版本 `0.1.6-alpha.2`、Bundle ID `dev.dsh.desktop.custom`、arm64，`@electron/asar` 为 4.1.1。`app.asar` 的 SHA-256 为 `aa8a694e33576a92cd103095e94c3ca918153ad99b51d107c19a91ba03374854`；本地 ad-hoc signing 的 `codesign --verify --deep --strict` 通过，publish 已关闭。runtime descriptor 与 packaged runtime 均为 13,080 个文件；missing、extra、字节大小、SHA-256 和 executable-mode mismatch 全部为零。
+
+packaged client 通过唯一 Stage 13 launcher 在新的隔离 candidate-rehearsal root 启动；没有使用 Stable、Official 或 live user-data 路径。fresh packaged client 通过 localhost OpenAI-compatible 服务完成真实 Huihui Qwen 27B Run 和一次手动 compaction。UI 显示 terminal completed 状态且没有 `unexpected-frame`；正常 `⌘Q` 后通过 launcher 重启，synthetic session、Run Details 和 compaction 结果均恢复。候选进程正常退出。其他未受影响的 Stage 13 Session/Task/Run、guarded-resume、repeated-tool guard、隔离、maintenance、native-runtime 和 client-semantics 证据复用此前已完成的 qualification runs。
+
+最终 source `check:all` 报告 60 个 gate 通过、7 个 raw gate 失败。四项 hygiene/documentation gate 仍如实记录为 raw `FAIL`，并仅按已批准的 unchanged-debt 决策分类：38 条 client-domain finding、7 组 clone（69 行 / 567 tokens）、15 条 repository reference、3 条 concrete term；identity comparison 后相关源文件没有变化。`verify-config-catalog` 与 translation pairing 通过。`test` 和 `test:snapshot` 还报告已知宿主 Python 3.9.6 不满足 PTC 测试要求（此前针对性 Python 3.12 qualification 已通过），以及本机缺少 Playwright Chromium cache。另有两个仅在 aggregate 运行中出现的测试失败——plugin-manager 的 5 秒 timeout，以及 mock one-shot CLI 用例多出一个 request——单文件针对性重跑都通过；当前 candidate 未修改对应测试文件。这些 raw aggregate 结果均保留记录，不伪装为 gate 通过。本轮没有发现新的产品 regression 或 safety-sentinel failure。
+
+Stage 13 qualification commit 只记录该结果；安装、baseline tagging 和用户数据 cutover 属于后续独立操作。已批准的静态债务仍未解决，本记录不表示它们已修复。
 
 ## 后果
 

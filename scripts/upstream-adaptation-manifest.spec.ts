@@ -106,7 +106,7 @@ describe('Phase 8C upstream adaptation manifest', () => {
     expect(manifest).toMatchObject({
       formatVersion: 1,
       phase: '8C.2k',
-      status: 'stage-12-complete',
+      status: 'stage-13-complete',
       target: { sha: 'ddefc45fbc7f8e46dd73185e68295696d1297887' },
       source: {
         productBaselineTag: 'ds-harness-product-baseline-2026-09-17',
@@ -156,7 +156,7 @@ describe('Phase 8C upstream adaptation manifest', () => {
       'COMPLETE', 'COMPLETE', 'COMPLETE', 'COMPLETE', 'COMPLETE', 'COMPLETE', 'COMPLETE', 'COMPLETE', 'COMPLETE',
       'COMPLETE', 'COMPLETE', 'COMPLETE',
     ])
-    expect(manifest.portOrder.slice(12).every(stage => stage.status === 'PENDING')).toBe(true)
+    expect(manifest.portOrder.slice(12).every(stage => stage.status === 'COMPLETE')).toBe(true)
     expect(manifest.compositionQualification).toEqual({
       profile: 'desktop-custom',
       upstreamTemplate: 'web',
@@ -250,10 +250,10 @@ describe('Phase 8C upstream adaptation manifest', () => {
       'D7.1', 'D7.2', 'D7.3', 'D7.4', 'D7.5', 'D7.6', 'D7.7', 'D7.8',
       'D7.9', 'D7.10', 'D7.11', 'D7.12', 'D7.13', 'D7.14', 'D7.15', 'D7.16',
     ])
-    // Stages beyond the completed prefix stay pending, and Stage 7 introduces
-    // no new durable event.
+    // Stage 7 introduces no new durable event; qualification status is kept at
+    // the terminal stage in the same manifest.
     expect(manifest.portOrder.filter(stage => stage.stage > 12).map(stage => stage.status))
-      .toEqual(['PENDING'])
+      .toEqual(['COMPLETE'])
     expect(manifest.dataBoundary.sessionCompatibility.restoredFirstPartyRequiredEvents)
       .toEqual(['task/checkpoint', 'task/result-manifest'])
     expect(manifest.capabilities.filter(capability =>
@@ -289,7 +289,7 @@ describe('Phase 8C upstream adaptation manifest', () => {
     expect(manifest.dataBoundary.sessionCompatibility.restoredFirstPartyRequiredEvents)
       .toEqual(['task/checkpoint', 'task/result-manifest'])
     expect(manifest.portOrder.filter(stage => stage.stage > 12).map(stage => stage.status))
-      .toEqual(['PENDING'])
+      .toEqual(['COMPLETE'])
   })
 
   it('records the Stage 9 reasoning and bounded retry policies and its fifteen locked decisions', () => {
@@ -316,7 +316,7 @@ describe('Phase 8C upstream adaptation manifest', () => {
     expect(manifest.dataBoundary.sessionCompatibility.restoredFirstPartyRequiredEvents)
       .toEqual(['task/checkpoint', 'task/result-manifest'])
     expect(manifest.portOrder.filter(stage => stage.stage > 12).map(stage => stage.status))
-      .toEqual(['PENDING'])
+      .toEqual(['COMPLETE'])
   })
 
   it('records the Stage 10 task-aware compaction adapter and its twenty-two locked decisions', () => {
@@ -395,7 +395,7 @@ describe('Phase 8C upstream adaptation manifest', () => {
     expect(manifest.dataBoundary.sessionCompatibility.restoredFirstPartyRequiredEvents)
       .toEqual(['task/checkpoint', 'task/result-manifest'])
     expect(manifest.portOrder.filter(stage => stage.stage > 12).map(stage => stage.status))
-      .toEqual(['PENDING'])
+      .toEqual(['COMPLETE'])
   })
 
   it('records the Stage 11 current-client Run Details integration and its twenty locked decisions', () => {
@@ -468,7 +468,7 @@ describe('Phase 8C upstream adaptation manifest', () => {
     expect(manifest.dataBoundary.sessionCompatibility.restoredFirstPartyRequiredEvents)
       .toEqual(['task/checkpoint', 'task/result-manifest'])
     expect(manifest.portOrder.filter(stage => stage.stage > 12).map(stage => stage.status))
-      .toEqual(['PENDING'])
+      .toEqual(['COMPLETE'])
   })
 
   it('records the Stage 12 maintenance plane port and its sixteen locked decisions', () => {
@@ -571,5 +571,18 @@ describe('Phase 8C upstream adaptation manifest', () => {
     for (const evidencePath of manifest.contractEvidencePaths) {
       expect(existsSync(resolve(root, evidencePath)), evidencePath).toBe(true)
     }
+  })
+
+  it('records Stage 13 completion while preserving raw gate failures and approved debt', () => {
+    const [stageThirteen] = manifest.portOrder.filter(stage => stage.stage === 13)
+    expect(manifest.status).toBe('stage-13-complete')
+    expect(stageThirteen?.status).toBe('COMPLETE')
+    const decisions = stageThirteen?.decisions ?? []
+    expect(decisions.find(decision => decision.startsWith('D13.Q1 ')))
+      .toContain('Bundle ID dev.dsh.desktop.custom')
+    expect(decisions.find(decision => decision.startsWith('D13.Q3 ')))
+      .toContain('60 gates passed and 7 raw failures')
+    expect(decisions.find(decision => decision.startsWith('D13.Q4 ')))
+      .toContain('All four approved static debt sets remain unresolved')
   })
 })
