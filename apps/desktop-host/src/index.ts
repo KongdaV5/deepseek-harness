@@ -9,6 +9,7 @@ import { resolveDshHome } from '@deepseek-ai/dsh-home-paths'
 import * as desktopOffice from './office.ts'
 
 import { installDesktopUpdateTaskControl } from './update-tasks.ts'
+import { loadDesktopHostProfile } from './rehearsal-isolation.ts'
 
 async function main(): Promise<void> {
   const runtimeDir = process.argv[2] as string
@@ -16,7 +17,8 @@ async function main(): Promise<void> {
   const profileName = process.env.DSH_DESKTOP_PROFILE_NAME ?? 'desktop'
   if (!/^[a-z][a-z0-9-]*$/u.test(profileName)) throw new Error('dsh desktop host: invalid profile name')
   const installAnchor = join(runtimeDir, 'node_modules', '@deepseek-ai', 'dsh', 'package.json')
-  const profile = loadProfileDirectory('dsh', projectDir, installAnchor)
+  const profile = loadDesktopHostProfile({ environment: process.env, projectDir, profileName },
+    () => loadProfileDirectory('dsh', projectDir, installAnchor))
   const application = runProfile({
     environment: loadLayeredEnv('dsh'),
     profile: profileName,

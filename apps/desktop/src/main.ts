@@ -44,11 +44,39 @@ import {
   readDesktopApplicationManifest,
   resolveDesktopRuntimeProductFlavor,
 } from './product-flavor.ts'
-import { resolveDesktopDataBoundary } from './data-boundary.ts'
+import {
+  desktopHostEnvironment,
+  prepareDesktopRehearsalPaths,
+  readDesktopQualificationRootArgument,
+  resolveDesktopDataBoundary,
+} from './data-boundary.ts'
 
 const applicationManifest = readDesktopApplicationManifest(app.getAppPath())
 const productFlavor = resolveDesktopRuntimeProductFlavor(app.isPackaged, applicationManifest)
-const dataBoundary = resolveDesktopDataBoundary(productFlavor, process.env, app.getPath('appData'))
+const explicitRehearsalRoot = readDesktopQualificationRootArgument(process.argv)
+const dataBoundary = resolveDesktopDataBoundary(
+  productFlavor, process.env, app.getPath('appData'), explicitRehearsalRoot,
+)
+const rehearsalPaths = prepareDesktopRehearsalPaths(dataBoundary)
+const desktopEnvironment = desktopHostEnvironment(dataBoundary, process.env)
+if (dataBoundary.mode === 'candidate-rehearsal') {
+  for (const name of [
+    'HOME', 'TMPDIR', 'DSH_HOME', 'DSH_DESKTOP_PROFILE_PATH', 'DSH_DESKTOP_SESSION_ROOT',
+    'DSH_DESKTOP_ELECTRON_USER_DATA', 'DSH_DESKTOP_DATA_MODE', 'DSH_DESKTOP_REHEARSAL_ROOT',
+    'DSH_DESKTOP_WORKSPACE_ROOT', 'DSH_DESKTOP_MAINTENANCE_ROOT',
+    'XDG_CONFIG_HOME', 'XDG_DATA_HOME', 'XDG_CACHE_HOME',
+  ]) {
+    const value = desktopEnvironment[name]
+    if (value === undefined) throw new Error(`qualification isolation violation: ${name} is missing`)
+    process.env[name] = value
+  }
+  if (rehearsalPaths === undefined) throw new Error('qualification isolation violation: rehearsal paths are missing')
+  app.setPath('appData', rehearsalPaths.appData)
+  app.setPath('cache', rehearsalPaths.cache)
+  app.setPath('temp', rehearsalPaths.temp)
+  app.setPath('crashDumps', rehearsalPaths.crashDumps)
+  app.setAppLogsPath(rehearsalPaths.logs)
+}
 applyDesktopProductIdentity(
   app,
   productFlavor,
@@ -267,9 +295,7 @@ async function main(): Promise<void> {
   }
   const backend = new DesktopBackendController((onFailure) => {
     const hostInspectPort = developmentHostInspectPort(development)
-    const hostEnvironment = dataBoundary.mode === 'candidate-rehearsal' || dataBoundary.mode === 'custom-default'
-      ? { ...process.env, DSH_HOME: dataBoundary.dshHome }
-      : process.env
+    const hostEnvironment = desktopHostEnvironment(dataBoundary, process.env)
     const host = new DesktopHostProcess(resources.node, resources.dsh, activeProject,
       hostInspectPort, hostEnvironment, onFailure,
       development ? join(app.getAppPath(), '.desktop-build', 'targets', `${process.platform === 'darwin' ? 'mac' : 'win'}-${process.arch}`, 'runtime', 'primary-runtime')

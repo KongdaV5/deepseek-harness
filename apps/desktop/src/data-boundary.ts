@@ -1,6 +1,7 @@
 /** Explicit Desktop ownership for DSH data and Electron state. */
 
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
+import { lstatSync, mkdirSync, realpathSync } from 'node:fs'
 import { resolveDshHome } from '@deepseek-ai/dsh-home-paths'
 import type { DesktopProductFlavor } from './product-flavor.ts'
 
@@ -9,6 +10,9 @@ export const DESKTOP_DATA_MODE_ENV = 'DSH_DESKTOP_DATA_MODE'
 
 /** Root containing every filesystem authority used by a candidate rehearsal. */
 export const DESKTOP_REHEARSAL_ROOT_ENV = 'DSH_DESKTOP_REHEARSAL_ROOT'
+
+/** Explicit command-line qualification root used when LaunchServices drops custom environment variables. */
+export const DESKTOP_QUALIFICATION_ROOT_ARGUMENT = '--dsh-qualification-root='
 
 /** Data modes admitted by the Desktop entry point. */
 export type DesktopDataMode = 'upstream-default' | 'candidate-rehearsal' | 'custom-default'
@@ -41,6 +45,22 @@ export interface DesktopDataBoundary {
   readonly approvedRoots: readonly string[]
 }
 
+export interface DesktopRehearsalPaths {
+  readonly root: string
+  readonly home: string
+  readonly temp: string
+  readonly appData: string
+  readonly cache: string
+  readonly logs: string
+  readonly crashDumps: string
+  readonly workspace: string
+  readonly maintenance: string
+  readonly xdgConfig: string
+  readonly xdgData: string
+  readonly xdgCache: string
+  readonly electronUserData: string
+}
+
 const DATA_POLICY: DesktopDataPolicy = {
   profile: 'flavor-isolated',
   settings: 'shared-global',
@@ -60,24 +80,41 @@ function isWithin(root: string, candidate: string): boolean {
   return child === '' || (!child.startsWith('..') && !isAbsolute(child))
 }
 
-function requiredRehearsalRoot(environment: NodeJS.ProcessEnv): string {
+export function readDesktopQualificationRootArgument(args: readonly string[]): string | undefined {
+  const configured = args.filter(argument => argument.startsWith(DESKTOP_QUALIFICATION_ROOT_ARGUMENT))
+  if (configured.length > 1) throw new Error('desktop data: duplicate qualification root argument')
+  const value = configured[0]?.slice(DESKTOP_QUALIFICATION_ROOT_ARGUMENT.length)
+  if (value === '') throw new Error('desktop data: qualification root argument must not be empty')
+  return value
+}
+
+function requiredRehearsalRoot(environment: NodeJS.ProcessEnv, explicitRoot?: string): string {
   const configured = environment[DESKTOP_REHEARSAL_ROOT_ENV]
-  if (configured === undefined || configured.trim() === '') {
+  if (configured !== undefined && configured.trim() === '') {
+    throw new Error(`desktop data: ${DESKTOP_REHEARSAL_ROOT_ENV} must not be empty`)
+  }
+  if (explicitRoot !== undefined && configured !== undefined
+    && resolve(explicitRoot) !== resolve(configured)) {
+    throw new Error('desktop data: qualification root argument conflicts with rehearsal environment')
+  }
+  const selected = explicitRoot ?? configured
+  if (selected === undefined) {
     throw new Error(
       `desktop data: candidate rehearsal requires ${DESKTOP_REHEARSAL_ROOT_ENV}; live shared data migration is disabled`,
     )
   }
-  if (!isAbsolute(configured)) {
+  if (!isAbsolute(selected)) {
     throw new Error(`desktop data: ${DESKTOP_REHEARSAL_ROOT_ENV} must be an absolute path`)
   }
-  return resolve(configured)
+  return resolve(selected)
 }
 
 function rehearsalBoundary(
   flavor: DesktopProductFlavor,
   environment: NodeJS.ProcessEnv,
+  explicitRoot?: string,
 ): DesktopDataBoundary {
-  const root = requiredRehearsalRoot(environment)
+  const root = requiredRehearsalRoot(environment, explicitRoot)
   const dshHome = join(root, 'dsh-home')
   const profiles = join(dshHome, 'profiles')
   const electronUserData = join(root, 'electron', flavor.id)
@@ -103,6 +140,14 @@ function rehearsalBoundary(
     resolved.profile,
     resolved.sessions,
     electronUserData,
+    join(root, 'home'),
+    join(root, 'tmp'),
+    join(root, 'workspace'),
+    join(root, 'cache'),
+    join(root, 'maintenance'),
+    join(root, 'xdg-config'),
+    join(root, 'xdg-data'),
+    join(root, 'xdg-cache'),
   ]) {
     if (!isWithin(root, candidate)) {
       throw new Error(`desktop data: candidate path escapes the rehearsal root: ${candidate}`)
@@ -126,9 +171,17 @@ export function resolveDesktopDataBoundary(
   flavor: DesktopProductFlavor,
   environment: NodeJS.ProcessEnv = process.env,
   appDataPath?: string,
+  explicitRehearsalRoot?: string,
 ): DesktopDataBoundary {
-  const requested = environment[DESKTOP_DATA_MODE_ENV]
-  if (requested === 'candidate-rehearsal') return rehearsalBoundary(flavor, environment)
+  let requested = environment[DESKTOP_DATA_MODE_ENV]
+  if (explicitRehearsalRoot !== undefined && requested === undefined) requested = 'candidate-rehearsal'
+  if (requested === undefined && environment[DESKTOP_REHEARSAL_ROOT_ENV] !== undefined) {
+    requested = 'candidate-rehearsal'
+  }
+  if (requested === 'candidate-rehearsal') return rehearsalBoundary(flavor, environment, explicitRehearsalRoot)
+  if (explicitRehearsalRoot !== undefined || environment[DESKTOP_REHEARSAL_ROOT_ENV] !== undefined) {
+    throw new Error('desktop data: rehearsal root requires candidate-rehearsal mode')
+  }
   if (requested !== undefined && requested !== '') {
     throw new Error(`desktop data: unsupported ${DESKTOP_DATA_MODE_ENV} ${JSON.stringify(requested)}`)
   }
@@ -189,4 +242,84 @@ export function resolveDesktopDataBoundary(
     },
     approvedRoots: [dshHome],
   }
+}
+
+/** Create and verify only the directories owned by a rehearsal boundary before Electron or Host can hydrate them. */
+export function prepareDesktopRehearsalPaths(boundary: DesktopDataBoundary): DesktopRehearsalPaths | undefined {
+  if (boundary.mode !== 'candidate-rehearsal') return undefined
+  const root = boundary.approvedRoots[0]
+  const electronUserData = boundary.electronUserData.mode === 'explicit' ? boundary.electronUserData.path : undefined
+  if (root === undefined || electronUserData === undefined) {
+    throw new Error('qualification isolation violation: rehearsal boundary is incomplete')
+  }
+
+  mkdirSync(root, { recursive: true })
+  const rootStat = lstatSync(root)
+  if (!rootStat.isDirectory() || rootStat.isSymbolicLink()) {
+    throw new Error('qualification isolation violation: rehearsal root must be a real directory')
+  }
+  const canonicalRoot = realpathSync(root)
+  const paths: DesktopRehearsalPaths = {
+    root,
+    home: join(root, 'home'),
+    temp: join(root, 'tmp'),
+    appData: join(root, 'electron', 'appData'),
+    cache: join(root, 'cache'),
+    logs: join(root, 'logs'),
+    crashDumps: join(root, 'crash-dumps'),
+    workspace: join(root, 'workspace'),
+    maintenance: join(root, 'maintenance'),
+    xdgConfig: join(root, 'xdg-config'),
+    xdgData: join(root, 'xdg-data'),
+    xdgCache: join(root, 'xdg-cache'),
+    electronUserData,
+  }
+  const ownedDirectories = [
+    paths.home, paths.temp, paths.appData, paths.cache, paths.logs, paths.crashDumps, paths.workspace, paths.maintenance,
+    paths.xdgConfig, paths.xdgData, paths.xdgCache, paths.electronUserData,
+    boundary.dshHome, boundary.profiles, boundary.profile, boundary.sessions,
+  ]
+  for (const directory of ownedDirectories) {
+    mkdirSync(directory, { recursive: true })
+    const stat = lstatSync(directory)
+    if (!stat.isDirectory() || stat.isSymbolicLink()) {
+      throw new Error(`qualification isolation violation: rehearsal path is not a real directory: ${directory}`)
+    }
+    const canonicalDirectory = realpathSync(directory)
+    if (!isWithin(canonicalRoot, canonicalDirectory)) {
+      throw new Error(`qualification isolation violation: rehearsal path escapes rehearsal root: ${directory}`)
+    }
+  }
+  return paths
+}
+
+/** Build the complete child environment from the already-validated rehearsal boundary. */
+export function desktopHostEnvironment(
+  boundary: DesktopDataBoundary,
+  environment: NodeJS.ProcessEnv,
+): NodeJS.ProcessEnv {
+  if (boundary.mode === 'candidate-rehearsal') {
+    const root = boundary.approvedRoots[0]
+    if (root === undefined) throw new Error('qualification isolation violation: rehearsal root is missing')
+    const electronUserData = boundary.electronUserData.mode === 'explicit' ? boundary.electronUserData.path : undefined
+    if (electronUserData === undefined) throw new Error('qualification isolation violation: Electron userData is missing')
+    return {
+      ...environment,
+      HOME: join(root, 'home'),
+      TMPDIR: join(root, 'tmp'),
+      DSH_HOME: boundary.dshHome,
+      DSH_DESKTOP_PROFILE_PATH: boundary.profile,
+      DSH_DESKTOP_SESSION_ROOT: boundary.sessions,
+      DSH_DESKTOP_ELECTRON_USER_DATA: electronUserData,
+      [DESKTOP_DATA_MODE_ENV]: 'candidate-rehearsal',
+      [DESKTOP_REHEARSAL_ROOT_ENV]: root,
+      DSH_DESKTOP_WORKSPACE_ROOT: join(root, 'workspace'),
+      DSH_DESKTOP_MAINTENANCE_ROOT: join(root, 'maintenance'),
+      XDG_CONFIG_HOME: join(root, 'xdg-config'),
+      XDG_DATA_HOME: join(root, 'xdg-data'),
+      XDG_CACHE_HOME: join(root, 'xdg-cache'),
+    }
+  }
+  if (boundary.mode === 'custom-default') return { ...environment, DSH_HOME: boundary.dshHome }
+  return environment
 }

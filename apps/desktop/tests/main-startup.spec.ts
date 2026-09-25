@@ -123,6 +123,7 @@ const harness = await vi.hoisted(async () => {
     getAppPath: () => 'desktop-test-app',
     getPath: (name: string) => name === 'appData' ? '/desktop-test-app-data' : `desktop-test-${name}`,
     setPath: vi.fn(),
+    setAppLogsPath: vi.fn(),
     setName: vi.fn((name: string) => { app.name = name }),
     setAboutPanelOptions: vi.fn<(options: Electron.AboutPanelOptionsOptions) => void>(),
     requestSingleInstanceLock: vi.fn(() => true),
@@ -174,6 +175,7 @@ const harness = await vi.hoisted(async () => {
       app.isPackaged = true
       app.name = 'Desktop test'
       app.setPath.mockClear()
+      app.setAppLogsPath.mockClear()
       app.setName.mockClear()
       app.requestSingleInstanceLock.mockClear()
       windowFailure = undefined
@@ -196,6 +198,14 @@ const harness = await vi.hoisted(async () => {
 
 const testAuth = vi.hoisted(() => ({ login: vi.fn<() => Promise<'returned' | 'cancelled' | 'failed'>>(),
   focus: vi.fn(), dispose: vi.fn(async () => {}) }))
+let rehearsalFixtureRoot: string | undefined
+const environmentBeforeTests = { ...process.env }
+const rehearsalEnvironmentNames = [
+  'HOME', 'TMPDIR', 'DSH_HOME', 'DSH_DESKTOP_PROFILE_PATH', 'DSH_DESKTOP_SESSION_ROOT',
+  'DSH_DESKTOP_ELECTRON_USER_DATA', 'DSH_DESKTOP_DATA_MODE', 'DSH_DESKTOP_REHEARSAL_ROOT',
+  'DSH_DESKTOP_WORKSPACE_ROOT', 'DSH_DESKTOP_MAINTENANCE_ROOT',
+  'XDG_CONFIG_HOME', 'XDG_DATA_HOME', 'XDG_CACHE_HOME',
+] as const
 vi.mock('../src/policy-test-auth.ts', () => ({ DesktopPolicyTestAuth: class {
   readonly login = testAuth.login
   readonly focus = testAuth.focus
@@ -329,6 +339,13 @@ afterEach(async () => {
   vi.useRealTimers()
   vi.unstubAllEnvs()
   vi.unstubAllGlobals()
+  for (const name of rehearsalEnvironmentNames) {
+    const value = environmentBeforeTests[name]
+    if (value === undefined) Reflect.deleteProperty(process.env, name)
+    else process.env[name] = value
+  }
+  if (rehearsalFixtureRoot !== undefined) rmSync(rehearsalFixtureRoot, { recursive: true, force: true })
+  rehearsalFixtureRoot = undefined
 })
 
 describe('desktop main startup', () => {
@@ -352,26 +369,67 @@ describe('desktop main startup', () => {
 
   it('starts the DS Harness flavor with isolated process, profile, branding, and update behavior', async () => {
     harness.productFlavor = 'ds-harness'
+    const fixtureRoot = mkdtempSync(join(tmpdir(), 'dsh-main-startup-'))
+    rehearsalFixtureRoot = fixtureRoot
+    const root = join(fixtureRoot, 'rehearsal')
     vi.stubEnv('DSH_DESKTOP_DATA_MODE', 'candidate-rehearsal')
-    vi.stubEnv('DSH_DESKTOP_REHEARSAL_ROOT', join(process.cwd(), 'desktop-test-rehearsal-root'))
+    vi.stubEnv('DSH_DESKTOP_REHEARSAL_ROOT', root)
     harness.embeddedPolicy = { origin: 'https://official-policy.example.com', authentication: 'anonymous' }
     const host = await readyForUpdate()
     await vi.advanceTimersByTimeAsync(0)
     expect(harness.app.setName).toHaveBeenCalledWith('DS Harness')
     expect(harness.app.setPath.mock.calls).toEqual([
-      ['userData', join(process.cwd(), 'desktop-test-rehearsal-root', 'electron', 'ds-harness')],
-      ['sessionData', join(process.cwd(), 'desktop-test-rehearsal-root', 'electron', 'ds-harness')],
+      ['appData', join(root, 'electron', 'appData')],
+      ['cache', join(root, 'cache')],
+      ['temp', join(root, 'tmp')],
+      ['crashDumps', join(root, 'crash-dumps')],
+      ['userData', join(root, 'electron', 'ds-harness')],
+      ['sessionData', join(root, 'electron', 'ds-harness')],
     ])
+    expect(harness.app.setAppLogsPath).toHaveBeenCalledWith(join(root, 'logs'))
     expect(harness.app.setPath.mock.invocationCallOrder[0])
       .toBeLessThan(harness.app.requestSingleInstanceLock.mock.invocationCallOrder[0]!)
     expect(harness.windows[0]!.options.title).toBe('DS Harness')
     expect(harness.app.setAboutPanelOptions).toHaveBeenCalledWith(expect.objectContaining({ applicationName: 'DS Harness' }))
     expect(host).toMatchObject({ profile: 'desktop-custom-test-profile', profileName: 'desktop-custom' })
-    expect(host.environment?.DSH_HOME).toBe(join(process.cwd(), 'desktop-test-rehearsal-root', 'dsh-home'))
+    expect(host.environment).toMatchObject({
+      HOME: join(root, 'home'),
+      TMPDIR: join(root, 'tmp'),
+      DSH_HOME: join(root, 'dsh-home'),
+      DSH_DESKTOP_PROFILE_PATH: join(root, 'dsh-home', 'profiles', 'desktop-custom'),
+      DSH_DESKTOP_SESSION_ROOT: join(root, 'dsh-home', 'sessions'),
+      DSH_DESKTOP_ELECTRON_USER_DATA: join(root, 'electron', 'ds-harness'),
+      DSH_DESKTOP_WORKSPACE_ROOT: join(root, 'workspace'),
+      DSH_DESKTOP_MAINTENANCE_ROOT: join(root, 'maintenance'),
+      DSH_DESKTOP_REHEARSAL_ROOT: root,
+    })
     expect(applicationMenuItems().map(item => item.label ?? item.role ?? item.type))
       .toEqual(['About DS Harness', 'separator', 'Exit'])
     expect(harness.updateCheck).not.toHaveBeenCalled()
     expect(testAuth.login).not.toHaveBeenCalled()
+  })
+
+  it('selects the same rehearsal boundary from an explicit launch argument without environment overrides', async () => {
+    harness.productFlavor = 'ds-harness'
+    const fixtureRoot = mkdtempSync(join(tmpdir(), 'dsh-main-argument-'))
+    rehearsalFixtureRoot = fixtureRoot
+    const root = join(fixtureRoot, 'rehearsal')
+    vi.stubEnv('DSH_DESKTOP_DATA_MODE', undefined)
+    vi.stubEnv('DSH_DESKTOP_REHEARSAL_ROOT', undefined)
+    vi.stubGlobal('process', {
+      ...process,
+      argv: [...process.argv, `--dsh-qualification-root=${root}`],
+    })
+    const host = await readyForUpdate()
+    await vi.advanceTimersByTimeAsync(0)
+    expect(harness.app.setPath).toHaveBeenCalledWith('userData', join(root, 'electron', 'ds-harness'))
+    expect(host.profile).toBe('desktop-custom-test-profile')
+    expect(host.environment).toMatchObject({
+      DSH_DESKTOP_DATA_MODE: 'candidate-rehearsal',
+      DSH_DESKTOP_REHEARSAL_ROOT: root,
+      DSH_HOME: join(root, 'dsh-home'),
+      DSH_DESKTOP_PROFILE_PATH: join(root, 'dsh-home', 'profiles', 'desktop-custom'),
+    })
   })
 
   it('starts packaged DS Harness without rehearsal variables in its stable Custom data root', async () => {
