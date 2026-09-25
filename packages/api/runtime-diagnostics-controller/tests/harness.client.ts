@@ -9,6 +9,8 @@
  * would only send while the carrier was already being torn down.
  */
 import type { TypertRemoteContribution } from '@deepseek-ai/dsh-typert-protocol'
+import { RemoteStream } from '@deepseek-ai/dsh-api-gateway/client'
+import type { RemoteStreamOptions } from '@deepseek-ai/dsh-api-gateway/client'
 import type { RuntimeDiagnosticsRemote } from '../src/client/remote.ts'
 import type {
   RuntimeDiagnosticsFollowRequest,
@@ -81,7 +83,14 @@ export class ScriptedRemote implements RuntimeDiagnosticsRemote {
   /** How many times a mount release has run. */
   mountReleases = 0
 
-  private planned: Source<RuntimeDiagnosticsFrame> | undefined
+  private readonly planned: Source<RuntimeDiagnosticsFrame>[] = []
+
+  private readonly connection = {
+    generation: {
+      getSnapshot: () => ({ id: 1, host: { home: '/home/fixture' } }),
+      subscribe: () => () => {},
+    },
+  }
 
   /**
    * Hand the generation the next `follow` call returns.
@@ -91,16 +100,30 @@ export class ScriptedRemote implements RuntimeDiagnosticsRemote {
    * @returns the same source, for convenience.
    */
   plan(source: Source<RuntimeDiagnosticsFrame>): Source<RuntimeDiagnosticsFrame> {
-    this.planned = source
+    this.planned.push(source)
     return source
+  }
+
+  $stream<Item>(options: RemoteStreamOptions<Item>): RemoteStream<Item> {
+    return new RemoteStream(this.connection, options)
   }
 
   readonly runtimeDiagnostics = {
     follow: (request: RuntimeDiagnosticsFollowRequest, signal?: AbortSignal): AsyncIterable<RuntimeDiagnosticsFrame> => {
-      const source = this.planned ?? new Source<RuntimeDiagnosticsFrame>()
-      this.planned = undefined
+      const source = this.planned.shift() ?? new Source<RuntimeDiagnosticsFrame>()
       this.opened.push({ request, signal, source })
-      return source
+      const aborted = (): void => { source.end() }
+      signal?.addEventListener('abort', aborted, { once: true })
+      if (signal?.aborted) aborted()
+      return {
+        async * [Symbol.asyncIterator](): AsyncIterator<RuntimeDiagnosticsFrame> {
+          try {
+            yield* source
+          } finally {
+            signal?.removeEventListener('abort', aborted)
+          }
+        },
+      }
     },
   }
 

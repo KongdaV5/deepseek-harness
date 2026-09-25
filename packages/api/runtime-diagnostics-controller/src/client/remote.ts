@@ -14,7 +14,7 @@ import type { RuntimeDiagnosticsFollowRequest, RuntimeDiagnosticsFrame } from '.
 export type RuntimeDiagnosticsNamespace = Pick<ClientRemote['runtimeDiagnostics'], 'follow'>
 
 /** The Client Remote as this package sees it. */
-export interface RuntimeDiagnosticsRemote {
+export interface RuntimeDiagnosticsRemote extends Pick<ClientRemote, '$stream'> {
   /**
    * Mount one generated Remote contribution for the caller's lifetime.
    * @param contribution - the generated contribution to mount.

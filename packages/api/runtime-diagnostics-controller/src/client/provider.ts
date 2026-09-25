@@ -9,11 +9,11 @@
  * whose observation is a plain object carrying a boolean `present`. A stream must
  * open with exactly one `snapshot` and then deliver `change` frames.
  *
- * Every violation ends the stream with a failure frame rather than being
- * tolerated, and an ended or failed stream is *always* a failure frame — never a
- * reason to keep the previous value looking current. That is what makes a
- * transport disconnect read as unavailable instead of as the last phase a Host
- * happened to publish before it went away.
+ * Every violation ends the logical resource with a failure frame rather than
+ * being tolerated. Physical Remote generations are supervised by Gateway and
+ * reopened with a new validated snapshot; terminal transport or protocol
+ * failures never masquerade as the last phase a Host published before it went
+ * away.
  *
  * @module @deepseek-ai/dsh-api-runtime-diagnostics-controller/client/provider
  */
@@ -24,7 +24,11 @@ import { RemoteError, remoteErrorOf } from '@deepseek-ai/dsh-typert-protocol'
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import { parseRuntimeDiagnosticsAddress, RUNTIME_DIAGNOSTICS_PROTOCOL } from './address.ts'
 import type { RuntimeDiagnosticsRemote } from './remote.ts'
-import type { RuntimeDiagnosticsObservation, RuntimeDiagnosticsValue } from '../types.ts'
+import type {
+  RuntimeDiagnosticsFrame,
+  RuntimeDiagnosticsObservation,
+  RuntimeDiagnosticsValue,
+} from '../types.ts'
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface ResourceProtocolMap {
@@ -182,14 +186,32 @@ export function createRuntimeDiagnosticsProvider(
         yield { ok: false, error: unknownSchema(target.topic) }
         return
       }
+      const request = { topic: target.topic, sessionId: target.sessionId }
+      const stream = remote.$stream<RuntimeDiagnosticsFrame>({
+        name: `runtime diagnostics ${target.topic}/${target.sessionId}`,
+        open: streamSignal => remote.runtimeDiagnostics.follow(request, streamSignal),
+        // A diagnostics follow is a snapshot-and-change stream. A clean end is
+        // therefore a completed physical generation, not a valid end of the
+        // logical resource; let Gateway reopen it against the current Host.
+        ended: accepted => new RemoteStreamCarrierError(
+          accepted
+            ? 'runtime diagnostics generation ended after its opening snapshot'
+            : 'runtime diagnostics generation ended before its opening snapshot',
+        ),
+      })
+      const disposeOnAbort = (): void => { void stream.dispose() }
+      signal.addEventListener('abort', disposeOnAbort, { once: true })
+      if (signal.aborted) disposeOnAbort()
+      let generation: number | undefined
       let opened = false
       try {
-        for await (const candidate of remote.runtimeDiagnostics.follow(
-          { topic: target.topic, sessionId: target.sessionId },
-          signal,
-        )) {
+        for await (const item of stream) {
           if (signal.aborted) return
-          const verdict = validateFrame(candidate, target, schema)
+          if (item.generation !== generation) {
+            generation = item.generation
+            opened = false
+          }
+          const verdict = validateFrame(item.value, target, schema)
           if (!verdict.ok) {
             yield { ok: false, error: unexpectedFrame(verdict.detail, verdict.detail) }
             return
@@ -203,6 +225,7 @@ export function createRuntimeDiagnosticsProvider(
               return
             }
             opened = true
+            item.accept()
           } else if (verdict.frame.type === 'snapshot') {
             yield {
               ok: false,
@@ -213,16 +236,11 @@ export function createRuntimeDiagnosticsProvider(
           yield { ok: true, value: verdict.frame.observation }
         }
         if (signal.aborted) return
-        // The stream ended on its own. Keeping the last observation as current
-        // here is exactly the bug this branch exists to prevent, so it is a
-        // failure whether or not a value was ever delivered.
         yield {
           ok: false,
           error: unexpectedFrame(
-            opened ? 'unexpected-end' : 'end-before-snapshot',
-            opened
-              ? 'The runtime diagnostics stream ended without an abort.'
-              : 'The runtime diagnostics stream ended before its opening snapshot.',
+            'unexpected-logical-end',
+            'The runtime diagnostics stream supervisor ended without an abort.',
           ),
         }
       } catch (error) {
@@ -234,6 +252,9 @@ export function createRuntimeDiagnosticsProvider(
         }
         if (!(error instanceof RemoteStreamCarrierError)) throw error
         yield { ok: false, error: transportFailure(error.message) }
+      } finally {
+        signal.removeEventListener('abort', disposeOnAbort)
+        await stream.dispose()
       }
     },
   }

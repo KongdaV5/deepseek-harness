@@ -69,7 +69,10 @@ describe('createRuntimeDiagnosticsProvider', () => {
     await stream.iterator.next()
     expect(stream.remote.opened).toHaveLength(1)
     expect(stream.remote.opened[0]?.request).toEqual({ topic: 'test-topic', sessionId: 'session-9' })
-    expect(stream.remote.opened[0]?.signal).toBe(stream.controller.signal)
+    expect(stream.remote.opened[0]?.signal).not.toBe(stream.controller.signal)
+    expect(stream.remote.opened[0]?.signal?.aborted).toBe(false)
+    stream.controller.abort()
+    expect(stream.remote.opened[0]?.signal?.aborted).toBe(true)
   })
 
   it('yields the opening snapshot, then replaces the value on every change', async () => {
@@ -202,48 +205,55 @@ describe('createRuntimeDiagnosticsProvider', () => {
     })
   })
 
-  it('reports a Gateway carrier failure as a transport failure, not a frame violation', async () => {
+  it('reopens a replacement generation after a Gateway carrier failure', async () => {
     const stream = open()
+    const replacement = stream.remote.plan(new Source<RuntimeDiagnosticsFrame>())
     const pending = stream.iterator.next()
     stream.host.fail(new RemoteStreamCarrierError('socket closed'))
-    const outcome = (await pending).value as RemoteResult<RuntimeDiagnosticsObservation>
-    if (outcome.ok) throw new Error('expected a failure frame')
-    expect(outcome.error.code).toBe('runtime-diagnostics/transport-failure')
-    expect(outcome.error.details).toEqual({ detail: 'carrier-failure' })
-    expect(outcome.error.message).toBe('socket closed')
+    replacement.push(frame({ observation: { present: true, value: { status: 'idle' } } }))
+    expect((await pending).value).toEqual({ ok: true, value: { present: true, value: { status: 'idle' } } })
+    expect(stream.remote.opened).toHaveLength(2)
   })
 
-  it('lets an unrelated thrown programming error escape instead of disguising it as a protocol failure', async () => {
+  it('surfaces an unrelated programming error as a terminal Gateway failure', async () => {
     const stream = open()
     const pending = stream.iterator.next()
     stream.host.fail(new TypeError('programming fault'))
-    await expect(pending).rejects.toThrow('programming fault')
+    expect((await pending).value).toMatchObject({
+      ok: false,
+      error: { code: 'gateway/internal', message: 'programming fault' },
+    })
   })
 
-  it('treats a stream that ends after a snapshot as unavailable rather than as current', async () => {
+  it('reopens after a completed generation and accepts a fresh opening snapshot', async () => {
     const stream = open()
+    const replacement = stream.remote.plan(new Source<RuntimeDiagnosticsFrame>())
     stream.host.push(frame({ observation: { present: true, value: { status: 'summarizing' } } }))
-    await stream.iterator.next()
+    expect((await stream.iterator.next()).value).toEqual({
+      ok: true,
+      value: { present: true, value: { status: 'summarizing' } },
+    })
     const pending = stream.iterator.next()
     stream.host.end()
-    const outcome = await pending
-    expect(outcome.value).toMatchObject({
-      ok: false,
-      error: { code: 'runtime-diagnostics/unexpected-frame', details: { detail: 'unexpected-end' } },
-    })
-    // The generation is over: a reader must not be left believing the last frame
-    // is still the current one.
+    replacement.push(frame({ observation: { present: true, value: { status: 'idle' } } }))
+    expect((await pending).value).toEqual({ ok: true, value: { present: true, value: { status: 'idle' } } })
+    expect(stream.remote.opened).toHaveLength(2)
+    expect(stream.remote.opened[0]?.signal).not.toBe(stream.remote.opened[1]?.signal)
+    stream.controller.abort()
     expect((await stream.iterator.next()).done).toBe(true)
   })
 
-  it('treats a stream that ends before its snapshot as unavailable', async () => {
+  it('reports a generation chain that never provides its opening snapshot', async () => {
     const stream = open()
+    const replacement = stream.remote.plan(new Source<RuntimeDiagnosticsFrame>())
+    replacement.end()
     const pending = stream.iterator.next()
     stream.host.end()
     expect((await pending).value).toMatchObject({
       ok: false,
-      error: { code: 'runtime-diagnostics/unexpected-frame', details: { detail: 'end-before-snapshot' } },
+      error: { code: 'gateway/internal' },
     })
+    expect((await stream.iterator.next()).done).toBe(true)
   })
 
   it('stops silently on an abort that lands between frames', async () => {
