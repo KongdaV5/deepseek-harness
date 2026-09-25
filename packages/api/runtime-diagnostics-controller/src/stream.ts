@@ -124,6 +124,7 @@ export class DiagnosticsGeneration {
   private readonly buffered: Queued[] = []
   private waiter: (() => void) | undefined
   private ended = false
+  private terminalError: Error | undefined
 
   /**
    * @param declaration - the topic and schema the generation carries on every frame.
@@ -154,10 +155,11 @@ export class DiagnosticsGeneration {
     this.waiter?.()
   }
 
-  /** End the generation, releasing a reader that is waiting on it. */
-  end(): void {
+  /** End the generation, optionally reporting why its owner was retired. */
+  end(error?: Error): void {
     if (this.ended) return
     this.ended = true
+    this.terminalError = error
     this.waiter?.()
   }
 
@@ -184,8 +186,10 @@ export class DiagnosticsGeneration {
    * Everything the owner committed before the generation ended is still
    * delivered: ending a generation stops future commits and releases the reader
    * once the buffer is empty, it does not discard observations the owner already
-   * published. An abort is different — it means stop now — so a frame buffered
-   * but not yet read is dropped rather than delivered after cancellation.
+   * published. A retired owner then terminates with its typed lifecycle failure;
+   * an unexpected natural end remains distinguishable at the Client. An abort
+   * is different — it means stop now — so a frame buffered but not yet read is
+   * dropped rather than delivered after cancellation.
    * @param signal - generation cancellation, torn down by the Remote carrier.
    * @returns every buffered replacement, in the order it was committed.
    */
@@ -196,7 +200,10 @@ export class DiagnosticsGeneration {
         yield this.frame('change', next.observation)
         continue
       }
-      if (this.ended) return
+      if (this.ended) {
+        if (this.terminalError !== undefined) throw this.terminalError
+        return
+      }
       await this.wait(signal)
     }
   }

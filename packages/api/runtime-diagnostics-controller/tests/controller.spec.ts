@@ -197,16 +197,21 @@ describe('RuntimeDiagnosticsController', () => {
     expect(provider.operations).toEqual(['subscribe:session-1', 'read:session-1', 'dispose:session-1'])
   })
 
-  it('ends a withdrawn provider\'s open generations and frees its topic, idempotently', async () => {
+  it('reports a withdrawn provider as unavailable on open generations and frees its topic, idempotently', async () => {
     const { controller } = fixture()
     const provider = new ScriptedProvider()
     const release = controller.registerProvider(provider)
     const iterator: FrameIterator = controller.follow({ topic: 'test-topic', sessionId: 'session-1' }, signal())[Symbol.asyncIterator]()
     await iterator.next()
+    provider.commit('session-1', { status: 'running' })
 
     release()
     release()
-    expect((await iterator.next()).done).toBe(true)
+    expect((await iterator.next()).value?.observation).toEqual({ present: true, value: { status: 'running' } })
+    await expect(iterator.next()).rejects.toMatchObject({
+      code: 'runtime-diagnostics/provider-unavailable',
+      details: { topic: 'test-topic' },
+    })
     expect(provider.operations).toEqual(['subscribe:session-1', 'read:session-1', 'dispose:session-1'])
     // The topic is free again, so a replacement provider can claim it.
     controller.registerProvider(new ScriptedProvider('test-topic'))
@@ -226,7 +231,7 @@ describe('RuntimeDiagnosticsController', () => {
     expect((await iterator.next()).value?.observation).toEqual({ present: true, value: { alive: true } })
   })
 
-  it('retires every provider and ends every generation when the controller is disposed', async () => {
+  it('retires every provider and reports unavailable on open generations when the controller is disposed', async () => {
     const { ctx, controller } = fixture()
     const provider = new ScriptedProvider()
     controller.registerProvider(provider)
@@ -234,7 +239,10 @@ describe('RuntimeDiagnosticsController', () => {
     await iterator.next()
 
     await ctx.fiber.dispose()
-    expect((await iterator.next()).done).toBe(true)
+    await expect(iterator.next()).rejects.toMatchObject({
+      code: 'runtime-diagnostics/provider-unavailable',
+      details: { topic: 'test-topic' },
+    })
     expect(provider.operations).toEqual(['subscribe:session-1', 'read:session-1', 'dispose:session-1'])
   })
 

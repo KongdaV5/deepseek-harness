@@ -185,6 +185,22 @@ describe('createRuntimeDiagnosticsProvider', () => {
     expect((await pending).value).toMatchObject({ ok: false, error: { code: 'gateway/cancelled' } })
   })
 
+  it('preserves a typed provider-retirement failure instead of calling it an unexpected frame', async () => {
+    const stream = open()
+    stream.host.push(frame())
+    await stream.iterator.next()
+    const pending = stream.iterator.next()
+    stream.host.fail(new RemoteError(
+      'runtime-diagnostics/provider-unavailable',
+      'The runtime diagnostics provider was retired.',
+      { topic: 'test-topic' },
+    ))
+    expect((await pending).value).toMatchObject({
+      ok: false,
+      error: { code: 'runtime-diagnostics/provider-unavailable', details: { topic: 'test-topic' } },
+    })
+  })
+
   it('reports a non-Remote carrier throw as an unexpected-frame transport failure', async () => {
     const stream = open()
     const pending = stream.iterator.next()

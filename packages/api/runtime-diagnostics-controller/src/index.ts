@@ -24,6 +24,15 @@ import type {
 
 export type * from './types.ts'
 
+/** The typed terminal failure for a provider retired during an open generation. */
+function providerUnavailable(topic: string): RemoteError<'runtime-diagnostics/provider-unavailable'> {
+  return new RemoteError(
+    'runtime-diagnostics/provider-unavailable',
+    `The runtime diagnostics provider for "${topic}" is no longer available.`,
+    { topic },
+  )
+}
+
 declare module '@deepseek-ai/cordis' {
   interface Context {
     /** The topic-keyed transient diagnostics transport owner. */
@@ -51,7 +60,7 @@ export class RuntimeDiagnosticsController extends TypertRemoteService {
       // Disposal retires every provider and ends every open generation, so no
       // owner listener outlives the plugin that registered it.
       this.providers.clear()
-      for (const generation of [...this.generations]) generation.end()
+      for (const generation of [...this.generations]) generation.end(providerUnavailable(generation.topic))
       this.generations.clear()
     }, 'runtime-diagnostics-controller.lifecycle')
   }
@@ -76,13 +85,14 @@ export class RuntimeDiagnosticsController extends TypertRemoteService {
       if (!registered) return
       registered = false
       this.providers.delete(provider.topic)
-      // Streams already open on the removed provider end rather than hang: a
-      // reader observes the stream finishing, which a client renders as an
-      // unavailable resource instead of a value that will never be replaced.
+      // Streams already open on the removed provider terminate with the same
+      // typed unavailable result as a new request would receive. A lifecycle
+      // retirement is not a malformed frame, and a reader must not keep the
+      // provider's last transient value looking current.
       for (const generation of [...this.generations]) {
         if (generation.topic !== provider.topic) continue
         this.generations.delete(generation)
-        generation.end()
+        generation.end(providerUnavailable(provider.topic))
       }
     }
   }
