@@ -13,7 +13,9 @@ import { presetDisplayText } from '@deepseek-ai/dsh-agent-presets/display'
 import { PluginInventorySettingsTab, type PluginInventorySettingsTabInjected } from './PluginInventorySettingsTab.tsx'
 import { en, zh, type PluginInventoryLocaleKey } from './locales.ts'
 
-export type { PluginInventorySettingsTabInjected, PluginInventorySettingsTabProps } from './PluginInventorySettingsTab.tsx'
+export type {
+  PluginInventoryData, PluginInventorySettingsTabInjected, PluginInventorySettingsTabProps,
+} from './PluginInventorySettingsTab.tsx'
 export type { PluginInventoryLocaleKey } from './locales.ts'
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
@@ -27,7 +29,7 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 export const NS = 'settings.pluginInventory'
 
 /** Services required by the Settings registration and generated Remote face. */
-export const inject = ['slots', 'locale', 'remote', 'remote.pluginInventory', 'modules']
+export const inject = ['slots', 'locale', 'remote', 'remote.pluginInventory', 'remote.pluginManager', 'modules']
 
 /** Contribute the lazy inventory tab to the Plugins settings section. */
 export function apply(ctx: ClientContext): void {
@@ -39,7 +41,20 @@ export function apply(ctx: ClientContext): void {
     if (!result.ok) {
       throw new Error(`pluginInventory.list failed: ${result.error.code}: ${result.error.message}`)
     }
-    return result.value
+    const descriptionsByModule: Record<string, string> = {}
+    try {
+      const bundles = await ctx.remote.pluginManager.listBundles()
+      if (bundles.ok) {
+        for (const bundle of bundles.value) {
+          if (bundle.description === undefined || bundle.description === '') continue
+          descriptionsByModule[bundle.name] ??= bundle.description
+          for (const row of bundle.rows) descriptionsByModule[row.moduleName] ??= bundle.description
+        }
+      }
+    } catch {
+      // Inventory remains usable when the optional package-management plane is unavailable.
+    }
+    return { ...result.value, descriptionsByModule }
   }
   // Resolved per call over ui-agent-preset's dictionaries, so a language
   // switch re-resolves shipped names; user-authored metadata passes through.

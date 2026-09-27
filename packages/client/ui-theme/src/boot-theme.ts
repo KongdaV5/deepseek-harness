@@ -1,8 +1,8 @@
 /**
  * Theme bootstrap row for the browser's pre-plugin interval. Each index
- * render embeds the current durable built-in preference and content font size.
+ * render embeds the current durable built-in preference and global interface size.
  * Head CSS colors the document canvas before script execution; the body script
- * installs the palette selector and font size that the client presenters adopt.
+ * installs the palette selector and global scale that the client presenters adopt.
  */
 
 import type { IndexInjection } from '@deepseek-ai/dsh-host-webserver'
@@ -20,8 +20,9 @@ function bootThemeStyle(preference: ThemePreference): string {
   return `${light}@media(prefers-color-scheme:dark){${dark}}`
 }
 
-/** Build the body script that installs the palette selector and content size. */
+/** Build the body script that installs the palette selector and global UI scale. */
 function bootThemeBodyScript(preference: ThemePreference, fontSize: number): string {
+  const scale = fontSize / DEFAULT_FONT_SIZE
   return `(() => {
   const preference = ${JSON.stringify(preference)}
   const systemDark = preference === 'system'
@@ -30,16 +31,18 @@ function bootThemeBodyScript(preference: ThemePreference, fontSize: number): str
   const dark = preference === 'dark' || systemDark
   document.documentElement.dataset.dsThemeSource = preference
   document.body.toggleAttribute('data-ds-dark-theme', dark)
-  document.body.style.setProperty('--dsh-content-font-size', ${JSON.stringify(`${fontSize}px`)})
+  document.body.style.setProperty('--dsh-content-font-size', ${JSON.stringify(`${DEFAULT_FONT_SIZE}px`)})
+  document.body.style.setProperty('--dsh-ui-font-size', ${JSON.stringify(`${fontSize}px`)})
+  document.body.style.setProperty('--dsh-ui-font-scale', ${JSON.stringify(String(scale > 0 ? scale : Number.MIN_VALUE))})
 })()`
 }
 
 /**
  * Theme bootstrap rows: head CSS colors the document canvas before
- * first paint, then the body script installs the palette selector and font
- * size before the shell mount and module script.
+ * first paint, then the body script installs the palette selector and global
+ * interface scale before the shell mount and module script.
  * @param preference - Current Host-backed built-in preference.
- * @param fontSize - Current Host-backed content font size in px.
+ * @param fontSize - Current Host-backed global interface font-size reference in px.
  * @returns head and body script rows in execution order.
  */
 export function bootThemeInjections(

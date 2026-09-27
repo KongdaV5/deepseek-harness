@@ -38,7 +38,7 @@ export function createAppearanceRowStore(): EngineStoreHandle<AppearanceRowState
 
 /** Store state mirrored from the theme snapshot's font size. */
 export interface FontSizeRowState {
-  /** Persisted content font size in px. */
+  /** Persisted global interface font-size reference in px. */
   fontSize: number
   /** Service revision; -1 until first sync so revision 0 lands as a change. */
   revision: number

@@ -54,12 +54,23 @@
 }
 
 .value {
-  min-width: 18px;
+  width: 46px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
   text-align: center;
   font-size: 14px;
   line-height: 22px;
   font-variant-numeric: tabular-nums;
   color: var(--dsw-alias-label-primary);
+}
+
+.value:focus-visible {
+  border-radius: 4px;
+  outline: 2px solid var(--dsw-alias-brand-primary);
+  outline-offset: 1px;
 }
 
 .unit {

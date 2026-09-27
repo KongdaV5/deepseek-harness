@@ -145,6 +145,18 @@ describe('PluginInventorySettingsTab', () => {
     expect(screen.getByText(en.moduleLabel).nextElementSibling?.textContent).toBe('@fixture/anonymous')
   })
 
+  it('shows the plugin package explanation when an inventory card is expanded', async () => {
+    const snapshot: Snapshot = {
+      ...SNAPSHOT,
+      descriptionsByModule: { '@fixture/telemetry': 'Shows local runtime activity and health.' },
+    }
+    await renderReady(snapshot)
+    fireEvent.click(globalToggle())
+    fireEvent.click(screen.getByRole('button', { name: 'telemetry, telemetry, Failed' }))
+    expect(screen.getByText(en.functionLabel)).toBeTruthy()
+    expect(screen.getByText('Shows local runtime activity and health.')).toBeTruthy()
+  })
+
   it('keeps the phase dot for a live phase the enablement tag does not state', async () => {
     await renderReady({
       entries: [

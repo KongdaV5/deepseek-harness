@@ -18,6 +18,11 @@ type PluginInventoryEntry = PluginInventorySnapshot['entries'][number]
 type AgentPresetGroup = NonNullable<PluginInventorySnapshot['agentPresets']>[number]
 type AgentPresetRow = AgentPresetGroup['rows'][number]
 
+/** The inventory plus package-manifest descriptions supplied by the Host. */
+export type PluginInventoryData = PluginInventorySnapshot & {
+  readonly descriptionsByModule?: Readonly<Record<string, string>>
+}
+
 /** Registration-side Remote face used by the section. */
 export interface PluginInventorySettingsTabInjected {
   /** Page-local module synchronization, independent from the Host inventory. */
@@ -25,7 +30,7 @@ export interface PluginInventorySettingsTabInjected {
   /** Retry the latest client graph without changing the Host composition. */
   retryClient: () => void
   /** Read a current Host inventory snapshot. */
-  list: () => Promise<PluginInventorySnapshot>
+  list: () => Promise<PluginInventoryData>
   /**
    * Display name for one preset: shipped presets resolve through the
    * agent-preset dictionaries, user-authored ones keep their own metadata.
@@ -45,7 +50,7 @@ type Translate = PluginInventorySettingsTabProps['t']
 type ViewState =
   | { readonly status: 'loading' }
   | { readonly status: 'error' }
-  | { readonly status: 'ready'; readonly snapshot: PluginInventorySnapshot }
+  | { readonly status: 'ready'; readonly snapshot: PluginInventoryData }
 
 const PHASE_KEYS = {
   pending: 'pending',
@@ -139,16 +144,24 @@ function PluginCard({ rowKey, moduleName, entryId, trailing, ariaLabel, failed, 
 }
 
 /** Detail rows shared by every card: the Loader identity, then labeled facts. */
-function CardFacts({ moduleName, moduleLabel, entryId, facts }: {
+function CardFacts({ moduleName, moduleLabel, entryId, description, descriptionLabel, facts }: {
   readonly moduleName: string
   readonly moduleLabel: string
   readonly entryId: string | null
+  readonly description?: string | undefined
+  readonly descriptionLabel: string
   readonly facts: readonly (readonly [label: string, value: ReactNode])[]
 }): ReactNode {
   return (
     <>
       {entryId === null ? null : <code className={css.entryValue} data-loader-entry>{entryId}</code>}
       <dl className={css.details}>
+        {description === undefined ? null : (
+          <div data-plugin-function-description>
+            <dt>{descriptionLabel}</dt>
+            <dd>{description}</dd>
+          </div>
+        )}
         <div>
           <dt>{moduleLabel}</dt>
           <dd>{moduleName}</dd>
@@ -320,6 +333,8 @@ export function PluginInventorySettingsTab(
           moduleName={row.moduleName}
           moduleLabel={t('moduleLabel')}
           entryId={row.entryId}
+          description={snapshot?.descriptionsByModule?.[row.moduleName]}
+          descriptionLabel={t('functionLabel')}
           facts={[
             [t('fromPreset'), presetName(preset)],
             [t('configuration'), stateText],
@@ -366,6 +381,8 @@ export function PluginInventorySettingsTab(
           moduleName={entry.moduleName}
           moduleLabel={t('moduleLabel')}
           entryId={entry.entryId}
+          description={snapshot?.descriptionsByModule?.[entry.moduleName]}
+          descriptionLabel={t('functionLabel')}
           facts={providers !== undefined
             ? [
               [t('configuration'), t('presetProvidedDetail')],

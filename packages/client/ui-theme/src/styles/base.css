@@ -13,3 +13,8 @@
   --ds-transition-duration-fast: 0.1s;
   --ds-transition-duration-slow: 0.3s;
 }
+
+/* Keep every interface surface in step with the persisted global text scale. */
+body {
+  zoom: var(--dsh-ui-font-scale, 1);
+}

@@ -27,22 +27,23 @@ describe('ThemeRuntime', () => {
     const snapshot = theme.getTheme()
     expect(snapshot.preference).toBe('system')
     expect(snapshot.fontSize).toBe(14)
+    expect(snapshot.fontScale).toBe(1)
     // jsdom matchMedia is absent; system resolves to light.
     expect(snapshot.active.id).toBe('light')
     expect(snapshot.active.colorScheme).toBe('light')
     expect(snapshot.themes.map(t => t.id)).toEqual(['light', 'dark'])
   })
 
-  it('seeds the initial font size from the boot-script body variable, ignoring junk', () => {
+  it('seeds the initial global font size from the boot-script body variable, ignoring junk', () => {
     // The Host boot script writes the durable size on body before any plugin
     // runs; the first snapshot must match it so activation never flashes 14.
-    document.body.style.setProperty('--dsh-content-font-size', '16px')
+    document.body.style.setProperty('--dsh-ui-font-size', '16.5px')
     try {
-      expect(make().theme.getTheme().fontSize).toBe(16)
-      document.body.style.setProperty('--dsh-content-font-size', '99px')
+      expect(make().theme.getTheme().fontSize).toBe(16.5)
+      document.body.style.setProperty('--dsh-ui-font-size', 'NaNpx')
       expect(make().theme.getTheme().fontSize).toBe(14)
     } finally {
-      document.body.style.removeProperty('--dsh-content-font-size')
+      document.body.style.removeProperty('--dsh-ui-font-size')
     }
   })
 
@@ -57,13 +58,20 @@ describe('ThemeRuntime', () => {
     expect(host.set).toHaveBeenCalledOnce()
   })
 
-  it('rejects out-of-range and fractional font sizes', () => {
+  it('accepts arbitrary positive finite font sizes and rejects zero, negatives, and non-finite values', () => {
     const { theme, events, host } = make()
-    for (const px of [11, 18, 14.5, Number.NaN]) {
-      expect(() => { theme.setFontSize(px) }).toThrow('outside 12..17')
+    for (const px of [0, -1, Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(() => { theme.setFontSize(px) }).toThrow('positive finite number')
     }
     expect(events).toHaveLength(0)
     expect(host.set).not.toHaveBeenCalled()
+    theme.setFontSize(0.25)
+    expect(theme.getTheme().fontSize).toBe(0.25)
+    expect(theme.getTheme().fontScale).toBe(0.25 / 14)
+    expect(host.set).toHaveBeenCalledWith('fontSize', 0.25)
+    theme.setFontSize(18.5)
+    expect(theme.getTheme().fontSize).toBe(18.5)
+    expect(host.set).toHaveBeenLastCalledWith('fontSize', 18.5)
   })
 
   it('adopts a published Host font size without writing it back', () => {

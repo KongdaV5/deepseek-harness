@@ -408,6 +408,10 @@
   line-height: 17px;
 }
 
+.details [data-plugin-function-description] dd {
+  color: var(--dsw-alias-label-primary);
+}
+
 .visuallyHidden {
   position: absolute;
   width: 1px;

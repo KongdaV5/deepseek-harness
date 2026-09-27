@@ -19,8 +19,9 @@ const usePanelInfo: GlobalStandardProps['usePanelInfo'] = selector => selector({
 afterEach(cleanup)
 
 const COPY: Record<string, string> = {
-  'fontSize.title': 'Font size',
-  'fontSize.description': 'Only affects conversation content',
+  'fontSize.title': 'Global interface size',
+  'fontSize.description': 'Scales text and layout throughout the client; enter any value greater than 0',
+  'fontSize.inputLabel': 'Global interface size in pixels',
   'fontSize.increase': 'Increase font size',
   'fontSize.decrease': 'Decrease font size',
 }
@@ -65,11 +66,11 @@ const arrow = (name: string): HTMLButtonElement =>
   screen.getByRole('button', { name }) as HTMLButtonElement
 
 describe('FontSizeRow', () => {
-  it('renders the title and the current size with both arrows enabled mid-range', () => {
+  it('renders the global-size guidance and an editable positive value', () => {
     mount(14)
-    expect(screen.getByText('Font size')).toBeDefined()
-    expect(screen.getByText('Only affects conversation content')).toBeDefined()
-    expect(screen.getByText('14')).toBeDefined()
+    expect(screen.getByText('Global interface size')).toBeDefined()
+    expect(screen.getByText('Scales text and layout throughout the client; enter any value greater than 0')).toBeDefined()
+    expect(screen.getByRole('spinbutton', { name: 'Global interface size in pixels' })).toHaveProperty('value', '14')
     expect(arrow('Increase font size').disabled).toBe(false)
     expect(arrow('Decrease font size').disabled).toBe(false)
   })
@@ -78,21 +79,34 @@ describe('FontSizeRow', () => {
     const b = mount(14)
     fireEvent.click(arrow('Increase font size'))
     expect(b.setFontSize).toHaveBeenCalledWith(15)
-    // No store write yet: the display is unchanged.
-    expect(screen.getByText('14')).toBeDefined()
+    // No store write yet: the controlled input still reflects the store.
+    expect(screen.getByRole('spinbutton', { name: 'Global interface size in pixels' })).toHaveProperty('value', '14')
     act(() => { b.store.actions.sync(15, 1) })
-    expect(screen.getByText('15')).toBeDefined()
+    expect(screen.getByRole('spinbutton', { name: 'Global interface size in pixels' })).toHaveProperty('value', '15')
     fireEvent.click(arrow('Decrease font size'))
     expect(b.setFontSize).toHaveBeenCalledWith(14)
   })
 
-  it('disables the outward arrow at each bound', () => {
-    mount(17)
-    expect(arrow('Increase font size').disabled).toBe(true)
+  it('steps below the previous 12px floor and accepts positive decimal values', () => {
+    const b = mount(12)
     expect(arrow('Decrease font size').disabled).toBe(false)
-    cleanup()
-    mount(12)
-    expect(arrow('Increase font size').disabled).toBe(false)
-    expect(arrow('Decrease font size').disabled).toBe(true)
+    fireEvent.click(arrow('Decrease font size'))
+    expect(b.setFontSize).toHaveBeenCalledWith(11)
+    const input = screen.getByRole('spinbutton', { name: 'Global interface size in pixels' })
+    fireEvent.focus(input)
+    fireEvent.change(input, { target: { value: '0.25' } })
+    expect(b.setFontSize).toHaveBeenLastCalledWith(11)
+    fireEvent.blur(input)
+    expect(b.setFontSize).toHaveBeenLastCalledWith(0.25)
+    fireEvent.focus(input)
+    fireEvent.change(input, { target: { value: '0' } })
+    fireEvent.blur(input)
+    expect(b.setFontSize).toHaveBeenLastCalledWith(0.25)
+  })
+
+  it('keeps decreasing with a positive fractional step rather than imposing a minimum', () => {
+    const b = mount(0.5)
+    fireEvent.click(arrow('Decrease font size'))
+    expect(b.setFontSize).toHaveBeenCalledWith(0.25)
   })
 })

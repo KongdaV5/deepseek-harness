@@ -10,7 +10,7 @@ import {
 } from './theme-settings.ts'
 
 export {
-  DEFAULT_FONT_SIZE, DEFAULT_PREFERENCE, FONT_SIZE_FIELD, FONT_SIZE_MAX, FONT_SIZE_MIN,
+  DEFAULT_FONT_SIZE, DEFAULT_PREFERENCE, FONT_SIZE_FIELD,
   THEME_PREFERENCE_FIELD, THEME_PREFERENCES, THEME_SETTINGS_NAMESPACE,
   type ThemePreference, type ThemeSettings,
 } from './theme-settings.ts'

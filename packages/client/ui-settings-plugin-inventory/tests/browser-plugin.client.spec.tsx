@@ -36,8 +36,10 @@ async function bench() {
   new RemoteService(ctx)
   const list = vi.fn<() => Promise<ListResult>>()
     .mockResolvedValue({ ok: true, value: EMPTY })
+  const listBundles = vi.fn(async () => ({ ok: true as const, value: [] }))
   ctx.provide('remote.pluginInventory', { list })
-  return { ctx, retryClient, slots: ctx.get('slots') as SlotRegistry, locale, list }
+  ctx.provide('remote.pluginManager', { listBundles })
+  return { ctx, retryClient, slots: ctx.get('slots') as SlotRegistry, locale, list, listBundles }
 }
 
 function declare(slots: SlotRegistry): () => void {
@@ -53,7 +55,7 @@ describe('ui-settings-plugin-inventory browser plugin', () => {
   })
 
   it('declares only the services used by the Settings Remote contribution', () => {
-    expect(inject).toEqual(['slots', 'locale', 'remote', 'remote.pluginInventory', 'modules'])
+    expect(inject).toEqual(['slots', 'locale', 'remote', 'remote.pluginInventory', 'remote.pluginManager', 'modules'])
   })
 
   it('registers a localized tab without reading the Remote eagerly', async () => {
@@ -75,8 +77,9 @@ describe('ui-settings-plugin-inventory browser plugin', () => {
     injected.retryClient()
     await vi.waitFor(() => { expect(retryError).toHaveBeenCalled() })
     retryError.mockRestore()
-    await expect(injected.list()).resolves.toEqual(EMPTY)
+    await expect(injected.list()).resolves.toEqual({ ...EMPTY, descriptionsByModule: {} })
     expect(b.list).toHaveBeenCalledOnce()
+    expect(b.listBundles).toHaveBeenCalledOnce()
     b.list.mockResolvedValueOnce({ ok: false, error: { code: 'REMOTE_ERROR', message: 'unavailable' } })
     await expect(injected.list()).rejects.toThrow('pluginInventory.list failed: REMOTE_ERROR: unavailable')
 

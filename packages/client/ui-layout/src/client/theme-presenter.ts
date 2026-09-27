@@ -2,8 +2,8 @@
  * Global theme DOM applier: projects the resolved ThemeSnapshot onto the
  * document — `html { color-scheme }` for native UA chrome (scrollbars, form
  * controls), `body[data-ds-dark-theme]` for the token palette, the active
- * theme's alias-token overrides as inline CSS variables on body, the content
- * font-size axis (`--dsh-content-font-size`), `html[data-ds-theme-source]`
+ * theme's alias-token overrides and global interface scale
+ * (`--dsh-ui-font-*`) as inline CSS variables on body, `html[data-ds-theme-source]`
  * for native-chrome mirroring, and one presenter-owned
  * `meta[name="theme-color"]` for surrounding browser UI. Pure DOM writes, no
  * React involvement; the presenter only ever retracts what it wrote itself,
@@ -23,8 +23,11 @@ export const DARK_ATTRIBUTE = 'data-ds-dark-theme'
  */
 export const THEME_SOURCE_ATTRIBUTE = 'data-ds-theme-source'
 
-/** Body variable carrying the user's content font size in px. */
-export const CONTENT_FONT_SIZE_VARIABLE = '--dsh-content-font-size'
+/** Body variable carrying the user's global interface font-size reference. */
+export const UI_FONT_SIZE_VARIABLE = '--dsh-ui-font-size'
+
+/** Body zoom factor applied to the complete client surface. */
+export const UI_FONT_SCALE_VARIABLE = '--dsh-ui-font-scale'
 
 /** Applies theme snapshots to the document; one instance per plugin fiber. */
 export class ThemePresenter {
@@ -42,7 +45,7 @@ export class ThemePresenter {
   /**
    * Project a snapshot onto the document: set root `color-scheme` and the body
    * palette attribute from `active.colorScheme` (never the id — `system` is
-   * resolved upstream), publish the content font-size axis, then replace the
+   * resolved upstream), publish the global interface scale, then replace the
    * previously applied token variables with `active.tokens`. Browser
    * theme-color metadata follows the computed body background after those
    * writes, so the rendered palette remains the color authority.
@@ -56,7 +59,9 @@ export class ThemePresenter {
     const body = document.body
     if (scheme === 'dark') body.setAttribute(DARK_ATTRIBUTE, '')
     else body.removeAttribute(DARK_ATTRIBUTE)
-    body.style.setProperty(CONTENT_FONT_SIZE_VARIABLE, `${snapshot.fontSize}px`)
+    body.style.setProperty(UI_FONT_SIZE_VARIABLE, `${snapshot.fontSize}px`)
+    const scale = snapshot.fontScale
+    body.style.setProperty(UI_FONT_SCALE_VARIABLE, String(scale > 0 ? scale : Number.MIN_VALUE))
     for (const name of this.appliedTokens) body.style.removeProperty(name)
     this.appliedTokens = []
     for (const [name, value] of Object.entries(snapshot.active.tokens)) {
@@ -69,14 +74,15 @@ export class ThemePresenter {
 
   /**
    * Retract root color-scheme, the theme-source attribute, the palette
-   * attribute, token variables, the font-size axis, and the owned metadata node.
+   * attribute, token variables, the global scale, and the owned metadata node.
    */
   dispose(): void {
     document.documentElement.style.removeProperty('color-scheme')
     document.documentElement.removeAttribute(THEME_SOURCE_ATTRIBUTE)
     const body = document.body
     body.removeAttribute(DARK_ATTRIBUTE)
-    body.style.removeProperty(CONTENT_FONT_SIZE_VARIABLE)
+    body.style.removeProperty(UI_FONT_SIZE_VARIABLE)
+    body.style.removeProperty(UI_FONT_SCALE_VARIABLE)
     for (const name of this.appliedTokens) body.style.removeProperty(name)
     this.appliedTokens = []
     this.themeColorMeta.remove()
