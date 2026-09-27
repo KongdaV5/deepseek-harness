@@ -1,158 +1,159 @@
 ---
 name: dsh-lean-engineering
 description: >
-  Apply DS Harness's required lean engineering discipline to coding, debugging,
-  refactoring, migrations, repository work, and project maintenance. Use it to
-  minimize unnecessary context, scans, code, tests, tool output, and repeated
-  verification without weakening correctness, safety, or explicit stage gates.
-metadata:
-  ai_brain:
-    asset_id: skill.engineering.dsh-lean-engineering
-    version: "1.0.0"
-    status: active
-    authoritative: true
+  Lean software-engineering discipline for coding, debugging, refactoring,
+  migrations, repository maintenance, and long-running project work.
+  Minimize unnecessary context, scans, code, tests, tool output, waiting,
+  and repeated verification without weakening correctness or safety.
+asset_id: skill.engineering.dsh-lean-engineering
+version: 1.1.0
+status: active
 ---
 
-# DS Harness Lean Engineering
+# Lean Engineering
 
-Complete the requested engineering task correctly with the least unnecessary
-context, code, tool activity, verification, and narration.
+Use the smallest reliable engineering path.
 
-This is a long-term DeepSeek Harness project constraint. It applies to software
-implementation, diagnosis, refactoring, migrations, repository maintenance,
-and release qualification. It supplements project safety, Session, release,
-and user instructions; it never relaxes them.
+Efficiency means removing redundant work, not guessing, weakening safety,
+or skipping evidence required by the current task.
 
-Efficiency comes from removing redundant work, not from guessing, skipping
-required safety checks, or weakening the requested result.
+## 1. Scope narrowly
 
-## Establish the exact task
+Identify the exact requested outcome and the smallest likely affected surface.
 
-Before broad exploration, identify the requested outcome, artifact or behavior
-that must change, smallest likely code surface, known constraints and confirmed
-facts, and the next fact that must be established. Do not turn a narrow task
-into a whole-project audit or expand into adjacent improvements unless required
-for correctness or explicitly requested.
+Do not turn a local task into a repository-wide audit.
+Do not begin adjacent phases or improvements unless required for correctness.
 
-## Preserve confirmed knowledge
+## 2. Reuse confirmed project state
 
-Treat verified project facts, manifests, architecture decisions, baselines,
-handoffs, and accepted test results as working evidence. Re-open a conclusion
-only when the change touches its dependency or contract, new evidence
-contradicts it, the evidence is stale for the current target, or the task
-explicitly requests re-verification. Prefer delta analysis over reconstructing
-history.
+Treat accepted manifests, architecture decisions, baselines, prior verified
+results, and current handoff state as evidence.
 
-## Read the narrowest useful evidence
+Do not re-audit confirmed facts unless:
 
-Use this order:
+- the current change touches that contract;
+- new evidence contradicts it;
+- the target/version changed;
+- the task explicitly requires re-verification.
 
-1. Known relevant file or failing location.
-2. Exact symbol, error, route, package, or configuration.
-3. Nearby dependency or caller/callee.
-4. Build/package metadata needed to explain behavior.
-5. Broader repository search only if narrower evidence is insufficient.
+Prefer delta analysis over reconstructing project history.
 
-Prefer targeted searches and bounded output. If a broad scan is necessary, do it
-once, preserve a compact fact summary, and continue from that summary.
+## 3. Read the narrowest useful evidence
 
-## Control tool output
+Start with:
 
-Prefer focused paths, exact search patterns, failing test names, diff statistics
-before full diffs, filtered errors/warnings, and short log windows. Do not dump
-full successful build logs, unrelated successful test output, full Git history,
-or generated files unless their contents are necessary. Keep only the facts
-needed for the next action after a large output.
+known file / symbol / error
+→ nearby dependency
+→ affected package
+→ broader repository search only if necessary.
 
-## Use the minimum implementation ladder
+Avoid repeated full-repository scans.
 
-Stop at the first option that correctly solves the task:
+If a broad search is necessary, do it once, retain the useful conclusions,
+and continue from that compact state.
 
-1. No change is needed.
-2. Reuse an existing repository helper, abstraction, pattern, capability, or platform integration.
-3. Use the language standard library.
-4. Use an operating-system, browser, database, framework, or platform feature.
-5. Use an installed dependency.
-6. Add a small local implementation.
-7. Add an abstraction or dependency only when simpler options fail the actual requirement.
+Keep tool output bounded. Prefer relevant failures, summaries, and focused
+diffs over full logs and large dumps.
 
-Do not add speculative configuration, factories, adapters, fallbacks, wrappers,
-or extension points. Reuse upstream-native behavior when it satisfies the
-required invariant.
+## 4. Use the minimum sufficient implementation
 
-## Prefer semantic changes over patch replay
+Before adding new code, prefer in this order:
 
-When upstream architecture changed, preserve required behavior and invariants:
-identify upstream-native capability first, retain it when sufficient, and port
-only missing behavior. A clean Git merge is not proof of semantic compatibility.
-Avoid duplicate subsystems.
+existing behavior
+→ existing repository helper/pattern
+→ standard library or platform-native capability
+→ existing dependency
+→ small local implementation
+→ new abstraction/dependency only when required.
 
-## Match verification to the change
+Reuse upstream-native capabilities whenever they already satisfy the needed
+invariant.
 
-Use proportional verification in this order:
+Do not add speculative abstractions, fallbacks, frameworks, configuration,
+or extension points for hypothetical future needs.
 
-1. Related static/type/lint checks.
-2. Focused unit or integration tests.
-3. Affected package/subsystem tests.
-4. Build of the affected artifact.
-5. Broader regression only when justified.
+## 5. Verify in proportion to impact
 
-Run broader regression when the change is cross-cutting; changes shared
-contract/schema/runtime, packaging/release behavior, or data migration;
-reaches a milestone/final gate; or cannot be established safely with focused
-evidence. Do not repeat expensive unchanged checks merely for reassurance.
+Default validation order:
 
-## High-risk work overrides savings
+focused static/type/lint checks
+→ focused unit/integration tests
+→ affected subsystem tests
+→ affected build/package
+→ full regression only when justified.
 
-Use stronger analysis and validation for data/schema migration, persistence,
-security, permissions, destructive operations, release/update/install logic,
-runtime/ABI changes, concurrency, difficult cross-subsystem bugs, and
-irreversible changes.
+Use broad regression for cross-cutting contracts, schemas, persistence,
+runtime/ABI, packaging/release, migration, security, or final qualification.
 
-Make rollback implications explicit, distinguish source rollback from data
-rollback, use isolated fixtures or copies before live data, and fail closed when
-evidence is insufficient. Never save tokens by weakening a safety gate.
+Do not rerun expensive global verification merely to reconfirm unchanged
+invariants.
 
-## Keep project and task state separate
+## 6. High-risk work overrides efficiency
 
-Long-term project rules belong in project instructions, manifests, and
-architecture records. This Skill supplies engineering discipline. Each task
-prompt should carry only its goal, current-state deltas, task-specific
-constraints, deliverables, and stop gate; do not repeat project history.
+For migration, persistence, security, destructive operations, release/install,
+runtime/ABI, concurrency, or irreversible changes:
 
-Maintain a compact working state: goal, confirmed facts, target/version, locked
-decisions, relevant files, changes, verification, blockers, and exact next
-action. Resume from it rather than rescanning. Create a new handoff only when a
-task changes materially, stale exploration dominates, or a major boundary is
-crossed.
+- use stronger evidence;
+- make rollback implications explicit;
+- use isolated fixtures/copies before live data;
+- distinguish source rollback from data rollback;
+- fail closed when evidence is insufficient.
 
-## Use reasoning effort proportionally
+Never save tokens by weakening a safety gate.
 
-Use higher reasoning for architecture, migrations, security, cross-subsystem
-design, unclear root causes, and high-risk final qualification. Use ordinary
-reasoning for implementation under a locked design, mechanical ports, localized
-refactors, routine tests, formatting, documentation, and known-file edits.
-Escalate only when the cheaper reliable path is insufficient.
+## 7. Do not spend model time babysitting external work
 
-## Avoid redundant review loops
+Downloads, uploads, long compiles, package fetches, network waits, and other
+slow external I/O are not reasoning tasks.
 
-Verify what changed, what it can affect, relevant invariants, and the current
-stage gate. Defer global qualification to explicit milestone gates. Adjacent
-stages may share evidence only when that does not blur migration approval,
-destructive action, release/install authority, security boundaries, or rollback
-gates.
+Do not repeatedly poll or narrate unchanged progress.
 
-## Report deltas, not history
+When external work blocks progress:
 
-Default reports contain result, changed behavior, why, important files,
-verification, remaining risk, and the next gate. State protected unchanged
-resources once. Provide a full audit only when the user requests it or a
-release/migration gate requires durable evidence.
+- establish the real blocker;
+- preserve resumable state;
+- state the exact continuation point;
+- stop or hand execution back to the environment/user as appropriate.
 
-## Stop when complete
+When resumed, continue from the saved point instead of re-investigating the
+completed work.
 
-Stop and summarize when the requested deliverable is complete and the current
-gate passes. Do not enter the next phase automatically. Re-scope or stop when
-searches expand without stronger evidence, repeated attempts share a cause,
-output becomes noise, scope drifts, a fact cannot be safely established, or
-proceeding crosses an authorization or safety boundary.
+## 8. Keep reasoning and reporting lean
+
+Use the least expensive reasoning level that can reliably complete the task.
+
+Escalate only for genuine architecture ambiguity, migration/safety issues,
+cross-subsystem root causes, or final high-risk qualification.
+
+Implementation under a locked design, routine ports, focused tests, and
+known-file edits should not automatically use maximum reasoning.
+
+Final reports should be delta-only:
+
+- result;
+- material changes;
+- verification;
+- blocker/risk;
+- next gate if relevant.
+
+Do not repeat long project history or unchanged safety facts.
+
+One concise sentence is enough for unchanged protected state.
+
+## 9. Stop at the requested gate
+
+When the requested task or stage is complete, stop.
+
+Do not automatically continue into the next phase.
+
+Also stop and re-scope when:
+
+- repeated searches produce no stronger evidence;
+- the same root cause has already been established;
+- work is mostly waiting or repeated verification;
+- the task has drifted;
+- proceeding would cross a safety or authorization boundary.
+
+The goal is not the fewest possible actions.
+
+The goal is the fewest actions required for a reliable result.
