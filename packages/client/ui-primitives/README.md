@@ -44,6 +44,7 @@ Check this table before writing a control in a feature package. A plugin cannot 
 | `Pill` | Selectable capsule button for view switchers and filters; takes `active` and `onClick`. |
 | `Tag` | Read-only capsule badge; `tone` selects one of eight palettes. |
 | `StateDot` | Status mark: `done`, `warning`, `ongoing`, `error`, or `idle`. `aria-hidden`, so the render site owns the name. |
+| `DshMascotMark` | Original DSH assistant mark shared by the sidebar and empty-session hero; breathes and blinks at rest, performs varied idle gestures, tracks the pointer over the mark, and reacts to user actions. Reduced-motion preferences disable its animations. |
 | `ConnectionIndicator` | Inline connection-recovery control across outage, retry, and recovered states. |
 | `DisclosureRow` | 24px compact disclosure that lays title and content side by side. |
 | `Modal` | Centered dialog over a page mask. |
@@ -57,6 +58,8 @@ Check this table before writing a control in a feature package. A plugin cannot 
 | `TerminalBlock`, `ReadBlock`, `DiffBlock`, `SearchBlock`, `WebBlock` | The agent-output card matching each tool-result intent. |
 | `icons/*`, `FishLogo`, `BrandWordmark`, `ReferenceIcon`, `LinkIcon` | Glyphs and brand marks. Use `LinkIcon` for 14px clickable-link categories and known-site marks. |
 | `FileTypeIcon`, `classifyFileType`, `fileExtension` | A category-colored 28px file or folder glyph and the shared case-insensitive filename mapping behind it. Code and configuration files use detailed full-color technology glyphs; use `LinkIcon` for link-leading glyphs and image previews for image content. |
+
+`DshMascotMark` is the shared original DSH assistant mark. Its body breathes continuously and its eyes blink while idle; after about 2.1–4.2 seconds without input, it picks a short blink, glance, nod, peek, stretch, wiggle, squash, bounce, dance, wave, or yawn. Squash, bounce, and stretch change the body silhouette. Hovering makes its eyes follow the pointer within the mark; direct presses, composer focus and typing, message submission, New Session, stop, and navigation trigger distinct reactions. Random gestures pause while the page is hidden, and animation stops when reduced motion is requested; none of this affects model requests.
 
 Three pairs are easy to confuse:
 

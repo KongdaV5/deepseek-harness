@@ -78,12 +78,13 @@ describe('official browser-brand plugin', () => {
     expect(subject.slots.entries(HERO_HOLE)).toHaveLength(0)
   })
 
-  it('renders the official name independently from both requested mark sizes', () => {
+  it('renders the official name and animated mascot independently at requested sizes', () => {
     const name = render(<OfficialBrandName />)
     expect(name.container.querySelector('svg')?.getAttribute('viewBox')).toBe('26 0 156 24')
     name.unmount()
 
     const mark = render(<OfficialBrandMark size={34} />)
+    expect(mark.container.querySelector('svg[data-dsh-mascot]')).not.toBeNull()
     expect(mark.container.querySelector('svg')?.getAttribute('width')).toBe('34')
     mark.rerender(<OfficialBrandMark size={24} />)
     expect(mark.container.querySelector('svg')?.getAttribute('width')).toBe('24')

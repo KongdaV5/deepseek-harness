@@ -9,8 +9,7 @@ export const inject = ['slots']
 
 /**
  * Fill the sidebar brand slots as one declaration-aware registration set. The
- * conversation hero stays on its declaring package's animated assistant fallback,
- * so the official build registers nothing there.
+ * conversation hero uses the shared animated assistant mark.
  * @param ctx - Client root context.
  */
 export function apply(ctx: ClientContext): void {

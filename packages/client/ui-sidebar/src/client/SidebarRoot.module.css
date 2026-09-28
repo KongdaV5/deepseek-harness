@@ -30,7 +30,7 @@
 
 /* Rail geometry (figma rail spec): 36x36 control boxes centered in the 56px
    rail (10px side padding), 12px vertical rhythm, 18px from the rail top to
-   the whale's box (24px to the 24-wide whale glyph itself). */
+   an 18px top inset for the shared mascot mark. */
 .root.collapsed {
   padding: 18px 10px 6px;
 }
@@ -267,6 +267,67 @@
   font-weight: 600;
   line-height: 24px;
   letter-spacing: 0.04em;
+  transform-origin: left center;
+}
+
+/* Keep the existing DeepSeek Harness wordmark, but let it echo the mascot's
+   low-key breathing and one-shot gestures without moving the sidebar row. */
+.brandIdentity:has([data-dsh-mascot-mood='idle']) .brandName {
+  animation: brand-wordmark-breathe 3.2s ease-in-out infinite;
+}
+
+.brandIdentity:has([data-dsh-mascot-mood='idle-blink']) .brandName,
+.brandIdentity:has([data-dsh-mascot-mood='idle-look']) .brandName,
+.brandIdentity:has([data-dsh-mascot-mood='idle-nod']) .brandName,
+.brandIdentity:has([data-dsh-mascot-mood='idle-peek']) .brandName,
+.brandIdentity:has([data-dsh-mascot-mood='idle-stretch']) .brandName,
+.brandIdentity:has([data-dsh-mascot-mood='idle-wiggle']) .brandName,
+.brandIdentity:has([data-dsh-mascot-mood='idle-squish']) .brandName,
+.brandIdentity:has([data-dsh-mascot-mood='idle-bounce']) .brandName,
+.brandIdentity:has([data-dsh-mascot-mood='idle-dance']) .brandName,
+.brandIdentity:has([data-dsh-mascot-mood='idle-wave']) .brandName,
+.brandIdentity:has([data-dsh-mascot-mood='idle-yawn']) .brandName,
+.brandIdentity:has([data-dsh-mascot-mood='curious']) .brandName,
+.brandIdentity:has([data-dsh-mascot-mood='listening']) .brandName,
+.brandIdentity:has([data-dsh-mascot-mood='thinking']) .brandName,
+.brandIdentity:has([data-dsh-mascot-mood='typing']) .brandName {
+  animation: brand-wordmark-nod 620ms cubic-bezier(0.2, 0.75, 0.25, 1) both;
+}
+
+.brandIdentity:has([data-dsh-mascot-mood='sending']) .brandName,
+.brandIdentity:has([data-dsh-mascot-mood='new-session']) .brandName,
+.brandIdentity:has([data-dsh-mascot-mood='happy']) .brandName {
+  animation: brand-wordmark-pop 820ms cubic-bezier(0.2, 0.75, 0.25, 1) both;
+}
+
+.brandIdentity:has([data-dsh-mascot-mood='stopping']) .brandName {
+  animation: brand-wordmark-settle 650ms ease-out both;
+}
+
+@keyframes brand-wordmark-breathe {
+  0%,
+  100% { transform: scale(1); }
+  50% { transform: scale(1.012); }
+}
+
+@keyframes brand-wordmark-nod {
+  0%,
+  100% { transform: translateY(0) scale(1); }
+  42% { transform: translateY(-1px) scale(1.01); }
+}
+
+@keyframes brand-wordmark-pop {
+  0%,
+  100% { transform: translateY(0) scale(1); }
+  38% { transform: translateY(-1.5px) scale(1.025); }
+  72% { transform: translateY(0.5px) scale(0.995); }
+}
+
+@keyframes brand-wordmark-settle {
+  0%,
+  100% { transform: translateY(0); }
+  40% { transform: translateY(1px); }
+  72% { transform: translateY(-0.5px); }
 }
 
 .fallbackBrandName {
@@ -547,6 +608,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .brandName,
   .wide,
   .fading > *,
   .railIn .iconButton,

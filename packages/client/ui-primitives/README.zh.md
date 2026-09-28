@@ -44,6 +44,7 @@ kind: "package-library"
 | `Pill` | 可选中的胶囊按钮，用于视图切换与筛选器；接受 `active` 与 `onClick`。 |
 | `Tag` | 只读胶囊徽章；`tone` 选择八种配色之一。 |
 | `StateDot` | 状态标记：`done`、`warning`、`ongoing`、`error` 或 `idle`。它是 `aria-hidden` 的，名称由渲染点提供。 |
+| `DshMascotMark` | 供侧边栏与空会话首页共用的 DSH 原创助手形象；静止时会呼吸和眨眼，空闲时做多种动作，悬停时会跟随指针，并回应用户操作。减少动态效果设置会禁用动画。 |
 | `ConnectionIndicator` | 行内连接恢复控件，覆盖断线、重试与已恢复三种状态。 |
 | `DisclosureRow` | 24px 紧凑折叠行，标题与内容左右排列。 |
 | `Modal` | 页面遮罩之上的居中对话框。 |
@@ -57,6 +58,8 @@ kind: "package-library"
 | `TerminalBlock`、`ReadBlock`、`DiffBlock`、`SearchBlock`、`WebBlock` | 与各类工具结果意图对应的 agent 输出卡片。 |
 | `icons/*`、`FishLogo`、`BrandWordmark`、`ReferenceIcon`、`LinkIcon` | 字形与品牌标识。`LinkIcon` 用于 14px 的可点击链接分类及已知站点标记。 |
 | `FileTypeIcon`、`classifyFileType`、`fileExtension` | 按类别着色的 28px 文件或文件夹图形，以及它背后共享的不区分大小写文件名映射。代码与配置文件使用细分的全彩技术图形；链接前置图形使用 `LinkIcon`，图片内容使用图片预览。 |
+
+`DshMascotMark` 是 DSH 共用的原创助手形象。空闲时身体会持续呼吸、眼睛会眨动；无操作约 2.1–4.2 秒后，会随机做眨眼、张望、点头、探身、伸展、摇摆、压缩、弹跳、跳舞、挥手或打哈欠等短动作。压缩、弹跳和伸展会改变身体轮廓。指针悬停时，眼睛会在形象范围内跟随指针；直接点按、输入框聚焦与打字、发送、新建会话、停止和导航都会触发不同反应。页面隐藏时暂停随机动作；用户请求减少动态效果时停止动画。这些行为不会影响模型请求。
 
 有三组容易混淆：
 
