@@ -5,10 +5,11 @@
  */
 
 import { Context, Service } from '@deepseek-ai/cordis'
+import { isIP } from 'node:net'
 import z from '@deepseek-ai/schemastery'
 import type { ModelSelection } from '@deepseek-ai/dsh-agent'
 import { ReasoningEffortId } from '@deepseek-ai/dsh-llm'
-import type {} from '@deepseek-ai/dsh-settings'
+import type { SettingsDescriptor } from '@deepseek-ai/dsh-settings'
 
 declare module '@deepseek-ai/cordis' {
   interface Context {
@@ -43,6 +44,66 @@ export interface Config {
   provider: string
   /** Provider-owned model id. */
   model: string
+  /** Prefer an explicitly configured OpenAI-compatible loopback route for Custom deployments. */
+  localFirst?: boolean
+}
+
+/** Route used until a loopback model is configured; it is deliberately unregistered. */
+export const LOCAL_MODEL_UNCONFIGURED_PROVIDER = 'dsh-local-unconfigured'
+/** Model marker paired with {@link LOCAL_MODEL_UNCONFIGURED_PROVIDER}. */
+export const LOCAL_MODEL_UNCONFIGURED_ID = 'select-local-model'
+const HOSTED_DEEPSEEK_ROUTES = new Set(['deepseek-official'])
+
+interface PiAiModelView {
+  readonly id?: unknown
+  readonly input?: unknown
+}
+
+interface PiAiProfileView {
+  readonly baseURL?: unknown
+  readonly api?: unknown
+  readonly models?: unknown
+  readonly defaultInput?: unknown
+}
+
+interface PiAiSettingsView {
+  readonly providers?: unknown
+}
+
+/** Pick the first configured text model whose endpoint is unambiguously loopback. */
+export function localModelSelection(descriptor: SettingsDescriptor | undefined): ModelSelection | undefined {
+  if (descriptor === undefined || typeof descriptor.value !== 'object' || descriptor.value === null) return undefined
+  const providers = (descriptor.value as PiAiSettingsView).providers
+  if (typeof providers !== 'object' || providers === null || Array.isArray(providers)) return undefined
+  for (const [provider, candidate] of Object.entries(providers)) {
+    if (typeof candidate !== 'object' || candidate === null) continue
+    const profile = candidate as PiAiProfileView
+    if (typeof profile.baseURL !== 'string' || !isLoopbackUrl(profile.baseURL)) continue
+    if (profile.api !== 'openai-completions' && profile.api !== 'openai-responses') continue
+    if (!Array.isArray(profile.models)) continue
+    const model = profile.models.find((entry: unknown): entry is PiAiModelView => {
+      if (typeof entry !== 'object' || entry === null || typeof (entry as PiAiModelView).id !== 'string') return false
+      const modelInput = (entry as PiAiModelView).input
+      const input = Array.isArray(modelInput) && modelInput.length > 0 ? modelInput : profile.defaultInput
+      // An omitted modality follows the OpenAI-compatible text default. An
+      // explicit image-only claim must never become a text Agent default.
+      return !Array.isArray(input) || input.length === 0 || input.includes('text')
+    })
+    if (model !== undefined && typeof model.id === 'string') return { provider, model: model.id }
+  }
+  return undefined
+}
+
+function isLoopbackUrl(value: string): boolean {
+  try {
+    const url = new URL(value)
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return false
+    if (url.username !== '' || url.password !== '') return false
+    const host = url.hostname.replace(/^\[|\]$/gu, '').toLowerCase()
+    return host === 'localhost' || host.endsWith('.localhost') || (isIP(host) === 4 && host.startsWith('127.')) || host === '::1'
+  } catch {
+    return false
+  }
 }
 
 /** Project stored settings onto the Agent-facing selection type. */
@@ -65,13 +126,16 @@ export class AgentDefaultModelConfig extends Service {
   static Config: z<Config> = z.object({
     provider: z.string().required(),
     model: z.string().required(),
+    localFirst: z.boolean().default(false),
   })
 
   private source: () => AgentDefaultModelSettings
+  private readonly localFirst: boolean
 
   constructor(ctx: Context, config: Config) {
     super(ctx, 'agentDefaultModel')
     const entry: AgentDefaultModelSettings = { provider: config.provider, model: config.model }
+    this.localFirst = config.localFirst === true
     this.source = () => entry
     ctx.inject(['settings'], (settingsCtx) => {
       settingsCtx.settings.installSection(ctx, AGENT_DEFAULT_MODEL_SETTINGS_NAMESPACE, AGENT_DEFAULT_MODEL_SETTINGS_SCHEMA, entry, {
@@ -88,7 +152,20 @@ export class AgentDefaultModelConfig extends Service {
    * @returns a detached provider, model, and optional reasoning selection.
    */
   currentSelection(): ModelSelection {
-    return selection(this.source())
+    const current = selection(this.source())
+    if (!this.localFirst || (this.hasUserSelection() && !HOSTED_DEEPSEEK_ROUTES.has(current.provider))) return current
+    const local = localModelSelection(this.ctx.get('settings')?.describe().find(({ ns }) => ns === 'llm-pi-ai'))
+    return local ?? {
+      provider: LOCAL_MODEL_UNCONFIGURED_PROVIDER,
+      model: LOCAL_MODEL_UNCONFIGURED_ID,
+    }
+  }
+
+  private hasUserSelection(): boolean {
+    const user = this.ctx.get('settings')?.describe()
+      .find(({ ns }) => ns === AGENT_DEFAULT_MODEL_SETTINGS_NAMESPACE)?.user
+    if (typeof user !== 'object' || user === null) return false
+    return typeof Reflect.get(user, 'provider') === 'string' || typeof Reflect.get(user, 'model') === 'string'
   }
 
   /**

@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import Schema from '@deepseek-ai/schemastery'
 import { bindSnapshotSelector, RemoteError } from '@deepseek-ai/dsh-client-test-runtime'
 import type {
-  CredentialInfo, RemoteResult, SettingsNamespaceView,
+  CredentialInfo, LocalModelRuntimeSnapshot, RemoteResult, SettingsNamespaceView,
 } from '@deepseek-ai/dsh-api-remotes/client'
 import type { JsonValue } from '@deepseek-ai/dsh-util-values'
 import {
@@ -307,6 +307,74 @@ async function mountDeepSeekCard(overrides: Parameters<typeof scriptedFace>[0] =
 }
 
 describe('ModelsSection', () => {
+  it('shows health-confirmed local status and starts the selected manager profile', async () => {
+    const scripted = scriptedFace()
+    const localProvider = {
+      apiKeyEnv: 'OPENAI_API_KEY',
+      baseURL: 'http://127.0.0.1:8080/v1',
+      headers: { 'X-Team': 'a' },
+    }
+    const namespaces = wireNamespaces().map(namespace => namespace.ns === 'llm-pi-ai'
+      ? {
+        ...namespace,
+        value: { providers: { openai: localProvider, zombie: {} } },
+        user: { providers: { openai: localProvider, zombie: {} } },
+      }
+      : namespace)
+    scripted.face.settings.describe.mockResolvedValue(remoteOk({
+      writable: true, hasDocument: false, namespaces,
+    }))
+    const stopped = {
+      enabled: true,
+      available: true,
+      state: 'stopped' as const,
+      canStop: false,
+      profile: null,
+      endpoint: 'http://127.0.0.1:8080/v1',
+      profiles: [
+        { id: 'huihui' as const, name: 'Huihui Qwen3.8 27B', modality: 'text' as const, manageable: true, available: true },
+        { id: 'img21' as const, name: 'Qwen Image 2.1', modality: 'image' as const, manageable: true, available: false },
+      ],
+    }
+    let current: LocalModelRuntimeSnapshot = stopped
+    const localModels = {
+      status: vi.fn(() => Promise.resolve(remoteOk(current))),
+      start: vi.fn(() => {
+        current = { ...stopped, state: 'running', canStop: true, profile: 'huihui' }
+        return Promise.resolve(remoteOk(current))
+      }),
+      stop: vi.fn(() => {
+        current = stopped
+        return Promise.resolve(remoteOk(current))
+      }),
+      restart: vi.fn(() => Promise.resolve(remoteOk(current))),
+    }
+    Object.assign(scripted.face, { localModels })
+
+    const mounted = await mountFace(scripted)
+    await screen.findByRole('heading', { name: en.localRuntimeTitle })
+    const openaiRow = screen.getByText('openai').closest('li')!
+    expect(within(openaiRow).getByRole('img', { name: en.localRuntimeStopped })).toBeTruthy()
+    expect(screen.getByRole('button', { name: en.localRuntimeStart })).toBeTruthy()
+    expect(screen.getByRole('button', { name: en.localRuntimeUnavailable })).toHaveProperty('disabled', true)
+
+    fireEvent.click(screen.getByRole('button', { name: en.localRuntimeStart }))
+    await waitFor(() => { expect(screen.getByText(en.localRuntimeRunning)).toBeTruthy() })
+    expect(localModels.start).toHaveBeenCalledWith('huihui')
+    expect(within(openaiRow).getByRole('img', { name: en.localRuntimeRunning })).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: en.localRuntimeRestart }))
+    await waitFor(() => { expect(screen.getByText(en.localRuntimeRunning)).toBeTruthy() })
+    expect(localModels.restart).toHaveBeenCalledWith('huihui')
+
+    fireEvent.click(screen.getByRole('button', { name: en.localRuntimeStop }))
+    await waitFor(() => { expect(screen.getByText(en.localRuntimeStopped)).toBeTruthy() })
+    expect(localModels.stop).toHaveBeenCalledOnce()
+    expect(within(openaiRow).getByRole('img', { name: en.localRuntimeStopped })).toBeTruthy()
+
+    mounted.view.unmount()
+  })
+
   it('hides both add actions when their settings namespaces are absent', async () => {
     const scripted = scriptedFace()
     scripted.face.settings.describe.mockResolvedValue(remoteOk({ writable: true, hasDocument: false, namespaces: [] }))
@@ -1481,6 +1549,24 @@ describe('ModelsSection', () => {
       renderSlot={() => null}
     />)
     await screen.findByText('DeepSeek')
+  })
+
+  it('shows a visible loading state while the first provider query is pending', async () => {
+    const { face } = scriptedFace()
+    face.llm.listProviders.mockImplementation(() => new Promise(() => {}))
+    const ctx = ctxWith(face)
+    const controller = new ModelsSettingsStore(ctx, settingsSchema, new SettingsDescribeMirror(ctx))
+    render(<ModelsSection
+      controller={controller}
+      useSnapshot={bindSnapshotSelector(controller.store)}
+      operations={operationsWith(face)}
+      schema={settingsSchema}
+      t={t}
+      renderSlot={() => null}
+    />)
+
+    expect((await screen.findByRole('status')).textContent).toBe(en.loading)
+    expect(screen.queryByText('DeepSeek')).toBeNull()
   })
 
   it('removes by unsetting the profile path, never by rebuilding the section', async () => {

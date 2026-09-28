@@ -212,6 +212,47 @@ function requestHeaders(headers: Readonly<Record<string, string>> | undefined): 
 }
 
 /**
+ * pi-ai's OpenAI-compatible transport requires an apiKey to construct its SDK
+ * client, even for a local server that intentionally has no authentication.
+ * This marker exists only for that in-memory SDK boundary: the explicit null
+ * Authorization header below removes the SDK's bearer header before fetch.
+ * It is never persisted or sent over the wire.
+ */
+const LOCAL_UNAUTHENTICATED_TRANSPORT_MARKER = 'dsh-local-unauthenticated-transport'
+
+/** Only an unauthenticated HTTP OpenAI-compatible endpoint on loopback gets the no-auth transport path. */
+function isUnauthenticatedLoopbackRoute(
+  profile: ResolvedPiAiProviderProfile,
+  model: Model<Api>,
+  apiKey: string | undefined,
+): boolean {
+  if (apiKey !== undefined
+    || profile.apiKeyEnv !== undefined
+    || profile.api !== 'openai-completions'
+    || model.api !== 'openai-completions') return false
+  if (Object.keys(profile.headers ?? {}).some(name =>
+    ['authorization', 'api-key', 'x-api-key', 'cf-aig-authorization'].includes(name.toLowerCase()))) return false
+  try {
+    const endpoint = new URL(model.baseUrl)
+    return endpoint.protocol === 'http:'
+      && ['localhost', '127.0.0.1', '[::1]'].includes(endpoint.hostname.toLowerCase())
+  } catch {
+    return false
+  }
+}
+
+/** Add a null Authorization override only for a credentialless loopback request. */
+function localRequestHeaders(
+  headers: Readonly<Record<string, string>> | undefined,
+  unauthenticatedLoopback: boolean,
+): Record<string, string | null> {
+  return {
+    ...requestHeaders(headers),
+    ...(unauthenticatedLoopback ? { Authorization: null } : {}),
+  }
+}
+
+/**
  * pi-ai-backed multi-provider adapter. Each operation reads the current
  * profiles, so a configuration change reaches the next request without a
  * restart; model descriptors come from the collection those profiles built.
@@ -345,7 +386,9 @@ export class PiAiAdapter extends LlmAdapter {
       model,
       options.reasoningEffort ?? profile.reasoning,
     )
-    const apiKey = await this.config.resolveApiKey(options.provider, profile)
+    const resolvedApiKey = await this.config.resolveApiKey(options.provider, profile)
+    const unauthenticatedLoopback = isUnauthenticatedLoopbackRoute(profile, model, resolvedApiKey)
+    const apiKey = resolvedApiKey ?? (unauthenticatedLoopback ? LOCAL_UNAUTHENTICATED_TRANSPORT_MARKER : undefined)
 
     const consumer = new AbortController()
     const upstream = options.signal === undefined
@@ -385,7 +428,7 @@ export class PiAiAdapter extends LlmAdapter {
         signal: watchdog.signal,
         // Profile headers are deployment-owned; attribution names are
         // Harness-owned and therefore win collisions.
-        headers: requestHeaders(profile.headers),
+        headers: localRequestHeaders(profile.headers, unauthenticatedLoopback),
       })
       const iterator = toStreamChunks(events, model.contextWindow, options.signal, model.id)[Symbol.asyncIterator]()
       let exhausted = false

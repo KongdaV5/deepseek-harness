@@ -42,6 +42,9 @@ The composition entry is the base of the default: it requires a provider and mod
 |---|---|---|
 | `provider` | required | Registered provider route for fresh agents |
 | `model` | required | Provider-owned model id for fresh agents |
+| `localFirst` | `false` | Prefer a configured, text-capable OpenAI-compatible loopback route; if none exists, use an intentionally unregistered route rather than a hosted fallback |
+
+The DS Harness Custom bundle enables `localFirst`. It never starts a model automatically. New default selections use the first configured text route on loopback; when none exists or it fails, requests remain unavailable instead of going to DeepSeek or another paid provider. An explicit saved non-DeepSeek selection remains authoritative.
 
 The generated [configuration catalog](../../../docs/config-catalog.md#deepseek-aidsh-agent-default-model) is the exhaustive source for every accepted field. `reasoningEffort` is deliberately not a config field: it belongs to the settings layer, so a complete saved selection can clear an effort when the next selected model has none, while a composition value would be inherited again.
 

@@ -40,6 +40,20 @@ async function bench(isLoopback = true, mock = RemoteMock.create().load(remoteDe
       discoverModels: vi.fn(() => Promise.resolve({ ok: true, value: [] })),
       ...services,
     },
+    localModels: {
+      status: vi.fn(() => Promise.resolve(ok({
+        enabled: false,
+        available: false,
+        state: 'stopped' as const,
+        canStop: false,
+        profile: null,
+        endpoint: 'http://127.0.0.1:8080/v1',
+        profiles: [],
+      }))),
+      start: vi.fn(),
+      stop: vi.fn(),
+      restart: vi.fn(),
+    },
     settings: mock.remote.settings,
   })
   // The fixed Host facts the settings provider reads its persistence from.
@@ -68,7 +82,7 @@ describe('ui-settings-models apply', () => {
 
   it('declares the services it uses', () => {
     expect(inject).toEqual([
-      'slots', 'locale', 'remote', 'remote.credentials', 'remote.llm', 'remote.settings',
+      'slots', 'locale', 'remote', 'remote.credentials', 'remote.llm', 'remote.localModels', 'remote.settings',
       'settingsScope', 'settingsSchema',
     ])
   })

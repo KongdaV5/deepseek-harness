@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-The Web GUI lets users switch the model and reasoning effort for an existing session through either the `/model` popup or the composer's model control. Both surfaces present the same provider-grouped choices, and the selected model determines the available effort names and default. A complete selection applies to the next request; a running step keeps the model and effort it started with. If no adapter can serve the session's route, the composer remains disabled until routing becomes available.
+Users can change a session's model and reasoning effort through `/model` or the composer control. Both show the same provider-grouped choices; effort names and defaults follow the selected model. A selection applies to the next request, while an active step keeps its starting model. The composer menu stays anchored to its button, prefers opening above, flips when space is limited, and tracks scrolling and resizing.
 
 ## Table of Contents
 

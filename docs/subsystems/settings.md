@@ -165,6 +165,10 @@ type SettingsUpdateSource = 'update' | 'provider'
 
 `SettingsDocumentOpenValue` confirms that `settings/openSettingsDocument` prepared the provider-owned document and handed it to the native text editor. `AgentPresetDirectoryOpenValue` reports either a completed native handoff or the resolved user-preset directory when desktop opening is unavailable. Neither operation accepts a browser-selected Host path.
 
+## Managed local model runtime
+
+Desktop Custom can opt into the Host-owned `localModels` Remote namespace. It reports the existing local-model LaunchAgent together with the exact model id exposed by its loopback health endpoint. Start, stop, and restart delegate to the user's installed `local-model` manager; a profile change waits for the prior manager job and shared port to stop, and an unrelated listener is never killed. Deployments that do not set `localModelRuntime` keep this controller disabled.
+
 <!-- BEGIN GENERATED cordis-surface (gen-cordis-catalog.ts) — do not edit between markers -->
 
 <a id="cordis-surface"></a>
@@ -172,6 +176,46 @@ type SettingsUpdateSource = 'update' | 'provider'
 ## Cordis API
 
 Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnpm run verify-cordis-catalog` in doc-sync; regenerate with `pnpm run gen-cordis-catalog`) — the language sides differ only in locale-specific paired document paths. Signature blocks use a `ts cordis-catalog` fence and keep the original source JSDoc; dispatch modes are defined in the [primer](../cordis-primer.md#dispatch-modes), and the framework-inherited `ctx` API lives in [cordis-api/inherited.md](../cordis-api/inherited.md).
+
+<a id="ctxlocalmodelruntimecontroller--localmodelruntimecontroller"></a>
+
+### `ctx.localModelRuntimeController` — `LocalModelRuntimeController`
+
+One controller and its one-child operation queue. Start/restart always wait for the known LaunchAgent and port to be down before selecting another profile; an unmanaged listener is never stopped.
+
+```ts cordis-catalog
+/**
+ * Return a fresh LaunchAgent and health observation; no in-memory green cache is trusted.
+ * @returns the current manager, endpoint, and installed-profile state.
+ * @throws RemoteError when the local profile inventory or Host probe fails unexpectedly.
+ */
+@Remote async status(): Promise<LocalModelRuntimeSnapshot>
+
+/**
+ * Start one allowlisted local profile after releasing the shared port.
+ * @param profile - local-model manager profile to activate.
+ * @returns the profile state after its loopback health check succeeds.
+ * @throws RemoteError when disabled, unavailable, unsafe, or not healthy after start.
+ */
+@Remote start(profile: LocalModelProfileId): Promise<LocalModelRuntimeSnapshot>
+
+/**
+ * Stop only the verified manager LaunchAgent, and confirm port release.
+ * @returns the stopped state after the manager and shared port are confirmed down.
+ * @throws RemoteError when the manager is unavailable, ownership is ambiguous, or shutdown fails.
+ */
+@Remote stop(): Promise<LocalModelRuntimeSnapshot>
+
+/**
+ * Stop, verify release, then start the requested profile in the same queue.
+ * @param profile - local-model manager profile to activate after shutdown.
+ * @returns the profile state after its loopback health check succeeds.
+ * @throws RemoteError when shutdown cannot be verified or the new profile is not healthy.
+ */
+@Remote restart(profile: LocalModelProfileId): Promise<LocalModelRuntimeSnapshot>
+```
+
+Source: [`packages/api/settings-controller/src/local-model-runtime.ts`](../../packages/api/settings-controller/src/local-model-runtime.ts)
 
 <a id="ctxsettings--settingsprovider-abstract-seam"></a>
 

@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-`dsh-client-ui-settings-models` is the Models settings page of the dsh web client: users configure API keys (stored write-only under the profile's credential reference), edit each provider's model list, and hand-declare custom pi-ai routes, with provider rows and one editor card at a time. The page joins the provider directory, the settings document, and the credential descriptions into one shared snapshot, so a row's state stays consistent across all three. It also walks first-run users through two ordered dialogs — a versioned internal-testing notice and the conditional official-DeepSeek credential step.
+Users configure provider credentials, edit model lists, and add OpenAI-compatible routes in Settings → Models; credential values remain write-only. Local provider rows show runtime health separately from saved configuration. DS Harness Custom adds controls for the existing local-model manager on this page; users explicitly start, stop, or restart a profile. An unavailable local route stays unavailable and never falls back to a hosted provider.
 
 ## Table of Contents
 
@@ -25,7 +25,9 @@ English | [中文](README.zh.md)
 <a id="use-this-package"></a>
 ## Use this package
 
-Open the Models page from the Settings navigation to see every configured provider as a row. A whole-section provider whose key is not configured anywhere renders as its open setup card instead, but only in the first-run posture and only until the user closes that card. Each card kind owns its own open state, so closing one never discards a draft in another.
+Open the Models page from the Settings navigation to see every configured provider as a row. While the Host-backed directory and settings are loading, the page announces that state instead of leaving an empty provider area. A whole-section provider whose key is not configured anywhere renders as its open setup card instead, but only in the first-run posture and only until the user closes that card. Each card kind owns its own open state, so closing one never discards a draft in another.
+
+When the Host enables local runtime control, the page also reports the existing manager's LaunchAgent and health-checked model state, with Start, Stop, and Restart for its supported profiles. A saved provider configuration alone never means “running”; the status requires the matching local process and a healthy loopback endpoint. The UI does not auto-start a model or stop an unrelated listener. DS Harness Custom disables its built-in DeepSeek API and DeepSeek search routes, while the existing editor remains available for user-added providers.
 
 A provider with a stored catalog error remains visible with its diagnostic and edit/delete actions. Add actions are offered only for registered settings namespaces, so an unavailable namespace cannot leave a button that opens no editor. A rejected save leaves the editor open and displays the Host diagnostic.
 

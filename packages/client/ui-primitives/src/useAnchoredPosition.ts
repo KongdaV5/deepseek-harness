@@ -16,12 +16,18 @@ import { useLayoutEffect, useState, type CSSProperties, type RefObject } from 'r
 export interface AnchoredPositionOptions {
   /** Whether the floating element is mounted and should track its anchor. */
   open: boolean
+  /** Stable key for async content changes that can alter the panel's size. */
+  layoutKey?: string | number
   /** The element the panel is placed from. */
   anchorRef: RefObject<HTMLElement | null>
   /** The floating element, measured so the clamp uses real dimensions. */
   panelRef: RefObject<HTMLElement | null>
   /** Which anchor edge the panel hangs from: below it (`bottom`, the default) or above it (`top`). */
   side?: 'top' | 'bottom'
+  /** Horizontal edge to align with the anchor; `start` keeps the existing behavior. */
+  align?: 'start' | 'end'
+  /** Move to the opposite side when the preferred side cannot fit the measured panel. */
+  flip?: boolean
   /** Distance kept between the anchor edge named by `side` and the panel. */
   gap: number
   /** Distance kept between the panel and each viewport edge. */
@@ -34,7 +40,10 @@ export interface AnchoredPositionOptions {
  * @returns `left`/`top` for the panel, or `null` before the first measurement.
  */
 export function useAnchoredPosition(options: AnchoredPositionOptions): CSSProperties | null {
-  const { open, anchorRef, panelRef, side = 'bottom', gap, margin } = options
+  const {
+    open, layoutKey, anchorRef, panelRef,
+    side = 'bottom', align = 'start', flip = false, gap, margin,
+  } = options
   const [position, setPosition] = useState<CSSProperties | null>(null)
   useLayoutEffect(() => {
     if (!open) {
@@ -48,18 +57,43 @@ export function useAnchoredPosition(options: AnchoredPositionOptions): CSSProper
       const rect = anchorRef.current?.getBoundingClientRect()
       if (rect === undefined) return
       const panel = panelRef.current
-      const width = panel?.offsetWidth ?? 0
-      const height = panel?.offsetHeight ?? 0
-      let left = rect.left
-      let top = side === 'top' ? rect.top - gap - height : rect.bottom + gap
+      const panelRect = panel?.getBoundingClientRect()
+      const width = panelRect?.width || panel?.offsetWidth || 0
+      const height = panelRect?.height || panel?.offsetHeight || 0
+      // Body-level portals participate in body CSS zoom. Anchor rectangles and
+      // viewport bounds are visual CSS pixels, while fixed left/top and
+      // max-height are interpreted before that zoom. Convert output back into
+      // the panel's containing coordinate space.
+      const zoom = panel === null ? 1 : effectiveZoom(panel)
+      const availableTop = Math.max(0, rect.top - gap - margin)
+      const availableBottom = Math.max(0, window.innerHeight - rect.bottom - gap - margin)
+      let placedSide = side
+      if (flip && height > 0) {
+        const preferredSpace = side === 'top' ? availableTop : availableBottom
+        const oppositeSpace = side === 'top' ? availableBottom : availableTop
+        if (height > preferredSpace && oppositeSpace > preferredSpace) {
+          placedSide = side === 'top' ? 'bottom' : 'top'
+        }
+      }
+      const availableHeight = placedSide === 'top' ? availableTop : availableBottom
+      const visibleHeight = height > 0 ? Math.min(height, availableHeight) : 0
+      let left = align === 'end' ? rect.right - width : rect.left
+      let top = placedSide === 'top' ? rect.top - gap - visibleHeight : rect.bottom + gap
       if (width > 0) left = Math.min(Math.max(left, margin), window.innerWidth - width - margin)
-      if (height > 0) top = Math.min(Math.max(top, margin), window.innerHeight - height - margin)
+      if (height > 0) top = Math.min(Math.max(top, margin), window.innerHeight - visibleHeight - margin)
       /* v8 ignore stop */
-      setPosition({ left, top })
+      setPosition({
+        left: left / zoom,
+        top: top / zoom,
+        ...(height > availableHeight ? { maxHeight: availableHeight / zoom } : {}),
+      })
     }
     // The first run measures the panel in the same commit that opened it, so
     // the clamp uses real dimensions before anything paints.
     place()
+    const frame = typeof window.requestAnimationFrame === 'function'
+      ? window.requestAnimationFrame(place)
+      : undefined
     window.addEventListener('scroll', place, true)
     window.addEventListener('resize', place)
     // The panel's own height changes without either event — a status line
@@ -75,9 +109,20 @@ export function useAnchoredPosition(options: AnchoredPositionOptions): CSSProper
     }
     return () => {
       observer?.disconnect()
+      if (frame !== undefined) window.cancelAnimationFrame(frame)
       window.removeEventListener('scroll', place, true)
       window.removeEventListener('resize', place)
     }
-  }, [open, anchorRef, panelRef, side, gap, margin])
+  }, [open, layoutKey, anchorRef, panelRef, side, align, flip, gap, margin])
   return position
+}
+
+/** Product of CSS zoom factors from a portal panel through its ancestors. */
+function effectiveZoom(element: HTMLElement): number {
+  let zoom = 1
+  for (let ancestor: HTMLElement | null = element; ancestor !== null; ancestor = ancestor.parentElement) {
+    const value = Number.parseFloat(window.getComputedStyle(ancestor).zoom)
+    if (Number.isFinite(value) && value > 0) zoom *= value
+  }
+  return zoom
 }

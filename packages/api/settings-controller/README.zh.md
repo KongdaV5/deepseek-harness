@@ -8,12 +8,13 @@ kind: "package-reference"
 
 ## 概述
 
-`@deepseek-ai/dsh-api-settings-controller` 为浏览器配置界面提供生成的 `ctx.remote.settings` 与 `ctx.remote.credentials` namespace。它返回脱敏的 settings 与凭据元数据，支持 settings 与凭据写入而不返回机密值，并在 Host 桌面打开由提供方持有的 settings 或 Agent preset 位置。提供方缺失时，namespace 仍会注册，并返回可操作的配置错误。
+`@deepseek-ai/dsh-api-settings-controller` 为浏览器配置界面提供生成的 `ctx.remote.settings`、`ctx.remote.credentials` 以及选择性启用的 `ctx.remote.localModels` namespace。它返回脱敏的 settings 与凭据元数据，支持 settings 与凭据写入而不返回机密值，在 Host 桌面打开由提供方持有的 settings 或 Agent preset 位置，并可控制经过身份核对的现有本地模型管理器。配置提供方缺失时，相关 namespace 仍会注册并返回可操作的错误。
 
 ## 目录
 
 - [使用本包](#use-this-package)
 - [配置](#configuration)
+- [本地模型运行时](#local-model-runtime)
 - [模型体验](#model-experience)
 - [已知限制与延期工作](#known-limitations-and-deferred-work)
 - [开发备注](#dev-note)
@@ -31,6 +32,15 @@ kind: "package-reference"
 
 `settings.openSettingsDocument()` 准备提供方持有的文档，并用原生文本编辑器意图将其打开。`settings.canOpenAgentPresetDirectory()` 在 preset 页面显示时报告原生打开能力。`settings.openAgentPresetDirectory(id)` 只解析用户创作的 preset，并打开其目录，或在原生打开不可用时返回目录路径；两个打开方法都不接受浏览器提供的文件系统目标。
 
+<a id="local-model-runtime"></a>
+### 本地模型运行时
+
+启用 `localModelRuntime` 后，`localModels.status/start/stop/restart` 会委托给已安装的 `local-model` 管理器。状态根据匹配的 LaunchAgent、其服务模型 id 和 loopback 健康端点确定；控制器不会停止无关监听进程，并且只有在确认共享端口已释放后才会启动另一个 profile。启动时使用管理器的 runtime-only `runtime-start` 命令，因此切换服务 profile 不会改写旧版 DSH 默认模型设置。
+
+当前管理器支持 Huihui 文本 profile、Original Qwen 文本 profile 与 Qwen Image 图像 profile。文本 profile 共用同一端口，只有在旧 LaunchAgent 和监听进程均停止后才会依次切换。
+
+快照状态包括 `stopped`、`starting`、`running`、`stopping` 与 `error`。每个 profile 会报告 id、模态、模型文件是否存在，以及 DSH 是否获准控制它。只有 8080 端口已释放时才会启动由管理器托管的 profile；不会停止或替换不属于已验证管理器的监听进程。
+
 -----
 
 <a id="configuration"></a>
@@ -39,6 +49,7 @@ kind: "package-reference"
 | 字段 | 默认值 | 含义 |
 |---|---|---|
 | `nativeOpen` | 平台探测 | Agent preset 目录能否交给原生桌面打开器 |
+| `localModelRuntime` | `false` | 是否向此部署公开经过身份核对的现有本地模型管理器控制 |
 
 生成的[配置目录](../../../docs/config-catalog.zh.md#deepseek-aidsh-api-settings-controller)是所有受支持字段及其 JSDoc 的完整来源。
 
@@ -58,6 +69,7 @@ kind: "package-reference"
 <a id="known-limitations-and-deferred-work"></a>
 
 - 批量上限固定为 64 个引用，不是可按部署配置的字段。
+- 本地模型适配器只识别当前安装的 macOS 管理器及其 runtime-only profile 命令；其他管理器布局不属于此控制器范围。
 
 <a id="dev-note"></a>
 ### 开发备注

@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-The DS Harness Desktop profile composes `dsh-base`, `dsh-web-app`, and this layer last, so that surface gains the durable Task authority, the bounded run policy, the task-aware compaction policy, the transient diagnostics transport, and the read-only Run Details surface the DS Harness product is built on. It mounts six host-plane services, one browser surface, and states one deployment value on the inherited compaction executor. It replaces no executor and adds no Session event, so a profile without this layer is an ordinary web surface.
+The DS Harness Custom profile adds task-aware run and compaction behavior, transient diagnostics, and Run Details. New Agents prefer a configured local model; the built-in DeepSeek API and search routes are disabled, and Settings → Models exposes local-model controls. Local failures stay visible and never switch to a hosted provider. The profile adds no Session event and replaces no executor.
 
 ## Table of Contents
 

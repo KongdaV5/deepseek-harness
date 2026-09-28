@@ -42,6 +42,9 @@ kind: "package-reference"
 |---|---|---|
 | `provider` | 必填 | 新 agent 使用的已注册提供方路由 |
 | `model` | 必填 | 新 agent 使用的、由提供方持有的模型 id |
+| `localFirst` | `false` | 优先选择已配置、支持文本的 OpenAI 兼容 loopback 路由；若不存在，则使用刻意未注册的路由，而不回退到云端提供方 |
+
+DS Harness Custom 组合包会启用 `localFirst`。它不会自动启动模型。新默认选择会使用首个已配置的 loopback 文本路由；路由不存在或请求失败时，请求保持不可用，不会发送给 DeepSeek 或其他付费提供方。用户明确保存的非 DeepSeek 选择仍然优先。
 
 生成的[配置目录](../../../docs/config-catalog.zh.md#deepseek-aidsh-agent-default-model)是所有受支持字段的完整参考。`reasoningEffort` 刻意不是配置字段：它属于设置层，因此完整保存的选择可以在下一个选定的模型没有推理强度时清除旧值，而组合配置值会再次被继承。
 

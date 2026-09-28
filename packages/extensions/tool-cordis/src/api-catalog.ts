@@ -1385,6 +1385,41 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
+    key: 'localModelRuntimeController',
+    summary: 'One controller and its one-child operation queue.',
+    description: 'One controller and its one-child operation queue. Start/restart always wait for the known LaunchAgent and port to be down before selecting another profile; an unmanaged listener is never stopped.',
+    methods: [
+      {
+        signature: '@Remote async status(): Promise<LocalModelRuntimeSnapshot>',
+        description: 'Return a fresh LaunchAgent and health observation; no in-memory green cache is trusted.',
+        parameters: [],
+        returns: 'the current manager, endpoint, and installed-profile state.',
+        throws: ['RemoteError when the local profile inventory or Host probe fails unexpectedly.'],
+      },
+      {
+        signature: '@Remote start(profile: LocalModelProfileId): Promise<LocalModelRuntimeSnapshot>',
+        description: 'Start one allowlisted local profile after releasing the shared port.',
+        parameters: [{ name: 'profile', description: 'local-model manager profile to activate.' }],
+        returns: 'the profile state after its loopback health check succeeds.',
+        throws: ['RemoteError when disabled, unavailable, unsafe, or not healthy after start.'],
+      },
+      {
+        signature: '@Remote stop(): Promise<LocalModelRuntimeSnapshot>',
+        description: 'Stop only the verified manager LaunchAgent, and confirm port release.',
+        parameters: [],
+        returns: 'the stopped state after the manager and shared port are confirmed down.',
+        throws: ['RemoteError when the manager is unavailable, ownership is ambiguous, or shutdown fails.'],
+      },
+      {
+        signature: '@Remote restart(profile: LocalModelProfileId): Promise<LocalModelRuntimeSnapshot>',
+        description: 'Stop, verify release, then start the requested profile in the same queue.',
+        parameters: [{ name: 'profile', description: 'local-model manager profile to activate after shutdown.' }],
+        returns: 'the profile state after its loopback health check succeeds.',
+        throws: ['RemoteError when shutdown cannot be verified or the new profile is not healthy.'],
+      },
+    ],
+  },
+  {
     key: 'lsp',
     summary: 'The LSP capability seam (`ctx.lsp`).',
     description: 'The LSP capability seam (`ctx.lsp`). Owns provider registration/selection and normalized query execution; exposes exactly the four operations and no protocol escape hatch.',
@@ -5235,6 +5270,26 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'LlmRuntime',
     declaration: 'export class LlmRuntime extends TypertRemoteService {\n    constructor(ctx: Context);\n    registerAdapter(providers: string[], adapter: LlmAdapter): AdapterRegistrationHandle;\n    @Remote\n    listProviders(): LlmProviderInfo[];\n    registerConfigurableProviders(entries: readonly LlmConfigurableProvider[]): DirectoryRegistrationHandle;\n    @Remote\n    listConfigurableProviders(): LlmConfigurableProvider[];\n    registerModelDiscovery(settingsNs: string, discover: (request: LlmModelDiscoveryRequest, signal?: AbortSignal) => Promise<readonly LlmDiscoveredModel[]>): () => void;\n    async discoverModels(settingsNs: string, request: LlmModelDiscoveryRequest, signal?: AbortSignal): Promise<LlmDiscoveredModel[]>;\n    @Remote(\'discoverModels\')\n    async remoteDiscoverModels(settingsNs: string, request: LlmModelDiscoveryRequest, signal: AbortSignal): Promise<LlmDiscoveredModel[]>;\n    providerRetryPolicy(provider: string): ResolvedRetryPolicy;\n    imageRequestPricing(provider: string, model: string): LlmImageRequestPricing | undefined;\n    fileRequestText(ref: FileAttachmentRef): string;\n    async listModels(provider: string): Promise<LlmModelInfo[]>;\n    async resolveModelInfo(provider: string, model: string, signal?: AbortSignal): Promise<LlmResolvedModelInfo>;\n    async resolveCallConfig(config: LlmCallConfig, signal?: AbortSignal): Promise<LlmCallConfig>;\n    async prepareCall(config: LlmCallConfig, signal?: AbortSignal): Promise<PreparedLlmCall>;\n    stream(options: GenerateOptions) /* …truncated — full shape in source */',
+  },
+  {
+    name: 'LocalModelModality',
+    declaration: 'export type LocalModelModality = \'text\' | \'image\';',
+  },
+  {
+    name: 'LocalModelProfileId',
+    declaration: 'export type LocalModelProfileId = \'huihui\' | \'img21\' | \'38\';',
+  },
+  {
+    name: 'LocalModelRuntimeProfile',
+    declaration: 'export interface LocalModelRuntimeProfile {\n    readonly id: LocalModelProfileId;\n    readonly name: string;\n    readonly modality: LocalModelModality;\n    readonly manageable: boolean;\n    readonly available?: boolean;\n    readonly unavailableReason?: string;\n}',
+  },
+  {
+    name: 'LocalModelRuntimeSnapshot',
+    declaration: 'export interface LocalModelRuntimeSnapshot {\n    readonly enabled: boolean;\n    readonly available: boolean;\n    readonly state: LocalModelRuntimeState;\n    readonly canStop: boolean;\n    readonly profile: LocalModelProfileId | null;\n    readonly endpoint: string;\n    readonly profiles: readonly LocalModelRuntimeProfile[];\n    readonly error?: string;\n}',
+  },
+  {
+    name: 'LocalModelRuntimeState',
+    declaration: 'export type LocalModelRuntimeState = \'stopped\' | \'starting\' | \'running\' | \'stopping\' | \'error\';',
   },
   {
     name: 'LspHover',

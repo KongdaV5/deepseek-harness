@@ -12,9 +12,12 @@
  * re-renders from pushed invalidations or the post-apply reload.
  */
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Button, IconPlusOutline16, Modal } from '@deepseek-ai/dsh-client-ui-primitives'
+import type {
+  LocalModelRuntimeProfile, LocalModelRuntimeSnapshot, LocalModelRuntimeState,
+} from '@deepseek-ai/dsh-api-remotes/client'
 import type { InjectFace, PropsRenderSlots } from '@deepseek-ai/dsh-client-ui-slots'
 // Type-only: pulls this package's SlotMap merge (the two Models child slots).
 import type {} from './slot-contract.ts'
@@ -187,6 +190,164 @@ export function providerCopy(template: string, target: ProviderIdentity): string
   return template.replace('{provider}', () => providerTargetLabel(target))
 }
 
+/** Whether a configured provider URL names the managed local-model endpoint. */
+function isManagedLocalEndpoint(baseUrl: string | undefined, endpoint: string | undefined): boolean {
+  if (baseUrl === undefined || endpoint === undefined) return false
+  try {
+    const base = new URL(baseUrl)
+    const managed = new URL(endpoint)
+    return base.origin === managed.origin
+      && base.pathname.replace(/\/+$/u, '') === managed.pathname.replace(/\/+$/u, '')
+  } catch {
+    return false
+  }
+}
+
+const runtimeStateCopy: Record<LocalModelRuntimeState, keyof typeof en> = {
+  stopped: 'localRuntimeStopped',
+  starting: 'localRuntimeStarting',
+  running: 'localRuntimeRunning',
+  stopping: 'localRuntimeStopping',
+  error: 'localRuntimeFailed',
+}
+
+function providerBaseUrl(
+  row: ProviderRow,
+  namespaces: ReadonlyMap<string, import('@deepseek-ai/dsh-api-remotes/client').SettingsNamespaceView>,
+  schema: SettingsSchemaOperations,
+): string | undefined {
+  const namespace = namespaces.get(row.entry.settingsNs)
+  const value = namespace === undefined ? undefined : schema.getPath(namespace.value, row.entry.settingsPath)
+  return typeof value === 'object' && value !== null && 'baseURL' in value && typeof value.baseURL === 'string'
+    ? value.baseURL
+    : undefined
+}
+
+function localStatusClass(state: LocalModelRuntimeState | 'unknown'): string | undefined {
+  switch (state) {
+    case 'running': return styles['runtimeDotRunning']
+    case 'starting': return styles['runtimeDotStarting']
+    case 'stopping': return styles['runtimeDotStopping']
+    case 'error': return styles['runtimeDotError']
+    case 'stopped':
+    case 'unknown': return styles['runtimeDotStopped']
+  }
+}
+
+function localProviderStatus(
+  baseUrl: string | undefined,
+  snapshot: LocalModelRuntimeSnapshot | undefined,
+): { readonly state: LocalModelRuntimeState | 'unknown'; readonly label: keyof typeof en } | undefined {
+  if (baseUrl === undefined) return undefined
+  let local = false
+  try {
+    const url = new URL(baseUrl)
+    local = url.protocol === 'http:'
+      && (url.hostname === 'localhost' || url.hostname.endsWith('.localhost')
+        || url.hostname === '::1' || /^127(?:\.\d{1,3}){3}$/u.test(url.hostname))
+  } catch { local = false }
+  if (!local) return undefined
+  if (snapshot === undefined || !isManagedLocalEndpoint(baseUrl, snapshot.endpoint)) {
+    return { state: 'unknown', label: 'localRuntimeUnmanaged' }
+  }
+  return { state: snapshot.state, label: runtimeStateCopy[snapshot.state] }
+}
+
+function LocalRuntimePanel({
+  snapshot, error, busy, controller, t,
+}: {
+  snapshot: LocalModelRuntimeSnapshot
+  error: string | null | undefined
+  busy: boolean | undefined
+  controller: ModelsSettingsStore
+  t: ModelsSectionInjected['t']
+}): ReactNode {
+  if (!snapshot.enabled) return null
+  const transitioning = snapshot.state === 'starting' || snapshot.state === 'stopping'
+  const actionPending = busy === true || transitioning
+  return (
+    <section className={styles['runtimePanel']} aria-labelledby="local-runtime-title">
+      <div className={styles['runtimeHeader']}>
+        <h3 id="local-runtime-title" className={styles['runtimeTitle']}>{t('localRuntimeTitle')}</h3>
+        <span className={styles['runtimeEndpoint']}>{snapshot.endpoint}</span>
+      </div>
+      <p className={styles['runtimeDescription']}>{t('localRuntimeDescription')}</p>
+      {snapshot.error === undefined && error == null ? null : (
+        <p role="alert" className={styles['runtimeError']}>
+          {snapshot.error ?? error}
+        </p>
+      )}
+      <ul className={styles['runtimeProfiles']}>
+        {snapshot.profiles.map(profile => (
+          <LocalRuntimeProfileRow
+            key={profile.id}
+            profile={profile}
+            snapshot={snapshot}
+            busy={actionPending}
+            controller={controller}
+            t={t}
+          />
+        ))}
+      </ul>
+    </section>
+  )
+}
+
+function LocalRuntimeProfileRow({
+  profile, snapshot, busy, controller, t,
+}: {
+  profile: LocalModelRuntimeProfile
+  snapshot: LocalModelRuntimeSnapshot
+  busy: boolean
+  controller: ModelsSettingsStore
+  t: ModelsSectionInjected['t']
+}): ReactNode {
+  const current = snapshot.profile === profile.id
+  const state: LocalModelRuntimeState = current ? snapshot.state : 'stopped'
+  const running = current && state === 'running'
+  const canStart = profile.manageable && profile.available === true && snapshot.available
+  const disabled = busy || !canStart
+  const actionLabel = running
+    ? t('localRuntimeStop')
+    : snapshot.state === 'running' ? t('localRuntimeSwitch') : t('localRuntimeStart')
+  return (
+    <li className={styles['runtimeProfile']}>
+      <div className={styles['runtimeProfileIdentity']}>
+        <span className={`${styles['runtimeDot']} ${localStatusClass(state)}`} aria-hidden="true" />
+        <span className={styles['runtimeProfileName']}>{profile.name}</span>
+        <span className={styles['runtimeModality']}>{t(profile.modality === 'image' ? 'localRuntimeImage' : 'localRuntimeText')}</span>
+        <span className={styles['runtimeState']}>{t(runtimeStateCopy[state])}</span>
+      </div>
+      <span className={styles['runtimeActions']}>
+        {running ? (
+          <>
+            <button type="button" className={styles['runtimeButton']} disabled={busy} onClick={() => { void controller.stopLocalModel() }}>
+              {t('localRuntimeStop')}
+            </button>
+            <button type="button" className={styles['runtimeButton']} disabled={busy} onClick={() => { void controller.restartLocalModel(profile.id) }}>
+              {t('localRuntimeRestart')}
+            </button>
+          </>
+        ) : snapshot.state === 'error' && snapshot.canStop ? (
+          <button type="button" className={styles['runtimeButton']} disabled={busy} onClick={() => { void controller.stopLocalModel() }}>
+            {t('localRuntimeStop')}
+          </button>
+        ) : (
+          <button
+            type="button"
+            className={styles['runtimeButton']}
+            disabled={disabled}
+            title={canStart ? undefined : profile.unavailableReason ?? t('localRuntimeProfileUnavailable')}
+            onClick={() => { void controller.startLocalModel(profile.id) }}
+          >
+            {canStart ? actionLabel : t('localRuntimeUnavailable')}
+          </button>
+        )}
+      </span>
+    </li>
+  )
+}
+
 /**
  * Render the Models section content column.
  * @param props - slot-delivered injected dependencies.
@@ -204,6 +365,7 @@ export function ModelsSection(props: ModelsSectionProps): ReactNode {
 function Loaded({ injected, renderSlot }: { injected: ModelsSectionFace; renderSlot: ModelsRenderSlot }): ReactNode {
   const { controller, operations, schema, t } = injected
   const state = injected.useSnapshot(snapshot => snapshot)
+  useEffect(() => controller.startLocalRuntimePolling(), [controller])
   const [editing, setEditing] = useState<EditorTarget | undefined>(undefined)
   const [adding, setAdding] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<EditorTarget | undefined>(undefined)
@@ -261,7 +423,9 @@ function Loaded({ injected, renderSlot }: { injected: ModelsSectionFace; renderS
       .finally(() => { setDeleting(false) })
   }
 
-  if (state.status === 'idle') void controller.load()
+  useEffect(() => {
+    if (state.status === 'idle') void controller.load()
+  }, [controller, state.status])
   if (state.status === 'error') {
     /* v8 ignore next -- an error status always carries text; the fallback satisfies the nullable type */
     const errorText = state.error ?? ''
@@ -309,6 +473,9 @@ function Loaded({ injected, renderSlot }: { injected: ModelsSectionFace; renderS
     <div className={styles['section']}>
       <h2 className={styles['title']}>{t('title')}</h2>
       <p className={styles['intro']}>{t('intro')}</p>
+      {state.status === 'idle' || state.status === 'loading'
+        ? <p className={styles['loading']} role="status" aria-live="polite">{t('loading')}</p>
+        : null}
       {!state.writable && state.status === 'ready' ? <p className={styles['notice']}>{t('readOnly')}</p> : null}
       {savedIdentity === undefined
         ? null
@@ -317,6 +484,17 @@ function Loaded({ injected, renderSlot }: { injected: ModelsSectionFace; renderS
             {providerCopy(t('savedProvider'), savedIdentity)}
           </p>
         )}
+      {state.localRuntime?.enabled === true
+        ? (
+          <LocalRuntimePanel
+            snapshot={state.localRuntime}
+            error={state.localRuntimeError}
+            busy={state.localRuntimeBusy}
+            controller={controller}
+            t={t}
+          />
+        )
+        : null}
       <ul className={styles['rows']}>
         {configured.map((row) => {
           const target = targetOf(row)
@@ -354,6 +532,7 @@ function Loaded({ injected, renderSlot }: { injected: ModelsSectionFace; renderS
           const credentialMissing = !credentialConfigured
             && row.apiKeyEnv !== undefined
             && row.credential?.configured === false
+          const localStatus = localProviderStatus(providerBaseUrl(row, state.namespaces, schema), state.localRuntime)
           return (
             <li key={row.entry.provider} className={styles['rowCard']}>
               <div className={styles['rowHead']}>
@@ -365,25 +544,34 @@ function Loaded({ injected, renderSlot }: { injected: ModelsSectionFace; renderS
                   {row.entry.declared === true
                     ? <span className={styles['rowTag']}>{t('customTag')}</span>
                     : null}
-                  {credentialConfigured
+                  {localStatus !== undefined
                     ? (
                       <span
-                        className={`${styles['credentialDot']} ${styles['credentialDotConfigured']}`}
+                        className={`${styles['runtimeDot']} ${localStatusClass(localStatus.state)}`}
                         role="img"
-                        aria-label={t('credentialConfigured')}
-                        title={t('credentialConfigured')}
+                        aria-label={t(localStatus.label)}
+                        title={t(localStatus.label)}
                       />
                     )
-                    : credentialMissing
+                    : credentialConfigured
                       ? (
                         <span
-                          className={`${styles['credentialDot']} ${styles['credentialDotMissing']}`}
+                          className={`${styles['credentialDot']} ${styles['credentialDotConfigured']}`}
                           role="img"
-                          aria-label={t('credentialMissing')}
-                          title={t('credentialMissing')}
+                          aria-label={t('credentialConfigured')}
+                          title={t('credentialConfigured')}
                         />
                       )
-                      : null}
+                      : credentialMissing
+                        ? (
+                          <span
+                            className={`${styles['credentialDot']} ${styles['credentialDotMissing']}`}
+                            role="img"
+                            aria-label={t('credentialMissing')}
+                            title={t('credentialMissing')}
+                          />
+                        )
+                        : null}
                 </span>
                 <span className={styles['rowActions']}>
                   <button

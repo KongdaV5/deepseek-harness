@@ -8,12 +8,13 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-`@deepseek-ai/dsh-api-settings-controller` exposes generated `ctx.remote.settings` and `ctx.remote.credentials` namespaces for browser configuration surfaces. It returns redacted settings and credential metadata, supports settings and credential writes without returning secret values, and opens provider-owned settings or Agent preset locations on the Host desktop. When a provider is absent, the namespace remains registered and returns an actionable configuration error.
+`@deepseek-ai/dsh-api-settings-controller` exposes generated `ctx.remote.settings`, `ctx.remote.credentials`, and opt-in `ctx.remote.localModels` namespaces for browser configuration surfaces. It returns redacted settings and credential metadata, supports settings and credential writes without returning secret values, opens provider-owned settings or Agent preset locations on the Host desktop, and can control the verified existing local-model manager. When a provider is absent, the configuration namespace remains registered and returns an actionable error.
 
 ## Table of Contents
 
 - [Use this package](#use-this-package)
 - [Configuration](#configuration)
+- [Local model runtime](#local-model-runtime)
 - [Model Experience](#model-experience)
 - [Known Limitations and Deferred Work](#known-limitations-and-deferred-work)
 - [Dev Note](#dev-note)
@@ -31,6 +32,15 @@ Mount this package as a Loader entry in a profile that serves browser configurat
 
 `settings.openSettingsDocument()` prepares the provider-owned document and opens it with the native text-editor intent. `settings.canOpenAgentPresetDirectory()` reports native-opening availability when the preset page becomes visible. `settings.openAgentPresetDirectory(id)` resolves only a user-authored preset and either opens its directory or returns the path when native opening is unavailable; neither open method accepts a browser-supplied filesystem target.
 
+<a id="local-model-runtime"></a>
+### Local model runtime
+
+When `localModelRuntime` is enabled, `localModels.status/start/stop/restart` delegates to the installed `local-model` manager. Status is derived from the matching LaunchAgent, its served model id, and the loopback health endpoint; the controller refuses to stop an unrelated listener or start another profile until the shared port is confirmed free. Starts use the manager's runtime-only `runtime-start` command, so switching a serving profile does not rewrite the legacy DSH default-model setting.
+
+The current manager supports the Huihui text profile, Original Qwen text profile, and Qwen Image profile. The text profiles share one port and are switched sequentially only after the old LaunchAgent and listener have stopped.
+
+The snapshot lifecycle values are `stopped`, `starting`, `running`, `stopping`, and `error`. Each profile reports its id, modality, whether its model files are present, and whether DSH is permitted to control it. A manager-owned profile is started only when port 8080 is free; a listener not owned by the verified manager is never stopped or replaced.
+
 -----
 
 <a id="configuration"></a>
@@ -39,6 +49,7 @@ Mount this package as a Loader entry in a profile that serves browser configurat
 | Field | Default | Meaning |
 |---|---|---|
 | `nativeOpen` | platform-detected | Whether Agent preset directories can be handed to a native desktop opener |
+| `localModelRuntime` | `false` | Whether this deployment exposes controls for the verified existing local-model manager |
 
 The generated [configuration catalog](../../../docs/config-catalog.md#deepseek-aidsh-api-settings-controller) is the exhaustive source for accepted fields and their JSDoc.
 
@@ -58,6 +69,7 @@ No direct effect; reading or writing these configuration values does not alter m
 <a id="known-limitations-and-deferred-work"></a>
 
 - The batch bound is fixed at 64 references and is not a deployment-configurable field.
+- The local-model adapter recognizes the installed macOS manager and its runtime-only profile command; other manager layouts remain outside this controller.
 
 <a id="dev-note"></a>
 ### Dev Note

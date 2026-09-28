@@ -9,7 +9,7 @@ kind: "package-bundle"
 
 ## 概述
 
-DS Harness Desktop profile 依次组合 `dsh-base`、`dsh-web-app` 与本层（本层置于最后），因此该表层获得了 DS Harness 产品所依赖的持久 Task 权威、有界运行策略、任务感知压缩策略、瞬态诊断传输与只读 Run Details 表层。本层挂载六个 host 平面服务、一个浏览器表层，并在继承来的压缩执行器上声明一项部署取值。它不替换任何执行器、不新增任何 Session 事件，因此不含本层的 profile 就是一个普通的 web 表层。
+DS Harness Custom profile 提供任务感知的运行与压缩、瞬态诊断和 Run Details。新 Agent 优先使用已配置的本地模型；内置 DeepSeek API 与搜索路由默认关闭，「设置 → 模型」提供本地模型控制。本地模型不可用或失败时会明确显示，且不会切换到云端提供方。该 profile 不新增 Session 事件，也不替换执行器。
 
 ## 目录
 

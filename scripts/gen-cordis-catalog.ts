@@ -80,6 +80,7 @@ export const SERVICE_PAGE: Record<string, string> = {
   credentials: 'credentials.md',
   credentialsController: 'credentials.md',
   settingsController: 'settings.md',
+  localModelRuntimeController: 'settings.md',
   directoryPicker: 'workspace.md',
   deepseekLlmApiExtensions: 'llm-streaming.md',
   dynamicCordisRunner: 'extensions.md',
@@ -864,6 +865,8 @@ export const TYPE_LINK_EXEMPTIONS: Readonly<Record<string, string>> = {
   RuntimeDiagnosticsProvider: 'transient diagnostics provider face is owned by packages/api/runtime-diagnostics-controller/README.md',
   RuntimeDiagnosticsFollowRequest: 'transient diagnostics follow request is owned by packages/api/runtime-diagnostics-controller/README.md',
   RuntimeDiagnosticsFrame: 'transient diagnostics stream frame is owned by packages/api/runtime-diagnostics-controller/README.md',
+  LocalModelProfileId: 'local-model profile identifiers and their control boundary are owned by packages/api/settings-controller/README.md',
+  LocalModelRuntimeSnapshot: 'browser-safe local runtime lifecycle contract is owned by packages/api/settings-controller/README.md',
 }
 
 /** Repository data policy consumed by the Cordis catalog projector. */

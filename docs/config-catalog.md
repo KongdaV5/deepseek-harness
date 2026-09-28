@@ -44,10 +44,12 @@ export interface Config {
   provider: string
   /** Provider-owned model id. */
   model: string
+  /** Prefer an explicitly configured OpenAI-compatible loopback route for Custom deployments. */
+  localFirst?: boolean
 }
 ```
 
-Source: [`packages/core/agent-default-model/src/index.ts:41`](../packages/core/agent-default-model/src/index.ts)
+Source: [`packages/core/agent-default-model/src/index.ts:42`](../packages/core/agent-default-model/src/index.ts)
 
 <a id="deepseek-aidsh-agent-instructions"></a>
 
@@ -244,10 +246,12 @@ Source: [`packages/api/session-controller/src/index.ts:71`](../packages/api/sess
 export interface Config {
   /** Override platform desktop-opener detection. */
   readonly nativeOpen?: boolean
+  /** Expose controls for the verified, existing local-model manager. */
+  readonly localModelRuntime?: boolean
 }
 ```
 
-Source: [`packages/api/settings-controller/src/index.ts:36`](../packages/api/settings-controller/src/index.ts)
+Source: [`packages/api/settings-controller/src/index.ts:38`](../packages/api/settings-controller/src/index.ts)
 
 <a id="deepseek-aidsh-api-terminal-controller"></a>
 

@@ -19,6 +19,7 @@ import Include from '@deepseek-ai/cordis-plugin-include'
 import LlmRuntime, { createMessage, createUserMessage, userAgent } from '@deepseek-ai/dsh-llm'
 import LocalCredentialProvider from '@deepseek-ai/dsh-credentials-local'
 import FileSettingsProvider from '@deepseek-ai/dsh-settings-file'
+import AgentDefaultModelConfig from '@deepseek-ai/dsh-agent-default-model'
 import * as LlmPiAi from '@deepseek-ai/dsh-llm-pi-ai'
 import { assemble } from './assemble.ts'
 import { closeMockServers, mockServer, textEvents } from './mock-server.ts'
@@ -45,14 +46,14 @@ afterEach(async () => {
 })
 
 /** Boot the dormant composition: a bare `llm-pi-ai` row with no config at all. */
-async function loadComposition(): Promise<{ ctx: Context; settingsPath: string }> {
+async function loadComposition(options: { localFirst?: boolean } = {}): Promise<{ ctx: Context; settingsPath: string }> {
   root = await mkdtemp(join(tmpdir(), 'dsh-pi-composition-'))
   const settingsPath = join(root, 'settings.yaml')
   await writeFile(settingsPath, '# personal settings\n')
   await writeFile(join(root, '.credentials.yaml'), 'version: 1\nrefs:\n  PI_COMPOSITION_KEY: key-from-store\n', { mode: 0o600 })
 
   const configPath = join(root, 'cordis.yml')
-  await writeFile(configPath, [
+  const rows = [
     '- id: llm',
     "  name: 'test-llm-service'",
     '- id: settings',
@@ -67,8 +68,18 @@ async function loadComposition(): Promise<{ ctx: Context; settingsPath: string }
     '    debounceMs: 10',
     '- id: llm-pi-ai',
     "  name: '@deepseek-ai/dsh-llm-pi-ai'",
-    '',
-  ].join('\n'))
+  ]
+  if (options.localFirst === true) {
+    rows.unshift(
+      '- id: agent-default-model',
+      "  name: '@deepseek-ai/dsh-agent-default-model'",
+      '  config:',
+      '    provider: dsh-local-unconfigured',
+      '    model: select-local-model',
+      '    localFirst: true',
+    )
+  }
+  await writeFile(configPath, [...rows, ''].join('\n'))
 
   const ctx = new Context()
   context = ctx
@@ -80,6 +91,7 @@ async function loadComposition(): Promise<{ ctx: Context; settingsPath: string }
     ['@deepseek-ai/dsh-settings-file', FileSettingsProvider],
     ['@deepseek-ai/dsh-credentials-local', LocalCredentialProvider],
     ['@deepseek-ai/dsh-llm-pi-ai', LlmPiAi],
+    ['@deepseek-ai/dsh-agent-default-model', AgentDefaultModelConfig],
   ])
   ctx.loader.internal = {
     version: 'v2',
@@ -121,6 +133,64 @@ describe('llm-pi-ai real dormant composition', () => {
     const result = await assemble(ctx, { provider: 'deepseek', model: 'deepseek-v4-flash', messages: [] })
     expect(result.message.content).toEqual([{ type: 'text', text: 'hello' }])
     expect(server.headers[0]?.authorization).toBe('Bearer key-from-store')
+  })
+
+  it('selects a configured local text route and never falls back to DeepSeek when it fails', async () => {
+    vi.stubEnv('PI_COMPOSITION_KEY', '')
+    const server = await mockServer([{ events: textEvents }])
+    const { ctx, settingsPath } = await loadComposition({ localFirst: true })
+
+    expect(ctx.llm.listProviders()).toEqual([])
+    expect(ctx.agentDefaultModel.currentSelection()).toEqual({
+      provider: 'dsh-local-unconfigured', model: 'select-local-model',
+    })
+
+    const localSettings = (baseURL: string): string => [
+      'llm-pi-ai:',
+      '  providers:',
+      '    huihui-local:',
+      '      apiKeyEnv: PI_COMPOSITION_KEY',
+      '      api: openai-completions',
+      `      baseURL: ${baseURL}`,
+      '      defaultInput: [text]',
+      '      models:',
+      '        - id: huihui-qwen',
+      '          input: [text]',
+      '',
+    ].join('\n')
+    await writeFile(settingsPath, localSettings(server.url))
+    await vi.waitFor(() => {
+      expect(ctx.llm.listProviders().map(provider => provider.id)).toEqual(['huihui-local'])
+      expect(ctx.agentDefaultModel.currentSelection()).toEqual({ provider: 'huihui-local', model: 'huihui-qwen' })
+    }, { timeout: 5000 })
+
+    const result = await assemble(ctx, {
+      ...ctx.agentDefaultModel.currentSelection(),
+      messages: [createUserMessage({
+        content: [{ type: 'text', text: 'Reply with one short greeting.' }],
+        source: { kind: 'plugin', plugin: 'loader-composition-local-smoke' },
+      })],
+    })
+    expect(result.message.content).toEqual([{ type: 'text', text: 'hello' }])
+    expect(server.paths).toEqual(['/chat/completions'])
+    expect(server.requests[0]).toMatchObject({ model: 'huihui-qwen' })
+    expect(server.headers[0]?.authorization).toBe('Bearer key-from-store')
+
+    const stoppedEndpoint = 'http://127.0.0.1:1/v1'
+    await writeFile(settingsPath, localSettings(stoppedEndpoint))
+    await vi.waitFor(() => {
+      expect(ctx.agentDefaultModel.currentSelection()).toEqual({ provider: 'huihui-local', model: 'huihui-qwen' })
+      const piAi = ctx.settings.describe().find(({ ns }) => ns === 'llm-pi-ai')
+      expect((piAi?.value as { providers?: Record<string, { baseURL?: string }> }).providers?.['huihui-local']?.baseURL)
+        .toBe(stoppedEndpoint)
+    }, { timeout: 5000 })
+    const unavailable = await assemble(ctx, {
+      ...ctx.agentDefaultModel.currentSelection(),
+      messages: [],
+    })
+    expect(unavailable.finish.kind).toBe('error')
+    expect(ctx.llm.listProviders().map(provider => provider.id)).toEqual(['huihui-local'])
+    expect(server.paths).toEqual(['/chat/completions'])
   })
 
   it('uses settings-only route headers for model discovery', async () => {

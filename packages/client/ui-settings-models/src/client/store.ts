@@ -9,7 +9,8 @@
 
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import type {
-  CredentialInfo, LlmConfigurableProvider, LlmProviderInfo, SettingsNamespaceView,
+  CredentialInfo, LocalModelProfileId, LocalModelRuntimeSnapshot,
+  LlmConfigurableProvider, LlmProviderInfo, SettingsNamespaceView,
 } from '@deepseek-ai/dsh-api-remotes/client'
 import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
@@ -101,6 +102,12 @@ export interface ModelsSettingsState {
   rows: readonly ProviderRow[]
   /** Namespace views by ns, for the editor's schema/layers/secrets. */
   namespaces: ReadonlyMap<string, SettingsNamespaceView>
+  /** Latest process and endpoint probe from the existing local-model manager. */
+  localRuntime?: LocalModelRuntimeSnapshot
+  /** Latest local runtime control error, if an action or probe failed. */
+  localRuntimeError?: string | null
+  /** Whether a start, stop, or restart Remote call is still pending. */
+  localRuntimeBusy?: boolean
 }
 
 /**
@@ -156,6 +163,7 @@ export class ModelsSettingsStore {
 
   /** Latest load wins; an older response never overwrites a newer one. */
   private generation = 0
+  private runtimeRequestPending = false
 
   /**
    * @param ctx - the page plugin's context, whose `remote.llm` and
@@ -242,6 +250,90 @@ export class ModelsSettingsStore {
     })
   }
 
+  /** Poll the Host-owned status without mirroring browser-local timer state into the component. */
+  startLocalRuntimePolling(intervalMs = 4000): () => void {
+    const localModels: unknown = Reflect.get(this.ctx.remote, 'localModels')
+    const status: unknown = typeof localModels === 'object' && localModels !== null
+      ? Reflect.get(localModels, 'status')
+      : undefined
+    if (typeof status !== 'function') return () => undefined
+    let active = true
+    let disabled = false
+    const poll = async (): Promise<void> => {
+      if (!active || disabled) return
+      await this.refreshLocalRuntime()
+      disabled = this.store.getSnapshot().localRuntime?.enabled === false
+      if (disabled) clearInterval(timer)
+    }
+    const timer = setInterval(() => { void poll() }, intervalMs)
+    void poll()
+    return () => {
+      active = false
+      clearInterval(timer)
+    }
+  }
+
+  /** Read LaunchAgent state and the local model endpoint afresh. */
+  async refreshLocalRuntime(): Promise<void> {
+    if (this.runtimeRequestPending) return
+    this.runtimeRequestPending = true
+    try {
+      const response = await this.ctx.remote.localModels.status()
+      if (response.ok) {
+        this.store.update((state) => {
+          state.localRuntime = response.value
+          state.localRuntimeError = null
+        })
+      } else {
+        this.store.update((state) => { state.localRuntimeError = response.error.message })
+      }
+    } catch (error) {
+      this.store.update((state) => { state.localRuntimeError = errorMessage(error) })
+    } finally {
+      this.runtimeRequestPending = false
+    }
+  }
+
+  /** Start one allowlisted profile and publish its health-confirmed answer. */
+  startLocalModel(profile: LocalModelProfileId): Promise<void> {
+    return this.runLocalRuntimeAction(() => this.ctx.remote.localModels.start(profile))
+  }
+
+  /** Stop the managed model after its job and shared port are released. */
+  stopLocalModel(): Promise<void> {
+    return this.runLocalRuntimeAction(() => this.ctx.remote.localModels.stop())
+  }
+
+  /** Restart the selected profile after the current model has fully stopped. */
+  restartLocalModel(profile: LocalModelProfileId): Promise<void> {
+    return this.runLocalRuntimeAction(() => this.ctx.remote.localModels.restart(profile))
+  }
+
+  private async runLocalRuntimeAction(
+    action: () => ReturnType<ClientContext['remote']['localModels']['start']>,
+  ): Promise<void> {
+    this.store.update((state) => {
+      state.localRuntimeBusy = true
+      state.localRuntimeError = null
+    })
+    try {
+      const response = await action()
+      if (response.ok) {
+        this.store.update((state) => {
+          state.localRuntime = response.value
+          state.localRuntimeError = null
+        })
+      } else {
+        this.store.update((state) => { state.localRuntimeError = response.error.message })
+        await this.refreshLocalRuntime()
+      }
+    } catch (error) {
+      this.store.update((state) => { state.localRuntimeError = errorMessage(error) })
+    } finally {
+      this.store.update((state) => { state.localRuntimeBusy = false })
+    }
+  }
+
   /** Publish one load's failure text, unless a newer load already took over. */
   private failLoad(generation: number, message: string): void {
     if (generation !== this.generation) return
@@ -250,6 +342,10 @@ export class ModelsSettingsStore {
       s.error = message
     })
   }
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
 }
 
 /**

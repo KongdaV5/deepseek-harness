@@ -378,14 +378,8 @@ describe('hand-declared providers', () => {
     expect(streamSimple).toHaveBeenCalledOnce()
   })
 
-  it('leaves an unauthenticated route to its protocol rather than inventing a credential', async () => {
+  it('serves an unauthenticated OpenAI-compatible loopback route without sending an Authorization header', async () => {
     const server = await mockServer([{ events: textEvents }])
-    // Naming no credential is the deliberately unauthenticated posture — a
-    // named reference that resolved to nothing would have failed with
-    // MISSING_CREDENTIAL long before this point. The route resolves as
-    // configured and the protocol decides: pi-ai's OpenAI-compatible
-    // implementation wants a key or an Authorization header of its own, and
-    // says so instead of the harness guessing a placeholder.
     const ctx = await harness({
       providers: {
         'local-llm': {
@@ -397,11 +391,27 @@ describe('hand-declared providers', () => {
     })
 
     const result = await assemble(ctx, { provider: 'local-llm', model: 'qwen3', messages: [] })
+    expect(result.finish).toEqual({ kind: 'stop' })
+    expect(server.paths).toEqual(['/v1/chat/completions'])
+    expect(server.headers[0]?.authorization).toBeUndefined()
+  })
+
+  it('does not permit a keyless OpenAI-compatible route to use a non-loopback endpoint', async () => {
+    const ctx = await harness({
+      providers: {
+        'remote-llm': {
+          api: 'openai-completions',
+          baseURL: 'https://gateway.example/v1',
+          models: [{ id: 'qwen3', contextWindow: 32_768, maxTokens: 2048 }],
+        },
+      },
+    })
+
+    const result = await assemble(ctx, { provider: 'remote-llm', model: 'qwen3', messages: [] })
     expect(result.finish).toMatchObject({
       kind: 'error',
-      failure: { message: 'No API key for provider: local-llm' },
+      failure: { message: 'No API key for provider: remote-llm' },
     })
-    expect(server.requests).toHaveLength(0)
   })
 
   it('authenticates an unauthenticated route through a configured header', async () => {

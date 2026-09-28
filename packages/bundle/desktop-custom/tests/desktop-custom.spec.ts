@@ -126,12 +126,23 @@ describe('dsh-desktop-custom bundle', () => {
 
   it('restates the inherited compaction executor with the DS semantic-validation budget', () => {
     const rows = readPatch().filter(patch => patch.insert === undefined)
-    expect(rows.map(row => row.id)).toEqual(['compaction-basic'])
-    const row = rows[0]!
+    const row = rows.find(candidate => candidate.id === 'compaction-basic')!
     // The Web surface disables this row because a preset owns the backend; the
     // DS product owns it on the host plane, and a patch replaces the whole
     // `config`, so both keys are restated here.
     expect(row.disabled).toBe(false)
     expect(row.config).toEqual({ maxSummaryValidationRetries: 1 })
+  })
+
+  it('uses a fail-closed local-first default and disables built-in DeepSeek calls', () => {
+    const rows = readPatch().filter(patch => patch.insert === undefined)
+    expect(rows.find(row => row.id === 'agent-default-model')).toMatchObject({
+      config: { provider: 'dsh-local-unconfigured', model: 'select-local-model', localFirst: true },
+    })
+    expect(rows.find(row => row.id === 'llm-deepseek')?.disabled).toBe(true)
+    expect(rows.find(row => row.id === 'web-search-deepseek')?.disabled).toBe(true)
+    expect(rows.find(row => row.id === 'web')?.config).toEqual({ fetchProvider: 'http' })
+    expect(rows.find(row => row.id === 'tool-web')?.config).toMatchObject({ search: false, fetch: true })
+    expect(rows.find(row => row.id === 'settings-controller')?.config).toEqual({ localModelRuntime: true })
   })
 })

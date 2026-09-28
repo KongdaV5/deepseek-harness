@@ -90,3 +90,34 @@
   disabled: false
   config:
     maxSummaryValidationRetries: 1
+
+# A new Agent uses an explicitly configured loopback pi-ai route when available.
+# Until one exists, the unregistered sentinel fails closed instead of sending
+# the request to a hosted provider.
+- id: agent-default-model
+  config:
+    provider: dsh-local-unconfigured
+    model: select-local-model
+    localFirst: true
+
+# Desktop Custom does not create a DeepSeek API route or DeepSeek-backed search.
+# Generic provider support remains available from the Models page.
+- id: llm-deepseek
+  disabled: true
+
+- id: web-search-deepseek
+  disabled: true
+
+- id: web
+  config:
+    fetchProvider: http
+
+- id: tool-web
+  config:
+    search: false
+    fetch: true
+    searchTimeoutMs: 60000
+
+- id: settings-controller
+  config:
+    localModelRuntime: true
