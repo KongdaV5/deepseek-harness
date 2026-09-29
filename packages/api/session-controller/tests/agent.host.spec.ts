@@ -63,7 +63,7 @@ function providePersistence(ctx: Context, persistence: Record<string, unknown>):
 
 function agent(ctx: Context, meta: SessionHeader): Agent {
   const session = ctx.sessions.create(meta.id, { meta })
-  return { id: meta.id, session, status: 'idle', ctx } as Agent
+  return { id: meta.id, session, status: 'idle', ctx: ctx.isolate('agentModelSelection') } as Agent
 }
 
 function unpublishedAgent(ctx: Context, meta: SessionHeader): Agent {
@@ -71,7 +71,7 @@ function unpublishedAgent(ctx: Context, meta: SessionHeader): Agent {
     id: meta.id,
     session: { id: meta.id, header: meta, events: [] },
     status: 'idle',
-    ctx,
+    ctx: ctx.isolate('agentModelSelection'),
   } as unknown as Agent
 }
 

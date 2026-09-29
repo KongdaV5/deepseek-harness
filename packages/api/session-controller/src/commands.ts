@@ -134,27 +134,39 @@ export class SessionCommandController {
     const agent = await this.resolveAgent(request.sessionId)
     return this.agents.serializeImageAdmission(agent, async () => {
       try {
-        const resolved = await this.ctx.llm.resolveCallConfig({
+        const external = this.ctx.get('externalModelProviders')?.listProviders()
+          .find(provider => provider.id === request.provider)
+        if (agent.status === 'running' && external !== undefined) {
+          throw new RemoteError(
+            'session/agent-busy',
+            'external model selection is available only between turns; finish or cancel the active turn first',
+            { reason: 'MODEL_SWITCH_DURING_TURN' },
+          )
+        }
+        const proposed: AgentModelSelection = {
           provider: request.provider,
           model: request.model,
           ...(request.reasoningEffort === undefined
             ? {}
             : { reasoningEffort: ReasoningEffortId(request.reasoningEffort) }),
-        })
+        }
+        const resolved = external === undefined
+          ? await this.ctx.llm.resolveCallConfig(proposed)
+          : await external.resolveSelection(proposed)
         const selected: AgentModelSelection = {
           provider: resolved.provider,
           model: resolved.model,
-          ...(resolved.reasoningEffort === undefined
-            ? {}
-            : { reasoningEffort: resolved.reasoningEffort }),
+          ...(resolved.reasoningEffort === undefined ? {} : { reasoningEffort: resolved.reasoningEffort }),
         }
         this.agents.selectForNextRequest(agent, selected)
-        try {
-          await this.ctx.agentDefaultModel.saveSelection(selected)
-        } catch (error) {
-          this.ctx.logger.warn(
-            `session-controller: model selection changed for the Session but the default was not saved: ${String(error)}`,
-          )
+        if (external === undefined) {
+          try {
+            await this.ctx.agentDefaultModel.saveSelection(selected)
+          } catch (error) {
+            this.ctx.logger.warn(
+              `session-controller: model selection changed for the Session but the default was not saved: ${String(error)}`,
+            )
+          }
         }
         return { selected: { ...selected } }
       } catch (error) {
@@ -330,6 +342,13 @@ export class SessionCommandController {
       ...(clientTimeZone === undefined ? {} : { clientTimeZone }),
     }
     const hasImage = request.content.some(part => part.type === 'image')
+    if (hasImage && this.ctx.get('externalModelProviders')?.listProviders().some(provider => provider.id === selection.provider)) {
+      throw new RemoteError(
+        'session/attachment-invalid',
+        'the selected external runtime does not support image input',
+        { reason: 'EXTERNAL_ROUTE_IMAGE_UNSUPPORTED' },
+      )
+    }
     const admit = async (): Promise<SessionPromptValue> => {
       try {
         if (hasImage) {
@@ -656,4 +675,5 @@ function referencedImage(
 
 function routeServed(ctx: Context, provider: string): boolean {
   return ctx.llm.listProviders().some(entry => entry.id === provider)
+    || ctx.get('externalModelProviders')?.listProviders().some(entry => entry.id === provider) === true
 }

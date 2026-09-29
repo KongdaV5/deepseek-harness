@@ -12,6 +12,7 @@ import { Context } from '@deepseek-ai/cordis'
 import Schema from '@deepseek-ai/schemastery'
 // Type-only: resolves the `agentPresets` Context augmentation this controller reads.
 import type {} from '@deepseek-ai/dsh-agent-presets'
+import type {} from '@deepseek-ai/dsh-agent-codex'
 import {
   canOpenNativePath,
   openNativePath,
@@ -26,7 +27,8 @@ import type { JsonValue } from '@deepseek-ai/dsh-util-values'
 import { z } from 'zod'
 import { CredentialsController } from './credentials.ts'
 import { LocalModelRuntimeController } from './local-model-runtime.ts'
-import type { AgentPresetDirectoryOpenValue, SettingsDocumentOpenValue } from './types.ts'
+import type { AgentPresetDirectoryOpenValue, CodexRuntimePreference, SettingsDocumentOpenValue } from './types.ts'
+import type { CodexLoginStartValue, CodexSubscriptionStatusView } from './types.ts'
 
 export { CredentialsController } from './credentials.ts'
 export { LocalModelRuntimeController } from './local-model-runtime.ts'
@@ -40,6 +42,8 @@ export interface Config {
   readonly nativeOpen?: boolean
   /** Expose controls for the verified, existing local-model manager. */
   readonly localModelRuntime?: boolean
+  /** Expose the isolated official Codex App Server integration in Custom desktop. */
+  readonly codexSubscription?: boolean
 }
 
 /** Read abort state afresh after an awaited provider or opener call. */
@@ -93,11 +97,13 @@ export class SettingsController extends TypertRemoteService {
   static Config: Schema<Config> = Schema.object({
     nativeOpen: Schema.boolean(),
     localModelRuntime: Schema.boolean().default(false),
+    codexSubscription: Schema.boolean().default(false),
   })
 
   private readonly openPath: (path: string, signal: AbortSignal) => Promise<void>
   private readonly openTextFile: (path: string, signal: AbortSignal) => Promise<void>
   private readonly canOpenPath: () => boolean
+  private readonly codexSubscriptionEnabled: boolean
 
   /**
    * Register the settings namespace and mount the credentials namespace beside
@@ -111,6 +117,7 @@ export class SettingsController extends TypertRemoteService {
     this.openTextFile = internals.openTextFile ?? openNativeTextFile
     this.canOpenPath = internals.canOpenPath
       ?? (() => config.nativeOpen ?? (internals.openPath !== undefined || canOpenNativePath()))
+    this.codexSubscriptionEnabled = config.codexSubscription === true
     ctx.plugin(CredentialsController)
     ctx.plugin(LocalModelRuntimeController, { enabled: config.localModelRuntime === true })
   }
@@ -138,6 +145,62 @@ export class SettingsController extends TypertRemoteService {
   @Remote
   canOpenAgentPresetDirectory(): boolean {
     return this.canOpenPath()
+  }
+
+  /** Read only the renderer-safe state from the isolated official Codex runtime.
+   * @returns A redacted status projection with no authentication material or URL.
+   */
+  @Remote
+  async codexSubscriptionStatus(): Promise<CodexSubscriptionStatusView> {
+    const runtime = this.codexRuntime()
+    if (!this.codexSubscriptionEnabled || runtime === undefined) {
+      return {
+        enabled: false, runtime: 'stopped', account: 'not-connected', login: 'idle', modelCount: 0,
+        usage: { state: 'unavailable' }, runtimePreference: 'auto', systemRuntimeAvailable: false, bundledRuntimeVersion: '',
+      }
+    }
+    return projectCodexStatus(await runtime.status())
+  }
+
+  /** Persist and activate one App Server runtime preference at an idle turn boundary.
+   * @param preference - the requested automatic, verified system, or bundled runtime.
+   * @returns the refreshed renderer-safe Codex subscription status.
+   */
+  @Remote
+  async selectCodexRuntime(preference: CodexRuntimePreference): Promise<CodexSubscriptionStatusView> {
+    return projectCodexStatus(await this.requireCodexRuntime().selectRuntime(preference))
+  }
+
+  /** Begin the official ChatGPT browser-login flow on an explicit user action.
+   * @returns Whether the official browser sign-in is pending or already connected.
+   */
+  @Remote
+  async connectCodexSubscription(): Promise<CodexLoginStartValue> {
+    return this.requireCodexRuntime().connectChatGPT()
+  }
+
+  /** Cancel only DSH's pending official App Server login transaction.
+   * @returns The refreshed renderer-safe subscription state.
+   */
+  @Remote
+  async cancelCodexSubscriptionLogin(): Promise<CodexSubscriptionStatusView> {
+    return projectCodexStatus(await this.requireCodexRuntime().cancelLogin())
+  }
+
+  /** Restart only the Codex App Server subprocess owned by this DSH process.
+   * @returns The refreshed renderer-safe subscription state.
+   */
+  @Remote
+  async reconnectCodexSubscription(): Promise<CodexSubscriptionStatusView> {
+    return projectCodexStatus(await this.requireCodexRuntime().reconnect())
+  }
+
+  /** Log out only from the dedicated DSH Codex runtime home.
+   * @returns The refreshed renderer-safe subscription state.
+   */
+  @Remote
+  async disconnectCodexSubscription(): Promise<CodexSubscriptionStatusView> {
+    return projectCodexStatus(await this.requireCodexRuntime().disconnect())
   }
 
   /**
@@ -304,6 +367,54 @@ export class SettingsController extends TypertRemoteService {
       )
     }
     return settings
+  }
+
+  private codexRuntime() {
+    if (!this.codexSubscriptionEnabled) return undefined
+    return this.ctx.get('codexSubscription')
+  }
+
+  private requireCodexRuntime() {
+    const runtime = this.codexRuntime()
+    if (runtime === undefined) {
+      throw new RemoteError('gateway/internal', 'official Codex subscription is not enabled in this deployment', {})
+    }
+    return runtime
+  }
+}
+
+/** Whitelist the status fields that are safe to cross the renderer boundary. */
+function projectCodexStatus(status: {
+  readonly enabled: boolean
+  readonly runtime: CodexSubscriptionStatusView['runtime']
+  readonly runtimePreference: CodexSubscriptionStatusView['runtimePreference']
+  readonly runtimeSource?: CodexSubscriptionStatusView['runtimeSource']
+  readonly runtimeVersion?: string
+  readonly systemRuntimeAvailable: boolean
+  readonly systemRuntimeVersion?: string
+  readonly bundledRuntimeVersion: string
+  readonly runtimeSelectionNote?: string
+  readonly account: CodexSubscriptionStatusView['account']
+  readonly login: CodexSubscriptionStatusView['login']
+  readonly modelCount: number
+  readonly usage: CodexSubscriptionStatusView['usage']
+  readonly error?: string
+}): CodexSubscriptionStatusView {
+  return {
+    enabled: status.enabled,
+    runtime: status.runtime,
+    runtimePreference: status.runtimePreference,
+    ...(status.runtimeSource === undefined ? {} : { runtimeSource: status.runtimeSource }),
+    ...(status.runtimeVersion === undefined ? {} : { runtimeVersion: status.runtimeVersion }),
+    systemRuntimeAvailable: status.systemRuntimeAvailable,
+    ...(status.systemRuntimeVersion === undefined ? {} : { systemRuntimeVersion: status.systemRuntimeVersion }),
+    bundledRuntimeVersion: status.bundledRuntimeVersion,
+    ...(status.runtimeSelectionNote === undefined ? {} : { runtimeSelectionNote: status.runtimeSelectionNote }),
+    account: status.account,
+    login: status.login,
+    modelCount: status.modelCount,
+    usage: status.usage,
+    ...(status.error === undefined ? {} : { error: status.error }),
   }
 }
 

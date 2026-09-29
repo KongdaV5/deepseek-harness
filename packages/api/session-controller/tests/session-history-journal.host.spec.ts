@@ -2,7 +2,7 @@
 
 import { describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
-import AgentRegistry, { type Agent, type AssistantStreamFrame } from '@deepseek-ai/dsh-agent'
+import AgentRegistry, { type Agent, type AssistantStreamFrame, type ExternalTurnEvent } from '@deepseek-ai/dsh-agent'
 import SessionStore from '@deepseek-ai/dsh-session'
 import { LlmAttemptId, ToolCallId, createMessage, createToolResultMessage, createUserMessage } from '@deepseek-ai/dsh-llm'
 import type { Session, SessionEvent, SessionId } from '@deepseek-ai/dsh-session'
@@ -95,6 +95,92 @@ function pageEvents(page: SessionPage): SessionWireEvent[] {
 }
 
 describe('Session history raw journal', () => {
+  it('delivers bounded external-runtime activity through live follow without adding transcript events', async () => {
+    const { ctx } = await harness()
+    const session = ctx.sessions.create(undefined, { meta: { cwd: '/workspace' } })
+    const agent = { id: session.id, session, status: 'running', ctx } as Agent
+    const history = new SessionHistoryController(ctx, (observation) => { observation[Symbol.dispose]() })
+    const commandStarted = {
+      kind: 'command', id: 'command-1', command: 'touch canary.txt', status: 'started',
+      identity: {
+        activityId: 'thread-1:turn-1:command-1', eventId: 'event-command-start',
+        sessionId: session.id, dshTurn: 4, dshStep: 2,
+        provider: 'openai-codex-subscription', runtimeSource: 'system', runtimeVersion: '0.158.0',
+        threadId: 'thread-1', turnId: 'turn-1', itemId: 'command-1',
+        eventKind: 'item/started', terminalState: 'started',
+      },
+    } as const satisfies Extract<ExternalTurnEvent, { kind: 'command' }>
+    ctx.emit('agent/external-turn-event', { agent, turn: 4, step: 2, event: commandStarted })
+
+    const abort = new AbortController()
+    const iterator = history.follow({
+      address: { kind: 'session', sessionId: session.id },
+      assistantStream: true,
+      externalActivities: true,
+    }, abort.signal)[Symbol.asyncIterator]()
+    await expect(iterator.next()).resolves.toMatchObject({
+      done: false,
+      value: {
+        type: 'snapshot',
+        externalActivities: {
+          revision: 1,
+          activities: [{
+            id: commandStarted.identity.activityId,
+            sessionId: session.id,
+            dshTurn: 4,
+            dshStep: 2,
+            kind: 'command',
+            status: 'started',
+            label: 'touch',
+            codexThreadId: 'thread-1',
+            codexTurnId: 'turn-1',
+            codexItemId: 'command-1',
+          }],
+        },
+      },
+    })
+    const before = session.snapshotEvents().length
+    const commandCompleted = {
+      ...commandStarted,
+      status: 'completed',
+      identity: { ...commandStarted.identity, eventId: 'event-command-completed', eventKind: 'item/completed', terminalState: 'completed' },
+    }
+    ctx.emit('agent/external-turn-event', { agent, turn: 4, step: 2, event: commandCompleted as never })
+    await expect(iterator.next()).resolves.toMatchObject({
+      done: false,
+      value: {
+        type: 'external-activity',
+        frame: {
+          revision: 2,
+          activity: { id: commandStarted.identity.activityId, status: 'completed' },
+        },
+      },
+    })
+    expect(session.snapshotEvents()).toHaveLength(before)
+    const fileChange = {
+      kind: 'file-change', id: 'command-1', path: 'canary.txt', status: 'modified',
+      identity: {
+        ...commandStarted.identity,
+        activityId: 'thread-1:turn-1:file-change',
+        eventId: 'event-file-change',
+        eventKind: 'item/completed',
+        terminalState: 'modified',
+      },
+    } as const satisfies Extract<ExternalTurnEvent, { kind: 'file-change' }>
+    ctx.emit('agent/external-turn-event', { agent, turn: 4, step: 2, event: fileChange })
+    await expect(iterator.next()).resolves.toMatchObject({
+      done: false,
+      value: {
+        type: 'external-activity',
+        frame: { revision: 3, activity: { kind: 'file-change', path: 'canary.txt', status: 'modified' } },
+      },
+    })
+    expect(session.snapshotEvents()).toHaveLength(before)
+    abort.abort()
+    await iterator.next()
+    await ctx.fiber.dispose()
+  })
+
   it('opens an empty opted-in Assistant baseline before any live attempt exists', async () => {
     const { ctx } = await harness()
     const session = ctx.sessions.create(undefined, { meta: { cwd: '/workspace' } })

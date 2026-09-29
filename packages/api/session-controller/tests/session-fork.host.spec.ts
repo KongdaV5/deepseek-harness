@@ -39,7 +39,7 @@ async function composed(workspaces: readonly Workspace[] = []): Promise<Context>
           : { inheritedEventCount: options.inheritedEventCount },
       })
       const agent = {} as Agent
-      const agentCtx = ownerCtx
+      const agentCtx = ownerCtx.isolate('agentModelSelection')
       Object.assign(agent, { id: session.id, session, status: 'idle', ctx: agentCtx })
       await options.setup?.(agentCtx, agent)
       await ctx.agents.register(agent)

@@ -1,6 +1,7 @@
 /** Shared projection of the live LLM registry into the browser model catalog. */
 
 import type { Context } from '@deepseek-ai/cordis'
+import type {} from '@deepseek-ai/dsh-agent'
 import type {
   ModelCatalog,
   ModelReasoning,
@@ -18,7 +19,8 @@ export async function buildModelCatalog(
   defaultSelection: ModelSelection = ctx.agentDefaultModel.currentSelection(),
 ): Promise<ModelCatalog> {
   const providers = ctx.llm.listProviders()
-  const catalog = await Promise.all(providers.map(async (provider) => {
+  const externalProviders = ctx.get('externalModelProviders')?.listProviders() ?? []
+  const localCatalog = await Promise.all(providers.map(async (provider) => {
     try {
       const models = await ctx.llm.listModels(provider.id)
       const entries = await Promise.all(models.map(async (model) => {
@@ -57,9 +59,47 @@ export async function buildModelCatalog(
       }
     }
   }))
+  const externalCatalog = await Promise.all(externalProviders.map(async (provider) => {
+    try {
+      if (providers.some(local => local.id === provider.id)) {
+        throw new Error(`external provider id "${provider.id}" conflicts with an LLM adapter`)
+      }
+      const models = await provider.listModels()
+      const seen = new Set<string>()
+      for (const model of models) {
+        if (model.id.length === 0 || model.name.length === 0 || seen.has(model.id)) {
+          throw new Error(`external provider "${provider.id}" returned invalid or duplicate model metadata`)
+        }
+        seen.add(model.id)
+      }
+      return {
+        kind: 'group' as const,
+        group: {
+          id: provider.id,
+          name: provider.name,
+          models: models.map(model => ({
+            id: model.id,
+            name: model.name,
+            ...(model.description === undefined ? {} : { description: model.description }),
+            ...(model.reasoning === undefined ? {} : { reasoning: model.reasoning }),
+          })),
+        },
+      }
+    } catch (error) {
+      return {
+        kind: 'failure' as const,
+        failure: {
+          id: provider.id,
+          name: provider.name,
+          message: error instanceof Error ? error.message : String(error),
+        },
+      }
+    }
+  }))
+  const catalog = [...localCatalog, ...externalCatalog]
   return {
     default: { ...defaultSelection },
-    routableProviders: providers.map(provider => provider.id),
+    routableProviders: [...providers.map(provider => provider.id), ...externalProviders.map(provider => provider.id)],
     groups: catalog.flatMap(item => item.kind === 'group' ? [item.group] : [])
       .filter(group => group.models.length > 0),
     failures: catalog.flatMap(item => item.kind === 'failure' ? [item.failure] : []),

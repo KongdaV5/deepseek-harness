@@ -66,6 +66,7 @@ function mountBar(shell: SessionInputShell, over?: { running?: boolean; disabled
       baselinesReady: true, recentWorkspaceId: undefined,
     })),
     useProjection: (() => undefined),
+    useExternalActivities: selector => selector([]),
     useConversation: bindSnapshotSelector(createSnapshotStore(conversationSnapshot())),
     useInput: bindSnapshotSelector(shell.state),
     inputActions: shell.actions,

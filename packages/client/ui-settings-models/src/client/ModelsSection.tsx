@@ -16,7 +16,7 @@ import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Button, IconPlusOutline16, Modal } from '@deepseek-ai/dsh-client-ui-primitives'
 import type {
-  LocalModelRuntimeProfile, LocalModelRuntimeSnapshot, LocalModelRuntimeState,
+  CodexRuntimePreference, CodexSubscriptionStatusView, LocalModelRuntimeProfile, LocalModelRuntimeSnapshot, LocalModelRuntimeState,
 } from '@deepseek-ai/dsh-api-remotes/client'
 import type { InjectFace, PropsRenderSlots } from '@deepseek-ai/dsh-client-ui-slots'
 // Type-only: pulls this package's SlotMap merge (the two Models child slots).
@@ -348,6 +348,121 @@ function LocalRuntimeProfileRow({
   )
 }
 
+function CodexSubscriptionPanel({
+  snapshot, error, busy, controller, t,
+}: {
+  snapshot: CodexSubscriptionStatusView
+  error: string | null | undefined
+  busy: boolean | undefined
+  controller: ModelsSettingsStore
+  t: ModelsSectionInjected['t']
+}): ReactNode {
+  if (!snapshot.enabled) return null
+  const accountKey: keyof typeof en = snapshot.login === 'signing-in'
+    ? 'codexSigningIn'
+    : snapshot.account === 'connected'
+      ? 'codexConnected'
+      : snapshot.account === 'reauth-required'
+        ? 'codexReauthRequired'
+        : snapshot.account === 'error'
+          ? 'codexAccountError'
+          : 'codexNotConnected'
+  const runtimeKey: keyof typeof en = snapshot.runtime === 'ready'
+    ? 'codexRuntimeReady'
+    : snapshot.runtime === 'crashed'
+      ? 'codexRuntimeCrashed'
+      : snapshot.runtime === 'error'
+        ? 'codexRuntimeError'
+        : snapshot.runtime === 'stopped'
+          ? 'codexRuntimeStopped'
+          : 'codexRuntimeStarting'
+  const actionPending = busy === true
+  return (
+    <section className={styles['runtimePanel']} aria-labelledby="codex-subscription-title" aria-busy={actionPending}>
+      <div className={styles['runtimeHeader']}>
+        <h3 id="codex-subscription-title" className={styles['runtimeTitle']}>{t('codexTitle')}</h3>
+        <span className={styles['runtimeEndpoint']}>{t('codexSubtitle')}</span>
+      </div>
+      <div className={styles['runtimeProfileIdentity']} role="status" aria-live="polite">
+        <span className={`${styles['runtimeDot']} ${snapshot.account === 'connected' ? styles['runtimeDotRunning'] : snapshot.account === 'error' ? styles['runtimeDotError'] : styles['runtimeDotStopped']}`} aria-hidden="true" />
+        <span className={styles['runtimeState']}>{t(runtimeKey)}</span>
+        <span className={styles['runtimeState']}>{t(accountKey)}</span>
+        {snapshot.account === 'connected' ? (
+          <>
+            <span className={styles['runtimeState']}>{`${snapshot.modelCount} ${t('codexModelsAvailable')}`}</span>
+            <span className={styles['runtimeState']}>{codexUsageSummary(snapshot.usage, t)}</span>
+          </>
+        ) : null}
+      </div>
+      <label className={styles['runtimePicker']}>
+        <span>{t('codexRuntimeSetting')}</span>
+        <select
+          aria-label={t('codexRuntimeSetting')}
+          value={snapshot.runtimePreference}
+          disabled={actionPending}
+          onChange={(event) => { void controller.selectCodexRuntime(event.currentTarget.value as CodexRuntimePreference) }}
+        >
+          <option value="auto">{`${t('codexRuntimeAutomatic')} · ${snapshot.runtimeSource === 'system'
+            ? `${t('codexRuntimeSystem')} ${snapshot.runtimeVersion ?? ''}`
+            : `${t('codexRuntimeBundled')} ${snapshot.runtimeVersion ?? snapshot.bundledRuntimeVersion}`}`}</option>
+          <option value="system" disabled={!snapshot.systemRuntimeAvailable}>
+            {`${t('codexRuntimeSystem')}${snapshot.systemRuntimeVersion === undefined ? '' : ` · ${snapshot.systemRuntimeVersion}`}`}
+          </option>
+          <option value="bundled">{`${t('codexRuntimeBundled')} · ${snapshot.bundledRuntimeVersion}`}</option>
+        </select>
+      </label>
+      {snapshot.runtimeSelectionNote === undefined ? null : (
+        <p className={styles['runtimeDescription']} role="status">{snapshot.runtimeSelectionNote}</p>
+      )}
+      {snapshot.error === undefined && error == null ? null : (
+        <p role="alert" className={styles['runtimeError']}>{snapshot.error ?? error}</p>
+      )}
+      <span className={styles['runtimeActions']}>
+        {snapshot.login === 'signing-in' ? (
+          <button type="button" className={styles['runtimeButton']} disabled={actionPending} onClick={() => { void controller.cancelCodexSubscriptionLogin() }}>
+            {t('codexCancelLogin')}
+          </button>
+        ) : snapshot.account === 'connected' ? (
+          <>
+            <button type="button" className={styles['runtimeButton']} disabled={actionPending} onClick={() => { void controller.reconnectCodexSubscription() }}>
+              {t('codexReconnect')}
+            </button>
+            <button type="button" className={styles['runtimeButton']} disabled={actionPending} onClick={() => { void controller.disconnectCodexSubscription() }}>
+              {t('codexDisconnect')}
+            </button>
+          </>
+        ) : (
+          <button type="button" className={styles['runtimeButton']} disabled={actionPending} onClick={() => { void controller.connectCodexSubscription() }}>
+            {snapshot.account === 'reauth-required' ? t('codexConnectAgain') : t('codexConnect')}
+          </button>
+        )}
+      </span>
+    </section>
+  )
+}
+
+function codexUsageSummary(
+  usage: CodexSubscriptionStatusView['usage'],
+  t: ModelsSectionInjected['t'],
+): string {
+  if (usage.state !== 'available') return t('codexUsageUnavailable')
+  const windows = [usage.primary, usage.secondary].flatMap((window) => {
+    if (window === undefined) return []
+    const minutes = window.windowDurationMins
+    const duration = minutes === undefined
+      ? t('codexUsageWindow')
+      : minutes % 10_080 === 0
+        ? `${minutes / 10_080}w`
+        : minutes % 1_440 === 0
+          ? `${minutes / 1_440}d`
+          : minutes % 60 === 0
+            ? `${minutes / 60}h`
+            : `${minutes}m`
+    return [`${duration} ${window.usedPercent}% ${t('codexUsageUsed')}`]
+  })
+  return windows.length === 0 ? t('codexUsageUnavailable') : `${t('codexUsageLabel')}: ${windows.join(' · ')}`
+}
+
 /**
  * Render the Models section content column.
  * @param props - slot-delivered injected dependencies.
@@ -365,7 +480,14 @@ export function ModelsSection(props: ModelsSectionProps): ReactNode {
 function Loaded({ injected, renderSlot }: { injected: ModelsSectionFace; renderSlot: ModelsRenderSlot }): ReactNode {
   const { controller, operations, schema, t } = injected
   const state = injected.useSnapshot(snapshot => snapshot)
-  useEffect(() => controller.startLocalRuntimePolling(), [controller])
+  useEffect(() => {
+    const stopLocalPolling = controller.startLocalRuntimePolling()
+    const stopCodexPolling = controller.startCodexSubscriptionPolling()
+    return () => {
+      stopLocalPolling()
+      stopCodexPolling()
+    }
+  }, [controller])
   const [editing, setEditing] = useState<EditorTarget | undefined>(undefined)
   const [adding, setAdding] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<EditorTarget | undefined>(undefined)
@@ -490,6 +612,17 @@ function Loaded({ injected, renderSlot }: { injected: ModelsSectionFace; renderS
             snapshot={state.localRuntime}
             error={state.localRuntimeError}
             busy={state.localRuntimeBusy}
+            controller={controller}
+            t={t}
+          />
+        )
+        : null}
+      {state.codexSubscription?.enabled === true
+        ? (
+          <CodexSubscriptionPanel
+            snapshot={state.codexSubscription}
+            error={state.codexSubscriptionError}
+            busy={state.codexSubscriptionBusy}
             controller={controller}
             t={t}
           />

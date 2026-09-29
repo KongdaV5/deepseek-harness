@@ -318,6 +318,7 @@ function panelProps(data: WorkflowRunChatData, sessions = listState(), openSessi
     useSessionRetainInfo: () => undefined,
     useSession: selector => selector(panelSession),
     useProjection: () => undefined,
+    useExternalActivities: selector => selector([]),
     useConversation: selector => selector(panelConversation),
     useChat: selector => selector(panelChat),
     useTrajectory: selector => selector(panelTrajectory),

@@ -10,7 +10,7 @@ import {
   type LlmCallConfig,
   type ReasoningEffortId,
 } from '@deepseek-ai/dsh-llm'
-import type { PreStepDecision } from './runtime-types.ts'
+import type { ExternalModelProviderDirectory, PreStepDecision } from './runtime-types.ts'
 
 /** Complete provider, model, and optional reasoning effort selected for one live Agent. */
 export interface ModelSelection {
@@ -28,6 +28,15 @@ export interface ModelSelectionRef {
   current: ModelSelection | undefined
   /** Selection captured when the current step entered prompt assembly. */
   assembled: ModelSelection | undefined
+}
+
+declare module '@deepseek-ai/cordis' {
+  interface Context {
+    /** Session-local selection captured by the Agent loop before turn admission. */
+    agentModelSelection?: ModelSelectionRef
+    /** Model directories owned by External Turn runtimes, if any are mounted. */
+    externalModelProviders?: ExternalModelProviderDirectory
+  }
 }
 
 function sameRoute(left: ModelSelection, right: ModelSelection): boolean {
@@ -74,6 +83,7 @@ function modelSwitchNotice(previous: ModelSelection, selected: ModelSelection) {
  * @returns Disposer for all scoped waterfall listeners.
  */
 export function installModelSelection(agentCtx: Context, selection: ModelSelectionRef): () => void {
+  agentCtx.provide('agentModelSelection', selection)
   const disposeAssembly = agentCtx.on('system-prompt/assemble', async (_assembly, _context, next) => {
     const selected = selection.current
     const assembled = await next()

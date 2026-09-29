@@ -14,6 +14,7 @@ kind: "package-reference"
 
 - [使用本包](#use-this-package)
 - [配置](#configuration)
+- [官方 Codex 订阅](#official-codex-subscription)
 - [本地模型运行时](#local-model-runtime)
 - [模型体验](#model-experience)
 - [已知限制与延期工作](#known-limitations-and-deferred-work)
@@ -50,8 +51,14 @@ kind: "package-reference"
 |---|---|---|
 | `nativeOpen` | 平台探测 | Agent preset 目录能否交给原生桌面打开器 |
 | `localModelRuntime` | `false` | 是否向此部署公开经过身份核对的现有本地模型管理器控制 |
+| `codexSubscription` | `false` | 是否向此部署公开隔离的官方 Codex App Server 订阅集成 |
 
 生成的[配置目录](../../../docs/config-catalog.zh.md#deepseek-aidsh-api-settings-controller)是所有受支持字段及其 JSDoc 的完整来源。
+
+<a id="official-codex-subscription"></a>
+### 官方 Codex 订阅
+
+启用 `codexSubscription` 后，Custom 桌面客户端可以通过官方 ChatGPT 浏览器登录显式连接，并从当前 Codex App Server 动态发现模型与推理档位。模型设置卡可持久化选择“自动 / System Codex / Bundled Codex”；“自动”优先使用通过身份与能力验证的官方 ChatGPT 应用内 runtime，探测失败时才使用 bundled runtime。单个连接不会在运行中切换可执行文件，模型列表只来自该 runtime。认证信息保留在 DSH 独立拥有的 Codex home 中；settings 和远程状态不会暴露凭据或登录 URL。可选用量状态读取官方 rate-limit 快照，只投影安全的窗口使用百分比与重置元数据；用量不可用不会改变账号或模型可用性。Codex 不会成为隐式默认模型或 provider fallback。
 
 -----
 

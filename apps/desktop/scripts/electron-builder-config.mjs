@@ -123,6 +123,9 @@ export function createElectronBuilderConfig(
       '**/*.so.*',
       '**/spawn-helper',
       '**/@vscode/ripgrep/bin/rg',
+      // Codex App Server launches its pinned native helpers from this vendor bin tree.
+      '**/@openai/codex-*/vendor/**/bin/**',
+      '**/@openai/codex-*/vendor/**/codex-path/**',
     ],
     extraResources: [
       { from: buildPaths.runtime, to: 'runtime' },

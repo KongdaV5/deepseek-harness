@@ -8,7 +8,7 @@ kind: "package-reference"
 
 ## 概述
 
-`@deepseek-ai/dsh-api-session-controller` 拥有 Host 的 `ctx.sessionController` 服务，以及生成的 Client `session`、`skills` 和 `fileReferences` Remote namespace。它提供 Session 生命周期与历史、Host generation 模型目录、工作区路径打开、用户可调用 skill（技能）发现和 Agent（智能体）范围的文件引用。当 Client 需要按 Session 寻址的操作时，请通过 API Gateway 使用它。
+`@deepseek-ai/dsh-api-session-controller` 拥有 Host 的 `ctx.sessionController` 服务，以及生成的 Client `session`、`skills` 和 `fileReferences` Remote namespace。它提供 Session 生命周期与历史、Host generation 模型目录、工作区路径打开、用户可调用 skill（技能）发现、Agent（智能体）范围的文件引用，以及与持久 Session 历史分离的可选有界外部运行时活动流。当 Client 需要按 Session 寻址的操作时，请通过 API Gateway 使用它。
 
 ## 目录
 
@@ -43,6 +43,8 @@ Session 对象还承载本地提交回显：`session.beginSubmission` 在调用�
 分叉复制截至选中已结束轮次的历史，并包含其 `turn/end`。该位置之后的事件均被排除，包括排队输入和模型设置变更。省略锚点或锚点超出日志末尾时，选择最后一个已结束轮次；位于未结束轮次内的锚点会被拒绝。
 
 恢复会话时若已有写句柄占用，返回 `session/writer-held`，并携带会话 id；其他恢复失败仍返回 `gateway/internal`。
+
+`SessionEventStream` 也会订阅有界外部活动流。Host 以进程本地、带 revision 的 frame 发送已净化命令标签、审批与轮次更新，以及安全的工作区相对文件变更；命令参数和进程输出不会进入该流。重连时 Client 会用最新 baseline 替换活动窗口，这些 frame 永远不会成为持久 Session 事件。
 
 <a id="client-references"></a>
 ## Client 引用

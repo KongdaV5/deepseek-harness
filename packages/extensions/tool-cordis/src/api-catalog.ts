@@ -657,6 +657,83 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
+    key: 'codexSubscription',
+    summary: 'App Server-backed provider, model directory, and external turn executor.',
+    description: 'App Server-backed provider, model directory, and external turn executor.',
+    methods: [
+      {
+        signature: 'attachSettings(scope: SettingsScope<CodexRuntimeSettings>): void',
+        description: 'Attach the persistent runtime preference owned by DSH settings.',
+        parameters: [{ name: 'scope', description: 'the DSH settings scope that stores the user\'s runtime preference.' }],
+      },
+      {
+        signature: 'async selectRuntime(preference: unknown): Promise<CodexSubscriptionStatus>',
+        description: 'Change runtime preference only between turns, then start a fresh pinned connection.',
+        parameters: [{ name: 'preference', description: 'the requested automatic, verified system, or bundled runtime.' }],
+        returns: 'the refreshed renderer-safe Codex subscription status.',
+      },
+      {
+        signature: 'listProviders(): readonly ExternalModelProvider[]',
+        description: 'The model catalog owner is this exact active runtime instance.',
+        parameters: [],
+        returns: 'This runtime as the only external provider owned by the package.',
+      },
+      {
+        signature: 'async status(): Promise<CodexSubscriptionStatus>',
+        description: 'Return redacted current state; a settings visit is an on-demand start boundary.',
+        parameters: [],
+        returns: 'The current renderer-safe runtime, account, and usage state.',
+      },
+      {
+        signature: 'async connectChatGPT(): Promise<{ readonly status: \'signing-in\' | \'connected\' }>',
+        description: 'Start the official ChatGPT subscription login and open only its allowlisted URL.',
+        parameters: [],
+        returns: 'Whether the official browser sign-in is pending or already connected.',
+      },
+      {
+        signature: 'async cancelLogin(): Promise<CodexSubscriptionStatus>',
+        description: 'Cancel only the login transaction owned by this runtime process.',
+        parameters: [],
+        returns: 'The refreshed renderer-safe subscription state.',
+      },
+      {
+        signature: 'async reconnect(): Promise<CodexSubscriptionStatus>',
+        description: 'Reconnect means restarting only the DSH-owned App Server, not user Codex apps.',
+        parameters: [],
+        returns: 'The refreshed renderer-safe subscription state.',
+      },
+      {
+        signature: 'async disconnect(): Promise<CodexSubscriptionStatus>',
+        description: 'Use the official logout method in the isolated CODEX_HOME; never edit auth files directly.',
+        parameters: [],
+        returns: 'The refreshed renderer-safe subscription state.',
+      },
+      {
+        signature: 'async listModels(signal?: AbortSignal): Promise<readonly ExternalModelCatalogEntry[]>',
+        description: 'Discover model IDs and reasoning capabilities from the active official runtime.',
+        parameters: [{ name: 'signal', description: 'Optional cancellation signal for discovery.' }],
+        returns: 'The available Codex model catalog entries.',
+      },
+      {
+        signature: 'async resolveSelection(selection: ExternalTurnSelection, signal?: AbortSignal): Promise<ExternalTurnSelection>',
+        description: 'Validate a model and materialize its runtime-owned default effort.',
+        parameters: [{ name: 'selection', description: 'The requested Codex provider, model, and optional effort.' }, { name: 'signal', description: 'Optional cancellation signal for model discovery.' }],
+        returns: 'The validated selection with its resolved reasoning effort.',
+      },
+      {
+        signature: 'async executorFor(selection: ExternalTurnSelection, signal: AbortSignal): Promise<ExternalTurnExecutor>',
+        description: 'Ensure selected model/effort is still served by this runtime and return the external executor.',
+        parameters: [{ name: 'selection', description: 'The frozen external provider, model, and reasoning choice.' }, { name: 'signal', description: 'Cancellation signal for model discovery and workspace execution.' }],
+        returns: 'An executor bound to the validated model and this runtime.',
+      },
+      {
+        signature: 'async dispose(): Promise<void>',
+        description: 'Shut down only the process range started by this DSH service.',
+        parameters: [],
+      },
+    ],
+  },
+  {
     key: 'commands',
     summary: 'Human-command registry.',
     description: 'Human-command registry. Plain-context definitions are global; definitions registered through a command-injected child of an agent context shadow globals for that agent.',
@@ -2389,6 +2466,42 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: 'true when the matching open operation is available.',
       },
       {
+        signature: '@Remote async codexSubscriptionStatus(): Promise<CodexSubscriptionStatusView>',
+        description: 'Read only the renderer-safe state from the isolated official Codex runtime.',
+        parameters: [],
+        returns: 'A redacted status projection with no authentication material or URL.',
+      },
+      {
+        signature: '@Remote async selectCodexRuntime(preference: CodexRuntimePreference): Promise<CodexSubscriptionStatusView>',
+        description: 'Persist and activate one App Server runtime preference at an idle turn boundary.',
+        parameters: [{ name: 'preference', description: 'the requested automatic, verified system, or bundled runtime.' }],
+        returns: 'the refreshed renderer-safe Codex subscription status.',
+      },
+      {
+        signature: '@Remote async connectCodexSubscription(): Promise<CodexLoginStartValue>',
+        description: 'Begin the official ChatGPT browser-login flow on an explicit user action.',
+        parameters: [],
+        returns: 'Whether the official browser sign-in is pending or already connected.',
+      },
+      {
+        signature: '@Remote async cancelCodexSubscriptionLogin(): Promise<CodexSubscriptionStatusView>',
+        description: 'Cancel only DSH\'s pending official App Server login transaction.',
+        parameters: [],
+        returns: 'The refreshed renderer-safe subscription state.',
+      },
+      {
+        signature: '@Remote async reconnectCodexSubscription(): Promise<CodexSubscriptionStatusView>',
+        description: 'Restart only the Codex App Server subprocess owned by this DSH process.',
+        parameters: [],
+        returns: 'The refreshed renderer-safe subscription state.',
+      },
+      {
+        signature: '@Remote async disconnectCodexSubscription(): Promise<CodexSubscriptionStatusView>',
+        description: 'Log out only from the dedicated DSH Codex runtime home.',
+        parameters: [],
+        returns: 'The refreshed renderer-safe subscription state.',
+      },
+      {
         signature: '@Remote update( ns: string, patch: Record<string, JsonValue>, expectedRevision: number | undefined, ): Promise<SettingsNamespaceView>',
         description: 'Merge a patch into one namespace\'s stored user section.',
         parameters: [{ name: 'ns', description: 'namespace key to write.' }, { name: 'patch', description: 'fields to merge into the user section.' }, { name: 'expectedRevision', description: 'revision the caller read; `undefined` writes unconditionally.' }],
@@ -3580,6 +3693,14 @@ export const EVENT_API: readonly EventApiEntry[] = [
     parameters: [{ name: 'payload', description: '.error - the failure, verbatim. Scope-filtered dispatch (`@deepseek-ai/dsh-scope`): agent-scoped listeners receive only that agent.' }],
   },
   {
+    name: 'agent/external-turn-event',
+    mode: 'emit',
+    signature: '\'agent/external-turn-event\'(this: Scoped<Agent>, payload: { agent: Agent turn: number step: number event: ExternalTurnEvent }): void',
+    summary: 'Public external-runtime activity.',
+    description: 'Public external-runtime activity. This is not a local tool/call event.',
+    parameters: [{ name: 'payload', description: '.event - sanitized public activity. Scope-filtered dispatch (`@deepseek-ai/dsh-scope`): agent-scoped listeners receive only that agent.' }],
+  },
+  {
     name: 'agent/inbox/claimed',
     mode: 'emit',
     signature: '\'agent/inbox/claimed\'(this: Scoped<Agent>, payload: { agent: Agent; message: UserMessage; turn: number }): void',
@@ -3626,6 +3747,14 @@ export const EVENT_API: readonly EventApiEntry[] = [
     summary: 'Handle one failed model-request attempt before the loop retries or closes its step.',
     description: 'Handle one failed model-request attempt before the loop retries or closes its step. A listener returns `{ kind: \'retry\' }` without calling `next()` when it owns recovery, or calls `next()` to delegate. The default `undefined` leaves the failure terminal.',
     parameters: [{ name: 'payload', description: '.signal - the turn abort signal. Scope-filtered dispatch (`@deepseek-ai/dsh-scope`): agent-scoped listeners receive only that agent.' }],
+  },
+  {
+    name: 'agent/resolve-external-turn',
+    mode: 'waterfall',
+    signature: '\'agent/resolve-external-turn\'(this: Scoped<Agent>, payload: { agent: Agent selection: ExternalTurnSelection signal: AbortSignal }, next: () => Promise<ExternalTurnExecutor | undefined>): Promise<ExternalTurnExecutor | undefined>',
+    summary: 'Resolve an optional provider-owned turn executor before local prompt or tool assembly.',
+    description: 'Resolve an optional provider-owned turn executor before local prompt or tool assembly. The default is the existing local AgentLoop path.',
+    parameters: [{ name: 'payload', description: '.signal - cancellation signal for the admitted turn. Scope-filtered dispatch (`@deepseek-ai/dsh-scope`): agent-scoped listeners receive only that agent.' }],
   },
   {
     name: 'agent/status',
@@ -4408,6 +4537,50 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface ClientArtifactBaseline {\n    readonly path: string;\n    readonly mtimeMs: number;\n    readonly size: number;\n}',
   },
   {
+    name: 'CodexAccountState',
+    declaration: 'export type CodexAccountState = \'not-connected\' | \'connected\' | \'reauth-required\' | \'error\';',
+  },
+  {
+    name: 'CodexLoginStartValue',
+    declaration: 'export interface CodexLoginStartValue {\n    readonly status: \'signing-in\' | \'connected\';\n}',
+  },
+  {
+    name: 'CodexRuntimeState',
+    declaration: 'export type CodexRuntimeState = \'stopped\' | \'starting\' | \'initializing\' | \'auth-check\' | \'catalog-loading\' | \'ready\' | \'stopping\' | \'crashed\' | \'error\';',
+  },
+  {
+    name: 'CodexSubscriptionAccountState',
+    declaration: 'export type CodexSubscriptionAccountState = \'not-connected\' | \'connected\' | \'reauth-required\' | \'error\';',
+  },
+  {
+    name: 'CodexSubscriptionRuntimePhase',
+    declaration: 'export type CodexSubscriptionRuntimePhase = \'stopped\' | \'starting\' | \'initializing\' | \'auth-check\' | \'catalog-loading\' | \'ready\' | \'stopping\' | \'crashed\' | \'error\';',
+  },
+  {
+    name: 'CodexSubscriptionStatus',
+    declaration: 'export interface CodexSubscriptionStatus {\n    readonly enabled: boolean;\n    readonly runtime: CodexRuntimeState;\n    readonly runtimePreference: CodexRuntimePreference;\n    readonly runtimeSource?: CodexRuntimeSource;\n    readonly runtimeVersion?: string;\n    readonly systemRuntimeAvailable: boolean;\n    readonly systemRuntimeVersion?: string;\n    readonly bundledRuntimeVersion: string;\n    readonly runtimeSelectionNote?: string;\n    readonly account: CodexAccountState;\n    readonly login: \'idle\' | \'signing-in\';\n    readonly accountLabel?: string;\n    readonly modelCount: number;\n    readonly usage: CodexUsageStatus;\n    readonly error?: string;\n}',
+  },
+  {
+    name: 'CodexSubscriptionStatusView',
+    declaration: 'export interface CodexSubscriptionStatusView {\n    readonly enabled: boolean;\n    readonly runtime: CodexSubscriptionRuntimePhase;\n    readonly runtimePreference: CodexRuntimePreference;\n    readonly runtimeSource?: \'system\' | \'bundled\';\n    readonly runtimeVersion?: string;\n    readonly systemRuntimeAvailable: boolean;\n    readonly systemRuntimeVersion?: string;\n    readonly bundledRuntimeVersion: string;\n    readonly runtimeSelectionNote?: string;\n    readonly account: CodexSubscriptionAccountState;\n    readonly login: \'idle\' | \'signing-in\';\n    readonly modelCount: number;\n    readonly usage: CodexUsageStatusView;\n    readonly error?: string;\n}',
+  },
+  {
+    name: 'CodexUsageStatus',
+    declaration: 'export interface CodexUsageStatus {\n    readonly state: \'available\' | \'unavailable\';\n    readonly primary?: CodexUsageWindow;\n    readonly secondary?: CodexUsageWindow;\n}',
+  },
+  {
+    name: 'CodexUsageStatusView',
+    declaration: 'export interface CodexUsageStatusView {\n    readonly state: \'available\' | \'unavailable\';\n    readonly primary?: CodexUsageWindowView;\n    readonly secondary?: CodexUsageWindowView;\n}',
+  },
+  {
+    name: 'CodexUsageWindow',
+    declaration: 'export interface CodexUsageWindow {\n    readonly usedPercent: number;\n    readonly windowDurationMins?: number;\n    readonly resetsAt?: number;\n}',
+  },
+  {
+    name: 'CodexUsageWindowView',
+    declaration: 'export interface CodexUsageWindowView {\n    readonly usedPercent: number;\n    readonly windowDurationMins?: number;\n    readonly resetsAt?: number;\n}',
+  },
+  {
     name: 'CollectedOutput',
     declaration: 'export interface CollectedOutput {\n    text: string;\n    truncated: boolean;\n    spillPath?: string;\n}',
   },
@@ -4874,6 +5047,46 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'EpochHeader',
     declaration: 'export interface EpochHeader {\n    config: LlmCallConfig;\n    adapterDefaults?: LlmCallConfigAdapterDefaults;\n    tools?: ToolSchema[];\n}',
+  },
+  {
+    name: 'ExternalModelCatalogEntry',
+    declaration: 'export interface ExternalModelCatalogEntry {\n    readonly id: string;\n    readonly name: string;\n    readonly description?: string;\n    readonly reasoning?: {\n        readonly efforts: readonly {\n            readonly id: string;\n            readonly name: string;\n            readonly description?: string;\n        }[];\n        readonly defaultEffort?: string;\n    };\n}',
+  },
+  {
+    name: 'ExternalModelProvider',
+    declaration: 'export interface ExternalModelProvider {\n    readonly id: string;\n    readonly name: string;\n    listModels(signal?: AbortSignal): Promise<readonly ExternalModelCatalogEntry[]>;\n    resolveSelection(selection: ExternalTurnSelection, signal?: AbortSignal): Promise<ExternalTurnSelection>;\n}',
+  },
+  {
+    name: 'ExternalTurnActivityIdentity',
+    declaration: 'export interface ExternalTurnActivityIdentity {\n    readonly activityId: string;\n    readonly eventId: string;\n    readonly sessionId: SessionId;\n    readonly dshTurn: number;\n    readonly dshStep: number;\n    readonly provider: string;\n    readonly runtimeSource: string;\n    readonly runtimeVersion: string;\n    readonly threadId: string;\n    readonly turnId: string;\n    readonly itemId: string;\n    readonly requestId?: string | undefined;\n    readonly eventKind: string;\n    readonly terminalState: string;\n}',
+  },
+  {
+    name: 'ExternalTurnEvent',
+    declaration: 'export type ExternalTurnEvent = {\n    readonly kind: \'command\';\n    readonly id: string;\n    readonly command: string;\n    readonly status: \'started\' | \'completed\' | \'failed\' | \'interrupted\';\n    readonly identity: ExternalTurnActivityIdentity;\n} | {\n    readonly kind: \'file-change\';\n    readonly id: string;\n    readonly path: string;\n    readonly status: \'created\' | \'modified\' | \'deleted\';\n    readonly identity: ExternalTurnActivityIdentity;\n} | {\n    readonly kind: \'approval\';\n    readonly id: string;\n    readonly title: string;\n    readonly status: \'requested\' | \'allowed\' | \'rejected\';\n    readonly identity: ExternalTurnActivityIdentity;\n} | {\n    readonly kind: \'turn\';\n    readonly id: string;\n    readonly status: \'completed\' | \'interrupted\' | \'failed\';\n    readonly identity: ExternalTurnActivityIdentity;\n};',
+  },
+  {
+    name: 'ExternalTurnExecutor',
+    declaration: 'export interface ExternalTurnExecutor {\n    readonly providerId: string;\n    resolveWorkspace(session: Session, cwd: string, signal: AbortSignal): Promise<ExternalTurnWorkspace>;\n    executeTurn(request: ExternalTurnRequest): Promise<ExternalTurnResult>;\n}',
+  },
+  {
+    name: 'ExternalTurnPublisher',
+    declaration: 'export interface ExternalTurnPublisher {\n    textDelta(text: string): void;\n    event(event: ExternalTurnEvent): void;\n}',
+  },
+  {
+    name: 'ExternalTurnRequest',
+    declaration: 'export interface ExternalTurnRequest {\n    readonly agent: Agent;\n    readonly session: Session;\n    readonly turn: number;\n    readonly step: number;\n    readonly selection: ExternalTurnSelection;\n    readonly messages: readonly UserMessage[];\n    readonly workspaceIdentity: string;\n    readonly cwd: string;\n    readonly signal: AbortSignal;\n    readonly publish: ExternalTurnPublisher;\n}',
+  },
+  {
+    name: 'ExternalTurnResult',
+    declaration: 'export interface ExternalTurnResult {\n    readonly text: string;\n    readonly usage?: TokenUsage;\n    readonly reason?: \'completed\' | \'max-tokens\';\n}',
+  },
+  {
+    name: 'ExternalTurnSelection',
+    declaration: 'export interface ExternalTurnSelection {\n    readonly provider: string;\n    readonly model: string;\n    readonly reasoningEffort?: ReasoningEffortId;\n}',
+  },
+  {
+    name: 'ExternalTurnWorkspace',
+    declaration: 'export interface ExternalTurnWorkspace {\n    readonly identity: string;\n    readonly cwd: string;\n}',
   },
   {
     name: 'FeedbackCategory',
@@ -6096,6 +6309,18 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface SessionEventWindow {\n    session: SessionHeader;\n    inheritedEventCount: SessionLogOffset;\n    target: SessionEvent;\n    events: SessionEvent[];\n    startSeq: SessionSeq;\n    endSeq: SessionSeq;\n}',
   },
   {
+    name: 'SessionExternalActivity',
+    declaration: 'export interface SessionExternalActivity {\n    readonly id: string;\n    readonly sessionId: SessionId;\n    readonly dshTurn: number;\n    readonly dshStep: number;\n    readonly provider: string;\n    readonly runtimeSource: string;\n    readonly runtimeVersion: string;\n    readonly codexThreadId: string;\n    readonly codexTurnId: string;\n    readonly codexItemId: string;\n    readonly codexRequestId?: string;\n    readonly eventId: string;\n    readonly eventKind: string;\n    readonly terminalState: string;\n    readonly kind: \'command\' | \'file-change\' | \'approval\' | \'turn\';\n    readonly status: \'started\' | \'completed\' | \'failed\' | \'interrupted\' | \'created\' | \'modified\' | \'deleted\' | \'requested\' | \'allowed\' | \'rejected\';\n    readonly label?: string;\n    readonly path?: string;\n    readonly time: number;\n}',
+  },
+  {
+    name: 'SessionExternalActivityBaseline',
+    declaration: 'export interface SessionExternalActivityBaseline {\n    readonly revision: number;\n    readonly activities: readonly SessionExternalActivity[];\n}',
+  },
+  {
+    name: 'SessionExternalActivityFrame',
+    declaration: 'export interface SessionExternalActivityFrame {\n    readonly revision: number;\n    readonly activity: SessionExternalActivity;\n}',
+  },
+  {
     name: 'SessionFeedbackRecordRequest',
     declaration: 'export interface SessionFeedbackRecordRequest {\n    readonly sessionId: SessionId;\n    readonly text?: string;\n    readonly category?: FeedbackCategory;\n}',
   },
@@ -6113,11 +6338,11 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'SessionFollowFrame',
-    declaration: 'export type SessionFollowFrame = {\n    readonly type: \'snapshot\';\n    readonly header: SessionWireHeader;\n    readonly cursor: number;\n    readonly records: readonly SessionHistoryRecord[];\n    readonly hasMore: boolean;\n    readonly projections: SessionProjectionBaseline;\n    readonly assistantStream?: SessionAssistantStreamBaseline;\n} | SessionEventEntry | {\n    readonly type: \'assistant-stream\';\n    readonly frame: SessionAssistantStreamFrame;\n};',
+    declaration: 'export type SessionFollowFrame = {\n    readonly type: \'snapshot\';\n    readonly header: SessionWireHeader;\n    readonly cursor: number;\n    readonly records: readonly SessionHistoryRecord[];\n    readonly hasMore: boolean;\n    readonly projections: SessionProjectionBaseline;\n    readonly assistantStream?: SessionAssistantStreamBaseline;\n    readonly externalActivities?: SessionExternalActivityBaseline;\n} | SessionEventEntry | {\n    readonly type: \'assistant-stream\';\n    readonly frame: SessionAssistantStreamFrame;\n} | {\n    readonly type: \'external-activity\';\n    readonly frame: SessionExternalActivityFrame;\n};',
   },
   {
     name: 'SessionFollowRequest',
-    declaration: 'export interface SessionFollowRequest {\n    readonly address: SessionAddress;\n    readonly maxMessages?: number;\n    readonly assistantStream?: true;\n}',
+    declaration: 'export interface SessionFollowRequest {\n    readonly address: SessionAddress;\n    readonly maxMessages?: number;\n    readonly assistantStream?: true;\n    readonly externalActivities?: true;\n}',
   },
   {
     name: 'SessionForkRequest',

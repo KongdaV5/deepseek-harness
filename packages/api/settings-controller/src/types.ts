@@ -71,3 +71,50 @@ export interface LocalModelRuntimeSnapshot {
   readonly profiles: readonly LocalModelRuntimeProfile[]
   readonly error?: string
 }
+
+/** Official Codex App Server lifecycle phase projected to the Models page. */
+export type CodexSubscriptionRuntimePhase =
+  | 'stopped' | 'starting' | 'initializing' | 'auth-check' | 'catalog-loading'
+  | 'ready' | 'stopping' | 'crashed' | 'error'
+
+/** Official ChatGPT subscription state projected to the Models page. */
+export type CodexSubscriptionAccountState = 'not-connected' | 'connected' | 'reauth-required' | 'error'
+/** Preferred App Server source; the selected binary is pinned per connection. */
+export type CodexRuntimePreference = 'auto' | 'system' | 'bundled'
+
+/** One quota window exposed by the official Codex subscription runtime. */
+export interface CodexUsageWindowView {
+  readonly usedPercent: number
+  readonly windowDurationMins?: number
+  readonly resetsAt?: number
+}
+
+/** Optional quota projection; unavailable usage does not disable the provider. */
+export interface CodexUsageStatusView {
+  readonly state: 'available' | 'unavailable'
+  readonly primary?: CodexUsageWindowView
+  readonly secondary?: CodexUsageWindowView
+}
+
+/** Browser-safe official Codex state; it deliberately contains no auth material or login URL. */
+export interface CodexSubscriptionStatusView {
+  readonly enabled: boolean
+  readonly runtime: CodexSubscriptionRuntimePhase
+  readonly runtimePreference: CodexRuntimePreference
+  readonly runtimeSource?: 'system' | 'bundled'
+  readonly runtimeVersion?: string
+  readonly systemRuntimeAvailable: boolean
+  readonly systemRuntimeVersion?: string
+  readonly bundledRuntimeVersion: string
+  readonly runtimeSelectionNote?: string
+  readonly account: CodexSubscriptionAccountState
+  readonly login: 'idle' | 'signing-in'
+  readonly modelCount: number
+  readonly usage: CodexUsageStatusView
+  readonly error?: string
+}
+
+/** Result of explicitly starting the official browser login flow. */
+export interface CodexLoginStartValue {
+  readonly status: 'signing-in' | 'connected'
+}

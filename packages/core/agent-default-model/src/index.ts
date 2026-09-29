@@ -70,7 +70,10 @@ interface PiAiSettingsView {
   readonly providers?: unknown
 }
 
-/** Pick the first configured text model whose endpoint is unambiguously loopback. */
+/** Pick the first configured text model whose endpoint is unambiguously loopback.
+ * @param descriptor - the persisted Pi AI settings descriptor, when available.
+ * @returns a local model selection, or undefined when no safe local route is configured.
+ */
 export function localModelSelection(descriptor: SettingsDescriptor | undefined): ModelSelection | undefined {
   if (descriptor === undefined || typeof descriptor.value !== 'object' || descriptor.value === null) return undefined
   const providers = (descriptor.value as PiAiSettingsView).providers

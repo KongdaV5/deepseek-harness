@@ -52,9 +52,10 @@ export type {
 export type {
   ISessions, SessionReference, SessionRetainInfo, SessionRetainOptions, SessionTarget,
 } from './contract/sessions.ts'
-export { MutableSessionEventSource } from './contract/events.ts'
+export { MutableSessionEventSource, MutableSessionExternalActivitySource } from './contract/events.ts'
 export type {
   AssistantLiveChunkEvent,
+  SessionExternalActivitySource,
   SessionAssistantSettlementEntry,
   SessionEventChange,
   SessionEventLike,

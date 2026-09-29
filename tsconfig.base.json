@@ -317,6 +317,7 @@
       "@deepseek-ai/dsh-acp": ["./packages/acp/acp/src"],
       "@deepseek-ai/dsh-acp-app": ["./packages/bundle/acp-app/src"],
       "@deepseek-ai/dsh-agent": ["./packages/core/agent/src"],
+      "@deepseek-ai/dsh-agent-codex": ["./packages/core/agent-codex/src"],
       "@deepseek-ai/dsh-agent-default-model": ["./packages/core/agent-default-model/src"],
       "@deepseek-ai/dsh-agent-instructions": ["./packages/context/agent-instructions/src"],
       "@deepseek-ai/dsh-agent-lifecycle-facts": ["./packages/runtime-diagnostics/agent-lifecycle-facts/src"],

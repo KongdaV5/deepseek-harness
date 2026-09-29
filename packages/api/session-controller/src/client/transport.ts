@@ -14,6 +14,8 @@ import type {
   SessionAddress,
   SessionAssistantStreamBaseline,
   SessionAssistantStreamFrame,
+  SessionExternalActivityBaseline,
+  SessionExternalActivityFrame,
   SessionControlFrame,
   SessionHistoryRecord,
   SessionPage,
@@ -44,7 +46,10 @@ export type SessionRemote = ClientRemote['session']
 interface SessionJournalPage extends SessionPage {
   readonly projections?: SessionProjectionBaseline
   readonly assistantStream?: SessionAssistantStreamBaseline
+  readonly externalActivities?: SessionExternalActivityBaseline
 }
+
+type SessionLiveNotification = SessionAssistantStreamFrame | SessionExternalActivityFrame
 
 /** One complete publication from the Session journal stream. */
 export type SessionJournalChange =
@@ -56,10 +61,11 @@ export type SessionJournalChange =
   }
   | { readonly type: 'append'; readonly entry: SessionLiveEventEntry }
   | { readonly type: 'assistant-stream'; readonly frame: SessionAssistantStreamFrame }
+  | { readonly type: 'external-activity'; readonly frame: SessionExternalActivityFrame }
 
 function toSessionJournalChange(
   change: RemoteJournalChange<
-    SessionJournalPage, SessionHistoryRecord, SessionAssistantStreamFrame
+    SessionJournalPage, SessionHistoryRecord, SessionLiveNotification
   >,
 ): SessionJournalChange {
   switch (change.type) {
@@ -73,7 +79,9 @@ function toSessionJournalChange(
       }
     }
     case 'notification':
-      return { type: 'assistant-stream', frame: change.notification }
+      return 'activity' in change.notification
+        ? { type: 'external-activity', frame: change.notification }
+        : { type: 'assistant-stream', frame: change.notification }
   }
 }
 
@@ -139,7 +147,7 @@ export class SessionEventStream extends RemoteJournalStream<
   SessionHistoryRecord,
   number,
   ClientSessionPageRequest,
-  SessionAssistantStreamFrame
+  SessionLiveNotification
 > {
   /**
    * @param remote - generated Session namespace and Gateway stream factory.
@@ -173,12 +181,14 @@ export class SessionEventStream extends RemoteJournalStream<
     request: ClientSessionPageRequest,
     signal: AbortSignal,
   ): AsyncIterable<RemoteJournalFrame<
-    SessionHistoryRecord, number, SessionJournalPage, SessionAssistantStreamFrame
+    SessionHistoryRecord, number, SessionJournalPage, SessionLiveNotification
   >> {
     let assistantRevision: number | undefined
+    let externalActivityRevision = 0
     for await (const frame of this.remote.session.follow({
       address: this.address,
       assistantStream: true,
+      externalActivities: true,
       ...(request.maxMessages === undefined ? {} : { maxMessages: request.maxMessages }),
     }, signal)) {
       if (frame.type === 'snapshot') {
@@ -191,6 +201,7 @@ export class SessionEventStream extends RemoteJournalStream<
           )
         }
         assistantRevision = frame.assistantStream.revision
+        externalActivityRevision = frame.externalActivities?.revision ?? 0
         yield {
           type: 'opened',
           cursor: frame.cursor,
@@ -199,6 +210,9 @@ export class SessionEventStream extends RemoteJournalStream<
             hasMore: frame.hasMore,
             projections: frame.projections,
             assistantStream: frame.assistantStream,
+            ...(frame.externalActivities === undefined
+              ? {}
+              : { externalActivities: frame.externalActivities }),
           },
         }
         continue
@@ -211,7 +225,24 @@ export class SessionEventStream extends RemoteJournalStream<
           )
         }
         assistantRevision = frame.frame.revision
-        yield { type: 'notification', notification: frame.frame }
+        yield {
+          type: 'notification',
+          notification: frame.frame,
+        }
+        continue
+      }
+      if (frame.type === 'external-activity') {
+        const expected = externalActivityRevision + 1
+        if (frame.frame.revision !== expected) {
+          throw new RemoteStreamCarrierError(
+            `session external activity stream skipped revision ${String(expected)}`,
+          )
+        }
+        externalActivityRevision = frame.frame.revision
+        yield {
+          type: 'notification',
+          notification: frame.frame,
+        }
         continue
       }
       assertSessionWireEvent(frame.event)

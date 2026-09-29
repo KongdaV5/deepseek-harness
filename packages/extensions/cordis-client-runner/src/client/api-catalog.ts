@@ -281,8 +281,8 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
       },
       {
         signature: 'setFontSize(px: number): void',
-        description: 'Change the conversation content font size — the only font-size write entry. Accepted values are written through the settings scope and emit `theme/change`.',
-        parameters: [{ name: 'px', description: 'integer px within FONT_SIZE_MIN..FONT_SIZE_MAX; out-of-range or fractional values throw.' }],
+        description: 'Change the global interface font-size reference. Any positive finite value is accepted and written through the settings scope.',
+        parameters: [{ name: 'px', description: 'positive finite reference size in CSS px.' }],
       },
       {
         signature: 'register(definition: ThemeDefinition): () => void',
@@ -844,7 +844,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'SessionBinding',
-    declaration: 'export interface SessionBinding {\n    readonly sessionId: SessionId;\n    readonly session: SessionFace;\n    readonly eventSource: SessionEventSource;\n    readonly ctx: AgentContext;\n}',
+    declaration: 'export interface SessionBinding {\n    readonly sessionId: SessionId;\n    readonly session: SessionFace;\n    readonly eventSource: SessionEventSource;\n    readonly externalActivities?: SessionExternalActivitySource;\n    readonly ctx: AgentContext;\n}',
   },
   {
     name: 'SessionEventChange',
@@ -861,6 +861,14 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'SessionEventWindow',
     declaration: 'export interface SessionEventWindow {\n    readonly entries: readonly SessionEventLikeEntry[];\n    readonly hasMore: boolean;\n    readonly revision: number;\n    readonly change: SessionEventChange;\n}',
+  },
+  {
+    name: 'SessionExternalActivity',
+    declaration: 'export interface SessionExternalActivity {\n    readonly id: string;\n    readonly sessionId: SessionId;\n    readonly dshTurn: number;\n    readonly dshStep: number;\n    readonly provider: string;\n    readonly runtimeSource: string;\n    readonly runtimeVersion: string;\n    readonly codexThreadId: string;\n    readonly codexTurnId: string;\n    readonly codexItemId: string;\n    readonly codexRequestId?: string;\n    readonly eventId: string;\n    readonly eventKind: string;\n    readonly terminalState: string;\n    readonly kind: \'command\' | \'file-change\' | \'approval\' | \'turn\';\n    readonly status: \'started\' | \'completed\' | \'failed\' | \'interrupted\' | \'created\' | \'modified\' | \'deleted\' | \'requested\' | \'allowed\' | \'rejected\';\n    readonly label?: string;\n    readonly path?: string;\n    readonly time: number;\n}',
+  },
+  {
+    name: 'SessionExternalActivitySource',
+    declaration: 'export type SessionExternalActivitySource = ObservableSnapshot<readonly SessionExternalActivity[]>;',
   },
   {
     name: 'SessionFace',
@@ -1012,7 +1020,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'ThemeSnapshot',
-    declaration: 'export interface ThemeSnapshot {\n    preference: ThemePreference;\n    fontSize: number;\n    active: ThemeDefinition;\n    themes: readonly ThemeDefinition[];\n    revision: number;\n}',
+    declaration: 'export interface ThemeSnapshot {\n    preference: ThemePreference;\n    fontSize: number;\n    fontScale: number;\n    active: ThemeDefinition;\n    themes: readonly ThemeDefinition[];\n    revision: number;\n}',
   },
   {
     name: 'ThemeTokenModes',

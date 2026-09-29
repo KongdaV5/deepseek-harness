@@ -11,7 +11,10 @@ import {
   createSnapshotStore, notifySubscribers, type ObservableSnapshot, type SnapshotStore,
 } from '@deepseek-ai/dsh-client-store'
 import type { RemoteFailure, RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
-import type { SessionEventSource } from '../contract/events.ts'
+import type {
+  SessionEventSource,
+  SessionExternalActivitySource,
+} from '../contract/events.ts'
 import type { SessionFace } from '../contract/session.ts'
 import type {
   AgentContext, ISessions, SessionReference, SessionRetainInfo, SessionRetainOptions, SessionTarget,
@@ -106,6 +109,8 @@ export interface SessionBinding {
   readonly session: SessionFace
   /** Contiguous event window reserved for Conversation assembly. */
   readonly eventSource: SessionEventSource
+  /** Sanitized live actions from an external runtime; never transcript events. */
+  readonly externalActivities?: SessionExternalActivitySource
   readonly ctx: AgentContext
 }
 
@@ -611,7 +616,13 @@ export class ClientSessions implements ISessions {
     // The Session owns its scoped dispatch point (host Agent.loopCtx mirror);
     // mint and bind are one step so a live scope record implies a bound actx.
     session.bindScope(ctx)
-    const binding: SessionBinding = { sessionId: id, session, eventSource: session.eventSource, ctx }
+    const binding: SessionBinding = {
+      sessionId: id,
+      session,
+      eventSource: session.eventSource,
+      externalActivities: session.externalActivities,
+      ctx,
+    }
     const record: ScopeRecord = {
       fiber,
       ctx,

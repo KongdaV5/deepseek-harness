@@ -33,6 +33,7 @@ export type { PluginInventorySnapshot } from '@deepseek-ai/dsh-host-plugin-inven
 export type {} from '@deepseek-ai/dsh-agent-presets/remote'
 export type {} from '@deepseek-ai/dsh-commands/remote'
 export type {} from '@deepseek-ai/dsh-api-settings-controller/remote'
+export type * from '@deepseek-ai/dsh-api-settings-controller/types'
 export type {} from '@deepseek-ai/dsh-goal/remote'
 export type {} from '@deepseek-ai/dsh-office-to-pdf/remote'
 export type {} from '@deepseek-ai/dsh-llm/remote'
@@ -125,6 +126,9 @@ export type {
 export type { CredentialInfo } from '@deepseek-ai/dsh-credentials/types'
 export type {
   LocalModelProfileId, LocalModelRuntimeProfile, LocalModelRuntimeSnapshot, LocalModelRuntimeState,
+} from '@deepseek-ai/dsh-api-settings-controller/types'
+export type {
+  CodexSubscriptionAccountState, CodexSubscriptionRuntimePhase, CodexSubscriptionStatusView,
 } from '@deepseek-ai/dsh-api-settings-controller/types'
 // Redacted namespace vocabulary for the settings namespace (secrets never ride
 // it). It travels with its seam, whose `./types` the Client face already reads.

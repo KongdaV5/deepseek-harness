@@ -1,16 +1,14 @@
 /**
  * ModelSelect: the composer's named model seat (`conversation.input.model`).
- * Two-level selection per figma 496:26454's MenuDropdown: the root menu is
- * the Model / Effort row pair (label + current value + a right chevron),
- * each drilling into its own list — the provider-grouped model list over
- * the shared directory, and the effort levels. The trigger (313:14108's
+ * One-click provider-grouped model selection over the shared directory; the
+ * optional reasoning-effort list remains a separate sub-pane. The trigger (313:14108's
  * ToggleButton) shows both: model name + effort in the caption tone.
  * While open, ↑/↓ move focus across the rows of the shown pane (wrapping; a
  * step taken while the trigger still holds focus enters at the near end), Tab
- * settles like Enter, and Escape and Shift+Tab leave a drilled pane first and
- * otherwise close back to the trigger. A drilled pane hands focus to the row
- * of the value in use, and returning to the root pane hands it back to the
- * cell that opened it. Data and submission ride the SAME per-session
+ * settles like Enter, and Escape and Shift+Tab leave the effort pane first
+ * and otherwise close back to the trigger. The effort pane hands focus to the
+ * value in use; returning hands it back to its entry in the model list. Data
+ * and submission ride the SAME per-session
  * ModelDirectory as the /model popup; exact-model reasoning metadata and the
  * selected effort come from the Host rather than a client-owned vocabulary. A
  * rejected selection announces through the shared transient Toast anchored to
@@ -32,8 +30,8 @@ import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
 import type { ModelSelectInjected } from './slots.ts'
 import css from './ModelSelect.module.css'
 
-/** Which pane the dropdown shows: the two-row root or one drilled-in list. */
-type Pane = 'root' | 'model' | 'effort'
+/** The provider-grouped model list opens directly; effort is an optional sub-pane. */
+type Pane = 'model' | 'effort'
 
 /** One dynamic effort row; undefined means preserve the provider default. */
 interface EffortChoice {
@@ -49,7 +47,7 @@ const MEASURE_STYLE: CSSProperties = { visibility: 'hidden', left: 0, top: 0 }
  * Render the composer model seat.
  * @param props - owner share (locked) + injected face (shared directory
  * store/verbs) + the standard locale seat.
- * @returns the trigger and, while open, the two-level menu.
+ * @returns the trigger and, while open, the provider-grouped model menu.
  */
 export function ModelSelect(
   { locked, available, directory, load, select, t }:
@@ -60,7 +58,7 @@ export function ModelSelect(
     () => directory.getSnapshot(),
   )
   const [open, setOpen] = useState(false)
-  const [pane, setPane] = useState<Pane>('root')
+  const [pane, setPane] = useState<Pane>('model')
   // The in-menu error strip serves catalog loads (its Retry re-runs the
   // load); a rejected SELECTION announces through the transient toast
   // instead, so the strip renders only while the latest failure-capable
@@ -71,6 +69,7 @@ export function ModelSelect(
   const rootRef = useRef<HTMLDivElement | null>(null)
   const triggerRef = useRef<HTMLButtonElement | null>(null)
   const menuRef = useRef<HTMLDivElement | null>(null)
+  const effortEntryRef = useRef<HTMLButtonElement | null>(null)
   const menuPos = useAnchoredPosition({
     open,
     layoutKey: `${pane}:${state.status}:${state.error ?? ''}:${state.groups.map(group =>
@@ -144,9 +143,8 @@ export function ModelSelect(
   // A pane switch unmounts the row that had focus, which drops focus onto the
   // page body — outside the card's subtree, where its key handling no longer
   // sees a keystroke. Every switch therefore names where the keyboard lands:
-  // drilling on the pane's current value, coming back on the cell that opened
-  // the pane left.
-  const paneFocus = useRef<'drill' | 'model' | 'effort' | null>(null)
+  // drilling on the pane's current value, coming back on the effort entry.
+  const paneFocus = useRef<'drill' | 'effort' | null>(null)
   useEffect(() => {
     const intent = paneFocus.current
     paneFocus.current = null
@@ -161,21 +159,20 @@ export function ModelSelect(
       ;(target ?? triggerRef.current)?.focus()
       return
     }
-    const cell = itemRefs.current[intent === 'effort' ? 1 : 0]
-    ;(cell !== null && cell !== undefined && !cell.disabled ? cell : triggerRef.current)?.focus()
+    (effortEntryRef.current ?? triggerRef.current)?.focus()
   }, [open, pane])
 
   if (!available) return null
 
   const show = (): void => {
-    setPane('root')
+    setPane('model')
     setOpen(true)
     reload()
   }
 
   const close = (restoreFocus = false): void => {
     setOpen(false)
-    setPane('root')
+    setPane('model')
     if (restoreFocus) queueMicrotask(() => { triggerRef.current?.focus() })
   }
 
@@ -184,10 +181,10 @@ export function ModelSelect(
     setPane(next)
   }
 
-  /** Leave a drilled pane for the root one, handing the keyboard back to its cell. */
-  const back = (from: Exclude<Pane, 'root'>): void => {
-    paneFocus.current = from
-    setPane('root')
+  /** Leave reasoning effort and return focus to its entry in the model list. */
+  const back = (): void => {
+    paneFocus.current = 'effort'
+    setPane('model')
   }
 
   const moveFocus = (offset: number): void => {
@@ -206,8 +203,8 @@ export function ModelSelect(
   const onRootKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
     if (event.key === 'Escape' && open) {
       event.preventDefault()
-      // Escape backs out of a drilled pane first, then closes.
-      if (pane !== 'root') back(pane)
+      // Escape leaves the optional effort pane first, then closes the model list.
+      if (pane === 'effort') back()
       else close(true)
       return
     }
@@ -218,7 +215,7 @@ export function ModelSelect(
     if (event.key === 'Tab') {
       if (event.shiftKey) {
         event.preventDefault()
-        if (pane !== 'root') back(pane)
+        if (pane === 'effort') back()
         else close(true)
         return
       }
@@ -312,6 +309,13 @@ export function ModelSelect(
     const at = itemIndex++
     return (node: HTMLButtonElement | null) => { itemRefs.current[at] = node }
   }
+  const effortRef = () => {
+    const at = itemIndex++
+    return (node: HTMLButtonElement | null) => {
+      effortEntryRef.current = node
+      itemRefs.current[at] = node
+    }
+  }
 
   return (
     <div ref={rootRef} className={css.root} onKeyDown={onRootKeyDown} onBlur={onBlur}>
@@ -352,23 +356,6 @@ export function ModelSelect(
           aria-label={t('menu.aria')}
           aria-busy={state.status === 'loading' || busy}
         >
-          {pane === 'root' && (
-            <>
-              <button ref={itemRef()} type="button" role="menuitem" className={css.cell} onClick={() => { drill('model') }}>
-                <span className={css.cellLabel}>{t('menu.model')}</span>
-                <span className={css.cellValue}>{modelLabel}</span>
-                <IconChevronRightOutline14 className={css.cellChevron} />
-              </button>
-              {reasoning !== undefined && (
-                <button ref={itemRef()} type="button" role="menuitem" className={css.cell} onClick={() => { drill('effort') }}>
-                  <span className={css.cellLabel}>{t('menu.effort')}</span>
-                  <span className={css.cellValue}>{effortLabel}</span>
-                  <IconChevronRightOutline14 className={css.cellChevron} />
-                </button>
-              )}
-            </>
-          )}
-
           {pane === 'model' && (
             <>
               {state.status === 'loading' && (
@@ -419,6 +406,19 @@ export function ModelSelect(
                   )
                 })}
               </div>
+              {reasoning !== undefined && (
+                <button
+                  ref={effortRef()}
+                  type="button"
+                  role="menuitem"
+                  className={css.cell}
+                  onClick={() => { drill('effort') }}
+                >
+                  <span className={css.cellLabel}>{t('menu.effort')}</span>
+                  <span className={css.cellValue}>{effortLabel}</span>
+                  <IconChevronRightOutline14 className={css.cellChevron} />
+                </button>
+              )}
               {state.status === 'ready' && choices.length === 0 && (
                 <div className={css.empty}>{t('empty.models')}</div>
               )}

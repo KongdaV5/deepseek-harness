@@ -3,6 +3,7 @@
 import type { Context } from '@deepseek-ai/cordis'
 import { Deque } from '@deepseek-ai/dsh-deque'
 import type { AssistantStreamFrame } from '@deepseek-ai/dsh-agent'
+import type { ExternalTurnEvent } from '@deepseek-ai/dsh-agent'
 import {
   isAppendSurfaceEvent,
   SessionLogOffset,
@@ -23,6 +24,9 @@ import type {
   SessionAddress,
   SessionAssistantStreamFrame,
   SessionEventEntry,
+  SessionExternalActivity,
+  SessionExternalActivityBaseline,
+  SessionExternalActivityFrame,
   SessionFollowRequest,
   SessionFollowFrame,
   SessionHistoryRecord,
@@ -37,11 +41,17 @@ import { SessionAssistantStreamAccumulator } from './assistant-stream.ts'
 
 const DEFAULT_MAX_MESSAGES = 50
 const MESSAGE_TYPES = new Set(['user/message', 'assistant/message'])
+const MAX_EXTERNAL_ACTIVITIES = 32
 
 /** Implements cold-safe history operations delegated by the Session Controller. */
 export class SessionHistoryController {
   private readonly closeFollowers = new Set<() => void>()
   private readonly assistantStreams = new Map<SessionId, SessionAssistantStreamAccumulator>()
+  private readonly externalActivityWindows = new Map<SessionId, SessionExternalActivityBaseline>()
+  private readonly externalActivitySubscribers = new Map<
+    SessionId,
+    Set<(frame: SessionExternalActivityFrame) => void>
+  >()
 
   /**
    * @param ctx - Host context carrying Session query and projection services.
@@ -61,6 +71,25 @@ export class SessionHistoryController {
     }, { global: true })
     ctx.on('agent/disposed', ({ agent }) => {
       this.assistantStreams.delete(agent.session.id)
+    }, { global: true })
+    ctx.on('agent/external-turn-event', ({ agent, turn, step, event }) => {
+      const activity = externalActivityOf(agent.session.id, turn, step, event)
+      if (activity === undefined) return
+      const previous = this.externalActivityWindows.get(agent.session.id) ?? {
+        revision: 0,
+        activities: [],
+      }
+      const activities = previous.activities.filter(item => item.id !== activity.id)
+      activities.push(activity)
+      const next: SessionExternalActivityBaseline = {
+        revision: previous.revision + 1,
+        activities: activities.slice(-MAX_EXTERNAL_ACTIVITIES),
+      }
+      this.externalActivityWindows.set(agent.session.id, next)
+      const frame = { revision: next.revision, activity }
+      for (const subscriber of this.externalActivitySubscribers.get(agent.session.id) ?? []) {
+        subscriber(frame)
+      }
     }, { global: true })
     ctx.effect(() => () => {
       for (const close of this.closeFollowers) close()
@@ -127,9 +156,15 @@ export class SessionHistoryController {
         readonly frame: SessionAssistantStreamFrame
         readonly ordinal: number
       }
+      | {
+        readonly type: 'external-activity'
+        readonly frame: SessionExternalActivityFrame
+        readonly ordinal: number
+      }
     >()
     let snapshotCursor: SessionSeqCursor | undefined
     let assistantStreamOrdinal = 0
+    let externalActivityOrdinal = 0
     let wake: (() => void) | undefined
     const notify = (): void => {
       const resume = wake
@@ -172,6 +207,23 @@ export class SessionHistoryController {
         })
         notify()
       }, { global: true })
+    const externalActivitySubscriber = (frame: SessionExternalActivityFrame): void => {
+      buffered.pushBack({
+        type: 'external-activity',
+        frame,
+        ordinal: ++externalActivityOrdinal,
+      })
+      notify()
+    }
+    let externalSubscribers: Set<(frame: SessionExternalActivityFrame) => void> | undefined
+    if (request.externalActivities === true) {
+      externalSubscribers = this.externalActivitySubscribers.get(target)
+      if (externalSubscribers === undefined) {
+        externalSubscribers = new Set()
+        this.externalActivitySubscribers.set(target, externalSubscribers)
+      }
+      externalSubscribers.add(externalActivitySubscriber)
+    }
     const onAbort = (): void => { notify() }
     signal.addEventListener('abort', onAbort, { once: true })
     try {
@@ -189,6 +241,10 @@ export class SessionHistoryController {
       // including larger revisions from a retired Agent; later revision
       // resets reach Client continuity validation.
       const assistantStreamOrdinalCut = assistantStreamOrdinal
+      const externalActivities = request.externalActivities === true
+        ? this.externalActivityWindows.get(target) ?? { revision: 0, activities: [] }
+        : undefined
+      const externalActivityOrdinalCut = externalActivityOrdinal
       yield {
         type: 'snapshot',
         header: wireHeader(source.header),
@@ -199,6 +255,9 @@ export class SessionHistoryController {
           ? { asOfSeq: cursor, values: {} }
           : projectionBlock(source.projections),
         ...assistantStream === undefined ? {} : { assistantStream },
+        ...externalActivities === undefined || externalActivities.revision === 0
+          ? {}
+          : { externalActivities },
       }
       if (address.kind === 'session' && source.source === 'prepared') {
         const promotion = source.retain()
@@ -222,6 +281,12 @@ export class SessionHistoryController {
           }
           continue
         }
+        if (item.type === 'external-activity') {
+          if (item.ordinal > externalActivityOrdinalCut) {
+            yield { type: 'external-activity', frame: item.frame }
+          }
+          continue
+        }
         const expectedSeq = SessionSeq(nextOffset)
         if (item.event.seq < expectedSeq) continue
         if (item.event.seq !== expectedSeq) {
@@ -236,6 +301,10 @@ export class SessionHistoryController {
       disposeCreated()
       disposeEvent()
       disposeAssistantStream?.()
+      if (externalSubscribers !== undefined) {
+        externalSubscribers.delete(externalActivitySubscriber)
+        if (externalSubscribers.size === 0) this.externalActivitySubscribers.delete(target)
+      }
     }
   }
 
@@ -425,4 +494,62 @@ function entryFor(event: SessionEvent): SessionEventEntry {
 /** Encode one bounded logical page without changing its pagination cut. */
 function pageRecords(events: readonly SessionEvent[]): SessionHistoryRecord[] {
   return events.map(entryFor)
+}
+
+function externalActivityOf(
+  sessionId: SessionId,
+  turn: number,
+  step: number,
+  event: ExternalTurnEvent,
+): SessionExternalActivity | undefined {
+  const identity = event.identity
+  const kind = event.kind
+  const path = kind === 'file-change' ? safeWorkspacePath(event.path) : undefined
+  if (kind === 'file-change' && path === undefined) return undefined
+  const label = kind === 'command'
+    ? safeCommandLabel(event.command)
+    : kind === 'approval'
+      ? `Codex ${event.title.replace(/^Codex\s+/u, '').slice(0, 48)}`
+      : kind === 'turn'
+        ? `Codex turn ${event.status}`
+        : undefined
+  return {
+    id: identity.activityId.slice(0, 768),
+    sessionId,
+    dshTurn: boundedInteger(turn),
+    dshStep: boundedInteger(step),
+    provider: identity.provider.slice(0, 128),
+    runtimeSource: identity.runtimeSource.slice(0, 128),
+    runtimeVersion: identity.runtimeVersion.slice(0, 64),
+    codexThreadId: identity.threadId.slice(0, 256),
+    codexTurnId: identity.turnId.slice(0, 256),
+    codexItemId: identity.itemId.slice(0, 256),
+    ...(identity.requestId === undefined ? {} : { codexRequestId: identity.requestId.slice(0, 256) }),
+    eventId: identity.eventId.slice(0, 1024),
+    eventKind: identity.eventKind.slice(0, 128),
+    terminalState: identity.terminalState.slice(0, 64),
+    kind,
+    status: event.status,
+    ...(label === undefined || label === '' ? {} : { label }),
+    ...(path === undefined ? {} : { path }),
+    time: Date.now(),
+  }
+}
+
+function boundedInteger(value: number): number {
+  return Number.isSafeInteger(value) && value >= 0 ? value : 0
+}
+
+function safeCommandLabel(value: string): string {
+  // Expose only a command basename, never arguments, paths, environment or output.
+  const first = value.trim().split(/\s+/u, 1)[0] ?? ''
+  const basename = first.split(/[\\/]/u).at(-1) ?? ''
+  return /^[A-Za-z0-9._+-]{1,48}$/u.test(basename) ? basename : 'Command'
+}
+
+function safeWorkspacePath(value: string): string | undefined {
+  const path = value.replaceAll('\\', '/').replace(/^\.\//u, '')
+  if (path === '' || path.length > 500 || path.startsWith('/')
+    || path.split('/').some(part => part === '' || part === '.' || part === '..')) return undefined
+  return path
 }

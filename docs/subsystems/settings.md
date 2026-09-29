@@ -341,6 +341,37 @@ Host service backing the generated `ctx.remote.settings` namespace. Every remote
  */
 @Remote canOpenAgentPresetDirectory(): boolean
 
+/** Read only the renderer-safe state from the isolated official Codex runtime.
+ * @returns A redacted status projection with no authentication material or URL.
+ */
+@Remote async codexSubscriptionStatus(): Promise<CodexSubscriptionStatusView>
+
+/** Persist and activate one App Server runtime preference at an idle turn boundary.
+ * @param preference - the requested automatic, verified system, or bundled runtime.
+ * @returns the refreshed renderer-safe Codex subscription status.
+ */
+@Remote async selectCodexRuntime(preference: CodexRuntimePreference): Promise<CodexSubscriptionStatusView>
+
+/** Begin the official ChatGPT browser-login flow on an explicit user action.
+ * @returns Whether the official browser sign-in is pending or already connected.
+ */
+@Remote async connectCodexSubscription(): Promise<CodexLoginStartValue>
+
+/** Cancel only DSH's pending official App Server login transaction.
+ * @returns The refreshed renderer-safe subscription state.
+ */
+@Remote async cancelCodexSubscriptionLogin(): Promise<CodexSubscriptionStatusView>
+
+/** Restart only the Codex App Server subprocess owned by this DSH process.
+ * @returns The refreshed renderer-safe subscription state.
+ */
+@Remote async reconnectCodexSubscription(): Promise<CodexSubscriptionStatusView>
+
+/** Log out only from the dedicated DSH Codex runtime home.
+ * @returns The refreshed renderer-safe subscription state.
+ */
+@Remote async disconnectCodexSubscription(): Promise<CodexSubscriptionStatusView>
+
 /**
  * Merge a patch into one namespace's stored user section.
  * @param ns - namespace key to write.
@@ -390,6 +421,8 @@ Host service backing the generated `ctx.remote.settings` namespace. Every remote
  */
 @Remote async openAgentPresetDirectory( agentPreset: string, signal: AbortSignal, ): Promise<AgentPresetDirectoryOpenValue>
 ```
+
+Types: [CodexLoginStartValue](core.md) · [CodexSubscriptionStatusView](core.md)
 
 Source: [`packages/api/settings-controller/src/index.ts`](../../packages/api/settings-controller/src/index.ts)
 

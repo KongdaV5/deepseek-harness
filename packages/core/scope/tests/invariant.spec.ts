@@ -73,6 +73,20 @@ describe('scoped-dispatch invariants', () => {
       ],
       'agent/turn-stopping': [{ agent, turn: 1, signal }],
       'agent/error': [{ agent, turn: 1, step: 0, error: new Error('x') }],
+      'agent/resolve-external-turn': [{ agent, selection: config, signal }, () => Promise.resolve(undefined)],
+      'agent/external-turn-event': [{
+        agent, turn: 1, step: 1,
+        event: {
+          kind: 'approval', id: 'a1', title: 'Approval', status: 'requested',
+          identity: {
+            activityId: 'thread-1:turn-1:a1', eventId: 'approval-requested',
+            sessionId: agent.session.id, dshTurn: 1, dshStep: 1,
+            provider: 'test-provider', runtimeSource: 'test-runtime', runtimeVersion: '1',
+            threadId: 'thread-1', turnId: 'turn-1', itemId: 'a1',
+            eventKind: 'approval/requested', terminalState: 'requested',
+          },
+        },
+      }],
     } satisfies { [K in AgentEventName]: EventArgs<K> }
     const rows: Array<[string, unknown[]]> = [
       ...Object.entries(agentRows),

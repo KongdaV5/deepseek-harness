@@ -117,6 +117,7 @@ const kitBase: Omit<QuestionComposerProps, 'matched' | 'useStore' | 'actions'> =
   usePanelInfo, useResource,
   useSessionStatus: selector => selector(attentionState),
   useSessionRetainInfo: () => undefined,
+  useExternalActivities: selector => selector([]),
   useWorkspaces: selector => selector(workspaceState),
   useConversation: selector => selector(conversationState),
   useChat: selector => selector(chatState),

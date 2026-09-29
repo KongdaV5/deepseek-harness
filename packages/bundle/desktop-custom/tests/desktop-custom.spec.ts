@@ -49,6 +49,7 @@ function readPatch(): readonly PatchRow[] {
  */
 const INSERTED_IDS = [
   'task-checkpoint',
+  'agent-codex',
   'agent-run-policy',
   'compaction-task-aware-policy',
   'runtime-diagnostics-controller',
@@ -60,6 +61,7 @@ const INSERTED_IDS = [
 /** The module each inserted row resolves, position for position. */
 const INSERTED_NAMES = [
   '@deepseek-ai/dsh-task-checkpoint',
+  '@deepseek-ai/dsh-agent-codex',
   '@deepseek-ai/dsh-agent-run-policy',
   '@deepseek-ai/dsh-compaction-task-aware-policy',
   '@deepseek-ai/dsh-api-runtime-diagnostics-controller',
@@ -114,6 +116,7 @@ describe('dsh-desktop-custom bundle', () => {
     }
     for (const name of [
       '@deepseek-ai/dsh-task-checkpoint',
+      '@deepseek-ai/dsh-agent-codex',
       '@deepseek-ai/dsh-agent-run-policy',
       '@deepseek-ai/dsh-compaction-task-aware-policy',
       '@deepseek-ai/dsh-api-runtime-diagnostics-controller',
@@ -143,6 +146,9 @@ describe('dsh-desktop-custom bundle', () => {
     expect(rows.find(row => row.id === 'web-search-deepseek')?.disabled).toBe(true)
     expect(rows.find(row => row.id === 'web')?.config).toEqual({ fetchProvider: 'http' })
     expect(rows.find(row => row.id === 'tool-web')?.config).toMatchObject({ search: false, fetch: true })
-    expect(rows.find(row => row.id === 'settings-controller')?.config).toEqual({ localModelRuntime: true })
+    expect(rows.find(row => row.id === 'settings-controller')?.config).toEqual({
+      localModelRuntime: true,
+      codexSubscription: true,
+    })
   })
 })

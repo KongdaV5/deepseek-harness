@@ -404,6 +404,7 @@ describe('subagent catalogs', () => {
           kind: 'subagent', parentSessionId: S1, childSessionId: S2, mode: 'continuable',
         },
         assistantStream: true,
+        externalActivities: true,
         maxMessages: 50,
       },
     ])

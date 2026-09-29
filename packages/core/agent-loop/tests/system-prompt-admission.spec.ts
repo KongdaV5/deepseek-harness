@@ -67,6 +67,23 @@ function expectPlain(request: GenerateOptions, prompt: string) {
 }
 
 describe('prepared-route prompt admission', () => {
+  it('keeps model selection independently registered for multiple live Agent scopes', async () => {
+    const h = await harness()
+    const second = await h.ctx.agentLoop.create(
+      SessionId('admission-second'),
+      { provider: 'capable', model: 'model' },
+    )
+    const secondSelection: ModelSelectionRef = {
+      current: { provider: 'plain', model: 'model' },
+      assembled: undefined,
+    }
+
+    installModelSelection(second.ctx, secondSelection)
+
+    expect(h.agent.ctx.get('agentModelSelection')).toBe(h.selection)
+    expect(second.ctx.get('agentModelSelection')).toBe(secondSelection)
+  })
+
   it.each(['capable', 'plain'] as const)('clears every active prompt version on %s routes across repeated requests and resume', async (provider) => {
     const h = await harness()
     await send(h.agent, 'first')

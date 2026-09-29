@@ -14,6 +14,7 @@ English | [中文](README.zh.md)
 
 - [Use this package](#use-this-package)
 - [Configuration](#configuration)
+- [Official Codex subscription](#official-codex-subscription)
 - [Local model runtime](#local-model-runtime)
 - [Model Experience](#model-experience)
 - [Known Limitations and Deferred Work](#known-limitations-and-deferred-work)
@@ -50,8 +51,14 @@ The snapshot lifecycle values are `stopped`, `starting`, `running`, `stopping`, 
 |---|---|---|
 | `nativeOpen` | platform-detected | Whether Agent preset directories can be handed to a native desktop opener |
 | `localModelRuntime` | `false` | Whether this deployment exposes controls for the verified existing local-model manager |
+| `codexSubscription` | `false` | Whether this deployment exposes the isolated official Codex App Server subscription integration |
 
 The generated [configuration catalog](../../../docs/config-catalog.md#deepseek-aidsh-api-settings-controller) is the exhaustive source for accepted fields and their JSDoc.
+
+<a id="official-codex-subscription"></a>
+### Official Codex subscription
+
+When `codexSubscription` is enabled, the Custom desktop can explicitly connect through the official ChatGPT browser login and discover models and reasoning options from its active Codex App Server. The Models card can persist Automatic, System Codex, or Bundled Codex; Automatic prefers the identity- and capability-verified runtime embedded in the official ChatGPT app, then uses the bundled runtime if that probe fails. A connection never changes executables mid-run, and its model list is sourced only from that runtime. Authentication remains in the DSH-owned Codex home; settings and remote status expose neither credentials nor login URLs. Optional usage status reads the official rate-limit snapshot and projects only safe window percentages and reset metadata; unavailable usage does not change account or model availability. Codex is never an implicit default or provider fallback.
 
 -----
 

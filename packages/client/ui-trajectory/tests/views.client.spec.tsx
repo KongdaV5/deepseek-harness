@@ -32,7 +32,7 @@ import type {
 } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { WorkspaceSnapshot } from '@deepseek-ai/dsh-api-workspace-controller/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import type { SessionStatusSnapshot } from '@deepseek-ai/dsh-client-ui-session/client'
+import type { SessionStatusSnapshot, UseExternalActivities } from '@deepseek-ai/dsh-client-ui-session/client'
 import {
   ConversationSession, ConversationSessionHeader,
   type ConversationSessionHeaderProps, type ConversationSessionProps,
@@ -199,6 +199,7 @@ function emptyProjection<Key extends Extract<keyof SessionProjectionMap, string>
 }
 
 const useProjection: UseProjection = emptyProjection
+const noExternalActivities: UseExternalActivities = selector => selector([])
 
 type StandaloneBaseProps = Omit<
   ComponentProps<typeof TrajectoryView>,
@@ -232,6 +233,7 @@ function standaloneProps(
     useWorkspaces: emptyWorkspaces(),
     useConversation: bindSnapshotSelector(createSnapshotStore(conversationSnapshot(trajectory))),
     useInput: bindSnapshotSelector(input),
+    useExternalActivities: noExternalActivities,
     inputActions,
     useProjection,
     viewRequest: null,
@@ -354,6 +356,7 @@ function mount(fixture: Awaited<ReturnType<typeof bench>>) {
     usePanelInfo, useResource,
     useSessionStatus,
     useSessionRetainInfo: () => undefined,
+    useExternalActivities: noExternalActivities,
     useWorkspaces,
     useProjection,
     useInput,

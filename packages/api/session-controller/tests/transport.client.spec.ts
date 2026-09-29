@@ -19,6 +19,8 @@ import type {
   SessionAddress,
   SessionAssistantStreamBaseline,
   SessionAssistantStreamFrame,
+  SessionExternalActivityBaseline,
+  SessionExternalActivityFrame,
   SessionControlFrame,
   SessionEventEntry,
   SessionFollowFrame,
@@ -52,6 +54,7 @@ function snapshot(
   records: readonly SessionHistoryRecord[],
   hasMore = false,
   assistantStream: SessionAssistantStreamBaseline = { revision: 0 },
+  externalActivities?: SessionExternalActivityBaseline,
 ): SessionFollowFrame {
   return {
     type: 'snapshot',
@@ -66,11 +69,16 @@ function snapshot(
     hasMore,
     projections: { asOfSeq: cursor, values: {} },
     assistantStream,
+    ...(externalActivities === undefined ? {} : { externalActivities }),
   }
 }
 
 function assistantFrame(frame: SessionAssistantStreamFrame): SessionFollowFrame {
   return { type: 'assistant-stream', frame }
+}
+
+function externalActivityFrame(frame: SessionExternalActivityFrame): SessionFollowFrame {
+  return { type: 'external-activity', frame }
 }
 
 function sessionClient(remote: SessionTransportRemote): SessionRemotes {
@@ -234,6 +242,46 @@ describe.each(['snapshot', 'live', 'page'] as const)('Session %s wire acceptance
 })
 
 describe('Session Client stream adapters', () => {
+  it('publishes revision-checked external activity separately from journal entries', async () => {
+    const baseline: SessionExternalActivityBaseline = {
+      revision: 1,
+      activities: [{
+        id: 'thread:turn:command', sessionId: ADDRESS.sessionId, dshTurn: 1, dshStep: 1,
+        provider: 'openai-codex-subscription', runtimeSource: 'system', runtimeVersion: '0.158.0',
+        codexThreadId: 'thread', codexTurnId: 'turn', codexItemId: 'command',
+        eventId: 'event-started', eventKind: 'item/started', terminalState: 'started',
+        kind: 'command', status: 'started', label: 'ls', time: 1,
+      }],
+    }
+    const updated: SessionExternalActivityFrame = {
+      revision: 2,
+      activity: {
+        ...baseline.activities[0]!, eventId: 'event-completed', terminalState: 'completed',
+        status: 'completed', time: 2,
+      },
+    }
+    const remote = new ScriptedSessionRemote(
+      [{ frames: [snapshot(-1, [], false, { revision: 0 }, baseline), externalActivityFrame(updated)], hold: true }],
+      [],
+    )
+    const changes: SessionJournalChange[] = []
+    const stream = new SessionEventStream(sessionClient(remote), ADDRESS, {
+      publish: (change) => { changes.push(change) },
+      failed: vi.fn(),
+    })
+
+    await stream.open({})
+    await vi.waitFor(() => { expect(changes).toHaveLength(2) })
+    expect(changes).toMatchObject([
+      { type: 'replace', page: { assistantStream: { revision: 0 }, externalActivities: baseline } },
+      { type: 'external-activity', frame: updated },
+    ])
+    expect(remote.followRequests).toEqual([{
+      address: ADDRESS, assistantStream: true, externalActivities: true,
+    }])
+    await stream.dispose()
+  })
+
   it('preserves current envelopes and payloads without normalization across every journal path', async () => {
     const events: SessionWireEvent[] = [
       surfaceEvent(),
@@ -318,7 +366,7 @@ describe('Session Client stream adapters', () => {
     await stream.open({})
     await vi.waitFor(() => { expect(changes).toHaveLength(2) })
 
-    expect(remote.followRequests).toEqual([{ address: ADDRESS, assistantStream: true }])
+    expect(remote.followRequests).toEqual([{ address: ADDRESS, assistantStream: true, externalActivities: true }])
     expect(changes).toMatchObject([
       { type: 'replace', page: { assistantStream: baseline } },
       { type: 'assistant-stream', frame },
@@ -374,7 +422,7 @@ describe('Session Client stream adapters', () => {
         code: 'gateway/internal',
         message: 'session event stream emitted an entry before its opening cursor',
       })
-      expect(remote.followRequests).toEqual([{ address: ADDRESS, assistantStream: true }])
+      expect(remote.followRequests).toEqual([{ address: ADDRESS, assistantStream: true, externalActivities: true }])
     } finally {
       await stream.dispose()
     }
@@ -539,7 +587,7 @@ describe('Session Client stream adapters', () => {
     await stream.prepend({ beforeSeq: 2, maxMessages: 50 })
 
     expect(remote.followRequests).toEqual([{
-      address: ADDRESS, assistantStream: true, maxMessages: 50,
+      address: ADDRESS, assistantStream: true, externalActivities: true, maxMessages: 50,
     }])
     expect(remote.pageRequests).toEqual([
       { address: ADDRESS, throughSeq: 4, beforeSeq: 2, maxMessages: 50 },
@@ -577,8 +625,8 @@ describe('Session Client stream adapters', () => {
     await vi.waitFor(() => { expect(remote.followRequests).toHaveLength(2) })
 
     expect(remote.followRequests).toEqual([
-      { address: ADDRESS, assistantStream: true, maxMessages: 50 },
-      { address: ADDRESS, assistantStream: true, maxMessages: 50 },
+      { address: ADDRESS, assistantStream: true, externalActivities: true, maxMessages: 50 },
+      { address: ADDRESS, assistantStream: true, externalActivities: true, maxMessages: 50 },
     ])
     expect(remote.pageRequests).toEqual([])
     expect(changes.map(change => change.type)).toEqual(['replace', 'append', 'replace'])
@@ -608,8 +656,8 @@ describe('Session Client stream adapters', () => {
     finish.resolve(undefined)
     await vi.waitFor(() => { expect(remote.followRequests).toHaveLength(2) })
     expect(remote.followRequests).toEqual([
-      { address: ADDRESS, assistantStream: true },
-      { address: ADDRESS, assistantStream: true },
+      { address: ADDRESS, assistantStream: true, externalActivities: true },
+      { address: ADDRESS, assistantStream: true, externalActivities: true },
     ])
     expect(remote.pageRequests).toEqual([])
     await stream.dispose()

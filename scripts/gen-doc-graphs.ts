@@ -258,6 +258,22 @@ const SERVICE_ROLES: ServiceRole[] = [
     note: 'Projects the user-settings seam onto the generated Remote namespace: the read is always redacted and every refusal is classified here, not on the seam Definition.',
   },
   {
+    key: 'localModelRuntimeController',
+    pkg: 'api-settings-controller',
+    title: 'Local model runtime control',
+    mode: 'core',
+    consumers: ['client-ui-settings-models'],
+    note: 'Delegates allowlisted local profile operations to the existing runtime manager and publishes health-confirmed process status to the Models settings surface.',
+  },
+  {
+    key: 'codexSubscription',
+    pkg: 'agent-codex',
+    title: 'Official ChatGPT subscription model route',
+    mode: 'core',
+    consumers: ['agent-loop', 'api-settings-controller'],
+    note: 'Owns the pinned official App Server process, dynamic model catalog, isolated subscription home, and explicit external turns without API-key routing or provider fallback.',
+  },
+  {
     key: 'workspaceFiles',
     pkg: 'api-workspace-files',
     title: 'Host workspace file Remote service',

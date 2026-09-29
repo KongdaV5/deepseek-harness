@@ -96,6 +96,7 @@ const INPUT_STATE: InputState = { draft: '', attachmentIds: [], draftRev: 0, pha
 
 const t: QueueDockProps['t'] = makeTranslate(zh, commonZh)
 const usePanelInfo: GlobalStandardProps['usePanelInfo'] = selector => selector({ activePanelId: null })
+const useExternalActivities: QueueDockProps['useExternalActivities'] = selector => selector([])
 
 function kitFor(snapshot: SessionSnapshot, injected: Partial<QueueDockInjected> = {}) {
   return {
@@ -110,6 +111,7 @@ function kitFor(snapshot: SessionSnapshot, injected: Partial<QueueDockInjected> 
     ),
     useWorkspaces: (() => { throw new Error('unused') }) as never,
     useProjection: (() => undefined) as never,
+    useExternalActivities,
     useConversation: bindSnapshotSelector(createSnapshotStore(conversationSnapshot())),
     useChat: (() => { throw new Error('unused') }) as QueueDockProps['useChat'],
     useTrajectory: (() => { throw new Error('unused') }) as QueueDockProps['useTrajectory'],

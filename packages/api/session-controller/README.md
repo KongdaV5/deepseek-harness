@@ -8,7 +8,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-`@deepseek-ai/dsh-api-session-controller` owns the Host `ctx.sessionController` service and the generated Client `session`, `skills`, and `fileReferences` Remote namespaces. It serves Session lifecycle and history, the Host-generation model catalog, workspace-path opening, user-invocable skill discovery, and Agent-scoped file references. Use it through API Gateway when a Client needs operations addressed by a Session.
+`@deepseek-ai/dsh-api-session-controller` owns the Host `ctx.sessionController` service and the generated Client `session`, `skills`, and `fileReferences` Remote namespaces. It serves Session lifecycle and history, the Host-generation model catalog, workspace-path opening, user-invocable skill discovery, Agent-scoped file references, and an opt-in stream of bounded external-runtime activity separate from durable Session history. Use it through API Gateway when a Client needs operations addressed by a Session.
 
 ## Table of Contents
 
@@ -43,6 +43,8 @@ The user-invocable `skills/list` metadata includes the winning provider’s opti
 Fork copies history through the selected completed turn, including its `turn/end`. Events after that point, including queued input and model-setting changes, are excluded. An omitted or past-end anchor selects the last completed turn; an anchor inside an unfinished turn is rejected.
 
 A resume blocked by an existing write handle returns `session/writer-held` with the Session id; other resume failures retain `gateway/internal`.
+
+`SessionEventStream` also opts into a bounded external-activity feed. The Host sends sanitized command labels, approval and turn updates, and safe workspace-relative file changes as process-local revisioned frames; it sends no command arguments or process output. Reconnect replaces the Client activity window from the latest baseline, and these frames never become durable Session events.
 
 <a id="client-references"></a>
 ## Client references

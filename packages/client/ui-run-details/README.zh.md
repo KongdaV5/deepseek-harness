@@ -9,7 +9,7 @@ kind: "package-reference"
 
 ## 概述
 
-Web GUI 的 Run Details 界面默认收起为一行状态条，只显示当前 Run 的阶段、健康度和步骤数。展开后可查看会话身份、重试次数与任务连续性；后端、推理、压缩及 Run 诊断等较低层信息则放在第二层“高级详情”折叠区中。没有 Run 时它不渲染任何内容，因此空闲会话不会出现"Run: None"占位符；未被观测的后端显示为 `Unknown`，而不会被升级为可达、空闲或健康。控件只负责展开或收起信息，不提供重试、恢复、取消或压缩操作。
+Run Details 是 Web GUI 中默认收起的状态条，显示 Run 阶段、健康度和步骤数。展开后可查看 Session 身份、重试、任务连续性，以及后端、推理、压缩和诊断等高级详情。经过净化的外部运行时命令、文件变更、审批和轮次活动与 Local 工具调用分开展示。空闲时不渲染内容；未观测到的后端仍显示 `Unknown`，不会被视为健康或可达。控件只展开详情，不提供重试、恢复、取消或压缩操作。
 
 ## 目录
 
@@ -49,7 +49,7 @@ Web GUI 的 Run Details 界面默认收起为一行状态条，只显示当前 R
 <details>
 <summary>实现内部 —— 点击展开</summary>
 
-Run 切面通过 `useProjection('runDetails')` 到达，任务连续性通过 `useProjection('taskCheckpoint')` 到达，进行中的压缩状态则通过对会话派生的地址调用 `useResource` 到达。两个投影都是宿主计算好的整值，资源则是宿主拥有的流，因此本包不做任何领域折叠。原生 disclosure 默认收起；嵌套的“高级详情”折叠区把低层诊断信息从日常摘要中移开。这些展开控件是唯一交互；该条目没有注入面，也不能调用 Run 操作。
+Run 切面通过 `useProjection('runDetails')` 到达，任务连续性通过 `useProjection('taskCheckpoint')` 到达，进行中的压缩状态通过对会话派生的地址调用 `useResource` 到达，外部运行时活动则来自 Session binding 的 `useExternalActivities`。投影是宿主计算好的整值，资源与活动来源是实时数据流，因此本包不做领域折叠。外部操作与 Local 工具调用及持久 Session 事件分开显示。原生 disclosure 默认收起；嵌套的“高级详情”折叠区把低层诊断信息从日常摘要中移开。这些展开控件是唯一交互；该条目没有注入面，也不能调用 Run 操作。
 
 组件是这些读数的纯函数。当投影尚未提供值，或切面报告 `hasRun: false` 时，它返回 `null`，因此 dock 行不占空间，也不会产生占位文本。文案来自 `runDetails` locale 命名空间；取值仍是宿主提供的事实，只为步骤计数、任务状态、推理和诊断摘要组合展示文本。
 
@@ -98,4 +98,4 @@ Run 切面通过 `useProjection('runDetails')` 到达，任务连续性通过 `u
 
 </details>
 
-**运行时不变量：** 未发布伴随物。只有一处 Run Details dock 注册，其销毁随插件 fiber —— 每个持久取值都通过投影位到达，该条目自身不持有任何订阅。
+**运行时不变量：** 未发布伴随物。只有一处 Run Details dock 注册，其销毁随插件 fiber —— 持久取值通过投影位到达，瞬态外部操作使用 Session 来源，条目自身不持有订阅。

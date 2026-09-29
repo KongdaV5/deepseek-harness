@@ -3,6 +3,7 @@ import { Service, type Context } from '@deepseek-ai/cordis'
 import type {
   ISessions,
   SessionBinding,
+  SessionExternalActivitySource,
   SessionListState,
   SessionReference,
   SessionRetainInfo,
@@ -10,6 +11,7 @@ import type {
   UseProjection,
 } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
+import type { SessionExternalActivity } from '@deepseek-ai/dsh-api-session-controller/types'
 import type {} from '@deepseek-ai/dsh-api-remotes/client'
 import { notifySubscribers } from '@deepseek-ai/dsh-client-store'
 import { WeakMapWithValues } from '@deepseek-ai/dsh-util-values'
@@ -32,6 +34,8 @@ import { renderSessionArea } from './session-provider.tsx'
 export type UseSessions = SnapshotSelectorHook<SessionListState>
 /** Selector hook over one Session's lifecycle and control state. */
 export type SessionSnapshotSelector = SnapshotSelectorHook<SessionSnapshot>
+/** Selector hook over bounded, process-local external-runtime activity. */
+export type UseExternalActivities = SnapshotSelectorHook<readonly SessionExternalActivity[]>
 /** Public name for the Session lifecycle selector hook. */
 export type UseSession = SessionSnapshotSelector
 
@@ -166,6 +170,8 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
     sessionId: SessionId
     /** Host-computed projection values addressed by projection key. */
     useProjection: UseProjection
+    /** Sanitized external-runtime activity, kept separate from transcript events. */
+    useExternalActivities: UseExternalActivities
   }
 
   interface SessionMaybeStandardProps {
@@ -175,6 +181,8 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
     sessionId: SessionId | undefined
     /** Host-computed projection values; every key is absent without a Session. */
     useProjection: UseProjection
+    /** Sanitized external-runtime activity, absent outside an addressed Session. */
+    useExternalActivities: MaybeSnapshotSelectorHook<readonly SessionExternalActivity[]>
   }
 }
 
@@ -256,19 +264,27 @@ interface BindingSource extends HostObservable<StandardSourceBinding> {
 }
 
 const BUILTIN_SOURCE = {
-  hooks: ['session'],
+  hooks: ['session', 'externalActivities'],
   keyedHooks: ['projection'],
   props: ['sessionId'],
   resolve: binding => ({
-    hooks: { session: binding.session },
+    hooks: {
+      session: binding.session,
+      externalActivities: binding.externalActivities ?? EMPTY_EXTERNAL_ACTIVITIES,
+    },
     keyedHooks: { projection: key => binding.session.projections.faceOf(key) },
     props: { sessionId: binding.sessionId },
   }),
 } satisfies SessionSourceDescriptor<
-  readonly ['session'],
+  readonly ['session', 'externalActivities'],
   readonly ['projection'],
   readonly ['sessionId']
 >
+
+const EMPTY_EXTERNAL_ACTIVITIES: SessionExternalActivitySource = {
+  getSnapshot: () => [],
+  subscribe: () => () => {},
+}
 
 /** Session-scoped source roster and renderer adapter. */
 export class UiSession extends Service {

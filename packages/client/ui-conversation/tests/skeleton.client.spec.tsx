@@ -101,6 +101,7 @@ type SessionSlotProps = ConversationSessionSlotProps
 
 const useChat: SessionSlotProps['useChat'] = () => { throw new Error('unused') }
 const useTrajectory: SessionSlotProps['useTrajectory'] = () => { throw new Error('unused') }
+const useExternalActivities: SessionSlotProps['useExternalActivities'] = selector => selector([])
 
 function workspace(id = 'w1'): WorkspaceView {
   return {
@@ -214,6 +215,7 @@ function mount(
           useSessionRetainInfo={() => undefined}
           useWorkspaces={props.useWorkspaces}
           useProjection={(() => undefined)}
+          useExternalActivities={useExternalActivities}
           useInput={useInput}
           inputActions={inputActions}
           useStore={bindSnapshotSelector(store)}
@@ -242,6 +244,7 @@ function mount(
           useSessionRetainInfo={() => undefined}
           useWorkspaces={props.useWorkspaces}
           useProjection={(() => undefined)}
+          useExternalActivities={useExternalActivities}
           useInput={useInput}
           inputActions={inputActions}
           useStore={bindSnapshotSelector(store)}
@@ -269,6 +272,7 @@ function mount(
           useSessionRetainInfo={() => undefined}
           useWorkspaces={props.useWorkspaces}
           useProjection={(() => undefined)}
+          useExternalActivities={useExternalActivities}
           useInput={useInput}
           inputActions={inputActions}
           keyboard={wiring}
@@ -326,6 +330,7 @@ function mount(
       useSessionRetainInfo: () => undefined,
       useWorkspaces: bindSnapshotSelector(workspaces),
       useProjection: (() => undefined),
+      useExternalActivities,
       useComposerBlock: select => select(options.composerBlock),
       useInput,
       inputActions,
@@ -354,6 +359,7 @@ function mount(
     useSessionStatus,
     useSessionRetainInfo: () => undefined,
     useResource,
+    useExternalActivities,
     useWorkspaces: bindSnapshotSelector(workspaces),
     useProjection: (() => undefined),
     useInput,

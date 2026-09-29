@@ -387,6 +387,7 @@ function makeHarness(
       const inbox = useTestSession(snapshot => snapshot.testInbox)
       return key === 'inbox' ? inbox : outlineValue
     },
+    useExternalActivities: selector => selector([]),
     useInput: (() => { throw new Error('unused') }),
     inputActions: {
       setDraft: () => {},

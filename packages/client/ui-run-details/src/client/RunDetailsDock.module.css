@@ -202,6 +202,54 @@
   padding-top: 3px;
 }
 
+.externalActivities {
+  margin-top: 8px;
+  border-top: 0.5px solid var(--dsw-alias-border-l1);
+  padding-top: 8px;
+}
+
+.activityHeading {
+  margin-bottom: 4px;
+  color: var(--dsw-alias-label-caption);
+  font-size: calc(var(--dsh-content-font-size-secondary, 13px) - 1px);
+}
+
+.activityList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.activity {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  color: var(--dsw-alias-label-secondary);
+  font-size: var(--dsh-content-font-size-secondary, 13px);
+  line-height: calc(19px + var(--dsh-content-font-delta-secondary, 0px));
+}
+
+.activityLabel,
+.activityStatus {
+  flex: none;
+}
+
+.activityStatus {
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.activityPath {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--dsw-alias-label-tertiary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .openLabel {
   display: none;
 }

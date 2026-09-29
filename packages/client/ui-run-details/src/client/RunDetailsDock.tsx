@@ -18,6 +18,7 @@ import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots
 import type { RunDetailsRunView, RunGuardedResumeFacts } from '@deepseek-ai/dsh-run-details/client'
 // Type-only: the `taskCheckpoint` projection-key merge and its payload contract.
 import type { TaskCheckpoint, TaskCheckpointProjection } from '@deepseek-ai/dsh-task-checkpoint/client'
+import type { SessionExternalActivity } from '@deepseek-ai/dsh-api-session-controller/types'
 // Type-only: pulls the Session standard `sessionId` seat and the global `useResource` seat.
 import type {} from '@deepseek-ai/dsh-client-ui-session/client'
 // Type-only: pulls the resource model's global `useResource` seat and its `runtime-diagnostics` protocol merge.
@@ -157,12 +158,14 @@ export interface RunDetailsPanelProps {
   task: TaskCheckpointProjection | undefined
   /** The transient in-flight compaction state, from its own resource address. */
   transient: TransientCompaction
+  /** Live external-runtime activity, never represented as local tool execution. */
+  externalActivities?: readonly SessionExternalActivity[]
   /** The dock entry's locale seat, passed down as a plain prop. */
   t: RunDetailsDockProps['t']
 }
 
 /** The disclosure body: core Run facts first, lower-level diagnostics on demand. */
-export function RunDetailsPanel({ details, task, transient, t }: RunDetailsPanelProps) {
+export function RunDetailsPanel({ details, task, transient, externalActivities = [], t }: RunDetailsPanelProps) {
   const auxiliary = auxiliaryText(details, t)
   return (
     <details className={css.root} data-testid="run-details" aria-label={t('aria')}>
@@ -237,6 +240,26 @@ export function RunDetailsPanel({ details, task, transient, t }: RunDetailsPanel
             )}
           </div>
         </details>
+        {externalActivities.length === 0 ? null : (
+          <section className={css.externalActivities} aria-label={t('activity.title')}>
+            <div className={css.activityHeading}>{t('activity.title')}</div>
+            <ul className={css.activityList} data-testid="run-details-external-activities">
+              {externalActivities.map(activity => (
+                <li className={css.activity} key={activity.id} data-kind={activity.kind}>
+                  <span className={css.activityLabel}>
+                    {activity.label ?? t(`activity.kind.${activity.kind}`)}
+                  </span>
+                  <span className={css.activityStatus}>
+                    {t(`activity.status.${activity.status}`)}
+                  </span>
+                  {activity.path === undefined ? null : (
+                    <code className={css.activityPath} title={activity.path}>{activity.path}</code>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
       </div>
     </details>
   )
@@ -252,12 +275,21 @@ export function RunDetailsPanel({ details, task, transient, t }: RunDetailsPanel
  * the Session the dock already has, and when no transport is mounted the
  * resource answers `none` and the row is simply absent.
  */
-export function RunDetailsDock({ useProjection, useResource, sessionId, t }: RunDetailsDockProps) {
+export function RunDetailsDock({ useProjection, useResource, useExternalActivities, sessionId, t }: RunDetailsDockProps) {
   const details = useProjection('runDetails')
   const task = useProjection('taskCheckpoint')
+  const externalActivities = useExternalActivities(value => value)
   const transient = transientCompaction(
     useResource<'runtime-diagnostics'>(transientCompactionAddress(sessionId)),
   )
   if (details === undefined || !details.hasRun) return null
-  return <RunDetailsPanel details={details} task={task} transient={transient} t={t} />
+  return (
+    <RunDetailsPanel
+      details={details}
+      task={task}
+      transient={transient}
+      externalActivities={externalActivities}
+      t={t}
+    />
+  )
 }

@@ -129,7 +129,7 @@ async function harness(logged?: {
     id: session.id,
     session,
     status: 'running',
-    ctx,
+    ctx: ctx.isolate('agentModelSelection'),
     inbox: { nextTurn: [], nextStep: [] },
   } as unknown as Agent
   await ctx.agents.register(agent)

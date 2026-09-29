@@ -19,6 +19,12 @@
     - id: task-checkpoint
       name: '@deepseek-ai/dsh-task-checkpoint'
 
+    # Official Codex App Server external-turn provider. It owns only its
+    # package-local official runtime and isolated CODEX_HOME; DSH Sessions
+    # remain canonical and no Local/hosted fallback is installed.
+    - id: agent-codex
+      name: '@deepseek-ai/dsh-agent-codex'
+
     # The bounded automatic run policy over the upstream retry executor. It
     # prepends one outermost `agent/request-error` listener and replaces no
     # executor, adapter policy, backoff, retry identity, or durable event; the
@@ -121,3 +127,4 @@
 - id: settings-controller
   config:
     localModelRuntime: true
+    codexSubscription: true

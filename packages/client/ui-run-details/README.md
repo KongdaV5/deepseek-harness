@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-The Web GUI Run Details surface is a one-line, default-collapsed status strip showing the current Run's phase, health, and step count. Expanding it reveals Session identity, retries, and task continuity; lower-level backend, reasoning, compaction, and Run diagnostics stay under a second **Advanced details** disclosure. It renders nothing when there is no Run, so an idle session shows no "Run: None" placeholder, and an unobserved backend reads `Unknown` rather than being upgraded to reachable, idle, or healthy. The only controls reveal information; the surface has no retry, resume, cancel, or compact action.
+Run Details is a collapsed Web GUI status strip showing a Run's phase, health, and step count. Expand it for Session identity, retries, task continuity, and Advanced details such as backend, reasoning, compaction, and diagnostics. Sanitized external-runtime command, file-change, approval, and turn activity stays separate from Local tool calls. It renders nothing when idle; an unobserved backend remains `Unknown`, never healthy or reachable. Its controls reveal details only; they cannot retry, resume, cancel, or compact.
 
 ## Table of Contents
 
@@ -49,7 +49,7 @@ Its disclosure controls only show or hide read-only information: there is no ret
 <details>
 <summary>Implementation internals — click to expand</summary>
 
-The Run cut arrives through `useProjection('runDetails')`, task continuity through `useProjection('taskCheckpoint')`, and the in-flight compaction status through `useResource` on the address derived from the Session. The two projections are whole values the host computes and the resource is a stream the host owns, so this package performs no domain folding. Native disclosure summaries default to collapsed; the nested Advanced details disclosure keeps lower-level diagnostics out of the everyday summary. These are the only interactions—the entry contributes no injected face and cannot invoke a Run action.
+The Run cut arrives through `useProjection('runDetails')`, task continuity through `useProjection('taskCheckpoint')`, the in-flight compaction status through `useResource` on the address derived from the Session, and external-runtime activity through the Session binding's `useExternalActivities` source. The projections are whole values the host computes, the resource and activity source are live feeds, and this package performs no domain folding. External actions remain separate from Local tool calls and durable Session events. Native disclosure summaries default to collapsed; the nested Advanced details disclosure keeps lower-level diagnostics out of the everyday summary. These are the only interactions—the entry contributes no injected face and cannot invoke a Run action.
 
 The component is a pure function of those reads. It returns `null` when the projection has not served yet or when the cut reports `hasRun: false`, so the dock row occupies no space and no placeholder text is produced. Copy comes from the `runDetails` locale namespace; values remain host-served facts, with only presentation text composed for counts, task state, reasoning, and diagnostic summaries.
 
@@ -98,4 +98,4 @@ None.
 
 </details>
 
-**Runtime invariant:** No companion is published. There is a single Run Details dock registration whose disposal rides the plugin fiber — every durable value arrives through a projection seat, and the entry holds no subscription of its own.
+**Runtime invariant:** No companion is published. There is a single Run Details dock registration whose disposal rides the plugin fiber — durable values arrive through projection seats, transient external actions use the Session source, and the entry owns no subscription.

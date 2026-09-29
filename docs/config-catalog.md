@@ -248,10 +248,12 @@ export interface Config {
   readonly nativeOpen?: boolean
   /** Expose controls for the verified, existing local-model manager. */
   readonly localModelRuntime?: boolean
+  /** Expose the isolated official Codex App Server integration in Custom desktop. */
+  readonly codexSubscription?: boolean
 }
 ```
 
-Source: [`packages/api/settings-controller/src/index.ts:38`](../packages/api/settings-controller/src/index.ts)
+Source: [`packages/api/settings-controller/src/index.ts:40`](../packages/api/settings-controller/src/index.ts)
 
 <a id="deepseek-aidsh-api-terminal-controller"></a>
 
@@ -3803,6 +3805,7 @@ These load from a `cordis.yml` entry with no `config:` block; they declare no co
 
 - `@deepseek-ai/dsh-acp-app` — requires `cmdlineArgs` ([`packages/bundle/acp-app/src/index.ts`](../packages/bundle/acp-app/src/index.ts))
 - `@deepseek-ai/dsh-agent` ([`packages/core/agent/src/index.ts`](../packages/core/agent/src/index.ts))
+- `@deepseek-ai/dsh-agent-codex` — requires `sessionProjections` · `sessions` ([`packages/core/agent-codex/src/index.ts`](../packages/core/agent-codex/src/index.ts))
 - `@deepseek-ai/dsh-api-remotes` — requires `typertGateway` ([`packages/api/remotes/src/index.ts`](../packages/api/remotes/src/index.ts))
 - `@deepseek-ai/dsh-api-runtime-diagnostics-controller` — requires `typert` ([`packages/api/runtime-diagnostics-controller/src/index.ts`](../packages/api/runtime-diagnostics-controller/src/index.ts))
 - `@deepseek-ai/dsh-api-workspace-controller` — requires `typert` · `workspaceRegistry` ([`packages/api/workspace-controller/src/index.ts`](../packages/api/workspace-controller/src/index.ts))

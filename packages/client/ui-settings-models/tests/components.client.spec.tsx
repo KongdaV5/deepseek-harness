@@ -162,12 +162,51 @@ function scriptedFace(overrides: {
   mutate?: ReturnType<typeof vi.fn>
   set?: ReturnType<typeof vi.fn>
   unset?: ReturnType<typeof vi.fn>
+  codexStatus?: ReturnType<typeof vi.fn>
+  codexSelectRuntime?: ReturnType<typeof vi.fn>
+  codexConnect?: ReturnType<typeof vi.fn>
+  codexCancelLogin?: ReturnType<typeof vi.fn>
+  codexReconnect?: ReturnType<typeof vi.fn>
+  codexDisconnect?: ReturnType<typeof vi.fn>
 } = {}) {
   const providerNamespace = wireNamespaces().find(view => view.ns === 'llm-pi-ai')!
   const update = overrides.update ?? vi.fn(() => Promise.resolve(remoteOk(providerNamespace)))
   const mutate = overrides.mutate ?? vi.fn(() => Promise.resolve(remoteOk(providerNamespace)))
   const set = overrides.set ?? vi.fn(() => Promise.resolve(remoteOk(undefined)))
   const unset = overrides.unset ?? vi.fn(() => Promise.resolve(remoteOk(undefined)))
+  const codexStatus = overrides.codexStatus ?? vi.fn(() => Promise.resolve(remoteOk({
+    enabled: false as const,
+    runtime: 'stopped' as const,
+    runtimePreference: 'auto' as const,
+    systemRuntimeAvailable: false,
+    bundledRuntimeVersion: '0.153.4',
+    account: 'not-connected' as const,
+    login: 'idle' as const,
+    modelCount: 0,
+    usage: { state: 'unavailable' as const },
+  })))
+  const codexSelectRuntime = overrides.codexSelectRuntime ?? vi.fn(() => Promise.resolve(remoteOk({
+    enabled: true as const, runtime: 'ready' as const, runtimePreference: 'bundled' as const,
+    runtimeSource: 'bundled' as const, runtimeVersion: '0.153.4', systemRuntimeAvailable: false,
+    bundledRuntimeVersion: '0.153.4', account: 'connected' as const, login: 'idle' as const, modelCount: 4,
+    usage: { state: 'unavailable' as const },
+  })))
+  const codexConnect = overrides.codexConnect ?? vi.fn(() => Promise.resolve(remoteOk({ status: 'signing-in' as const })))
+  const codexCancelLogin = overrides.codexCancelLogin ?? vi.fn(() => Promise.resolve(remoteOk({
+    enabled: true as const, runtime: 'ready' as const, runtimePreference: 'auto' as const, systemRuntimeAvailable: false,
+    bundledRuntimeVersion: '0.153.4', account: 'not-connected' as const, login: 'idle' as const, modelCount: 0,
+    usage: { state: 'unavailable' as const },
+  })))
+  const codexReconnect = overrides.codexReconnect ?? vi.fn(() => Promise.resolve(remoteOk({
+    enabled: true as const, runtime: 'ready' as const, runtimePreference: 'auto' as const, systemRuntimeAvailable: false,
+    bundledRuntimeVersion: '0.153.4', account: 'connected' as const, login: 'idle' as const, modelCount: 2,
+    usage: { state: 'unavailable' as const },
+  })))
+  const codexDisconnect = overrides.codexDisconnect ?? vi.fn(() => Promise.resolve(remoteOk({
+    enabled: true as const, runtime: 'stopped' as const, runtimePreference: 'auto' as const, systemRuntimeAvailable: false,
+    bundledRuntimeVersion: '0.153.4', account: 'not-connected' as const, login: 'idle' as const, modelCount: 0,
+    usage: { state: 'unavailable' as const },
+  })))
   const face = {
     llm: {
       listProviders: vi.fn(() => Promise.resolve(remoteOk([
@@ -188,6 +227,12 @@ function scriptedFace(overrides: {
       describe: vi.fn(() => Promise.resolve(remoteOk({ writable: true, hasDocument: false, namespaces: wireNamespaces() }))),
       update,
       mutate,
+      codexSubscriptionStatus: codexStatus,
+      selectCodexRuntime: codexSelectRuntime,
+      connectCodexSubscription: codexConnect,
+      cancelCodexSubscriptionLogin: codexCancelLogin,
+      reconnectCodexSubscription: codexReconnect,
+      disconnectCodexSubscription: codexDisconnect,
     },
     credentials: {
       // Typed as the Remote answer rather than the success branch alone: a
@@ -204,7 +249,7 @@ function scriptedFace(overrides: {
       unset,
     },
   }
-  return { face, update, mutate, set, unset }
+  return { face, update, mutate, set, unset, codexSelectRuntime }
 }
 
 type PageContext = ConstructorParameters<typeof ModelsSettingsStore>[0]
@@ -260,7 +305,7 @@ function cardSeatCalls(
 }
 
 async function mountFace(scripted: ReturnType<typeof scriptedFace>) {
-  const { face, update, mutate, set, unset } = scripted
+  const { face, update, mutate, set, unset, codexSelectRuntime } = scripted
   const ctx = ctxWith(face)
   const mirror = new SettingsDescribeMirror(ctx)
   const controller = new ModelsSettingsStore(ctx, settingsSchema, mirror)
@@ -275,7 +320,7 @@ async function mountFace(scripted: ReturnType<typeof scriptedFace>) {
     renderSlot: renderSlot as unknown as ModelsSectionProps['renderSlot'],
   }
   const view = render(<ModelsSection {...injected} />)
-  return { view, ctx, face, update, mutate, set, unset, controller, mirror, renderSlot }
+  return { view, ctx, face, update, mutate, set, unset, codexSelectRuntime, controller, mirror, renderSlot }
 }
 
 async function mountSection(overrides: Parameters<typeof scriptedFace>[0] = {}) {
@@ -307,6 +352,101 @@ async function mountDeepSeekCard(overrides: Parameters<typeof scriptedFace>[0] =
 }
 
 describe('ModelsSection', () => {
+  it('shows explicit official ChatGPT actions only when the feature is enabled', async () => {
+    const codexStatus = vi.fn(() => Promise.resolve(remoteOk({
+      enabled: true as const,
+      runtime: 'stopped' as const,
+      runtimePreference: 'auto' as const,
+      systemRuntimeAvailable: true,
+      systemRuntimeVersion: '0.158.0-alpha.2.1',
+      bundledRuntimeVersion: '0.153.4',
+      account: 'not-connected' as const,
+      login: 'idle' as const,
+      modelCount: 0,
+      usage: { state: 'unavailable' as const },
+    })))
+    const codexConnect = vi.fn(() => Promise.resolve(remoteOk({ status: 'signing-in' as const })))
+    const mounted = await mountSection({ codexStatus, codexConnect })
+
+    expect(await screen.findByRole('heading', { name: en.codexTitle })).toBeTruthy()
+    expect(screen.getByText(en.codexRuntimeStopped)).toBeTruthy()
+    expect(screen.getByText(en.codexNotConnected)).toBeTruthy()
+    const runtimePicker = screen.getByRole('combobox', { name: en.codexRuntimeSetting }) as HTMLSelectElement
+    expect(runtimePicker.value).toBe('auto')
+    fireEvent.change(runtimePicker, { target: { value: 'bundled' } })
+    await waitFor(() => { expect(mounted.codexSelectRuntime).toHaveBeenCalledWith('bundled') })
+    fireEvent.click(screen.getByRole('button', { name: en.codexConnect }))
+    await waitFor(() => { expect(codexConnect).toHaveBeenCalledOnce() })
+    expect(screen.queryByText(/https?:\/\//u)).toBeNull()
+  })
+
+  it('shows the connected model count and exposes reconnect/disconnect actions', async () => {
+    const codexStatus = vi.fn(() => Promise.resolve(remoteOk({
+      enabled: true as const,
+      runtime: 'ready' as const,
+      runtimePreference: 'auto' as const,
+      runtimeSource: 'system' as const,
+      runtimeVersion: '0.158.0-alpha.2.1',
+      systemRuntimeAvailable: true,
+      systemRuntimeVersion: '0.158.0-alpha.2.1',
+      bundledRuntimeVersion: '0.153.4',
+      account: 'connected' as const,
+      login: 'idle' as const,
+      modelCount: 3,
+      usage: {
+        state: 'available' as const,
+        primary: { usedPercent: 23, windowDurationMins: 300 },
+        secondary: { usedPercent: 41, windowDurationMins: 10_080 },
+      },
+    })))
+    const codexReconnect = vi.fn(() => Promise.resolve(remoteOk({
+      enabled: true as const, runtime: 'ready' as const, runtimePreference: 'auto' as const,
+      systemRuntimeAvailable: true, systemRuntimeVersion: '0.158.0-alpha.2.1', bundledRuntimeVersion: '0.153.4',
+      account: 'connected' as const, login: 'idle' as const, modelCount: 3,
+      usage: { state: 'unavailable' as const },
+    })))
+    const codexDisconnect = vi.fn(() => Promise.resolve(remoteOk({
+      enabled: true as const, runtime: 'stopped' as const, runtimePreference: 'auto' as const,
+      systemRuntimeAvailable: true, systemRuntimeVersion: '0.158.0-alpha.2.1', bundledRuntimeVersion: '0.153.4',
+      account: 'not-connected' as const, login: 'idle' as const, modelCount: 0,
+      usage: { state: 'unavailable' as const },
+    })))
+    await mountSection({ codexStatus, codexReconnect, codexDisconnect })
+
+    expect(await screen.findByText(en.codexConnected)).toBeTruthy()
+    expect(screen.getByText(`3 ${en.codexModelsAvailable}`)).toBeTruthy()
+    expect(screen.getByText('Usage: 5h 23% used · 1w 41% used')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: en.codexReconnect }))
+    await waitFor(() => { expect(codexReconnect).toHaveBeenCalledOnce() })
+    fireEvent.click(screen.getByRole('button', { name: en.codexDisconnect }))
+    await waitFor(() => { expect(codexDisconnect).toHaveBeenCalledOnce() })
+  })
+
+  it('offers cancellation while the official browser login is pending', async () => {
+    const codexStatus = vi.fn(() => Promise.resolve(remoteOk({
+      enabled: true as const,
+      runtime: 'auth-check' as const,
+      runtimePreference: 'auto' as const,
+      systemRuntimeAvailable: false,
+      bundledRuntimeVersion: '0.153.4',
+      account: 'not-connected' as const,
+      login: 'signing-in' as const,
+      modelCount: 0,
+      usage: { state: 'unavailable' as const },
+    })))
+    const codexCancelLogin = vi.fn(() => Promise.resolve(remoteOk({
+      enabled: true as const, runtime: 'stopped' as const, runtimePreference: 'auto' as const,
+      systemRuntimeAvailable: false, bundledRuntimeVersion: '0.153.4',
+      account: 'not-connected' as const, login: 'idle' as const, modelCount: 0,
+      usage: { state: 'unavailable' as const },
+    })))
+    await mountSection({ codexStatus, codexCancelLogin })
+
+    expect(await screen.findByText(en.codexSigningIn)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: en.codexCancelLogin }))
+    await waitFor(() => { expect(codexCancelLogin).toHaveBeenCalledOnce() })
+  })
+
   it('shows health-confirmed local status and starts the selected manager profile', async () => {
     const scripted = scriptedFace()
     const localProvider = {

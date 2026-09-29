@@ -492,10 +492,12 @@ function dockProps(
   values: Record<string, unknown>,
   resource: TransientResourceSnapshot = { status: 'none', value: undefined, failure: undefined },
   addresses: string[] = [],
+  externalActivities: readonly unknown[] = [],
 ): RunDetailsDockProps {
   return {
     useProjection: (key: string) => values[key],
     useResource: (address: string) => { addresses.push(address); return resource },
+    useExternalActivities: () => externalActivities,
     sessionId: 's1',
     t,
   } as unknown as RunDetailsDockProps
@@ -517,6 +519,30 @@ describe('RunDetailsDock', () => {
     render(<RunDetailsDock {...dockProps({ runDetails: cut(), taskCheckpoint: task() })} />)
     expect(screen.getByTestId('run-details')).toBeTruthy()
     expect(screen.getByTestId('run-details-task').textContent).toBe('task-1 · running')
+  })
+
+  it('shows external Codex actions as separate activity, not local tool rows', () => {
+    render(<RunDetailsPanel
+      details={cut()}
+      task={undefined}
+      transient={HIDDEN}
+      externalActivities={[
+        {
+          id: 'thread:turn:item', sessionId: 's1', dshTurn: 1, dshStep: 2,
+          provider: 'openai-codex-subscription', runtimeSource: 'system', runtimeVersion: '0.158.0',
+          codexThreadId: 'thread', codexTurnId: 'turn', codexItemId: 'item',
+          eventId: 'event', eventKind: 'item/completed', terminalState: 'modified',
+          kind: 'file-change', status: 'modified', label: undefined, path: 'src/example.ts', time: 1,
+        },
+      ] as never}
+      t={t}
+    />)
+    const activity = screen.getByTestId('run-details-external-activities')
+    expect(screen.getByText('外部运行时活动')).toBeTruthy()
+    expect(activity.textContent).toContain('文件变更')
+    expect(activity.textContent).toContain('已修改')
+    expect(activity.textContent).toContain('src/example.ts')
+    expect(document.querySelector('[data-testid="run-details-tool-calls"]')).toBeNull()
   })
 
   it('reads the transient observation from the address of the Session it shows', () => {
@@ -545,6 +571,7 @@ describe('RunDetailsDock', () => {
     const props = {
       useProjection: (key: string) => { keys.push(key); return values[key] },
       useResource: () => snapshot(observed({ status: 'summarizing' })),
+      useExternalActivities: () => [],
       sessionId: 's1',
       t,
     } as unknown as RunDetailsDockProps

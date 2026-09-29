@@ -70,6 +70,10 @@ flowchart LR
   pkg_api_settings_controller["api-settings-controller"]
   svc_credentialsController["ctx.credentialsController<br/>Host credential-surface Remote controller"]
   svc_settingsController["ctx.settingsController<br/>Host settings-surface Remote controller"]
+  svc_localModelRuntimeController["ctx.localModelRuntimeController<br/>Local model runtime control"]
+  pkg_client_ui_settings_models["client-ui-settings-models"]
+  pkg_agent_codex["agent-codex"]
+  svc_codexSubscription["ctx.codexSubscription<br/>Official ChatGPT subscription model route"]
   pkg_api_workspace_files["api-workspace-files"]
   svc_workspaceFiles["ctx.workspaceFiles<br/>Host workspace file Remote service"]
   pkg_workspace_changes["workspace-changes"]
@@ -262,6 +266,7 @@ flowchart LR
   svc_dynamicCordisRunner["ctx.dynamicCordisRunner<br/>Dynamic Cordis package host runner"]
   svc_cordisInspect["ctx.cordisInspect<br/>Dynamic Cordis inspect registry"]
   pkg_agent --> svc_agents
+  pkg_agent_codex --> svc_codexSubscription
   pkg_agent_default_model --> svc_agentDefaultModel
   pkg_agent_loop --> svc_agentLoop
   pkg_agent_presets --> svc_agentPresets
@@ -271,6 +276,7 @@ flowchart LR
   pkg_api_session_controller --> svc_sessionFileReferences
   pkg_api_session_controller --> svc_sessionSkillCatalog
   pkg_api_settings_controller --> svc_credentialsController
+  pkg_api_settings_controller --> svc_localModelRuntimeController
   pkg_api_settings_controller --> svc_settingsController
   pkg_api_terminal_controller --> svc_terminalController
   pkg_api_workspace_controller --> svc_directoryPickerController
@@ -423,6 +429,8 @@ flowchart LR
   svc_browserUse --> pkg_experimental_browser_use_playwright_mcp
   svc_browserUse --> pkg_experimental_browser_use_stagehand_native
   svc_clientModules --> pkg_client_hmr
+  svc_codexSubscription --> pkg_agent_loop
+  svc_codexSubscription --> pkg_api_settings_controller
   svc_compaction --> pkg_compaction_basic
   svc_compactionCandidatePolicy --> pkg_compaction_basic
   svc_computerUse --> pkg_experimental_computer_use_cua_driver_mcp
@@ -450,6 +458,7 @@ flowchart LR
   svc_jobs --> pkg_tool_terminal
   svc_llm --> pkg_agent_loop
   svc_llm --> pkg_compaction_basic
+  svc_localModelRuntimeController --> pkg_client_ui_settings_models
   svc_lsp --> pkg_tool_lsp
   svc_mcpResources --> pkg_mcp_resources
   svc_officeToPdf --> pkg_client_ui_sidebar_documentpreview
@@ -571,6 +580,8 @@ flowchart LR
 | `ctx.sessionSkillCatalog` | `core` | [`api-session-controller`](../packages/api/session-controller) | - | - | - | Lists the Session composition's user-invocable skills without activating a cold Agent. |
 | `ctx.credentialsController` | `core` | [`api-settings-controller`](../packages/api/settings-controller) | - | - | - | Projects the credential-reference seam onto the generated Remote namespace: batch fan-out, view projection, and refusal mapping live here, not on the seam Definition. |
 | `ctx.settingsController` | `core` | [`api-settings-controller`](../packages/api/settings-controller) | - | - | - | Projects the user-settings seam onto the generated Remote namespace: the read is always redacted and every refusal is classified here, not on the seam Definition. |
+| `ctx.localModelRuntimeController` | `core` | [`api-settings-controller`](../packages/api/settings-controller) | - | [`client-ui-settings-models`](../packages/client/ui-settings-models) | - | Delegates allowlisted local profile operations to the existing runtime manager and publishes health-confirmed process status to the Models settings surface. |
+| `ctx.codexSubscription` | `core` | [`agent-codex`](../packages/core/agent-codex) | - | [`agent-loop`](../packages/core/agent-loop), [`api-settings-controller`](../packages/api/settings-controller) | - | Owns the pinned official App Server process, dynamic model catalog, isolated subscription home, and explicit external turns without API-key routing or provider fallback. |
 | `ctx.workspaceFiles` | `core` | [`api-workspace-files`](../packages/api/workspace-files) | - | - | - | Serves stat, paged text, byte windows, directory listings, and the change feed for files inside a Session's workspace root, confined by lstat, containment, and a stat re-check. |
 | `ctx.workspaceChanges` | `core` | [`workspace-changes`](../packages/deliverables/workspace-changes) | - | - | - | Serves the summary each workspace/changes event announced and each listed file's turn-start and turn-end comparison, by Session and event sequence, until that Session is disposed; the log carries only the turn. |
 | `ctx.terminalController` | `core` | [`api-terminal-controller`](../packages/api/terminal-controller) | - | - | - | Owns user terminal processes, default shell resolution and bounded screen recovery through the subprocess provider and typed Remote transport. |

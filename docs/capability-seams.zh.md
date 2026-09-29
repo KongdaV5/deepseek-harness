@@ -72,6 +72,10 @@ flowchart LR
   pkg_api_settings_controller["api-settings-controller"]
   svc_credentialsController["ctx.credentialsController<br/>Host credential-surface Remote controller"]
   svc_settingsController["ctx.settingsController<br/>Host settings-surface Remote controller"]
+  svc_localModelRuntimeController["ctx.localModelRuntimeController<br/>Local model runtime control"]
+  pkg_client_ui_settings_models["client-ui-settings-models"]
+  pkg_agent_codex["agent-codex"]
+  svc_codexSubscription["ctx.codexSubscription<br/>Official ChatGPT subscription model route"]
   pkg_api_workspace_files["api-workspace-files"]
   svc_workspaceFiles["ctx.workspaceFiles<br/>Host workspace file Remote service"]
   pkg_workspace_changes["workspace-changes"]
@@ -264,6 +268,7 @@ flowchart LR
   svc_dynamicCordisRunner["ctx.dynamicCordisRunner<br/>Dynamic Cordis package host runner"]
   svc_cordisInspect["ctx.cordisInspect<br/>Dynamic Cordis inspect registry"]
   pkg_agent --> svc_agents
+  pkg_agent_codex --> svc_codexSubscription
   pkg_agent_default_model --> svc_agentDefaultModel
   pkg_agent_loop --> svc_agentLoop
   pkg_agent_presets --> svc_agentPresets
@@ -273,6 +278,7 @@ flowchart LR
   pkg_api_session_controller --> svc_sessionFileReferences
   pkg_api_session_controller --> svc_sessionSkillCatalog
   pkg_api_settings_controller --> svc_credentialsController
+  pkg_api_settings_controller --> svc_localModelRuntimeController
   pkg_api_settings_controller --> svc_settingsController
   pkg_api_terminal_controller --> svc_terminalController
   pkg_api_workspace_controller --> svc_directoryPickerController
@@ -425,6 +431,8 @@ flowchart LR
   svc_browserUse --> pkg_experimental_browser_use_playwright_mcp
   svc_browserUse --> pkg_experimental_browser_use_stagehand_native
   svc_clientModules --> pkg_client_hmr
+  svc_codexSubscription --> pkg_agent_loop
+  svc_codexSubscription --> pkg_api_settings_controller
   svc_compaction --> pkg_compaction_basic
   svc_compactionCandidatePolicy --> pkg_compaction_basic
   svc_computerUse --> pkg_experimental_computer_use_cua_driver_mcp
@@ -452,6 +460,7 @@ flowchart LR
   svc_jobs --> pkg_tool_terminal
   svc_llm --> pkg_agent_loop
   svc_llm --> pkg_compaction_basic
+  svc_localModelRuntimeController --> pkg_client_ui_settings_models
   svc_lsp --> pkg_tool_lsp
   svc_mcpResources --> pkg_mcp_resources
   svc_officeToPdf --> pkg_client_ui_sidebar_documentpreview
@@ -573,6 +582,8 @@ flowchart LR
 | `ctx.sessionSkillCatalog` | `core` | [`api-session-controller`](../packages/api/session-controller) | - | - | - | 在不激活冷 Agent 的前提下列出 Session 组合中允许用户调用的 skill。 |
 | `ctx.credentialsController` | `core` | [`api-settings-controller`](../packages/api/settings-controller) | - | - | - | 把凭据引用 seam 投影到生成的 Remote namespace：批量扇出、视图投影与拒绝映射都在这里，而不在 seam Definition 上。 |
 | `ctx.settingsController` | `core` | [`api-settings-controller`](../packages/api/settings-controller) | - | - | - | 把用户设置 seam 投影到生成的 Remote namespace：读取一律脱敏，所有拒绝在这里分类，而不在 seam Definition 上。 |
+| `ctx.localModelRuntimeController` | `core` | [`api-settings-controller`](../packages/api/settings-controller) | - | [`client-ui-settings-models`](../packages/client/ui-settings-models) | - | 将允许的本地 profile 操作委托给现有 runtime 管理器，并向模型设置页发布经健康检查确认的进程状态。 |
+| `ctx.codexSubscription` | `core` | [`agent-codex`](../packages/core/agent-codex) | - | [`agent-loop`](../packages/core/agent-loop)、[`api-settings-controller`](../packages/api/settings-controller) | - | 拥有固定版本的官方 App Server 进程、动态模型目录、隔离的订阅数据目录及显式外部 turn；不走 API key 路由或 provider fallback。 |
 | `ctx.workspaceFiles` | `core` | [`api-workspace-files`](../packages/api/workspace-files) | - | - | - | 为会话工作区根内的文件提供 stat、分页文本、字节窗口、目录列举与变更流，经 lstat、包含关系与 stat 重检限定。 |
 | `ctx.workspaceChanges` | `core` | [`workspace-changes`](../packages/deliverables/workspace-changes) | - | - | - | Serves the summary each workspace/changes event announced and each listed file's turn-start and turn-end comparison, by Session and event sequence, until that Session is disposed; the log carries only the turn. |
 | `ctx.terminalController` | `core` | [`api-terminal-controller`](../packages/api/terminal-controller) | - | - | - | 通过子进程提供方与类型化 Remote 传输管理用户终端进程、解析默认 shell，并恢复有界终端屏幕。 |

@@ -9,7 +9,7 @@
 
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import type {
-  CredentialInfo, LocalModelProfileId, LocalModelRuntimeSnapshot,
+  CodexRuntimePreference, CodexSubscriptionStatusView, CredentialInfo, LocalModelProfileId, LocalModelRuntimeSnapshot,
   LlmConfigurableProvider, LlmProviderInfo, SettingsNamespaceView,
 } from '@deepseek-ai/dsh-api-remotes/client'
 import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
@@ -108,6 +108,12 @@ export interface ModelsSettingsState {
   localRuntimeError?: string | null
   /** Whether a start, stop, or restart Remote call is still pending. */
   localRuntimeBusy?: boolean
+  /** Renderer-safe state for the isolated official Codex App Server integration. */
+  codexSubscription?: CodexSubscriptionStatusView
+  /** Last status/action error from the Codex subscription integration. */
+  codexSubscriptionError?: string | null
+  /** Whether an explicit login/reconnect/disconnect action is pending. */
+  codexSubscriptionBusy?: boolean
 }
 
 /**
@@ -164,6 +170,7 @@ export class ModelsSettingsStore {
   /** Latest load wins; an older response never overwrites a newer one. */
   private generation = 0
   private runtimeRequestPending = false
+  private codexStatusRequestPending = false
 
   /**
    * @param ctx - the page plugin's context, whose `remote.llm` and
@@ -250,7 +257,10 @@ export class ModelsSettingsStore {
     })
   }
 
-  /** Poll the Host-owned status without mirroring browser-local timer state into the component. */
+  /** Poll the Host-owned status without mirroring browser-local timer state into the component.
+   * @param intervalMs - Delay between status requests in milliseconds.
+   * @returns A function that stops this polling loop.
+   */
   startLocalRuntimePolling(intervalMs = 4000): () => void {
     const localModels: unknown = Reflect.get(this.ctx.remote, 'localModels')
     const status: unknown = typeof localModels === 'object' && localModels !== null
@@ -270,6 +280,120 @@ export class ModelsSettingsStore {
     return () => {
       active = false
       clearInterval(timer)
+    }
+  }
+
+  /** Start the lazy Codex runtime only while its existing Models settings card is mounted.
+   * @param intervalMs - Delay between status requests in milliseconds.
+   * @returns A function that stops this polling loop.
+   */
+  startCodexSubscriptionPolling(intervalMs = 5000): () => void {
+    let active = true
+    let disabled = false
+    const poll = async (): Promise<void> => {
+      if (!active || disabled) return
+      disabled = await this.refreshCodexSubscription() === false
+      if (disabled) clearInterval(timer)
+    }
+    const timer = setInterval(() => { void poll() }, intervalMs)
+    void poll()
+    return () => {
+      active = false
+      clearInterval(timer)
+    }
+  }
+
+  /** Read only the renderer-safe runtime/account/model-count projection.
+   * @returns Whether the Codex runtime remains enabled, or undefined when status is unavailable.
+   */
+  async refreshCodexSubscription(): Promise<boolean | undefined> {
+    if (this.codexStatusRequestPending) return undefined
+    this.codexStatusRequestPending = true
+    try {
+      const response = await this.ctx.remote.settings.codexSubscriptionStatus()
+      if (response.ok) {
+        const previous = this.store.getSnapshot().codexSubscription
+        if (response.value.enabled || previous !== undefined) {
+          this.store.update((state) => {
+            state.codexSubscription = response.value
+            state.codexSubscriptionError = null
+          })
+        }
+        return response.value.enabled
+      } else {
+        this.store.update((state) => { state.codexSubscriptionError = response.error.message })
+      }
+    } catch (error) {
+      this.store.update((state) => { state.codexSubscriptionError = errorMessage(error) })
+    } finally {
+      this.codexStatusRequestPending = false
+    }
+    return undefined
+  }
+
+  /** Explicitly open the official ChatGPT subscription sign-in flow. */
+  connectCodexSubscription(): Promise<void> {
+    return this.runCodexSubscriptionAction(async () => {
+      const response = await this.ctx.remote.settings.connectCodexSubscription()
+      return response.ok ? undefined : response.error.message
+    })
+  }
+
+  /** Cancel the active official browser login transaction.
+   * @returns A promise that settles after the cancellation and status refresh.
+   */
+  cancelCodexSubscriptionLogin(): Promise<void> {
+    return this.runCodexSubscriptionAction(async () => {
+      const response = await this.ctx.remote.settings.cancelCodexSubscriptionLogin()
+      return response.ok ? undefined : response.error.message
+    })
+  }
+
+  /** Restart only the Codex App Server process owned by this DSH instance.
+   * @returns A promise that settles after reconnection and status refresh.
+   */
+  reconnectCodexSubscription(): Promise<void> {
+    return this.runCodexSubscriptionAction(async () => {
+      const response = await this.ctx.remote.settings.reconnectCodexSubscription()
+      return response.ok ? undefined : response.error.message
+    })
+  }
+
+  /** Log out from the dedicated DSH Codex home.
+   * @returns A promise that settles after logout and status refresh.
+   */
+  disconnectCodexSubscription(): Promise<void> {
+    return this.runCodexSubscriptionAction(async () => {
+      const response = await this.ctx.remote.settings.disconnectCodexSubscription()
+      return response.ok ? undefined : response.error.message
+    })
+  }
+
+  /** Persist and activate the selected Codex App Server source at an idle boundary.
+   * @param preference - the selected automatic, system, or bundled runtime source.
+   */
+  selectCodexRuntime(preference: CodexRuntimePreference): Promise<void> {
+    return this.runCodexSubscriptionAction(async () => {
+      const response = await this.ctx.remote.settings.selectCodexRuntime(preference)
+      return response.ok ? undefined : response.error.message
+    })
+  }
+
+  private async runCodexSubscriptionAction(action: () => Promise<string | undefined>): Promise<void> {
+    this.store.update((state) => {
+      state.codexSubscriptionBusy = true
+      state.codexSubscriptionError = null
+    })
+    try {
+      const failure = await action()
+      if (failure !== undefined) {
+        this.store.update((state) => { state.codexSubscriptionError = failure })
+      }
+      await this.refreshCodexSubscription()
+    } catch (error) {
+      this.store.update((state) => { state.codexSubscriptionError = errorMessage(error) })
+    } finally {
+      this.store.update((state) => { state.codexSubscriptionBusy = false })
     }
   }
 
@@ -294,7 +418,9 @@ export class ModelsSettingsStore {
     }
   }
 
-  /** Start one allowlisted profile and publish its health-confirmed answer. */
+  /** Start one allowlisted profile and publish its health-confirmed answer.
+   * @param profile - The allowlisted local model profile to start.
+   */
   startLocalModel(profile: LocalModelProfileId): Promise<void> {
     return this.runLocalRuntimeAction(() => this.ctx.remote.localModels.start(profile))
   }
@@ -304,7 +430,9 @@ export class ModelsSettingsStore {
     return this.runLocalRuntimeAction(() => this.ctx.remote.localModels.stop())
   }
 
-  /** Restart the selected profile after the current model has fully stopped. */
+  /** Restart the selected profile after the current model has fully stopped.
+   * @param profile - The allowlisted local model profile to restart.
+   */
   restartLocalModel(profile: LocalModelProfileId): Promise<void> {
     return this.runLocalRuntimeAction(() => this.ctx.remote.localModels.restart(profile))
   }

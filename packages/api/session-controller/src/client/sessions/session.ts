@@ -14,6 +14,7 @@ import type {
   QueueAction,
   SessionAddress,
   SessionAssistantStreamBaseline,
+  SessionExternalActivityBaseline,
   SessionProjectionBaseline,
   SessionRequestId,
 } from '../../types.ts'
@@ -23,7 +24,10 @@ import type {
 import type {
   OpenState, PendingSubmission, PromptError, SessionSnapshot,
 } from '../contract/snapshot.ts'
-import { MutableSessionEventSource } from '../contract/events.ts'
+import {
+  MutableSessionEventSource,
+  MutableSessionExternalActivitySource,
+} from '../contract/events.ts'
 import type {
   SessionEventLikeEntry, SessionLiveEventEntry,
 } from '../contract/events.ts'
@@ -142,6 +146,8 @@ export class Session implements SessionFace {
 
   /** Contiguous history and live tail consumed by Conversation assembly. */
   readonly eventSource = new MutableSessionEventSource()
+  /** Sanitized external-runtime actions shown separately from the transcript. */
+  readonly externalActivities = new MutableSessionExternalActivitySource()
   private snapshotCache: SessionSnapshot
   private readonly notifier: Notifier
   /**
@@ -622,6 +628,7 @@ export class Session implements SessionFace {
           change.hasMore,
           change.page.projections === undefined ? undefined : projectionsBaseline(change.page.projections),
           change.page.assistantStream,
+          change.page.externalActivities,
         )
         return
       case 'prepend':
@@ -632,6 +639,9 @@ export class Session implements SessionFace {
         return
       case 'assistant-stream':
         this.publishAssistantEntry(this.assistantStream.acceptFrame(change.frame))
+        return
+      case 'external-activity':
+        this.externalActivities.accept(change.frame)
     }
   }
 
@@ -641,11 +651,13 @@ export class Session implements SessionFace {
     hasMore: boolean,
     projections?: ProjectionsBaseline,
     assistantStream?: SessionAssistantStreamBaseline,
+    externalActivities?: SessionExternalActivityBaseline,
   ): void {
     // A durable gap-repair page has no assistant baseline. Clearing transient
     // attempts makes a held notification reopen follow once for an atomic
     // page/baseline pair instead of applying it to an unrelated repair cut.
     const visible = this.assistantStream.replace(entries, assistantStream)
+    this.externalActivities.replace(externalActivities)
     this.baseSeq = SessionLogOffset(entries[0]?.event.seq ?? 0)
     this.hasMore = hasMore
     if (visible.some(entry => entry.event.type === 'turn/start')) this.firstPromptPendingTurn = false

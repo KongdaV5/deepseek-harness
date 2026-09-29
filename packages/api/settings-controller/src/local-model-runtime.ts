@@ -294,7 +294,10 @@ declare module '@deepseek-ai/cordis' {
   }
 }
 
-/** Stable public catalog of the local-model profiles controllable without changing DSH routing. */
+/** Stable public catalog of the local-model profiles controllable without changing DSH routing.
+ * @param home - the user home whose Models directory is inspected.
+ * @returns the supported local profiles with their expected model paths.
+ */
 export function localModelProfileCatalog(home = homedir()): RuntimeProfile[] {
   const qwenRoot = join(home, 'Models', 'Qwen3.8-27B-GSQ-RCO-GGUF')
   const huihuiRoot = join(home, 'Models', 'Huihui-Qwen3.8-27B-abliterated-GGUF')

@@ -15,9 +15,12 @@ A turn flows through the six packages in one loop: the driver in [`agent-loop`](
 | `tools/` | The scoped tool registry and guarded execution pipeline (`ctx.tools`) | [tools.md](tools.md) |
 | `agent/` | The `Agent` interface, live registry, initiator scope, and `agent/*` event vocabulary (`ctx.agents`) | this page |
 | `agent-loop/` | The concrete driver implementing the public `Agent` contract (`ctx.agentLoop`) | this page |
+| `agent-codex/` | Optional official Codex App Server provider and external-turn executor (`ctx.codexSubscription`) | [agent-codex package](../../packages/core/agent-codex/README.md) |
 | `scope/` | The scoped-registration primitive the registries and loop build per-agent scoping on | [scope.md](scope.md) |
 
 `scope/` is the one non-service package: a dependency-free library (`createScope`/`scopeOf`/`scopeTarget`) that sits below `session/` and `system-prompt/` in the module graph precisely so they can consume it without a cycle. `agent-loop` is the one concrete implementation of the public `Agent` contract and lives here because it is the harness's default product loop; it runs each driver inside `ctx.agents.withInitiator()`. Extension plugins depend on `agent` — including when they need the initiating Agent — and never on `agent-loop` directly, so the loop stays swappable. [`dsh-base`](../../packages/bundle/base/README.md) is the default product composition, while [`dsh-sdk-minimal`](../../packages/bundle/sdk-minimal/README.md) declares a smaller standalone tree.
+
+`agent-codex` is an optional external-turn provider mounted only by the Custom desktop composition. When the user explicitly selects one of its discovered Codex models, the driver delegates that turn to the official Codex App Server while keeping the visible DSH Session and transcript canonical. It does not replace the default loop or provide a Local/paid-provider fallback.
 
 ## Creation and ownership
 
@@ -901,6 +904,82 @@ roots(): Agent[]
 
 Source: [`packages/core/agent/src/index.ts`](../../packages/core/agent/src/index.ts)
 
+<a id="ctxcodexsubscription--codexsubscriptionruntime"></a>
+
+### `ctx.codexSubscription` — `CodexSubscriptionRuntime`
+
+App Server-backed provider, model directory, and external turn executor.
+
+```ts cordis-catalog
+/** Attach the persistent runtime preference owned by DSH settings.
+ * @param scope - the DSH settings scope that stores the user's runtime preference.
+ */
+attachSettings(scope: SettingsScope<CodexRuntimeSettings>): void
+
+/** Change runtime preference only between turns, then start a fresh pinned connection.
+ * @param preference - the requested automatic, verified system, or bundled runtime.
+ * @returns the refreshed renderer-safe Codex subscription status.
+ */
+async selectRuntime(preference: unknown): Promise<CodexSubscriptionStatus>
+
+/** The model catalog owner is this exact active runtime instance.
+ * @returns This runtime as the only external provider owned by the package.
+ */
+listProviders(): readonly ExternalModelProvider[]
+
+/** Return redacted current state; a settings visit is an on-demand start boundary.
+ * @returns The current renderer-safe runtime, account, and usage state.
+ */
+async status(): Promise<CodexSubscriptionStatus>
+
+/** Start the official ChatGPT subscription login and open only its allowlisted URL.
+ * @returns Whether the official browser sign-in is pending or already connected.
+ */
+async connectChatGPT(): Promise<{ readonly status: 'signing-in' | 'connected' }>
+
+/** Cancel only the login transaction owned by this runtime process.
+ * @returns The refreshed renderer-safe subscription state.
+ */
+async cancelLogin(): Promise<CodexSubscriptionStatus>
+
+/** Reconnect means restarting only the DSH-owned App Server, not user Codex apps.
+ * @returns The refreshed renderer-safe subscription state.
+ */
+async reconnect(): Promise<CodexSubscriptionStatus>
+
+/** Use the official logout method in the isolated CODEX_HOME; never edit auth files directly.
+ * @returns The refreshed renderer-safe subscription state.
+ */
+async disconnect(): Promise<CodexSubscriptionStatus>
+
+/** Discover model IDs and reasoning capabilities from the active official runtime.
+ * @param signal - Optional cancellation signal for discovery.
+ * @returns The available Codex model catalog entries.
+ */
+async listModels(signal?: AbortSignal): Promise<readonly ExternalModelCatalogEntry[]>
+
+/** Validate a model and materialize its runtime-owned default effort.
+ * @param selection - The requested Codex provider, model, and optional effort.
+ * @param signal - Optional cancellation signal for model discovery.
+ * @returns The validated selection with its resolved reasoning effort.
+ */
+async resolveSelection(selection: ExternalTurnSelection, signal?: AbortSignal): Promise<ExternalTurnSelection>
+
+/** Ensure selected model/effort is still served by this runtime and return the external executor.
+ * @param selection - The frozen external provider, model, and reasoning choice.
+ * @param signal - Cancellation signal for model discovery and workspace execution.
+ * @returns An executor bound to the validated model and this runtime.
+ */
+async executorFor(selection: ExternalTurnSelection, signal: AbortSignal): Promise<ExternalTurnExecutor>
+
+/** Shut down only the process range started by this DSH service. */
+async dispose(): Promise<void>
+```
+
+Types: [SettingsScope](settings.md)
+
+Source: [`packages/core/agent-codex/src/runtime.ts`](../../packages/core/agent-codex/src/runtime.ts)
+
 <a id="agent-events"></a>
 
 ### `agent/*` events
@@ -995,6 +1074,28 @@ A step or turn errored. The machine reports a failure here even when the error h
  * @mode emit
  */
 'agent/error'(this: Scoped<Agent>, payload: { agent: Agent; turn: number; step: number; error: unknown }): void
+```
+
+Types: [Scoped](scope.md)
+
+Source: [`packages/core/agent/src/runtime-types.ts`](../../packages/core/agent/src/runtime-types.ts)
+
+<a id="agentexternal-turn-event--emit"></a>
+
+#### `agent/external-turn-event` — emit
+
+Public external-runtime activity. This is not a local tool/call event.
+
+```ts cordis-catalog
+/**
+ * Public external-runtime activity. This is not a local tool/call event.
+* @param payload.turn - DSH turn that owns the activity.
+* @param payload.step - DSH external step that owns the activity.
+* @param payload.event - sanitized public activity.
+* Scope-filtered dispatch (`@deepseek-ai/dsh-scope`): agent-scoped listeners receive only that agent.
+* @mode emit
+ */
+'agent/external-turn-event'(this: Scoped<Agent>, payload: { agent: Agent turn: number step: number event: ExternalTurnEvent }): void
 ```
 
 Types: [Scoped](scope.md)
@@ -1148,6 +1249,28 @@ Handle one failed model-request attempt before the loop retries or closes its st
 ```
 
 Types: [LlmFailure](llm-streaming.md) · [ResolvedRetryPolicy](llm-streaming.md) · [Scoped](scope.md)
+
+Source: [`packages/core/agent/src/runtime-types.ts`](../../packages/core/agent/src/runtime-types.ts)
+
+<a id="agentresolve-external-turn--waterfall"></a>
+
+#### `agent/resolve-external-turn` — waterfall
+
+Resolve an optional provider-owned turn executor before local prompt or tool assembly. The default is the existing local AgentLoop path.
+
+```ts cordis-catalog
+/**
+* Resolve an optional provider-owned turn executor before local prompt or
+* tool assembly. The default is the existing local AgentLoop path.
+* @param payload.selection - frozen Session route for this turn.
+* @param payload.signal - cancellation signal for the admitted turn.
+* Scope-filtered dispatch (`@deepseek-ai/dsh-scope`): agent-scoped listeners receive only that agent.
+* @mode waterfall
+ */
+'agent/resolve-external-turn'(this: Scoped<Agent>, payload: { agent: Agent selection: ExternalTurnSelection signal: AbortSignal }, next: () => Promise<ExternalTurnExecutor | undefined>): Promise<ExternalTurnExecutor | undefined>
+```
+
+Types: [Scoped](scope.md)
 
 Source: [`packages/core/agent/src/runtime-types.ts`](../../packages/core/agent/src/runtime-types.ts)
 

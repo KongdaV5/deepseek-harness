@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
+import type { CodexSubscriptionRuntime } from '@deepseek-ai/dsh-agent-codex'
 import type { SettingsDescriptor } from '@deepseek-ai/dsh-settings'
 import { RemoteError, remoteErrorOf, remoteMethods } from '@deepseek-ai/dsh-typert-protocol'
 import SettingsController from '../src/index.ts'
@@ -77,6 +78,12 @@ describe('the settings Remote namespace a configuration page calls', () => {
     expect(remoteMethods(controller)).toEqual([
       { method: 'describe', invocation: { kind: 'direct' } },
       { method: 'canOpenAgentPresetDirectory', invocation: { kind: 'direct' } },
+      { method: 'codexSubscriptionStatus', invocation: { kind: 'direct' } },
+      { method: 'selectCodexRuntime', invocation: { kind: 'direct' } },
+      { method: 'connectCodexSubscription', invocation: { kind: 'direct' } },
+      { method: 'cancelCodexSubscriptionLogin', invocation: { kind: 'direct' } },
+      { method: 'reconnectCodexSubscription', invocation: { kind: 'direct' } },
+      { method: 'disconnectCodexSubscription', invocation: { kind: 'direct' } },
       { method: 'update', invocation: { kind: 'direct' } },
       { method: 'replace', invocation: { kind: 'direct' } },
       { method: 'mutate', invocation: { kind: 'direct' } },
@@ -103,6 +110,101 @@ describe('the settings Remote namespace a configuration page calls', () => {
         details: {},
       })
     }
+  })
+
+  it('keeps Codex subscription disabled unless the deployment explicitly enables it', async () => {
+    const controller = new SettingsController(new Context())
+
+    await expect(controller.codexSubscriptionStatus()).resolves.toEqual({
+      enabled: false,
+      runtime: 'stopped',
+      runtimePreference: 'auto',
+      systemRuntimeAvailable: false,
+      bundledRuntimeVersion: '',
+      account: 'not-connected',
+      login: 'idle',
+      modelCount: 0,
+      usage: { state: 'unavailable' },
+    })
+    await expect(controller.connectCodexSubscription()).rejects.toMatchObject({
+      code: 'gateway/internal',
+      message: 'official Codex subscription is not enabled in this deployment',
+    })
+  })
+
+  it('projects only renderer-safe Codex status and forwards explicit account actions', async () => {
+    const runtime = {
+      status: vi.fn(async () => ({
+        enabled: true,
+        runtime: 'ready',
+        runtimePreference: 'auto', runtimeSource: 'system', runtimeVersion: '0.158.0-alpha.2.1',
+        systemRuntimeAvailable: true, systemRuntimeVersion: '0.158.0-alpha.2.1', bundledRuntimeVersion: '0.153.4',
+        account: 'connected',
+        login: 'idle',
+        modelCount: 4,
+        usage: {
+          state: 'available',
+          primary: { usedPercent: 23, windowDurationMins: 300 },
+        },
+        accountLabel: 'private@example.invalid',
+        authToken: 'must-not-cross-the-Remote',
+        authUrl: 'https://auth.openai.com/private?code=secret',
+        codexHome: '/tmp/dsh-codex-home-sentinel',
+      })),
+      connectChatGPT: vi.fn(async () => ({ status: 'signing-in' as const })),
+      selectRuntime: vi.fn(async () => ({
+        enabled: true, runtime: 'ready' as const, runtimePreference: 'bundled' as const,
+        runtimeSource: 'bundled' as const, runtimeVersion: '0.153.4', systemRuntimeAvailable: true,
+        systemRuntimeVersion: '0.158.0-alpha.2.1', bundledRuntimeVersion: '0.153.4',
+        account: 'connected' as const, login: 'idle' as const, modelCount: 4,
+        usage: { state: 'unavailable' as const },
+      })),
+      cancelLogin: vi.fn(async () => ({
+        enabled: true, runtime: 'ready', account: 'not-connected', login: 'idle', modelCount: 0,
+        usage: { state: 'unavailable' },
+      })),
+      reconnect: vi.fn(async () => ({
+        enabled: true, runtime: 'ready', account: 'connected', login: 'idle', modelCount: 4,
+        usage: { state: 'unavailable' },
+      })),
+      disconnect: vi.fn(async () => ({
+        enabled: true, runtime: 'ready', account: 'not-connected', login: 'idle', modelCount: 0,
+        usage: { state: 'unavailable' },
+      })),
+    }
+    const ctx = new Context()
+    await ctx.plugin(MemorySettings)
+    ctx.settings.register(NS, Profile)
+    ctx.provide('codexSubscription', runtime as unknown as CodexSubscriptionRuntime)
+    const controller = new SettingsController(ctx, { codexSubscription: true })
+
+    const status = await controller.codexSubscriptionStatus()
+    expect(status).toEqual({
+      enabled: true,
+      runtime: 'ready',
+      runtimePreference: 'auto', runtimeSource: 'system', runtimeVersion: '0.158.0-alpha.2.1',
+      systemRuntimeAvailable: true, systemRuntimeVersion: '0.158.0-alpha.2.1', bundledRuntimeVersion: '0.153.4',
+      account: 'connected',
+      login: 'idle',
+      modelCount: 4,
+      usage: {
+        state: 'available',
+        primary: { usedPercent: 23, windowDurationMins: 300 },
+      },
+    })
+    expect(JSON.stringify(status)).not.toContain('private@example.invalid')
+    expect(JSON.stringify(status)).not.toContain('must-not-cross-the-Remote')
+    expect(JSON.stringify(status)).not.toContain('auth.openai.com')
+    expect(JSON.stringify(status)).not.toContain('/tmp/dsh-codex-home-sentinel')
+    expect(JSON.stringify(controller.describe())).not.toContain('/tmp/dsh-codex-home-sentinel')
+
+    await expect(controller.connectCodexSubscription()).resolves.toEqual({ status: 'signing-in' })
+    expect(runtime.connectChatGPT).toHaveBeenCalledOnce()
+    await expect(controller.selectCodexRuntime('bundled')).resolves.toMatchObject({ runtimePreference: 'bundled' })
+    expect(runtime.selectRuntime).toHaveBeenCalledWith('bundled')
+    await expect(controller.cancelCodexSubscriptionLogin()).resolves.toMatchObject({ account: 'not-connected' })
+    await expect(controller.reconnectCodexSubscription()).resolves.toMatchObject({ account: 'connected' })
+    await expect(controller.disconnectCodexSubscription()).resolves.toMatchObject({ account: 'not-connected' })
   })
 
   it('mounts the credentials namespace beside its own', async () => {

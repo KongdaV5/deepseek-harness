@@ -61,6 +61,7 @@ export const SERVICE_PAGE: Record<string, string> = {
   mcpResources: 'mcp.md',
   agentLoop: 'core.md',
   agentDefaultModel: 'core.md',
+  codexSubscription: 'core.md',
   agentPresets: 'core.md',
   agents: 'core.md',
   approval: 'approval.md',
@@ -161,6 +162,8 @@ export const SERVICE_PAGE: Record<string, string> = {
  * to a model as `cordis_runtime_inspect what:"client"`).
  */
 export const SERVICE_WALK_EXEMPTIONS: Record<string, string> = {
+  agentModelSelection: 'per-Agent route snapshot — packages/core/agent/README.md owns the selection contract',
+  externalModelProviders: 'external route directory consumed by the Agent loop — packages/core/agent/README.md owns the provider contract',
   webTerminals: 'client-side terminal view models — packages/api/terminal-controller/README.md owns the API',
   appReady: 'not a service: launcher-provided successful-startup signal — packages/boot/cmdline/README.md owns the launcher contract',
   appExit: 'not a service: launcher-provided bounded process-exit callback — packages/boot/cmdline/README.md owns the launcher contract',
@@ -292,6 +295,16 @@ export const LINK_MAP: Readonly<Record<string, string>> = {
   AgentCancelCause: 'core.md',
   AgentFactory: 'core.md',
   AgentHandle: 'core.md',
+  CodexLoginStartValue: 'core.md',
+  CodexRuntimeSettings: 'core.md',
+  CodexRuntimePreference: 'settings.md',
+  CodexSubscriptionStatus: 'core.md',
+  CodexSubscriptionStatusView: 'core.md',
+  ExternalModelCatalogEntry: 'core.md',
+  ExternalModelProvider: 'core.md',
+  ExternalTurnEvent: 'core.md',
+  ExternalTurnExecutor: 'core.md',
+  ExternalTurnSelection: 'core.md',
   ModelSelection: 'core.md',
   AllowedModelRoute: 'subagent.md',
   SubagentModelSelectionSettings: 'subagent.md',
