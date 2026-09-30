@@ -8,6 +8,7 @@
     "src"
   ],
   "references": [
+    { "path": "../../util/atomic-write" },
     { "path": "../../../vendor/cordis" },
     { "path": "../../../vendor/schemastery" },
     { "path": "../../core/agent" },

@@ -1,5 +1,7 @@
 /** Session-persisted, non-secret Codex thread ownership and recovery facts. */
 export interface CodexSessionMappingState {
+  /** Verified producer runtime; absent legacy mappings have no cross-runtime resume evidence. */
+  readonly runtimeFingerprint?: string | null | undefined
   readonly generation: number
   /** Persistent DSH-managed authentication epoch; null denotes a legacy mapping. */
   readonly authGeneration: string | null
@@ -119,13 +121,18 @@ declare module '@deepseek-ai/dsh-session-projection/types' {
   }
 }
 
+/** Legacy wire events may omit the auth epoch; projection readers normalize it to null. */
+type CodexSessionMappingEvent = Omit<CodexSessionMappingState, 'authGeneration'> & {
+  readonly authGeneration?: string | null | undefined
+}
+
 declare module '@deepseek-ai/dsh-session/types' {
   interface SessionEventMap {
     /** Whole non-secret Codex mapping state; optional readers may skip it safely. */
-    'codex/subscription-state': { readonly state: CodexSessionMappingState }
+    'codex/subscription-state': { readonly state: CodexSessionMappingEvent }
   }
   interface IgnorableSessionEventMap {
-    'codex/subscription-state': { readonly state: CodexSessionMappingState }
+    'codex/subscription-state': { readonly state: CodexSessionMappingEvent }
   }
 }
 

@@ -9,7 +9,7 @@ kind: "package-reference"
 
 ## 概述
 
-选择官方 ChatGPT 订阅中的模型，通过 Codex App Server 运行 DSH 轮次。“自动”模式会优先使用 `/Applications/ChatGPT.app` 内签名有效且通过所需能力验证的 Codex runtime；否则使用 bundled `@openai/codex`。每个 App Server 连接只绑定一个可执行文件，模型和推理档位目录只来自该 runtime 的 `model/list`。DSH 保留用户可见的 Session 和公开对话历史；Codex 保留自己的私有执行线程和订阅登录状态。此集成不接受 API key，也不会自动回退到其他 provider。
+通过官方 ChatGPT 订阅运行 DSH 轮次。“自动”模式优先选择 `/Applications/ChatGPT.app` 内签名及能力验证通过的 Codex runtime；仅在系统身份不可用或已确认不兼容时选择 bundled `@openai/codex`，临时账户、网络及额度失败不触发切换。每个连接使用一个可执行文件及它自己的 `model/list` 目录。DSH 保留公开 Session 历史；Codex 管理私有执行线程及登录。此集成不接受 API key，也绝不会回退到其他 provider。
 
 ## 目录
 
@@ -63,7 +63,18 @@ DSH 会在设置中持久化非机密的 `authGeneration`，并将每个 Session
 | `src/index.ts` | 组合入口和声明的服务依赖。 |
 | `src/runtime.ts` | 账号状态、模型发现、历史同步、轮次和审批。 |
 | `src/app-server.ts` | 系统 runtime 签名身份校验、bundled 可执行文件身份和 JSON-RPC stdio 生命周期。 |
+| `src/compatibility.ts` | 共享 schema-aware 连接准入、非敏感机器缓存及显式维护探针。 |
 | `src/projection.ts` | 用于映射私有 Codex 线程的可忽略 Session 状态。 |
+
+### 独立运行时维护
+
+运行 `corepack pnpm codex:compat --status --json`，取得当前分发身份和匹配的缓存证据；加上 `--system` 或 `--bundled` 可指定运行时。`--light` 验证该二进制生成的 App Server schema，只执行初始化、账户、目录及可选额度读取，不创建线程、不推理、不修改认证。`--full` 显式创建命名的临时 synthetic 线程，验证短轮次、历史、恢复和观测到活跃状态后的中断行为，再在协议支持删除时删除自己创建的线程。失败或非活跃中断不算 Full 通过。
+
+共享验证器只把非敏感 runtime 元数据、模型/档位及能力证据写入 Custom 根下的 `cache/codex-runtime-compat.json`，采用原子写入。二进制 SHA-256、可信分发身份、架构、适配器合同修订号及必需 schema 指纹共同定义证据键。每次连接和缓存复用前重新检查身份及二进制内容；损坏、过期或不可写缓存不构成兼容证据，写入失败与直接验证结果分开。认证事务未结束时仅验证协议及路径；账户、目录读取和完整 Light 准入等待既有事务屏障解除。
+
+仅目录变化无需构建 DSH：当前 `model/list` 刷新 Host/客户端目录。消失的模型保留为 Session 选择，以 `MODEL_UNAVAILABLE` 阻止发送，直到用户选择另一模型；DSH 不替换模型，也不为它切换二进制。运行时替换只在安全重连时发生，不在轮次中或健康空闲连接上静默切换。未经验证的 runtime pair 对已结算映射采用退役并从公开历史 bootstrap；未决 dispatch 则阻断且不重放。可选映射指纹保留原有 state version 和 dispatch 屏障，不轮换认证状态。
+
+兼容等级区分仅目录变化、兼容 runtime、需要适配器工作的新能力及必需合同破坏。CLI 将未完成的行为验证与 schema 证据分开；未知兼容性不是通过。
 
 </details>
 

@@ -663,14 +663,15 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     methods: [
       {
         signature: 'attachSettings(scope: SettingsScope<CodexRuntimeSettings>): void',
-        description: 'Attach the persistent runtime preference owned by DSH settings.',
-        parameters: [{ name: 'scope', description: 'the DSH settings scope that stores the user\'s runtime preference.' }],
+        description: 'Attach the persistent runtime and authentication lifecycle settings.',
+        parameters: [{ name: 'scope', description: 'the DSH settings scope that owns runtime preference and authentication state.' }],
       },
       {
         signature: 'async selectRuntime(preference: unknown): Promise<CodexSubscriptionStatus>',
-        description: 'Change runtime preference only between turns, then start a fresh pinned connection.',
+        description: 'Change runtime preference only while no auth-bound operation is active; this preserves authGeneration.',
         parameters: [{ name: 'preference', description: 'the requested automatic, verified system, or bundled runtime.' }],
         returns: 'the refreshed renderer-safe Codex subscription status.',
+        throws: ['when an authentication transition, login, or remote-thread operation is active.'],
       },
       {
         signature: 'listProviders(): readonly ExternalModelProvider[]',
@@ -686,27 +687,31 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
       },
       {
         signature: 'async connectChatGPT(): Promise<{ readonly status: \'signing-in\' | \'connected\' }>',
-        description: 'Start the official ChatGPT subscription login and open only its allowlisted URL.',
+        description: 'Start the official ChatGPT sign-in; only its successful completion rotates authGeneration.',
         parameters: [],
         returns: 'Whether the official browser sign-in is pending or already connected.',
+        throws: ['when a remote-thread operation or another account/runtime transition is active.'],
       },
       {
         signature: 'async cancelLogin(): Promise<CodexSubscriptionStatus>',
-        description: 'Cancel only the login transaction owned by this runtime process.',
+        description: 'Cancel only the pending login transaction; cancellation does not rotate authGeneration.',
         parameters: [],
         returns: 'The refreshed renderer-safe subscription state.',
+        throws: ['when a pending login cannot be cancelled because a remote operation or transition is active.'],
       },
       {
         signature: 'async reconnect(): Promise<CodexSubscriptionStatus>',
-        description: 'Reconnect means restarting only the DSH-owned App Server, not user Codex apps.',
+        description: 'Restart only the DSH-owned App Server; authentication generation and Session mappings remain stable.',
         parameters: [],
         returns: 'The refreshed renderer-safe subscription state.',
+        throws: ['when a login, account transition, or remote-thread operation is active.'],
       },
       {
         signature: 'async disconnect(): Promise<CodexSubscriptionStatus>',
-        description: 'Use the official logout method in the isolated CODEX_HOME; never edit auth files directly.',
+        description: 'Use official logout and rotate authGeneration only after it succeeds; never edit auth files directly.',
         parameters: [],
         returns: 'The refreshed renderer-safe subscription state.',
+        throws: ['when a remote-thread operation is active, logout fails, or the new generation cannot persist.'],
       },
       {
         signature: 'async listModels(signal?: AbortSignal): Promise<readonly ExternalModelCatalogEntry[]>',
@@ -3994,6 +3999,14 @@ export const EVENT_API: readonly EventApiEntry[] = [
     signature: '\'llm/adapters-updated\'(): void',
     summary: 'The provider topology changed: an adapter registered or unregistered routes, or the configurable-provider directory gained or lost entries.',
     description: 'The provider topology changed: an adapter registered or unregistered routes, or the configurable-provider directory gained or lost entries. This payload-free registry notification fires at each commit point (including registration disposal); consumers re-read `listProviders()`, `listModels()`, or `listConfigurableProviders()` for the new state. Observer failures are contained and cannot veto the registry mutation.',
+    parameters: [],
+  },
+  {
+    name: 'llm/model-catalog-updated',
+    mode: 'emit',
+    signature: '\'llm/model-catalog-updated\'(): void',
+    summary: 'A current external runtime connection or its authoritative model directory changed.',
+    description: 'A current external runtime connection or its authoritative model directory changed.',
     parameters: [],
   },
   {

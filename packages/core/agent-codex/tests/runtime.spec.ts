@@ -17,6 +17,8 @@ import type {
   CodexAppServerConnection, CodexRuntimeDescriptor, CodexServerCallbacks, SystemCodexRuntimeResolution,
 } from '../src/app-server.ts'
 import { codexSubscriptionProjection } from '../src/projection.ts'
+import { CodexIncompatibleError } from '../src/compatibility.ts'
+import { reportFixture } from './compatibility-fixtures.ts'
 import { MemorySettings } from '../../../settings/settings/tests/memory.ts'
 
 interface StoredTurn extends Record<string, unknown> {
@@ -190,6 +192,8 @@ async function harness(
   options: {
     systemRuntime?: SystemCodexRuntimeResolution
     missingSystemCapability?: string
+    compatibilityFailure?: Error
+    compatibilityFingerprint?: () => string
     settingsDocument?: Record<string, unknown>
     root?: string
     ensureHome?: CodexRuntimeInternals['ensureHome']
@@ -211,6 +215,17 @@ async function harness(
   const servers = [server]
   let startCount = 0
   const internals: CodexRuntimeInternals = {
+    inspectRuntime: async () => ({ trustedLocationId: 'fixture', signer: 'fixture', architecture: 'darwin-arm64', binaryFingerprint: 'a'.repeat(64) }),
+    verifyCompatibility: async (descriptor, _client, _root, _initialized, protocolOnly) => {
+      if (options.compatibilityFailure !== undefined) throw options.compatibilityFailure
+      if (descriptor.source === 'system' && options.missingSystemCapability !== undefined) {
+        throw new CodexIncompatibleError(options.missingSystemCapability)
+      }
+      const report = reportFixture(descriptor)
+      if (options.compatibilityFingerprint !== undefined) report.fingerprint = options.compatibilityFingerprint()
+      if (protocolOnly) report.lightStatus = 'UNKNOWN'
+      return report
+    },
     resolveHomePath: options.resolveHomePath ?? ((...segments) => join(root, ...segments)),
     resolveAllowedHomeRoot: options.resolveAllowedHomeRoot ?? (() => root),
     ...(options.ensureHome === undefined ? {} : { ensureHome: options.ensureHome }),
@@ -392,16 +407,8 @@ describe('Codex subscription runtime', () => {
       },
     }])
     expect(h.servers).toHaveLength(1)
-    expect(h.server.calls.map(call => call.method)).toEqual(expect.arrayContaining([
-      'account/read', 'model/list', 'thread/start', 'turn/start', 'turn/interrupt',
-      'thread/resume', 'thread/read', 'thread/inject_items', 'thread/turns/list',
-    ]))
-    expect(h.server.calls.find(call => call.method === 'thread/turns/list')?.params).toMatchObject({
-      sortDirection: 'desc',
-    })
-    expect(h.server.calls.find(call => call.method === 'thread/start')).toMatchObject({
-      params: { cwd: null },
-    })
+    expect(h.server.calls.map(call => call.method)).toEqual(expect.arrayContaining(['account/read', 'model/list']))
+    expect(h.server.calls.some(call => call.method.startsWith('thread/') || call.method.startsWith('turn/'))).toBe(false)
   })
 
   it('falls back only during auto startup when system capability probing fails', async () => {
@@ -420,6 +427,14 @@ describe('Codex subscription runtime', () => {
     expect(h.servers[0]?.dispose).toHaveBeenCalledOnce()
     expect(h.servers[1]?.runtimeSource).toBe('bundled')
     await expect(h.runtime.listModels()).resolves.toMatchObject([{ id: 'catalog-model-a' }])
+  })
+
+  it('does not use Bundled as a fallback for temporary System verification failures', async () => {
+    const h = await harness(undefined, { systemRuntime: { runtime: systemCodex }, compatibilityFailure: new Error('temporary transport') })
+    cleanups.push(h.cleanup)
+    expect(await h.runtime.status()).toMatchObject({ runtime: 'error', account: 'error' })
+    expect(h.servers).toHaveLength(1)
+    expect(h.server.runtimeSource).toBe('system')
   })
 
   it('does not fall back when the user explicitly selects an incompatible system runtime', async () => {
@@ -1042,6 +1057,93 @@ describe('Codex subscription runtime', () => {
     const latest = mappingEvents.at(-1)
     expect(latest?.type === 'codex/subscription-state' && latest.data.state.dispatch).toBeNull()
     expect(JSON.stringify(mappingEvents)).not.toMatch(/authUrl|accessToken|refreshToken|codex-home/u)
+  })
+
+  it('blocks undelivered reconciliation recovery across an unknown runtime pair without resuming or replaying', async () => {
+    let fingerprint = 'c'.repeat(64)
+    const h = await harness(undefined, { compatibilityFingerprint: () => fingerprint })
+    cleanups.push(h.cleanup)
+    await h.runtime.status()
+    const turnRequest = request(h.session, appendUser(h.session, 'Perform one file change'))
+    h.server.onStart = async (params) => {
+      h.server.turns.push(finalTurn('accepted-turn', String(params.clientUserMessageId), 'Recovered result'))
+      throw new Error('connection closed before the turn/start response')
+    }
+    const executor = await h.runtime.executorFor(turnRequest.selection, turnRequest.signal)
+    await expect(executor.executeTurn(turnRequest)).rejects.toThrow('connection closed')
+    const failedDelivery = { ...turnRequest, publish: {
+      ...turnRequest.publish, textDelta: () => { throw new Error('delivery failed') },
+    } }
+    await expect(executor.executeTurn(failedDelivery)).rejects.toThrow('delivery failed')
+    const state = h.ctx.sessionProjections.stateOf(h.session, 'codexSubscription')
+    expect(state?.dispatch).toBeNull()
+    expect(state?.lastReconciliation?.status).toBe('completed')
+
+    fingerprint = 'e'.repeat(64)
+    await h.runtime.reconnect()
+    const replacement = h.servers.at(-1)!
+    const currentExecutor = await h.runtime.executorFor(turnRequest.selection, turnRequest.signal)
+    await expect(currentExecutor.executeTurn(turnRequest)).rejects.toThrow(/runtime.*pair|compatibility/u)
+    expect(replacement.calls.filter(call => call.method.startsWith('thread/') || call.method.startsWith('turn/'))).toEqual([])
+    expect(replacement.starts).toHaveLength(0)
+    expect(h.ctx.sessionProjections.stateOf(h.session, 'codexSubscription')?.runtimeFingerprint).toBe('c'.repeat(64))
+  })
+
+  it('blocks an unresolved dispatch after child replacement changes the runtime fingerprint', async () => {
+    let fingerprint = 'c'.repeat(64)
+    const h = await harness(undefined, { compatibilityFingerprint: () => fingerprint })
+    cleanups.push(h.cleanup)
+    await h.runtime.status()
+    const turnRequest = request(h.session, appendUser(h.session, 'Change one file'))
+    h.server.onStart = async () => { throw new Error('lost acknowledgement') }
+    const executor = await h.runtime.executorFor(turnRequest.selection, turnRequest.signal)
+    await expect(executor.executeTurn(turnRequest)).rejects.toThrow('lost acknowledgement')
+    expect(h.ctx.sessionProjections.stateOf(h.session, 'codexSubscription')?.dispatch).not.toBeNull()
+
+    fingerprint = 'e'.repeat(64)
+    h.server.callbacks?.onExit(new Error('unexpected child exit'))
+    await h.runtime.status()
+    await expect(executor.executeTurn(turnRequest)).rejects.toThrow('runtime pair is unverified')
+    const replacement = h.servers.at(-1)!
+    expect(replacement.calls.filter(call => call.method.startsWith('thread/') || call.method.startsWith('turn/'))).toEqual([])
+    expect(replacement.starts).toHaveLength(0)
+  })
+
+  it('bootstraps canonical history for a settled unknown pair without reviving an old reconciliation', async () => {
+    let fingerprint = 'c'.repeat(64)
+    const h = await harness(undefined, { compatibilityFingerprint: () => fingerprint })
+    cleanups.push(h.cleanup)
+    await h.runtime.status()
+    const first = request(h.session, appendUser(h.session, 'Change one file'), undefined, 1)
+    const executor = await h.runtime.executorFor(first.selection, first.signal)
+    h.server.onStart = async (params) => {
+      h.server.turns.push(finalTurn('accepted-turn', String(params.clientUserMessageId), 'Recovered result'))
+      throw new Error('lost acknowledgement')
+    }
+    await expect(executor.executeTurn(first)).rejects.toThrow('lost acknowledgement')
+    await expect(executor.executeTurn(first)).resolves.toMatchObject({ text: 'Recovered result' })
+
+    fingerprint = 'e'.repeat(64)
+    await h.runtime.reconnect()
+    const replacement = h.servers.at(-1)!
+    // Distinct remote identity makes any accidental old-thread resume observable.
+    replacement.threadCount = 10
+    replacement.onStart = async (params) => {
+      const turn = finalTurn('new-turn', String(params.clientUserMessageId), 'Fresh result')
+      replacement.callbacks?.onNotification('turn/completed', { threadId: String(params.threadId), turn })
+      return { turn: { id: 'new-turn', status: 'inProgress', items: [] } }
+    }
+    const next = request(h.session, appendUser(h.session, 'Continue from canonical history'), undefined, 2)
+    await expect(executor.executeTurn(next)).resolves.toMatchObject({ text: 'Fresh result' })
+    expect(replacement.calls.some(call => call.method === 'thread/resume')).toBe(false)
+    expect(replacement.starts).toHaveLength(1)
+    expect(h.ctx.sessionProjections.stateOf(h.session, 'codexSubscription')).toMatchObject({
+      activeThreadId: 'thread-11', runtimeFingerprint: fingerprint, retiredThreadIds: ['thread-1'],
+      lastReconciliation: { status: 'unknown' },
+    })
+    await expect(executor.executeTurn(first)).rejects.toThrow('reconciled as unknown; it was not replayed')
+    expect(replacement.starts).toHaveLength(1)
+    expect(replacement.calls.some(call => call.method === 'thread/resume' && call.params.threadId === 'thread-1')).toBe(false)
   })
 
   it('reconciles interrupted dispatches and allows a distinct next turn without replay', async () => {

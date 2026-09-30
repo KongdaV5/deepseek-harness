@@ -5,6 +5,7 @@ import type { ProjectionDefinition } from '@deepseek-ai/dsh-session-projection'
 import type { CodexSessionMappingState } from './types.ts'
 
 const mappingSchema: z.ZodType<CodexSessionMappingState> = z.object({
+  runtimeFingerprint: z.string().length(64).nullable().optional(),
   generation: z.number().int().nonnegative(),
   authGeneration: z.string().min(1).nullable().default(null),
   activeThreadId: z.string().nullable(),

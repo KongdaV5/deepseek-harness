@@ -2,6 +2,9 @@ import type { ModelCatalog } from '@deepseek-ai/dsh-api-remotes/client'
 import { RemoteError } from '@deepseek-ai/dsh-client-test-runtime'
 import { describe, expect, it, vi } from 'vitest'
 import { ModelCatalogDirectory } from '../src/client/catalog.ts'
+import { ModelDirectory } from '../src/client/directory.ts'
+import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
+import { SessionId } from '@deepseek-ai/dsh-session/types'
 
 const catalog = (model: string): ModelCatalog => ({
   default: { provider: 'fixture', model },
@@ -16,6 +19,28 @@ function directory(models: () => Promise<unknown>): ModelCatalogDirectory {
 }
 
 describe('ModelCatalogDirectory', () => {
+  it('keeps an unavailable historical Codex selection and blocks sending without substitution', async () => {
+    let present = true
+    const current = { provider: 'openai-codex-subscription', model: 'selected-model' }
+    const models = directory(async () => ({ ok: true, value: {
+      default: { provider: 'local', model: 'local-model' },
+      routableProviders: ['openai-codex-subscription', 'local'],
+      groups: [{ id: 'openai-codex-subscription', name: 'OpenAI Codex', models: present ? [{ id: current.model, name: 'Selected' }] : [] }],
+      failures: [],
+    } }))
+    const projected = createSnapshotStore<unknown>({ lastUsed: null, next: current })
+    const selected = new ModelDirectory({ selectModel: vi.fn() }, SessionId('catalog-disappearance'), () => true, models, projected)
+    try {
+      await selected.load()
+      expect(selected.store.getSnapshot()).toMatchObject({ current, routable: true })
+      present = false
+      models.refresh()
+      await vi.waitFor(() => { expect(selected.store.getSnapshot()).toMatchObject({ current, routable: false }) })
+      present = true
+      models.refresh()
+      await vi.waitFor(() => { expect(selected.store.getSnapshot()).toMatchObject({ current, routable: true }) })
+    } finally { selected.dispose() }
+  })
   it('shares one failing request, exposes the RPC error, and permits a retry', async () => {
     const models = vi.fn()
       .mockResolvedValueOnce({

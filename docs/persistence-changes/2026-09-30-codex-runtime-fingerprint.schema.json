@@ -1,0 +1,480 @@
+{
+  "formatVersion": 1,
+  "roots": [
+    {
+      "key": "event:codex/subscription-state",
+      "kind": "event",
+      "event": "codex/subscription-state",
+      "surface": false,
+      "digest": "24ad1b1b38e1ed47c3576a00b6943abb5eb6adb8c52d44e29453c71b6a9a4a43",
+      "schema": {
+        "root": 0,
+        "nodes": [
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "data",
+                "type": 1,
+                "optional": false
+              },
+              {
+                "name": "ignorable",
+                "type": 33,
+                "optional": true
+              },
+              {
+                "name": "seq",
+                "type": 8,
+                "optional": false
+              },
+              {
+                "name": "time",
+                "type": 8,
+                "optional": false
+              },
+              {
+                "name": "type",
+                "type": 34,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "state",
+                "type": 2,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "activeThreadId",
+                "type": 3,
+                "optional": false
+              },
+              {
+                "name": "authGeneration",
+                "type": 3,
+                "optional": true
+              },
+              {
+                "name": "bootstrap",
+                "type": 6,
+                "optional": false
+              },
+              {
+                "name": "committedMessageId",
+                "type": 3,
+                "optional": false
+              },
+              {
+                "name": "cwd",
+                "type": 3,
+                "optional": false
+              },
+              {
+                "name": "dispatch",
+                "type": 10,
+                "optional": false
+              },
+              {
+                "name": "generation",
+                "type": 8,
+                "optional": false
+              },
+              {
+                "name": "lastAssistantSettlement",
+                "type": 16,
+                "optional": true
+              },
+              {
+                "name": "lastReconciliation",
+                "type": 18,
+                "optional": false
+              },
+              {
+                "name": "latestTurnId",
+                "type": 3,
+                "optional": false
+              },
+              {
+                "name": "pendingSync",
+                "type": 30,
+                "optional": false
+              },
+              {
+                "name": "retiredThreadIds",
+                "type": 32,
+                "optional": false
+              },
+              {
+                "name": "runtimeFingerprint",
+                "type": 3,
+                "optional": true
+              },
+              {
+                "name": "workspaceIdentity",
+                "type": 3,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "union",
+            "types": [
+              4,
+              5
+            ]
+          },
+          {
+            "kind": "primitive",
+            "type": "null"
+          },
+          {
+            "kind": "primitive",
+            "type": "string"
+          },
+          {
+            "kind": "union",
+            "types": [
+              4,
+              7
+            ]
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "fromMessageId",
+                "type": 3,
+                "optional": false
+              },
+              {
+                "name": "messageCount",
+                "type": 8,
+                "optional": false
+              },
+              {
+                "name": "toMessageId",
+                "type": 3,
+                "optional": false
+              },
+              {
+                "name": "truncated",
+                "type": 9,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "primitive",
+            "type": "number"
+          },
+          {
+            "kind": "primitive",
+            "type": "boolean"
+          },
+          {
+            "kind": "union",
+            "types": [
+              4,
+              11
+            ]
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "clientUserMessageId",
+                "type": 5,
+                "optional": true
+              },
+              {
+                "name": "cwd",
+                "type": 5,
+                "optional": false
+              },
+              {
+                "name": "dshStep",
+                "type": 8,
+                "optional": true
+              },
+              {
+                "name": "dshTurn",
+                "type": 8,
+                "optional": false
+              },
+              {
+                "name": "effort",
+                "type": 5,
+                "optional": false
+              },
+              {
+                "name": "inputHash",
+                "type": 5,
+                "optional": false
+              },
+              {
+                "name": "messageId",
+                "type": 5,
+                "optional": true
+              },
+              {
+                "name": "model",
+                "type": 5,
+                "optional": false
+              },
+              {
+                "name": "status",
+                "type": 12,
+                "optional": false
+              },
+              {
+                "name": "threadId",
+                "type": 5,
+                "optional": false
+              },
+              {
+                "name": "turnId",
+                "type": 3,
+                "optional": false
+              },
+              {
+                "name": "workspaceIdentity",
+                "type": 3,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "union",
+            "types": [
+              13,
+              14,
+              15
+            ]
+          },
+          {
+            "kind": "literal",
+            "value": "accepted"
+          },
+          {
+            "kind": "literal",
+            "value": "uncertain"
+          },
+          {
+            "kind": "literal",
+            "value": "intent"
+          },
+          {
+            "kind": "union",
+            "types": [
+              4,
+              17
+            ]
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "step",
+                "type": 8,
+                "optional": false
+              },
+              {
+                "name": "turn",
+                "type": 8,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "union",
+            "types": [
+              4,
+              19
+            ]
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "clientUserMessageId",
+                "type": 5,
+                "optional": false
+              },
+              {
+                "name": "cwd",
+                "type": 5,
+                "optional": false
+              },
+              {
+                "name": "dshStep",
+                "type": 8,
+                "optional": true
+              },
+              {
+                "name": "dshTurn",
+                "type": 8,
+                "optional": false
+              },
+              {
+                "name": "effort",
+                "type": 5,
+                "optional": false
+              },
+              {
+                "name": "inputHash",
+                "type": 5,
+                "optional": false
+              },
+              {
+                "name": "messageId",
+                "type": 5,
+                "optional": false
+              },
+              {
+                "name": "model",
+                "type": 5,
+                "optional": false
+              },
+              {
+                "name": "sideEffectCount",
+                "type": 8,
+                "optional": false
+              },
+              {
+                "name": "sideEffectKinds",
+                "type": 20,
+                "optional": false
+              },
+              {
+                "name": "status",
+                "type": 25,
+                "optional": false
+              },
+              {
+                "name": "threadId",
+                "type": 5,
+                "optional": false
+              },
+              {
+                "name": "turnId",
+                "type": 3,
+                "optional": false
+              },
+              {
+                "name": "workspaceIdentity",
+                "type": 3,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "array",
+            "element": 21
+          },
+          {
+            "kind": "union",
+            "types": [
+              22,
+              23,
+              24
+            ]
+          },
+          {
+            "kind": "literal",
+            "value": "commandExecution"
+          },
+          {
+            "kind": "literal",
+            "value": "fileChange"
+          },
+          {
+            "kind": "literal",
+            "value": "other"
+          },
+          {
+            "kind": "union",
+            "types": [
+              26,
+              27,
+              28,
+              29
+            ]
+          },
+          {
+            "kind": "literal",
+            "value": "completed"
+          },
+          {
+            "kind": "literal",
+            "value": "failed"
+          },
+          {
+            "kind": "literal",
+            "value": "interrupted"
+          },
+          {
+            "kind": "literal",
+            "value": "unknown"
+          },
+          {
+            "kind": "union",
+            "types": [
+              4,
+              31
+            ]
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "fromMessageId",
+                "type": 3,
+                "optional": false
+              },
+              {
+                "name": "hash",
+                "type": 5,
+                "optional": false
+              },
+              {
+                "name": "toMessageId",
+                "type": 5,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "array",
+            "element": 5
+          },
+          {
+            "kind": "literal",
+            "value": true
+          },
+          {
+            "kind": "literal",
+            "value": "codex/subscription-state"
+          }
+        ]
+      }
+    }
+  ],
+  "types": []
+}

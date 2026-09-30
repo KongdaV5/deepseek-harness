@@ -1,6 +1,7 @@
 /** Narrow JSON-RPC client for the pinned, package-local official Codex App Server. */
 
-import { existsSync, readFileSync } from 'node:fs'
+import { createReadStream, existsSync, readFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
 import { spawnSync } from 'node:child_process'
 import { createRequire } from 'node:module'
 import { dirname, join, resolve } from 'node:path'
@@ -109,6 +110,9 @@ export function resolveSystemCodexRuntime(): SystemCodexRuntimeResolution {
     // signed executable bundle identity is `codex`.
     const cli = verifySignedIdentity(cliBundle, 'codex')
     const binary = verifySignedIdentity(executablePath, 'codex')
+    if (!runFixedTool('/usr/bin/lipo', ['-archs', executablePath]).trim().split(/\s+/u).includes(process.arch === 'x64' ? 'x86_64' : process.arch)) {
+      throw new Error('unexpected executable architecture')
+    }
     if (app.team !== '2DC432GLL2' || cli.team !== '2DC432GLL2' || binary.team !== '2DC432GLL2') {
       throw new Error('unexpected signing authority')
     }
@@ -125,6 +129,34 @@ export function resolveSystemCodexRuntime(): SystemCodexRuntimeResolution {
     }
   } catch {
     return { unavailableReason: 'The installed ChatGPT Codex runtime failed official identity verification.' }
+  }
+}
+
+/** Reverify the fixed distribution and hash its actual native binary, never a PATH command.
+ * @param runtime - the selected official or package-local descriptor.
+ * @returns non-secret distribution, architecture, version and binary identity.
+ */
+export async function inspectCodexRuntime(runtime: CodexRuntimeDescriptor): Promise<{
+  trustedLocationId: string
+  signer: string
+  architecture: string
+  binaryFingerprint: string
+}> {
+  const expected = runtime.source === 'system' ? resolveSystemCodexRuntime().runtime : bundledCodexRuntime()
+  if (expected === undefined || expected.executablePath !== runtime.executablePath || expected.identity !== runtime.identity
+    || expected.version !== runtime.version) throw new Error('Codex executable identity changed or is not trusted.')
+  const reported = /^codex-cli\s+(\S+)\s*$/mu.exec(runFixedTool(runtime.executablePath, ['--version']))?.[1]
+  if (reported !== runtime.version) throw new Error('Codex binary version does not match the selected distribution.')
+  const hash = createHash('sha256')
+  for await (const bytes of createReadStream(runtime.executablePath)) {
+    if (!(bytes instanceof Uint8Array)) throw new Error('Codex executable fingerprint received non-binary data.')
+    hash.update(bytes)
+  }
+  return {
+    trustedLocationId: runtime.source === 'system' ? 'official-chatgpt-macos' : `package:@openai/codex:${codexTarget?.packageName}`,
+    signer: runtime.source === 'system' ? 'codex:2DC432GLL2' : `locked-package:@openai/codex@${codexPackage.version}`,
+    architecture: `${process.platform}-${process.arch}`,
+    binaryFingerprint: hash.digest('hex'),
   }
 }
 

@@ -15,6 +15,15 @@ export interface Agent {
   readonly id: SessionId
 }
 
+declare module '@deepseek-ai/cordis' {
+  interface Events {
+    /** A current external runtime connection or its authoritative model directory changed.
+     * @mode emit
+     */
+    'llm/model-catalog-updated'(): void
+  }
+}
+
 declare module '@deepseek-ai/dsh-typert-protocol' {
   interface TypertLookupMap {
     agent: TypertLookup<Agent, SessionId>

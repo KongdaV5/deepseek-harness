@@ -17,6 +17,7 @@
     "website"
   ],
   "scripts": {
+    "codex:compat": "tsx scripts/codex-runtime-compat.ts",
     "build": "tsx scripts/build.ts",
     "build:bench": "npm run build:native-system && npm run build:lib && tsdown --config benchmarks/tsdown.config.ts",
     "build:official": "tsx scripts/build.ts --profile official",

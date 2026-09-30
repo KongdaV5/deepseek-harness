@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-Choose a model from an official ChatGPT subscription to run a DSH turn through Codex App Server. In Automatic mode, DSH prefers the signed Codex runtime embedded in `/Applications/ChatGPT.app` when its identity and required capabilities verify; otherwise it uses the bundled `@openai/codex`. Each App Server connection is pinned to one executable, and its model/effort directory comes only from that runtime's `model/list`. DSH keeps the visible Session and public conversation history; Codex keeps its private execution thread and subscription sign-in. The integration accepts no API key and does not fall back to another provider.
+Run DSH turns through an official ChatGPT subscription. Automatic mode prefers the verified signed Codex runtime inside `/Applications/ChatGPT.app`; bundled `@openai/codex` is selected only for unavailable system identity or confirmed incompatibility, not temporary account, network, or quota failures. Each connection uses one executable and its own `model/list` directory. DSH retains public Session history; Codex owns private execution threads and sign-in. This integration accepts no API key and never falls back to another provider.
 
 ## Table of Contents
 
@@ -63,7 +63,18 @@ DSH persists a non-secret `authGeneration` in settings and binds each Session's 
 | `src/index.ts` | Composition entry and declared service requirements. |
 | `src/runtime.ts` | Account status, model discovery, history synchronization, turns, and approvals. |
 | `src/app-server.ts` | Signed system-runtime identity verification, bundled executable identity, and JSON-RPC stdio lifecycle. |
+| `src/compatibility.ts` | Shared schema-aware connection admission, sanitized machine cache, and explicit maintenance probes. |
 | `src/projection.ts` | Ignorable Session state for the private Codex thread mapping. |
+
+### Independent runtime maintenance
+
+Run `corepack pnpm codex:compat --status --json` for fresh distribution identity and matching cached evidence. Add `--system` or `--bundled` to select one runtime. `--light` validates that binary's generated App Server schemas and uses only initialize, account, catalog, and optional quota reads; it does not create threads, run inference, or change authentication. `--full` explicitly creates a named temporary synthetic thread, exercises short-turn, history, resume, and observed-active interruption behavior, then deletes its own thread when the protocol supports deletion. Failed or inactive interruption is not a Full pass.
+
+The shared verifier stores only non-secret runtime metadata, model/effort entries and capability evidence under the Custom root's `cache/codex-runtime-compat.json`, using atomic writes. Binary SHA-256, verified distribution identity, architecture, adapter-contract revision and required-schema fingerprint define an evidence key. Identity and binary bytes are rechecked before every connection and cache reuse. Corrupt, stale, or unwritable cache never proves compatibility; a write failure is separate from direct verification. During a pending authentication transaction only protocol/path validation runs; account/catalog reads and complete Light admission wait until that existing transaction barrier clears.
+
+Catalog-only changes need no DSH build: current `model/list` entries refresh Host/client directories. A disappeared model remains the Session's selection and blocks sending with `MODEL_UNAVAILABLE` until the user chooses another; DSH never substitutes a model or switches executables for it. Runtime replacement occurs only at a safe reconnect, never mid-turn or silently on a healthy idle connection. A settled mapping from an unverified runtime pair is retired and bootstrapped from public history; an unresolved dispatch remains blocked without replay. The optional mapping fingerprint preserves the existing state version and dispatch barrier. This does not rotate authentication state.
+
+Compatibility levels distinguish catalog-only change, compatible runtime, an additive change requiring adapter work, and a breaking required contract. The CLI reports incomplete behavior separately from schema evidence; unknown compatibility is not a pass.
 
 </details>
 

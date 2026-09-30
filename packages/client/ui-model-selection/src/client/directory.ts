@@ -21,8 +21,8 @@ export interface ModelDirectoryState {
    * Whether an adapter serves the current selection's provider, as the host reports
    * it — null before the first load, which is NOT the same as blocked. Read
    * this rather than "current matches no group": catalog membership is
-   * advisory, so a route serving a model it stopped advertising is missing
-   * from the groups yet perfectly usable.
+   * advisory for ordinary providers. Codex's current runtime directory is
+   * authoritative: an unavailable historical selection remains visible but blocked.
    */
   routable: boolean | null
   /** Successfully loaded provider groups (last good load). */
@@ -167,7 +167,9 @@ export class ModelDirectory {
     this.resolved = true
     this.store.set({
       current,
-      routable: catalog.value.routableProviders.includes(current.provider),
+      routable: catalog.value.routableProviders.includes(current.provider)
+        && (current.provider !== 'openai-codex-subscription' || catalog.value.groups.some(g => g.id === current.provider
+          && g.models.some(m => m.id === current.model))),
       groups: catalog.value.groups,
       failures: catalog.value.failures,
       status: this.store.getSnapshot().status === 'selecting'

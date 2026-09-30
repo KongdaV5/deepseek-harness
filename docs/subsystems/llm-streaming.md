@@ -1074,6 +1074,21 @@ The provider topology changed: an adapter registered or unregistered routes, or 
 
 Source: [`packages/llm/llm/src/types.ts`](../../packages/llm/llm/src/types.ts)
 
+<a id="llmmodel-catalog-updated--emit"></a>
+
+#### `llm/model-catalog-updated` — emit
+
+A current external runtime connection or its authoritative model directory changed.
+
+```ts cordis-catalog
+/** A current external runtime connection or its authoritative model directory changed.
+ * @mode emit
+ */
+'llm/model-catalog-updated'(): void
+```
+
+Source: [`packages/core/agent/src/types.ts`](../../packages/core/agent/src/types.ts)
+
 <a id="llmstream--waterfall"></a>
 
 #### `llm/stream` — waterfall

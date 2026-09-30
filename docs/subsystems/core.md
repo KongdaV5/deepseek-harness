@@ -911,14 +911,15 @@ Source: [`packages/core/agent/src/index.ts`](../../packages/core/agent/src/index
 App Server-backed provider, model directory, and external turn executor.
 
 ```ts cordis-catalog
-/** Attach the persistent runtime preference owned by DSH settings.
- * @param scope - the DSH settings scope that stores the user's runtime preference.
+/** Attach the persistent runtime and authentication lifecycle settings.
+ * @param scope - the DSH settings scope that owns runtime preference and authentication state.
  */
 attachSettings(scope: SettingsScope<CodexRuntimeSettings>): void
 
-/** Change runtime preference only between turns, then start a fresh pinned connection.
+/** Change runtime preference only while no auth-bound operation is active; this preserves authGeneration.
  * @param preference - the requested automatic, verified system, or bundled runtime.
  * @returns the refreshed renderer-safe Codex subscription status.
+ * @throws when an authentication transition, login, or remote-thread operation is active.
  */
 async selectRuntime(preference: unknown): Promise<CodexSubscriptionStatus>
 
@@ -932,23 +933,27 @@ listProviders(): readonly ExternalModelProvider[]
  */
 async status(): Promise<CodexSubscriptionStatus>
 
-/** Start the official ChatGPT subscription login and open only its allowlisted URL.
+/** Start the official ChatGPT sign-in; only its successful completion rotates authGeneration.
  * @returns Whether the official browser sign-in is pending or already connected.
+ * @throws when a remote-thread operation or another account/runtime transition is active.
  */
 async connectChatGPT(): Promise<{ readonly status: 'signing-in' | 'connected' }>
 
-/** Cancel only the login transaction owned by this runtime process.
+/** Cancel only the pending login transaction; cancellation does not rotate authGeneration.
  * @returns The refreshed renderer-safe subscription state.
+ * @throws when a pending login cannot be cancelled because a remote operation or transition is active.
  */
 async cancelLogin(): Promise<CodexSubscriptionStatus>
 
-/** Reconnect means restarting only the DSH-owned App Server, not user Codex apps.
+/** Restart only the DSH-owned App Server; authentication generation and Session mappings remain stable.
  * @returns The refreshed renderer-safe subscription state.
+ * @throws when a login, account transition, or remote-thread operation is active.
  */
 async reconnect(): Promise<CodexSubscriptionStatus>
 
-/** Use the official logout method in the isolated CODEX_HOME; never edit auth files directly.
+/** Use official logout and rotate authGeneration only after it succeeds; never edit auth files directly.
  * @returns The refreshed renderer-safe subscription state.
+ * @throws when a remote-thread operation is active, logout fails, or the new generation cannot persist.
  */
 async disconnect(): Promise<CodexSubscriptionStatus>
 

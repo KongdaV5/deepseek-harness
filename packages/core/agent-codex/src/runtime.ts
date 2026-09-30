@@ -26,8 +26,10 @@ import type { SettingsScope } from '@deepseek-ai/dsh-settings'
 import { dshHomePath } from '@deepseek-ai/dsh-home-paths'
 import { codexSubscriptionProjection, EMPTY_CODEX_MAPPING } from './projection.ts'
 import { secureCodexHome, verifyCodexHome } from './home.ts'
+import { CodexCompatibilityMaintenance, CodexIncompatibleError, codexThreadInterop, compatibilityDigest } from './compatibility.ts'
+import type { CodexCompatibilityReport } from './compatibility.ts'
 import {
-  bundledCodexRuntime, CodexAppServerClient, jsonObject, requiredString, resolveSystemCodexRuntime,
+  bundledCodexRuntime, CodexAppServerClient, inspectCodexRuntime, jsonObject, requiredString, resolveSystemCodexRuntime,
 } from './app-server.ts'
 import type { CodexAppServerConnection, CodexRuntimeDescriptor, SystemCodexRuntimeResolution } from './app-server.ts'
 import type { CodexServerCallbacks } from './app-server.ts'
@@ -43,18 +45,6 @@ const MAX_HISTORY_CHARS = 48_000
 const RPC_TIMEOUT_MS = 45_000
 const RATE_LIMIT_REFRESH_MS = 5 * 60_000
 const CODEX_RUNTIME_SETTINGS_NAMESPACE = 'openai-codex-runtime'
-const CAPABILITY_PROBE_THREAD_ID = 'dsh-system-capability-probe-no-such-thread'
-const REQUIRED_SYSTEM_METHOD_PROBES = [
-  // A deliberately invalid cwd must fail request validation before the server
-  // can create a thread. All other thread-scoped probes name an impossible ID.
-  { method: 'thread/start', params: { cwd: null, approvalPolicy: '__dsh_probe_invalid__', sandbox: '__dsh_probe_invalid__' }, allowSuccess: false },
-  { method: 'turn/start', params: { threadId: CAPABILITY_PROBE_THREAD_ID, input: [], model: '', effort: '' }, allowSuccess: false },
-  { method: 'turn/interrupt', params: { threadId: CAPABILITY_PROBE_THREAD_ID, turnId: CAPABILITY_PROBE_THREAD_ID }, allowSuccess: true },
-  { method: 'thread/resume', params: { threadId: CAPABILITY_PROBE_THREAD_ID }, allowSuccess: false },
-  { method: 'thread/read', params: { threadId: CAPABILITY_PROBE_THREAD_ID }, allowSuccess: false },
-  { method: 'thread/inject_items', params: { threadId: CAPABILITY_PROBE_THREAD_ID, items: [] }, allowSuccess: false },
-  { method: 'thread/turns/list', params: { threadId: CAPABILITY_PROBE_THREAD_ID, limit: 1, sortDirection: 'desc', itemsView: 'full' }, allowSuccess: false },
-] as const
 const UNAVAILABLE_USAGE: CodexUsageStatus = { state: 'unavailable' }
 type JsonObject = Record<string, unknown>
 
@@ -140,6 +130,10 @@ interface CodexModelEntry extends ExternalModelCatalogEntry {
 
 /** Host lifecycle hooks replaceable by deterministic tests. */
 export interface CodexRuntimeInternals {
+  readonly inspectRuntime?: typeof inspectCodexRuntime
+  readonly verifyCompatibility?: (
+    runtime: CodexRuntimeDescriptor, client: CodexAppServerConnection, root: string, initialized: JsonObject, protocolOnly: boolean,
+  ) => Promise<CodexCompatibilityReport>
   readonly spawn?: (spec: SubprocessSpawnSpec) => ReturnType<Context['subprocess']['spawn']>
   readonly openLoginUrl?: (url: string) => Promise<void>
   readonly ensureHome?: (path: string, allowedRoot: string) => Promise<void>
@@ -170,6 +164,11 @@ export class CodexSubscriptionRuntime extends Service implements ExternalModelPr
   private pendingAuthTransition: AuthTransitionRecord | undefined
   private authSettingsWriteTail: Promise<void> = Promise.resolve()
   private runtimeInventory: SystemCodexRuntimeResolution | undefined
+  private compatibility: CodexCompatibilityReport | undefined
+  private readonly inspectRuntime: typeof inspectCodexRuntime
+  private initializedResponse: JsonObject | undefined
+  private catalogDigest: string | undefined
+  private readonly verifyCompatibility: NonNullable<CodexRuntimeInternals['verifyCompatibility']>
   private runtimeSelectionNote: string | undefined
   private runtimeState: CodexRuntimeState = 'stopped'
   private accountState: CodexAccountState = 'not-connected'
@@ -212,6 +211,9 @@ export class CodexSubscriptionRuntime extends Service implements ExternalModelPr
     })
     this.openLoginUrl = internals.openLoginUrl ?? (async (url) => { await openNativePath(url, AbortSignal.timeout(10_000)) })
     this.ensureHome = internals.ensureHome ?? secureCodexHome
+    this.inspectRuntime = internals.inspectRuntime ?? inspectCodexRuntime
+    this.verifyCompatibility = internals.verifyCompatibility ?? ((runtime, client, root, initialized, protocolOnly) =>
+      new CodexCompatibilityMaintenance(root).light(runtime, client, initialized, protocolOnly))
     this.resolveHomePath = internals.resolveHomePath ?? dshHomePath
     this.resolveAllowedHomeRoot = internals.resolveAllowedHomeRoot ?? (() => {
       const root = process.env[CODEX_HOME_ALLOWED_ROOT_ENV]
@@ -1005,7 +1007,7 @@ export class CodexSubscriptionRuntime extends Service implements ExternalModelPr
       } catch (error: unknown) {
         assertCurrentStartup()
         lastFailure = error instanceof Error ? error : new Error('Codex runtime startup failed.')
-        if (preference !== 'auto' || runtime.source !== 'system') {
+        if (preference !== 'auto' || runtime.source !== 'system' || !(lastFailure instanceof CodexIncompatibleError)) {
           this.runtimeState = 'error'
           this.statusError = safeError(lastFailure)
           throw new Error(this.statusError)
@@ -1061,19 +1063,39 @@ export class CodexSubscriptionRuntime extends Service implements ExternalModelPr
     this.runtimeState = 'initializing'
     const verifiedHome = await verifyCodexHome(requestedHome, allowedHomeRoot)
     if (verifiedHome !== home) throw new Error('Codex runtime home changed immediately before App Server startup.')
+    try { await this.inspectRuntime(runtime) }
+    catch { throw new CodexIncompatibleError('executable identity before spawn') }
+    if (this.authStateEpoch !== startupEpoch) throw new StaleAuthStateResultError()
     const starting = this.startClient(runtime, verifiedHome, verifiedHome, callbacks)
     owned.client = starting
     this.client = starting
     this.clientOwner = owner
     try {
-      await withDeadline(starting.initialize(), 18_000, 'Codex App Server initialization timed out')
+      const initialized = await withDeadline(starting.initialize(), 18_000, 'Codex App Server initialization timed out')
       if (this.client !== starting || this.clientOwner !== owner || this.authStateEpoch !== startupEpoch) {
         throw new StaleAuthStateResultError()
       }
-      if (runtime.source === 'system') await verifySystemRuntimeCapabilities(starting)
+      const protocolOnly = this.pendingAuthTransition !== undefined || this.authLifecycleBlocked
+      const checkedClient: CodexAppServerConnection = { initialize: () => starting.initialize(), dispose: () => starting.dispose(),
+        request: async (method, params, timeout) => {
+          if (this.client !== starting || this.clientOwner !== owner || this.authStateEpoch !== startupEpoch) {
+            throw new StaleAuthStateResultError()
+          }
+          const result = await starting.request(method, params, timeout)
+          if (this.client !== starting || this.clientOwner !== owner || this.authStateEpoch !== startupEpoch) {
+            throw new StaleAuthStateResultError()
+          }
+          return result
+        } }
+      const compatibility = await this.verifyCompatibility(runtime, checkedClient, allowedHomeRoot, initialized, protocolOnly)
+      if (!protocolOnly && compatibility.lightStatus !== 'PASS') throw new CodexIncompatibleError('required Light capabilities')
       if (this.client !== starting || this.clientOwner !== owner || this.authStateEpoch !== startupEpoch) {
         throw new StaleAuthStateResultError()
       }
+      this.compatibility = compatibility
+      this.initializedResponse = initialized
+      this.catalogDigest = undefined
+      this.ctx.emit('llm/model-catalog-updated')
       return starting
     } catch (error: unknown) {
       if (this.client === starting && this.clientOwner === owner) {
@@ -1206,6 +1228,17 @@ export class CodexSubscriptionRuntime extends Service implements ExternalModelPr
     }
     const client = snapshot.client
     if (client === undefined) throw new Error('Codex App Server is not connected.')
+    if (this.compatibility?.lightStatus !== 'PASS') {
+      const runtime = this.activeRuntime
+      const initialized = this.initializedResponse
+      if (runtime === undefined || initialized === undefined) throw new Error('Codex compatibility is not ready.')
+      const guardedClient: CodexAppServerConnection = { initialize: () => client.initialize(), dispose: () => client.dispose(),
+        request: (method, params, timeout) => this.requestForAuthSnapshot(snapshot, method, params, timeout) }
+      const evidence = await this.verifyCompatibility(runtime, guardedClient, this.resolveAllowedHomeRoot(), initialized, false)
+      this.assertCurrentAuthSnapshot(snapshot)
+      if (evidence.lightStatus !== 'PASS') throw new CodexIncompatibleError('required Light capabilities')
+      this.compatibility = evidence
+    }
     const models: CodexModelEntry[] = []
     const seen = new Set<string>()
     const seenCursors = new Set<string>()
@@ -1253,6 +1286,11 @@ export class CodexSubscriptionRuntime extends Service implements ExternalModelPr
       }
       if (response.nextCursor === null) {
         this.assertCurrentAuthSnapshot(snapshot)
+        const digest = compatibilityDigest(models.map(m => ({ id: m.id, model: m.runtimeModel, name: m.name, reasoning: m.reasoning })))
+        if (digest !== this.catalogDigest) {
+          this.catalogDigest = digest
+          this.ctx.emit('llm/model-catalog-updated')
+        }
         return models
       }
       const nextCursor = requiredString(response.nextCursor, 'model directory cursor')
@@ -1584,6 +1622,8 @@ export class CodexSubscriptionRuntime extends Service implements ExternalModelPr
       throw new Error('A previous Codex reconciliation could not be durably committed; no new turn was sent.')
     }
 
+    const runtimeFingerprint = this.compatibility?.fingerprint
+    if (runtimeFingerprint === undefined) throw new Error('Codex runtime compatibility evidence is unavailable.')
     if (mapping.authGeneration !== lease.authGeneration) {
       if (mapping.dispatch !== null) {
         // The old remote thread belongs to an unverified auth generation. Do not
@@ -1620,6 +1660,26 @@ export class CodexSubscriptionRuntime extends Service implements ExternalModelPr
           : { ...mapping.lastReconciliation, status: 'unknown' },
         bootstrap: null,
       }
+      writeMapping(request.session, mapping)
+      await this.ctx.sessions.flush(request.session)
+      this.assertAuthLeaseCurrent(lease)
+    }
+
+    const recoveringReconciliation = matchesReconciliation(
+      mapping.lastReconciliation, request, cwd, inputHash, effort, requestedMessageId,
+    )
+    const interop = mapping.activeThreadId === null ? 'resume'
+      : codexThreadInterop(mapping.runtimeFingerprint, runtimeFingerprint,
+        mapping.dispatch !== null || recoveringReconciliation)
+    if (interop === 'retire') {
+      const retiredId = mapping.activeThreadId
+      if (retiredId === null) throw new Error('Codex retirement requires a thread mapping.')
+      mapping = { ...mapping, activeThreadId: null, runtimeFingerprint,
+        retiredThreadIds: [...mapping.retiredThreadIds, retiredId].slice(-16),
+        generation: mapping.generation + 1, workspaceIdentity: null, cwd: null,
+        latestTurnId: null, committedMessageId: null, pendingSync: null, bootstrap: null,
+        lastReconciliation: mapping.lastReconciliation === null
+          ? null : { ...mapping.lastReconciliation, status: 'unknown' } }
       writeMapping(request.session, mapping)
       await this.ctx.sessions.flush(request.session)
       this.assertAuthLeaseCurrent(lease)
@@ -1696,6 +1756,7 @@ export class CodexSubscriptionRuntime extends Service implements ExternalModelPr
         generation: mapping.generation + 1,
         authGeneration: lease.authGeneration,
         activeThreadId: threadId,
+        runtimeFingerprint,
         retiredThreadIds: retired,
         workspaceIdentity: request.workspaceIdentity,
         cwd,
@@ -2227,30 +2288,6 @@ export function apply(ctx: Context): void {
     return runtime.executorFor(selection, signal)
   })
   ctx.effect(() => async () => { await runtime.dispose() }, 'agent-codex: owned App Server lifecycle')
-}
-
-/** Verify system App Server method availability without creating a thread or starting a turn. */
-async function verifySystemRuntimeCapabilities(client: CodexAppServerConnection): Promise<void> {
-  const accountResponse = jsonObject(await client.request('account/read', { refreshToken: false }, 15_000), 'account capability probe')
-  const account = accountResponse.account
-  if (typeof account === 'object' && account !== null && !Array.isArray(account)
-    && (account as Record<string, unknown>).type === 'chatgpt') {
-    const catalog = jsonObject(await client.request('model/list', { limit: 1 }, 15_000), 'model catalog capability probe')
-    if (!Array.isArray(catalog.data)) throw new Error('System Codex did not return a model catalog.')
-  }
-  for (const probe of REQUIRED_SYSTEM_METHOD_PROBES) {
-    try {
-      await client.request(probe.method, probe.params, 5_000)
-      if (!probe.allowSuccess) throw new Error(`System Codex accepted an unsafe or incomplete ${probe.method} capability probe.`)
-    } catch (error: unknown) {
-      if (!(error instanceof JsonRpcResponseError) || error.code === -32601) {
-        throw new Error(`System Codex did not confirm required capability ${probe.method}.`)
-      }
-      if (probe.method === 'thread/start' && error.code !== -32602 && error.code !== -32600) {
-        throw new Error('System Codex did not safely reject the non-mutating thread/start capability probe.')
-      }
-    }
-  }
 }
 
 async function canonicalWorkspace(path: string): Promise<string> {

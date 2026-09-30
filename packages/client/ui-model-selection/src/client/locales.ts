@@ -30,7 +30,7 @@ export const zh = {
   'action.reload': '重新加载',
   'warning.groupLoad': '{name} 加载失败：{message}',
   'empty.models': '没有可用的模型。',
-  'blocked.composer': '当前模型不可用，请先选择模型',
+  'blocked.composer': 'MODEL_UNAVAILABLE：当前运行时中此模型不可用，请选择另一个模型。',
   'empty.efforts': '当前模型未提供推理等级。',
 } satisfies Record<string, string>
 
@@ -59,6 +59,6 @@ export const en = {
   'action.reload': 'Reload',
   'warning.groupLoad': '{name} failed to load: {message}',
   'empty.models': 'No models available.',
-  'blocked.composer': 'This model is unavailable — select one to continue',
+  'blocked.composer': 'MODEL_UNAVAILABLE: This model is unavailable in the current runtime. Choose another model.',
   'empty.efforts': 'This model provides no reasoning effort levels.',
 } satisfies Record<ModelKey, string>
