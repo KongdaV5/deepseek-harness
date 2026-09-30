@@ -1,6 +1,6 @@
 /** Explicit Desktop ownership for DSH data and Electron state. */
 
-import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
+import { dirname, isAbsolute, join, parse, relative, resolve, sep } from 'node:path'
 import { lstatSync, mkdirSync, realpathSync } from 'node:fs'
 import { resolveDshHome } from '@deepseek-ai/dsh-home-paths'
 import type { DesktopProductFlavor } from './product-flavor.ts'
@@ -13,6 +13,9 @@ export const DESKTOP_REHEARSAL_ROOT_ENV = 'DSH_DESKTOP_REHEARSAL_ROOT'
 
 /** Explicit command-line qualification root used when LaunchServices drops custom environment variables. */
 export const DESKTOP_QUALIFICATION_ROOT_ARGUMENT = '--dsh-qualification-root='
+
+/** Trusted DSH data root passed separately from CODEX_HOME to the Host runtime. */
+export const DESKTOP_CODEX_HOME_ALLOWED_ROOT_ENV = 'DSH_DESKTOP_CODEX_HOME_ALLOWED_ROOT'
 
 /** Data modes admitted by the Desktop entry point. */
 export type DesktopDataMode = 'upstream-default' | 'candidate-rehearsal' | 'custom-default'
@@ -94,7 +97,7 @@ function requiredRehearsalRoot(environment: NodeJS.ProcessEnv, explicitRoot?: st
     throw new Error(`desktop data: ${DESKTOP_REHEARSAL_ROOT_ENV} must not be empty`)
   }
   if (explicitRoot !== undefined && configured !== undefined
-    && resolve(explicitRoot) !== resolve(configured)) {
+    && normalizeKnownDesktopPath(resolve(explicitRoot)) !== normalizeKnownDesktopPath(resolve(configured))) {
     throw new Error('desktop data: qualification root argument conflicts with rehearsal environment')
   }
   const selected = explicitRoot ?? configured
@@ -106,7 +109,17 @@ function requiredRehearsalRoot(environment: NodeJS.ProcessEnv, explicitRoot?: st
   if (!isAbsolute(selected)) {
     throw new Error(`desktop data: ${DESKTOP_REHEARSAL_ROOT_ENV} must be an absolute path`)
   }
-  return resolve(selected)
+  return normalizeKnownDesktopPath(resolve(selected))
+}
+
+function normalizeKnownDesktopPath(path: string): string {
+  if (process.platform !== 'darwin' || (path !== '/tmp' && !path.startsWith('/tmp/'))) return path
+  try {
+    if (realpathSync('/tmp') === '/private/tmp') return join('/private/tmp', relative('/tmp', path))
+  } catch {
+    // The path validation below reports a missing or inaccessible root.
+  }
+  return path
 }
 
 function rehearsalBoundary(
@@ -253,12 +266,9 @@ export function prepareDesktopRehearsalPaths(boundary: DesktopDataBoundary): Des
     throw new Error('qualification isolation violation: rehearsal boundary is incomplete')
   }
 
-  mkdirSync(root, { recursive: true })
-  const rootStat = lstatSync(root)
-  if (!rootStat.isDirectory() || rootStat.isSymbolicLink()) {
-    throw new Error('qualification isolation violation: rehearsal root must be a real directory')
-  }
+  ensureRealDirectoryChain(root)
   const canonicalRoot = realpathSync(root)
+  if (canonicalRoot !== root) throw new Error('qualification isolation violation: rehearsal root must be canonical')
   const paths: DesktopRehearsalPaths = {
     root,
     home: join(root, 'home'),
@@ -280,11 +290,7 @@ export function prepareDesktopRehearsalPaths(boundary: DesktopDataBoundary): Des
     boundary.dshHome, boundary.profiles, boundary.profile, boundary.sessions,
   ]
   for (const directory of ownedDirectories) {
-    mkdirSync(directory, { recursive: true })
-    const stat = lstatSync(directory)
-    if (!stat.isDirectory() || stat.isSymbolicLink()) {
-      throw new Error(`qualification isolation violation: rehearsal path is not a real directory: ${directory}`)
-    }
+    ensureRealDirectoryChain(directory)
     const canonicalDirectory = realpathSync(directory)
     if (!isWithin(canonicalRoot, canonicalDirectory)) {
       throw new Error(`qualification isolation violation: rehearsal path escapes rehearsal root: ${directory}`)
@@ -293,11 +299,41 @@ export function prepareDesktopRehearsalPaths(boundary: DesktopDataBoundary): Des
   return paths
 }
 
+function ensureRealDirectoryChain(path: string): void {
+  const { root } = parse(path)
+  let current = root
+  assertRealDirectory(current)
+  for (const segment of relative(root, path).split(sep).filter(Boolean)) {
+    current = join(current, segment)
+    let details
+    try {
+      details = lstatSync(current)
+    } catch (error: unknown) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+      mkdirSync(current, { mode: 0o700 })
+      details = lstatSync(current)
+    }
+    assertRealDirectory(current, details)
+  }
+}
+
+function assertRealDirectory(path: string, details = lstatSync(path)): void {
+  if (!details.isDirectory() || details.isSymbolicLink() || realpathSync(path) !== path) {
+    throw new Error(`qualification isolation violation: path is not a canonical real directory: ${path}`)
+  }
+}
+
 /** Build the complete child environment from the already-validated rehearsal boundary. */
 export function desktopHostEnvironment(
   boundary: DesktopDataBoundary,
   environment: NodeJS.ProcessEnv,
 ): NodeJS.ProcessEnv {
+  const trustedRoot = boundary.mode === 'candidate-rehearsal'
+    ? boundary.approvedRoots[0]
+    : boundary.approvedRoots[0] ?? boundary.dshHome
+  if (trustedRoot === undefined || !isAbsolute(trustedRoot)) {
+    throw new Error('desktop data: trusted Codex home root is missing or not absolute')
+  }
   if (boundary.mode === 'candidate-rehearsal') {
     const root = boundary.approvedRoots[0]
     if (root === undefined) throw new Error('qualification isolation violation: rehearsal root is missing')
@@ -308,6 +344,7 @@ export function desktopHostEnvironment(
       HOME: join(root, 'home'),
       TMPDIR: join(root, 'tmp'),
       DSH_HOME: boundary.dshHome,
+      [DESKTOP_CODEX_HOME_ALLOWED_ROOT_ENV]: trustedRoot,
       DSH_DESKTOP_PROFILE_PATH: boundary.profile,
       DSH_DESKTOP_SESSION_ROOT: boundary.sessions,
       DSH_DESKTOP_ELECTRON_USER_DATA: electronUserData,
@@ -320,6 +357,12 @@ export function desktopHostEnvironment(
       XDG_CACHE_HOME: join(root, 'xdg-cache'),
     }
   }
-  if (boundary.mode === 'custom-default') return { ...environment, DSH_HOME: boundary.dshHome }
-  return environment
+  if (boundary.mode === 'custom-default') {
+    return {
+      ...environment,
+      DSH_HOME: boundary.dshHome,
+      [DESKTOP_CODEX_HOME_ALLOWED_ROOT_ENV]: trustedRoot,
+    }
+  }
+  return { ...environment, [DESKTOP_CODEX_HOME_ALLOWED_ROOT_ENV]: trustedRoot }
 }

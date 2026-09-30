@@ -1,7 +1,7 @@
 /** Official Codex App Server lifecycle, subscription state, and external-turn execution. */
 
-import { createHash } from 'node:crypto'
-import { chmod, mkdir, realpath } from 'node:fs/promises'
+import { createHash, randomUUID } from 'node:crypto'
+import { realpath } from 'node:fs/promises'
 import { isAbsolute, relative, resolve, sep } from 'node:path'
 import { Context, Service } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
@@ -25,6 +25,7 @@ import type { SubprocessSpawnSpec } from '@deepseek-ai/dsh-subprocess'
 import type { SettingsScope } from '@deepseek-ai/dsh-settings'
 import { dshHomePath } from '@deepseek-ai/dsh-home-paths'
 import { codexSubscriptionProjection, EMPTY_CODEX_MAPPING } from './projection.ts'
+import { secureCodexHome, verifyCodexHome } from './home.ts'
 import {
   bundledCodexRuntime, CodexAppServerClient, jsonObject, requiredString, resolveSystemCodexRuntime,
 } from './app-server.ts'
@@ -59,19 +60,78 @@ type JsonObject = Record<string, unknown>
 
 interface CodexRuntimeSettings {
   preference: CodexRuntimePreference
+  /** Non-secret account lifecycle generation shared by runtime instances and persisted across restarts. */
+  authGeneration?: string
+  /** Non-secret marker that keeps an interrupted authentication transaction fail-closed. */
+  authTransition?: AuthTransitionRecord | null
+}
+
+interface AuthTransitionRecord {
+  readonly id: string
+  readonly kind: 'login' | 'logout' | 'invalidated'
 }
 
 const CodexRuntimeSettingsSchema: z<CodexRuntimeSettings> = z.object({
   preference: z.union(['auto', 'system', 'bundled']).default('auto'),
+  authGeneration: z.string().min(1).required(false),
+  authTransition: z.union([
+    z.object({ id: z.string().min(1), kind: z.union(['login', 'logout', 'invalidated']) }),
+    z.const(null),
+  ]).required(false),
 })
 
 interface ActiveCodexTurn {
   readonly request: ExternalTurnRequest
   readonly threadId: string
+  readonly lease: AuthBoundOperationLease
   turnId?: string
   finalText: string
   terminal?: JsonObject
 }
+
+interface AuthBoundOperationLease {
+  readonly authGeneration: string
+  readonly authStateEpoch: number
+  readonly settings: SettingsScope<CodexRuntimeSettings>
+  readonly settingsOwner: object
+  client?: CodexAppServerConnection
+  clientOwner?: object
+  readonly release: () => void
+}
+
+type LoginAttemptPhase = 'starting' | 'pending' | 'completing' | 'cancelling' | 'committed' | 'cancelled' | 'failed'
+
+interface PendingLoginAttempt {
+  readonly token: string
+  readonly settings: SettingsScope<CodexRuntimeSettings>
+  readonly settingsOwner: object
+  readonly client: CodexAppServerConnection
+  readonly clientOwner: object
+  readonly epoch: number
+  phase: LoginAttemptPhase
+  loginId?: string
+  completion?: Promise<void>
+  committedGeneration?: string
+}
+
+interface AuthStateSnapshot {
+  readonly epoch: number
+  readonly settings: SettingsScope<CodexRuntimeSettings> | undefined
+  readonly settingsOwner: object
+  readonly client: CodexAppServerConnection | undefined
+  readonly clientOwner: object | undefined
+  readonly attempt?: PendingLoginAttempt
+  readonly phase?: LoginAttemptPhase
+}
+
+class StaleAuthStateResultError extends Error {
+  constructor() {
+    super('Codex authentication context changed while the operation was in progress.')
+    this.name = 'StaleAuthStateResultError'
+  }
+}
+
+const CODEX_HOME_ALLOWED_ROOT_ENV = 'DSH_DESKTOP_CODEX_HOME_ALLOWED_ROOT'
 
 interface CodexModelEntry extends ExternalModelCatalogEntry {
   /** App Server's model field, distinct from the catalog ID used by DSH. */
@@ -82,8 +142,9 @@ interface CodexModelEntry extends ExternalModelCatalogEntry {
 export interface CodexRuntimeInternals {
   readonly spawn?: (spec: SubprocessSpawnSpec) => ReturnType<Context['subprocess']['spawn']>
   readonly openLoginUrl?: (url: string) => Promise<void>
-  readonly ensureHome?: (path: string) => Promise<void>
+  readonly ensureHome?: (path: string, allowedRoot: string) => Promise<void>
   readonly resolveHomePath?: (...segments: string[]) => string
+  readonly resolveAllowedHomeRoot?: () => string
   readonly resolveSystemRuntime?: () => SystemCodexRuntimeResolution
   readonly startClient?: (
     runtime: CodexRuntimeDescriptor,
@@ -100,8 +161,14 @@ export class CodexSubscriptionRuntime extends Service implements ExternalModelPr
   readonly id: string = PROVIDER_ID
   override readonly name: string = PROVIDER_NAME
   private client: CodexAppServerConnection | undefined
+  private clientOwner: object | undefined
+  private startupPromise: Promise<CodexAppServerConnection> | undefined
   private activeRuntime: CodexRuntimeDescriptor | undefined
   private runtimeSettings: SettingsScope<CodexRuntimeSettings> | undefined
+  private settingsOwner: object = {}
+  private authStateEpoch = 0
+  private pendingAuthTransition: AuthTransitionRecord | undefined
+  private authSettingsWriteTail: Promise<void> = Promise.resolve()
   private runtimeInventory: SystemCodexRuntimeResolution | undefined
   private runtimeSelectionNote: string | undefined
   private runtimeState: CodexRuntimeState = 'stopped'
@@ -110,16 +177,24 @@ export class CodexSubscriptionRuntime extends Service implements ExternalModelPr
   private modelCount = 0
   private usage: CodexUsageStatus = UNAVAILABLE_USAGE
   private rateLimitReadAt = 0
-  private loginId: string | undefined
-  private loginPending = false
+  private loginAttempt: PendingLoginAttempt | undefined
   private disposed = false
+  private authGeneration: string | undefined
+  private authGenerationInitialization: Promise<void> | undefined
+  private authGenerationInitializationError: Error | undefined
+  private authLifecycleBlocked = false
+  private activeAuthOperations = 0
+  private exclusiveRemoteTransition = false
+  private exclusiveTransitionReleased: Promise<void> = Promise.resolve()
+  private resolveExclusiveTransitionRelease: (() => void) | undefined
   private activeTurns = new Map<string, ActiveCodexTurn>()
   private readonly failedReconciliationCommits = new WeakSet<Session>()
   private readonly deliveredReconciliations = new WeakMap<Session, Set<string>>()
   private readonly spawn: (spec: SubprocessSpawnSpec) => ReturnType<Context['subprocess']['spawn']>
   private readonly openLoginUrl: (url: string) => Promise<void>
-  private readonly ensureHome: (path: string) => Promise<void>
+  private readonly ensureHome: (path: string, allowedRoot: string) => Promise<void>
   private readonly resolveHomePath: (...segments: string[]) => string
+  private readonly resolveAllowedHomeRoot: () => string
   private readonly resolveSystemRuntime: () => SystemCodexRuntimeResolution
   private readonly startClient: (
     runtime: CodexRuntimeDescriptor,
@@ -136,46 +211,350 @@ export class CodexSubscriptionRuntime extends Service implements ExternalModelPr
       return subprocess.spawn(spec)
     })
     this.openLoginUrl = internals.openLoginUrl ?? (async (url) => { await openNativePath(url, AbortSignal.timeout(10_000)) })
-    this.ensureHome = internals.ensureHome ?? secureHome
+    this.ensureHome = internals.ensureHome ?? secureCodexHome
     this.resolveHomePath = internals.resolveHomePath ?? dshHomePath
+    this.resolveAllowedHomeRoot = internals.resolveAllowedHomeRoot ?? (() => {
+      const root = process.env[CODEX_HOME_ALLOWED_ROOT_ENV]
+      if (root === undefined || !isAbsolute(root)) {
+        throw new Error('Codex runtime requires an absolute trusted DS Harness data root.')
+      }
+      return root
+    })
     this.resolveSystemRuntime = internals.resolveSystemRuntime ?? resolveSystemCodexRuntime
     this.startClient = internals.startClient
       ?? ((runtime, home, cwd, callbacks) => CodexAppServerClient.start(this.spawn, home, cwd, callbacks, runtime))
   }
 
-  /** Attach the persistent runtime preference owned by DSH settings.
-   * @param scope - the DSH settings scope that stores the user's runtime preference.
+  /** Attach the persistent runtime and authentication lifecycle settings.
+   * @param scope - the DSH settings scope that owns runtime preference and authentication state.
    */
   attachSettings(scope: SettingsScope<CodexRuntimeSettings>): void {
+    if (this.runtimeSettings === scope && this.authGenerationInitialization !== undefined) return
+    this.authStateEpoch++
+    const owner = {}
     this.runtimeSettings = scope
+    this.settingsOwner = owner
+    const persisted = scope.get().authGeneration
+    const transition = scope.get().authTransition ?? undefined
+    this.pendingAuthTransition = transition
+    this.authLifecycleBlocked = transition !== undefined
+    this.loginAttempt = undefined
+    this.accountState = transition === undefined ? 'not-connected' : 'reauth-required'
+    this.modelCount = 0
+    this.usage = UNAVAILABLE_USAGE
+    this.rateLimitReadAt = 0
+    if (persisted !== undefined) {
+      this.authGeneration = persisted
+      this.authGenerationInitialization = Promise.resolve()
+      this.authGenerationInitializationError = undefined
+      return
+    }
+    const initial = randomUUID()
+    this.authGeneration = undefined
+    this.authGenerationInitializationError = undefined
+    this.authGenerationInitialization = this.updateAuthSettings(scope, owner, { authGeneration: initial }).then(() => {
+      if (this.runtimeSettings !== scope || this.settingsOwner !== owner) {
+        throw new StaleAuthStateResultError()
+      }
+      if (scope.get().authGeneration !== initial) {
+        throw new Error('Codex authentication lifecycle could not be persisted.')
+      }
+      this.authGeneration = initial
+    }).catch((error: unknown) => {
+      if (this.runtimeSettings === scope && this.settingsOwner === owner) {
+        this.authGeneration = undefined
+        this.authLifecycleBlocked = true
+        this.authGenerationInitializationError = error instanceof Error
+          ? error
+          : new Error('Codex authentication lifecycle could not be persisted.')
+      }
+    })
   }
 
-  /** Change runtime preference only between turns, then start a fresh pinned connection.
+  private updateAuthSettings(
+    scope: SettingsScope<CodexRuntimeSettings>,
+    owner: object,
+    patch: Partial<CodexRuntimeSettings>,
+  ): Promise<void> {
+    const update = this.authSettingsWriteTail.catch(() => {}).then(async () => {
+      if (this.runtimeSettings !== scope || this.settingsOwner !== owner) throw new StaleAuthStateResultError()
+      await scope.update(patch)
+    })
+    this.authSettingsWriteTail = update.catch(() => {})
+    return update
+  }
+
+  private snapshotAuthState(
+    attempt?: PendingLoginAttempt,
+    phase?: LoginAttemptPhase,
+  ): AuthStateSnapshot {
+    return {
+      epoch: this.authStateEpoch,
+      settings: this.runtimeSettings,
+      settingsOwner: this.settingsOwner,
+      client: this.client,
+      clientOwner: this.clientOwner,
+      ...(attempt === undefined ? {} : { attempt }),
+      ...(phase === undefined ? {} : { phase }),
+    }
+  }
+
+  private isCurrentAuthSnapshot(snapshot: AuthStateSnapshot): boolean {
+    return !this.disposed
+      && this.authStateEpoch === snapshot.epoch
+      && this.runtimeSettings === snapshot.settings
+      && this.settingsOwner === snapshot.settingsOwner
+      && this.client === snapshot.client
+      && this.clientOwner === snapshot.clientOwner
+      && (snapshot.attempt === undefined || (
+        this.loginAttempt === snapshot.attempt
+        && (snapshot.phase === undefined || snapshot.attempt.phase === snapshot.phase)
+      ))
+  }
+
+  private assertCurrentAuthSnapshot(snapshot: AuthStateSnapshot): void {
+    if (!this.isCurrentAuthSnapshot(snapshot)) throw new StaleAuthStateResultError()
+  }
+
+  private async requestForAuthSnapshot(
+    snapshot: AuthStateSnapshot,
+    method: string,
+    params: Record<string, unknown>,
+    timeoutMs?: number,
+  ): Promise<unknown> {
+    this.assertCurrentAuthSnapshot(snapshot)
+    const client = snapshot.client
+    if (client === undefined) throw new Error('Codex App Server is not connected.')
+    try {
+      const result = await client.request(method, params, timeoutMs)
+      this.assertCurrentAuthSnapshot(snapshot)
+      return result
+    } catch (error: unknown) {
+      this.assertCurrentAuthSnapshot(snapshot)
+      throw error
+    }
+  }
+
+  private async ensureAuthGeneration(): Promise<string> {
+    const owner = this.settingsOwner
+    const initialization = this.authGenerationInitialization
+    if (initialization === undefined) throw new Error('Codex runtime settings are unavailable.')
+    await initialization
+    if (this.settingsOwner !== owner) throw new StaleAuthStateResultError()
+    if (this.authGenerationInitializationError !== undefined) {
+      throw new Error('Codex authentication lifecycle could not be persisted.')
+    }
+    if (this.authGeneration === undefined) throw new Error('Codex authentication lifecycle is unavailable.')
+    return this.authGeneration
+  }
+
+  private isCurrentLoginAttempt(attempt: PendingLoginAttempt): boolean {
+    return this.loginAttempt === attempt
+  }
+
+  private isCurrentPendingLoginAttempt(attempt: PendingLoginAttempt): boolean {
+    return this.isCurrentLoginAttempt(attempt) && attempt.phase === 'pending'
+  }
+
+  private isCommittedLoginAttempt(attempt: PendingLoginAttempt): boolean {
+    return attempt.phase === 'committed'
+  }
+
+  private isCurrentAuthTransition(transition: AuthTransitionRecord): boolean {
+    return this.pendingAuthTransition?.id === transition.id
+  }
+
+  private hasPendingAuthTransition(): boolean {
+    return this.pendingAuthTransition !== undefined
+  }
+
+  private loginStartResult(attempt: PendingLoginAttempt): { readonly status: 'signing-in' | 'connected' } {
+    if (attempt.phase === 'committed' && attempt.committedGeneration === this.authGeneration
+      && attempt.epoch === this.authStateEpoch && !this.authLifecycleBlocked) {
+      return { status: 'connected' }
+    }
+    if (attempt.phase === 'pending' && this.isCurrentLoginAttempt(attempt)
+      && attempt.epoch === this.authStateEpoch && this.pendingAuthTransition?.id === attempt.token) {
+      return { status: 'signing-in' }
+    }
+    throw new Error('The ChatGPT login attempt was cancelled, failed, or superseded.')
+  }
+
+  private async commitAuthGeneration(
+    transition: AuthTransitionRecord,
+    scope: SettingsScope<CodexRuntimeSettings>,
+    owner: object,
+    attempt?: PendingLoginAttempt,
+  ): Promise<string> {
+    await this.ensureAuthGeneration()
+    if (this.runtimeSettings !== scope || this.settingsOwner !== owner
+      || !this.isCurrentAuthTransition(transition)
+      || (attempt !== undefined && (!this.isCurrentLoginAttempt(attempt)
+        || attempt.phase !== 'completing' || attempt.epoch !== this.authStateEpoch
+        || this.client !== attempt.client || this.clientOwner !== attempt.clientOwner))) {
+      throw new StaleAuthStateResultError()
+    }
+    const next = randomUUID()
+    try {
+      await this.updateAuthSettings(scope, owner, { authGeneration: next, authTransition: null })
+      if (this.runtimeSettings !== scope || this.settingsOwner !== owner
+        || scope.get().authGeneration !== next
+        || (this.isCurrentAuthTransition(transition) && scope.get().authTransition != null)) {
+        throw new Error('Codex authentication lifecycle update was not committed.')
+      }
+    } catch (error: unknown) {
+      if (this.runtimeSettings === scope && this.settingsOwner === owner
+        && this.isCurrentAuthTransition(transition)) {
+        this.authLifecycleBlocked = true
+      }
+      throw error
+    }
+    this.authGeneration = next
+    if (this.isCurrentAuthTransition(transition)) {
+      this.pendingAuthTransition = undefined
+      this.authLifecycleBlocked = false
+    }
+    return next
+  }
+
+  private async beginAuthTransition(
+    transition: AuthTransitionRecord,
+    scope: SettingsScope<CodexRuntimeSettings>,
+    owner: object,
+  ): Promise<void> {
+    this.pendingAuthTransition = transition
+    this.authLifecycleBlocked = true
+    await this.updateAuthSettings(scope, owner, { authTransition: transition })
+    if (this.runtimeSettings !== scope || this.settingsOwner !== owner
+      || !this.isCurrentAuthTransition(transition)
+      || scope.get().authTransition?.id !== transition.id) {
+      throw new StaleAuthStateResultError()
+    }
+  }
+
+  private bindAuthLease(lease: AuthBoundOperationLease, client: CodexAppServerConnection): void {
+    this.assertAuthLeaseBindings(lease)
+    if (this.client !== client || this.clientOwner === undefined) throw new StaleAuthStateResultError()
+    lease.client = client
+    lease.clientOwner = this.clientOwner
+  }
+
+  private assertAuthLeaseCurrent(lease: AuthBoundOperationLease): void {
+    if (!this.isAuthLeaseCurrent(lease)) throw new StaleAuthStateResultError()
+  }
+
+  private assertAuthLeaseBindings(lease: AuthBoundOperationLease): void {
+    if (this.disposed || this.authLifecycleBlocked || this.pendingAuthTransition !== undefined
+      || this.authStateEpoch !== lease.authStateEpoch
+      || this.runtimeSettings !== lease.settings || this.settingsOwner !== lease.settingsOwner
+      || (lease.client !== undefined && (this.client !== lease.client || this.clientOwner !== lease.clientOwner))) {
+      throw new StaleAuthStateResultError()
+    }
+  }
+
+  private isAuthLeaseCurrent(lease: AuthBoundOperationLease): boolean {
+    return !this.disposed && !this.authLifecycleBlocked && this.pendingAuthTransition === undefined
+      && this.authStateEpoch === lease.authStateEpoch
+      && this.runtimeSettings === lease.settings && this.settingsOwner === lease.settingsOwner
+      && (lease.client === undefined || (this.client === lease.client && this.clientOwner === lease.clientOwner))
+  }
+
+  private async requestForAuthLease(
+    lease: AuthBoundOperationLease,
+    client: CodexAppServerConnection,
+    method: string,
+    params: Record<string, unknown>,
+    timeoutMs?: number,
+  ): Promise<unknown> {
+    this.assertAuthLeaseCurrent(lease)
+    if (lease.client !== client) throw new StaleAuthStateResultError()
+    try {
+      const result = await client.request(method, params, timeoutMs)
+      this.assertAuthLeaseCurrent(lease)
+      return result
+    } catch (error: unknown) {
+      this.assertAuthLeaseCurrent(lease)
+      throw error
+    }
+  }
+
+  /** Acquire synchronously before any remote-thread operation awaits or reads the Session mapping. */
+  private acquireAuthBoundOperation(): AuthBoundOperationLease {
+    if (this.exclusiveRemoteTransition || this.loginAttempt !== undefined || this.authLifecycleBlocked
+      || this.pendingAuthTransition !== undefined) {
+      throw new Error('A Codex account transition is in progress; retry after it completes.')
+    }
+    const authGeneration = this.authGeneration
+    const settings = this.runtimeSettings
+    if (authGeneration === undefined || settings === undefined || this.authGenerationInitializationError !== undefined) {
+      throw new Error('Codex authentication lifecycle is unavailable.')
+    }
+    this.activeAuthOperations++
+    let released = false
+    return {
+      authGeneration,
+      authStateEpoch: this.authStateEpoch,
+      settings,
+      settingsOwner: this.settingsOwner,
+      release: () => {
+        if (released) return
+        released = true
+        this.activeAuthOperations--
+      },
+    }
+  }
+
+  /** Exclude auth/runtime transitions until every shared remote-thread lease and active turn has ended. */
+  private beginExclusiveRemoteTransition(allowPendingLogin = false): () => void {
+    if (this.exclusiveRemoteTransition || this.activeAuthOperations > 0 || this.activeTurns.size > 0
+      || (this.loginAttempt !== undefined && !allowPendingLogin)) {
+      throw new Error('Finish or cancel the active Codex operation before changing accounts or runtimes.')
+    }
+    this.exclusiveRemoteTransition = true
+    this.exclusiveTransitionReleased = new Promise((resolve) => {
+      this.resolveExclusiveTransitionRelease = resolve
+    })
+    let released = false
+    return () => {
+      if (released) return
+      released = true
+      this.exclusiveRemoteTransition = false
+      this.resolveExclusiveTransitionRelease?.()
+      this.resolveExclusiveTransitionRelease = undefined
+    }
+  }
+
+  /** Change runtime preference only while no auth-bound operation is active; this preserves authGeneration.
    * @param preference - the requested automatic, verified system, or bundled runtime.
    * @returns the refreshed renderer-safe Codex subscription status.
+   * @throws when an authentication transition, login, or remote-thread operation is active.
    */
   async selectRuntime(preference: unknown): Promise<CodexSubscriptionStatus> {
     if (preference !== 'auto' && preference !== 'system' && preference !== 'bundled') {
       throw new Error('Choose Automatic, System Codex, or Bundled Codex.')
     }
-    if (this.activeTurns.size > 0) throw new Error('Finish or cancel the active Codex turn before changing runtimes.')
-    const system = this.systemRuntime()
-    if (preference === 'system' && system.runtime === undefined) {
-      throw new Error(system.unavailableReason ?? 'The verified system Codex runtime is unavailable.')
+    const releaseTransition = this.beginExclusiveRemoteTransition()
+    try {
+      const system = this.systemRuntime()
+      if (preference === 'system' && system.runtime === undefined) {
+        throw new Error(system.unavailableReason ?? 'The verified system Codex runtime is unavailable.')
+      }
+      const scope = this.runtimeSettings
+      if (scope === undefined) throw new Error('Codex runtime settings are unavailable in this deployment.')
+      if (scope.get().preference !== preference) {
+        await scope.update({ preference })
+        await this.stopClient()
+        this.accountState = 'not-connected'
+        this.modelCount = 0
+        this.usage = UNAVAILABLE_USAGE
+        this.rateLimitReadAt = 0
+        this.statusError = undefined
+        this.runtimeSelectionNote = undefined
+      }
+      return await this.status()
+    } finally {
+      releaseTransition()
     }
-    const scope = this.runtimeSettings
-    if (scope === undefined) throw new Error('Codex runtime settings are unavailable in this deployment.')
-    if (scope.get().preference !== preference) {
-      await scope.update({ preference })
-      await this.stopClient()
-      this.accountState = 'not-connected'
-      this.modelCount = 0
-      this.usage = UNAVAILABLE_USAGE
-      this.rateLimitReadAt = 0
-      this.statusError = undefined
-      this.runtimeSelectionNote = undefined
-    }
-    return this.status()
   }
 
   /** The model catalog owner is this exact active runtime instance.
@@ -216,104 +595,242 @@ export class CodexSubscriptionRuntime extends Service implements ExternalModelPr
    * @returns The current renderer-safe runtime, account, and usage state.
    */
   async status(): Promise<CodexSubscriptionStatus> {
-    if (this.disposed) return {
-      enabled: true, runtime: 'stopped', account: 'error', login: 'idle', modelCount: 0,
-      usage: UNAVAILABLE_USAGE, error: 'Codex runtime is shutting down.', ...this.runtimeStatusFields(),
-    }
+    if (this.disposed) return this.statusProjection()
+    let snapshot = this.snapshotAuthState()
     try {
       await this.ensureStarted()
+      snapshot = this.snapshotAuthState()
+      if (!this.isCurrentAuthSnapshot(snapshot)) return this.statusProjection()
+      if (this.loginAttempt !== undefined) return this.statusProjection()
+      if (this.pendingAuthTransition !== undefined || this.authLifecycleBlocked) {
+        this.accountState = 'reauth-required'
+        return this.statusProjection()
+      }
       this.runtimeState = 'auth-check'
-      await this.refreshAccount()
+      await this.refreshAccount(snapshot)
+      if (!this.isCurrentAuthSnapshot(snapshot)) return this.statusProjection()
       if (this.accountState === 'connected') {
         this.runtimeState = 'catalog-loading'
-        const models = await this.readModels()
+        const models = await this.readModels(undefined, snapshot)
+        if (!this.isCurrentAuthSnapshot(snapshot)) return this.statusProjection()
         this.modelCount = models.length
-        await this.refreshRateLimits()
-        this.runtimeState = 'ready'
+        await this.refreshRateLimits(false, snapshot)
+        if (!this.isCurrentAuthSnapshot(snapshot)) return this.statusProjection()
       } else {
         this.modelCount = 0
         this.usage = UNAVAILABLE_USAGE
-        this.runtimeState = 'ready'
+        this.rateLimitReadAt = 0
       }
+      this.runtimeState = 'ready'
       this.statusError = undefined
     } catch (error: unknown) {
-      this.runtimeState = this.client === undefined && this.runtimeState !== 'error' ? 'crashed' : 'error'
-      this.statusError = safeError(error)
-      if (this.accountState !== 'connected') this.accountState = 'error'
+      if (this.isCurrentAuthSnapshot(snapshot)) {
+        this.runtimeState = this.client === undefined && this.runtimeState !== 'error' ? 'crashed' : 'error'
+        this.statusError = safeError(error)
+        if (this.accountState !== 'connected') this.accountState = 'error'
+      }
+    }
+    return this.statusProjection()
+  }
+
+  private statusProjection(): CodexSubscriptionStatus {
+    if (this.disposed) return {
+      enabled: true, runtime: 'stopped', account: 'error', login: 'idle', modelCount: 0,
+      usage: UNAVAILABLE_USAGE, error: 'Codex runtime is shutting down.', ...this.runtimeStatusFields(),
     }
     return {
       enabled: true,
       runtime: this.runtimeState,
       ...this.runtimeStatusFields(),
       account: this.accountState,
-      login: this.loginPending ? 'signing-in' : 'idle',
+      login: this.loginAttempt === undefined ? 'idle' : 'signing-in',
       modelCount: this.modelCount,
       usage: this.usage,
       ...(this.statusError === undefined ? {} : { error: this.statusError }),
     }
   }
 
-  /** Start the official ChatGPT subscription login and open only its allowlisted URL.
+  /** Start the official ChatGPT sign-in; only its successful completion rotates authGeneration.
    * @returns Whether the official browser sign-in is pending or already connected.
+   * @throws when a remote-thread operation or another account/runtime transition is active.
    */
   async connectChatGPT(): Promise<{ readonly status: 'signing-in' | 'connected' }> {
-    const client = await this.ensureStarted()
-    await this.refreshAccount()
-    if (this.accountState === 'connected') return { status: 'connected' }
-    this.loginPending = true
-    this.runtimeState = 'auth-check'
+    const releaseTransition = this.beginExclusiveRemoteTransition()
+    let attempt: PendingLoginAttempt | undefined
+    let authUrl: string | undefined
     try {
-      const response = jsonObject(await client.request('account/login/start', { type: 'chatgpt' }, 20_000), 'login response')
+      const client = await this.ensureStarted()
+      if (this.pendingAuthTransition === undefined && !this.authLifecycleBlocked) {
+        const observation = this.snapshotAuthState()
+        await this.refreshAccount(observation)
+        this.assertCurrentAuthSnapshot(observation)
+        if (this.accountState === 'connected') return { status: 'connected' }
+      }
+      const settings = this.runtimeSettings
+      if (settings === undefined) throw new Error('Codex runtime settings are unavailable.')
+      const clientOwner = this.clientOwner
+      if (clientOwner === undefined) throw new StaleAuthStateResultError()
+      const token = randomUUID()
+      this.authStateEpoch++
+      attempt = {
+        token,
+        settings,
+        settingsOwner: this.settingsOwner,
+        client,
+        clientOwner,
+        epoch: this.authStateEpoch,
+        phase: 'starting',
+      }
+      this.loginAttempt = attempt
+      const transition: AuthTransitionRecord = { id: token, kind: 'login' }
+      this.pendingAuthTransition = transition
+      this.authLifecycleBlocked = true
+      this.accountState = 'reauth-required'
+      this.runtimeState = 'auth-check'
+      this.modelCount = 0
+      this.usage = UNAVAILABLE_USAGE
+      this.rateLimitReadAt = 0
+      await this.beginAuthTransition(transition, settings, attempt.settingsOwner)
+      const snapshot = this.snapshotAuthState(attempt, 'starting')
+      const response = jsonObject(await this.requestForAuthSnapshot(
+        snapshot,
+        'account/login/start',
+        { type: 'chatgpt' },
+        20_000,
+      ), 'login response')
       if (response.type !== 'chatgpt') throw new Error('Codex App Server did not start the official ChatGPT login flow.')
-      const url = requiredString(response.authUrl, 'official ChatGPT login URL')
-      const parsed = new URL(url)
+      authUrl = requiredString(response.authUrl, 'official ChatGPT login URL')
+      const parsed = new URL(authUrl)
       if (parsed.protocol !== 'https:' || !['auth.openai.com', 'chatgpt.com', 'www.chatgpt.com'].includes(parsed.hostname)) {
         throw new Error('Codex App Server returned an unapproved authentication destination')
       }
-      this.loginId = requiredString(response.loginId, 'official login transaction id')
-      await this.openLoginUrl(url)
-      return { status: 'signing-in' }
+      attempt.loginId = requiredString(response.loginId, 'official login transaction id')
+      attempt.phase = 'pending'
     } catch (error: unknown) {
-      this.loginPending = false
-      this.statusError = safeError(error)
-      throw new Error(this.statusError)
+      if (attempt !== undefined && this.isCurrentLoginAttempt(attempt)) {
+        attempt.phase = 'failed'
+        this.loginAttempt = undefined
+        this.authLifecycleBlocked = true
+        this.accountState = 'reauth-required'
+        this.runtimeState = 'error'
+        this.statusError = safeError(error)
+      }
+      throw new Error(safeError(error))
+    } finally {
+      releaseTransition()
+    }
+
+    try {
+      await this.openLoginUrl(authUrl)
+    } catch (error: unknown) {
+      if (this.isCommittedLoginAttempt(attempt)) return this.loginStartResult(attempt)
+      if (this.isCurrentPendingLoginAttempt(attempt)) {
+        attempt.phase = 'failed'
+        this.loginAttempt = undefined
+        this.authLifecycleBlocked = true
+        this.accountState = 'reauth-required'
+        this.runtimeState = 'error'
+        this.statusError = safeError(error)
+        throw new Error(this.statusError)
+      }
+      if (attempt.completion !== undefined) {
+        await attempt.completion
+        if (this.isCommittedLoginAttempt(attempt)) return this.loginStartResult(attempt)
+      }
+      throw new Error(safeError(error))
+    }
+    return this.loginStartResult(attempt)
+  }
+
+  /** Cancel only the pending login transaction; cancellation does not rotate authGeneration.
+   * @returns The refreshed renderer-safe subscription state.
+   * @throws when a pending login cannot be cancelled because a remote operation or transition is active.
+   */
+  async cancelLogin(): Promise<CodexSubscriptionStatus> {
+    const attempt = this.loginAttempt
+    if (attempt === undefined || attempt.phase !== 'pending' || attempt.loginId === undefined) return this.status()
+    const releaseTransition = this.beginExclusiveRemoteTransition(true)
+    this.authStateEpoch++
+    attempt.phase = 'cancelling'
+    const snapshot = this.snapshotAuthState(attempt, 'cancelling')
+    try {
+      await this.requestForAuthSnapshot(snapshot, 'account/login/cancel', { loginId: attempt.loginId }, 10_000)
+      this.assertCurrentAuthSnapshot(snapshot)
+      attempt.phase = 'cancelled'
+      this.loginAttempt = undefined
+      this.accountState = 'reauth-required'
+      this.modelCount = 0
+      this.usage = UNAVAILABLE_USAGE
+      this.rateLimitReadAt = 0
+      this.runtimeState = 'ready'
+      return this.statusProjection()
+    } catch (error: unknown) {
+      if (this.isCurrentLoginAttempt(attempt) && attempt.phase === 'cancelling') {
+        attempt.phase = 'failed'
+        this.loginAttempt = undefined
+        this.authLifecycleBlocked = true
+        this.accountState = 'reauth-required'
+        this.runtimeState = 'error'
+        this.statusError = safeError(error)
+      }
+      throw error
+    } finally {
+      releaseTransition()
     }
   }
 
-  /** Cancel only the login transaction owned by this runtime process.
+  /** Restart only the DSH-owned App Server; authentication generation and Session mappings remain stable.
    * @returns The refreshed renderer-safe subscription state.
-   */
-  async cancelLogin(): Promise<CodexSubscriptionStatus> {
-    if (!this.loginPending || this.loginId === undefined) return this.status()
-    const client = await this.ensureStarted()
-    await client.request('account/login/cancel', { loginId: this.loginId }, 10_000)
-    this.loginPending = false
-    this.loginId = undefined
-    return this.status()
-  }
-
-  /** Reconnect means restarting only the DSH-owned App Server, not user Codex apps.
-   * @returns The refreshed renderer-safe subscription state.
+   * @throws when a login, account transition, or remote-thread operation is active.
    */
   async reconnect(): Promise<CodexSubscriptionStatus> {
-    await this.stopClient()
-    return this.status()
+    const releaseTransition = this.beginExclusiveRemoteTransition()
+    try {
+      await this.stopClient()
+      return await this.status()
+    } finally {
+      releaseTransition()
+    }
   }
 
-  /** Use the official logout method in the isolated CODEX_HOME; never edit auth files directly.
+  /** Use official logout and rotate authGeneration only after it succeeds; never edit auth files directly.
    * @returns The refreshed renderer-safe subscription state.
+   * @throws when a remote-thread operation is active, logout fails, or the new generation cannot persist.
    */
   async disconnect(): Promise<CodexSubscriptionStatus> {
-    const client = await this.ensureStarted()
-    await client.request('account/logout', {}, 15_000)
-    this.accountState = 'not-connected'
-    this.loginPending = false
-    this.loginId = undefined
-    this.modelCount = 0
-    this.usage = UNAVAILABLE_USAGE
-    this.rateLimitReadAt = 0
-    this.runtimeState = 'ready'
-    return this.status()
+    const releaseTransition = this.beginExclusiveRemoteTransition()
+    try {
+      const settings = this.runtimeSettings
+      if (settings === undefined) throw new Error('Codex runtime settings are unavailable.')
+      this.authStateEpoch++
+      const transition = { id: randomUUID(), kind: 'logout' as const }
+      const owner = this.settingsOwner
+      this.pendingAuthTransition = transition
+      this.authLifecycleBlocked = true
+      this.accountState = 'reauth-required'
+      this.modelCount = 0
+      this.usage = UNAVAILABLE_USAGE
+      this.rateLimitReadAt = 0
+      await this.beginAuthTransition(transition, settings, owner)
+      await this.ensureStarted()
+      const logoutSnapshot = this.snapshotAuthState()
+      await this.requestForAuthSnapshot(logoutSnapshot, 'account/logout', {}, 15_000)
+      this.assertCurrentAuthSnapshot(logoutSnapshot)
+      await this.commitAuthGeneration(transition, settings, owner)
+      if (this.hasPendingAuthTransition()) throw new StaleAuthStateResultError()
+      this.accountState = 'reauth-required'
+      this.loginAttempt = undefined
+      this.modelCount = 0
+      this.usage = UNAVAILABLE_USAGE
+      this.rateLimitReadAt = 0
+      if (this.client === logoutSnapshot.client && this.clientOwner === logoutSnapshot.clientOwner) {
+        this.runtimeState = 'ready'
+        this.statusError = undefined
+      }
+      return this.statusProjection()
+    } finally {
+      releaseTransition()
+    }
   }
 
   /** Discover model IDs and reasoning capabilities from the active official runtime.
@@ -322,10 +839,14 @@ export class CodexSubscriptionRuntime extends Service implements ExternalModelPr
    */
   async listModels(signal?: AbortSignal): Promise<readonly ExternalModelCatalogEntry[]> {
     signal?.throwIfAborted()
+    if (this.loginAttempt !== undefined) throw new Error('Wait for the ChatGPT login transition to complete.')
     await this.ensureStarted()
-    await this.refreshAccount()
+    const snapshot = this.snapshotAuthState()
+    await this.refreshAccount(snapshot)
+    this.assertCurrentAuthSnapshot(snapshot)
     if (this.accountState !== 'connected') throw new Error('Connect a ChatGPT subscription to discover Codex models.')
-    const models = await this.readModels(signal)
+    const models = await this.readModels(signal, snapshot)
+    this.assertCurrentAuthSnapshot(snapshot)
     signal?.throwIfAborted()
     this.modelCount = models.length
     return models.map(({ id, name, description, reasoning }) => ({
@@ -389,15 +910,21 @@ export class CodexSubscriptionRuntime extends Service implements ExternalModelPr
 
   /** Shut down only the process range started by this DSH service. */
   async dispose(): Promise<void> {
-    this.disposed = true
+    if (this.disposed) return
     const client = this.client
-    if (client !== undefined && this.turnWaiters.size > 0) {
-      const pending = [...this.turnWaiters.entries()]
-      await Promise.all(pending.map(([threadId, waiter]) =>
-        client.request('turn/interrupt', { threadId, turnId: waiter.turnId }, 5_000).catch(() => undefined),
-      ))
+    const pending = [...this.turnWaiters.entries()]
+    const pendingInterrupts = client === undefined ? [] : pending.filter(([, waiter]) =>
+      this.isAuthLeaseCurrent(waiter.lease) && waiter.lease.client === client,
+    )
+    const interrupts = client === undefined ? [] : pendingInterrupts.map(([threadId, waiter]) =>
+      this.requestForAuthLease(waiter.lease, client, 'turn/interrupt', { threadId, turnId: waiter.turnId }, 5_000)
+        .catch(() => undefined),
+    )
+    this.disposed = true
+    if (client !== undefined && pendingInterrupts.length > 0) {
+      await Promise.all(interrupts)
       await withDeadline(
-        Promise.allSettled(pending.map(([, waiter]) => waiter.completion)),
+        Promise.allSettled(pendingInterrupts.map(([, waiter]) => waiter.completion)),
         4_000,
         'Codex turns did not settle before runtime shutdown',
       ).catch(() => undefined)
@@ -410,13 +937,38 @@ export class CodexSubscriptionRuntime extends Service implements ExternalModelPr
     await this.stopClient()
   }
 
-  private async ensureStarted(): Promise<CodexAppServerConnection> {
-    if (this.client !== undefined) return this.client
-    if (this.disposed) throw new Error('Codex runtime is shutting down.')
+  private ensureStarted(): Promise<CodexAppServerConnection> {
+    if (this.disposed) return Promise.reject(new Error('Codex runtime is shutting down.'))
+    if (this.startupPromise !== undefined) return this.startupPromise
+    if (this.client !== undefined) return Promise.resolve(this.client)
+    const startup = this.startRuntimeSelection()
+    this.startupPromise = startup
+    void startup.then(() => {
+      if (this.startupPromise === startup) this.startupPromise = undefined
+    }, () => {
+      if (this.startupPromise === startup) this.startupPromise = undefined
+    })
+    return startup
+  }
+
+  private async startRuntimeSelection(): Promise<CodexAppServerConnection> {
+    const startupEpoch = this.authStateEpoch
+    const settings = this.runtimeSettings
+    const settingsOwner = this.settingsOwner
+    const isCurrentStartup = (): boolean => !this.disposed && this.authStateEpoch === startupEpoch
+      && this.runtimeSettings === settings && this.settingsOwner === settingsOwner
+    const assertCurrentStartup = (): void => {
+      if (!isCurrentStartup()) throw new StaleAuthStateResultError()
+    }
+    await this.ensureAuthGeneration()
+    assertCurrentStartup()
     this.runtimeState = 'starting'
+    const allowedHomeRoot = this.resolveAllowedHomeRoot()
     const requestedHome = this.resolveHomePath('codex-subscription', 'codex-home')
-    await this.ensureHome(requestedHome)
-    const home = await realpath(requestedHome)
+    await this.ensureHome(requestedHome, allowedHomeRoot)
+    assertCurrentStartup()
+    const home = await verifyCodexHome(requestedHome, allowedHomeRoot)
+    assertCurrentStartup()
     const preference = this.runtimeSettings?.get().preference ?? 'auto'
     const system = this.systemRuntime()
     const bundled = bundledCodexRuntime()
@@ -427,8 +979,10 @@ export class CodexSubscriptionRuntime extends Service implements ExternalModelPr
         : system.runtime === undefined ? [bundled] : [system.runtime, bundled]
 
     if (preference === 'system' && candidates.length === 0) {
-      this.runtimeState = 'error'
-      this.statusError = system.unavailableReason ?? 'The verified system Codex runtime is unavailable.'
+      if (isCurrentStartup()) {
+        this.runtimeState = 'error'
+        this.statusError = system.unavailableReason ?? 'The verified system Codex runtime is unavailable.'
+      }
       throw new Error(this.statusError)
     }
     if (preference === 'auto' && system.runtime === undefined) {
@@ -437,7 +991,11 @@ export class CodexSubscriptionRuntime extends Service implements ExternalModelPr
     let lastFailure: Error | undefined
     for (const runtime of candidates) {
       try {
-        const starting = await this.startRuntime(runtime, home)
+        const verifiedHome = await verifyCodexHome(requestedHome, allowedHomeRoot)
+        assertCurrentStartup()
+        if (verifiedHome !== home) throw new Error('Codex runtime home changed during App Server startup.')
+        const starting = await this.startRuntime(runtime, verifiedHome, requestedHome, allowedHomeRoot)
+        assertCurrentStartup()
         this.activeRuntime = runtime
         this.runtimeSelectionNote = runtime.source === 'bundled' && preference === 'auto' && lastFailure !== undefined
           ? 'System Codex did not pass its capability check; using the bundled runtime.'
@@ -445,6 +1003,7 @@ export class CodexSubscriptionRuntime extends Service implements ExternalModelPr
         this.runtimeState = 'auth-check'
         return starting
       } catch (error: unknown) {
+        assertCurrentStartup()
         lastFailure = error instanceof Error ? error : new Error('Codex runtime startup failed.')
         if (preference !== 'auto' || runtime.source !== 'system') {
           this.runtimeState = 'error'
@@ -453,53 +1012,90 @@ export class CodexSubscriptionRuntime extends Service implements ExternalModelPr
         }
       }
     }
+    assertCurrentStartup()
     this.runtimeState = 'error'
     this.statusError = safeError(lastFailure ?? new Error('No supported Codex App Server runtime is available.'))
     throw new Error(this.statusError)
   }
 
-  private async startRuntime(runtime: CodexRuntimeDescriptor, home: string): Promise<CodexAppServerConnection> {
+  private async startRuntime(
+    runtime: CodexRuntimeDescriptor,
+    home: string,
+    requestedHome: string,
+    allowedHomeRoot: string,
+  ): Promise<CodexAppServerConnection> {
+    this.resumedThreads.clear()
+    const owner = {}
+    const startupEpoch = this.authStateEpoch
     const owned: { client?: CodexAppServerConnection } = {}
     const callbacks: CodexServerCallbacks = {
-      onNotification: (method, params) => { this.onNotification(method, params) },
-      onRequest: (method, params) => this.onServerRequest(method, params),
+      onNotification: (method, params) => {
+        if (owned.client !== undefined && this.client === owned.client && this.clientOwner === owner) {
+          this.onNotification(method, params)
+        }
+      },
+      onRequest: (method, params) => {
+        if (owned.client === undefined || this.client !== owned.client || this.clientOwner !== owner) {
+          return Promise.reject(new Error('Codex App Server request belongs to an inactive client.'))
+        }
+        return this.onServerRequest(method, params)
+      },
       onExit: (error) => {
-        if (owned.client !== undefined && this.client === owned.client) {
+        if (owned.client !== undefined && this.client === owned.client && this.clientOwner === owner) {
+          this.authStateEpoch++
           this.client = undefined
+          this.clientOwner = undefined
           this.activeRuntime = undefined
           this.runtimeInventory = undefined
+          this.resumedThreads.clear()
           this.runtimeState = 'crashed'
-          this.accountState = 'error'
+          this.accountState = this.pendingAuthTransition === undefined ? 'error' : 'reauth-required'
           this.statusError = error === undefined ? 'Codex App Server disconnected.' : safeError(error)
-        }
-        for (const [threadId, waiter] of this.turnWaiters) {
-          const active = this.activeTurns.get(threadId)
-          if (active?.turnId === waiter.turnId) waiter.reject(new Error('Codex App Server exited during an active turn.'))
+          for (const [threadId, waiter] of this.turnWaiters) {
+            const active = this.activeTurns.get(threadId)
+            if (active?.turnId === waiter.turnId) waiter.reject(new Error('Codex App Server exited during an active turn.'))
+          }
         }
       },
     }
     this.runtimeState = 'initializing'
-    const starting = this.startClient(runtime, home, home, callbacks)
+    const verifiedHome = await verifyCodexHome(requestedHome, allowedHomeRoot)
+    if (verifiedHome !== home) throw new Error('Codex runtime home changed immediately before App Server startup.')
+    const starting = this.startClient(runtime, verifiedHome, verifiedHome, callbacks)
     owned.client = starting
     this.client = starting
+    this.clientOwner = owner
     try {
       await withDeadline(starting.initialize(), 18_000, 'Codex App Server initialization timed out')
+      if (this.client !== starting || this.clientOwner !== owner || this.authStateEpoch !== startupEpoch) {
+        throw new StaleAuthStateResultError()
+      }
       if (runtime.source === 'system') await verifySystemRuntimeCapabilities(starting)
+      if (this.client !== starting || this.clientOwner !== owner || this.authStateEpoch !== startupEpoch) {
+        throw new StaleAuthStateResultError()
+      }
       return starting
     } catch (error: unknown) {
-      if (this.client === starting) this.client = undefined
-      this.activeRuntime = undefined
+      if (this.client === starting && this.clientOwner === owner) {
+        this.client = undefined
+        this.clientOwner = undefined
+        this.activeRuntime = undefined
+      }
       await starting.dispose().catch(() => {})
       throw error instanceof Error ? error : new Error('Codex runtime compatibility check failed.')
     }
   }
 
   private async stopClient(): Promise<void> {
+    this.authStateEpoch++
     this.runtimeInventory = undefined
+    // Resumed-thread knowledge belongs to one App Server process, not the persistent DSH Session mapping.
+    this.resumedThreads.clear()
     const client = this.client
-    if (client === undefined) { this.activeRuntime = undefined; this.runtimeState = 'stopped'; return }
+    if (client === undefined) { this.clientOwner = undefined; this.activeRuntime = undefined; this.runtimeState = 'stopped'; return }
     this.runtimeState = 'stopping'
     this.client = undefined
+    this.clientOwner = undefined
     this.activeRuntime = undefined
     for (const waiter of this.turnWaiters.values()) {
       waiter.reject(new Error('Codex App Server restarted during an active turn.'))
@@ -509,52 +1105,78 @@ export class CodexSubscriptionRuntime extends Service implements ExternalModelPr
     this.runtimeState = 'stopped'
   }
 
-  private async refreshAccount(): Promise<void> {
-    const client = this.client
-    if (client === undefined) throw new Error('Codex App Server is not connected.')
-    const response = jsonObject(await client.request('account/read', { refreshToken: false }, 15_000), 'account state')
-    const account = response.account
-    if (account === null || account === undefined) {
-      this.accountState = response.requiresOpenaiAuth === true ? 'reauth-required' : 'not-connected'
+  private async refreshAccount(snapshot = this.snapshotAuthState()): Promise<CodexAccountState> {
+    if (this.pendingAuthTransition !== undefined || this.authLifecycleBlocked) {
+      throw new Error('A Codex authentication transition must be completed before account status can be refreshed.')
+    }
+    let accountState: CodexAccountState
+    try {
+      accountState = await this.readAccountState(snapshot)
+    } catch (error: unknown) {
+      if (!this.isCurrentAuthSnapshot(snapshot)) throw new StaleAuthStateResultError()
+      this.accountState = 'error'
+      throw error
+    }
+    this.assertCurrentAuthSnapshot(snapshot)
+    this.accountState = accountState
+    if (accountState !== 'connected') {
       this.usage = UNAVAILABLE_USAGE
       this.rateLimitReadAt = 0
-      return
     }
-    const view = jsonObject(account, 'account')
-    if (view.type === 'chatgpt') {
-      this.accountState = 'connected'
+    return accountState
+  }
+
+  private async readAccountState(snapshot = this.snapshotAuthState()): Promise<CodexAccountState> {
+    const response = jsonObject(await this.requestForAuthSnapshot(
+      snapshot,
+      'account/read',
+      { refreshToken: false },
+      15_000,
+    ), 'account state')
+    this.assertCurrentAuthSnapshot(snapshot)
+    let account: JsonObject | undefined
+    if (response.account !== null && response.account !== undefined) {
+      account = jsonObject(response.account, 'account')
+    }
+    if (account === undefined) {
+      return response.requiresOpenaiAuth === true ? 'reauth-required' : 'not-connected'
+    }
+    if (account.type === 'chatgpt') {
       // Do not return account email or any protocol fields to the renderer.
-      return
+      return 'connected'
     }
-    if (view.type === 'apiKey') {
-      this.accountState = 'not-connected'
-      this.usage = UNAVAILABLE_USAGE
-      this.rateLimitReadAt = 0
-      return
+    if (account.type === 'apiKey') {
+      return 'not-connected'
     }
-    this.accountState = response.requiresOpenaiAuth === true ? 'reauth-required' : 'error'
+    return response.requiresOpenaiAuth === true ? 'reauth-required' : 'error'
   }
 
   /** Read the official account quota snapshot at most once per five minutes. */
-  private async refreshRateLimits(force = false): Promise<void> {
-    const client = this.client
-    if (client === undefined || this.accountState !== 'connected') {
-      this.usage = UNAVAILABLE_USAGE
+  private async refreshRateLimits(force = false, snapshot = this.snapshotAuthState()): Promise<void> {
+    const client = snapshot.client
+    if (client === undefined || this.accountState !== 'connected' || this.pendingAuthTransition !== undefined
+      || this.authLifecycleBlocked) {
+      if (this.isCurrentAuthSnapshot(snapshot)) this.usage = UNAVAILABLE_USAGE
       return
     }
     const now = Date.now()
     if (!force && now - this.rateLimitReadAt < RATE_LIMIT_REFRESH_MS) return
-    this.rateLimitReadAt = now
     try {
-      const response = jsonObject(await client.request('account/rateLimits/read', {}, 15_000), 'account rate limits')
+      const response = jsonObject(await this.requestForAuthSnapshot(
+        snapshot,
+        'account/rateLimits/read',
+        {},
+        15_000,
+      ), 'account rate limits')
       const buckets = response.rateLimitsByLimitId
       const bucketMap = buckets !== null && typeof buckets === 'object' && !Array.isArray(buckets)
         ? buckets as Record<string, unknown>
         : undefined
       const codexBucket = bucketMap?.codex
-      const snapshot = jsonObject(codexBucket ?? response.rateLimits, 'account rate-limit snapshot')
-      const primary = usageWindow(snapshot.primary)
-      const secondary = usageWindow(snapshot.secondary)
+      const quota = jsonObject(codexBucket ?? response.rateLimits, 'account rate-limit snapshot')
+      const primary = usageWindow(quota.primary)
+      const secondary = usageWindow(quota.secondary)
+      this.assertCurrentAuthSnapshot(snapshot)
       this.usage = primary === undefined && secondary === undefined
         ? UNAVAILABLE_USAGE
         : {
@@ -562,15 +1184,27 @@ export class CodexSubscriptionRuntime extends Service implements ExternalModelPr
           ...(primary === undefined ? {} : { primary }),
           ...(secondary === undefined ? {} : { secondary }),
         }
+      this.rateLimitReadAt = now
     } catch {
       // Quota visibility is informational; it must not turn account/runtime
       // status into an authentication failure or block a turn.
+      if (!this.isCurrentAuthSnapshot(snapshot)) throw new StaleAuthStateResultError()
       this.usage = UNAVAILABLE_USAGE
     }
   }
 
-  private async readModels(signal?: AbortSignal): Promise<CodexModelEntry[]> {
-    const client = this.client
+  private async readModels(
+    signal?: AbortSignal,
+    existingSnapshot?: AuthStateSnapshot,
+  ): Promise<CodexModelEntry[]> {
+    await this.ensureStarted()
+    signal?.throwIfAborted()
+    const snapshot = existingSnapshot ?? this.snapshotAuthState()
+    this.assertCurrentAuthSnapshot(snapshot)
+    if (this.pendingAuthTransition !== undefined || this.authLifecycleBlocked) {
+      throw new Error('A Codex authentication transition must be completed before reading models.')
+    }
+    const client = snapshot.client
     if (client === undefined) throw new Error('Codex App Server is not connected.')
     const models: CodexModelEntry[] = []
     const seen = new Set<string>()
@@ -578,7 +1212,8 @@ export class CodexSubscriptionRuntime extends Service implements ExternalModelPr
     let cursor: string | undefined
     for (let page = 0; page < 100; page++) {
       signal?.throwIfAborted()
-      const response = jsonObject(await client.request(
+      const response = jsonObject(await this.requestForAuthSnapshot(
+        snapshot,
         'model/list',
         cursor === undefined ? { limit: 200 } : { cursor, limit: 200 },
         RPC_TIMEOUT_MS,
@@ -616,7 +1251,10 @@ export class CodexSubscriptionRuntime extends Service implements ExternalModelPr
           reasoning: { efforts, defaultEffort },
         })
       }
-      if (response.nextCursor === null) return models
+      if (response.nextCursor === null) {
+        this.assertCurrentAuthSnapshot(snapshot)
+        return models
+      }
       const nextCursor = requiredString(response.nextCursor, 'model directory cursor')
       if (seenCursors.has(nextCursor) || nextCursor === cursor) {
         throw new Error('Codex App Server repeated a model directory cursor.')
@@ -643,30 +1281,25 @@ export class CodexSubscriptionRuntime extends Service implements ExternalModelPr
   }
 
   private onNotification(method: string, params: Record<string, unknown>): void {
+    if (method === 'account/updated') {
+      if (params.authMode === null) this.invalidateAuthentication()
+      return
+    }
     if (method === 'account/login/completed') {
       const loginId = typeof params.loginId === 'string' ? params.loginId : undefined
-      if (!this.loginPending || this.loginId === undefined || loginId !== this.loginId) return
-      this.loginPending = false
-      this.loginId = undefined
+      const attempt = this.loginAttempt
+      if (attempt?.loginId === undefined || loginId !== attempt.loginId) return
       if (params.success !== true) {
-        this.accountState = 'error'
+        if (attempt.phase !== 'pending') return
+        attempt.phase = 'failed'
+        this.loginAttempt = undefined
+        this.authLifecycleBlocked = true
+        this.accountState = 'reauth-required'
         this.runtimeState = 'error'
         this.statusError = safeError(params.error)
         return
       }
-      void this.refreshAccount().then(async () => {
-        if (this.accountState !== 'connected') {
-          throw new Error('Official ChatGPT login completed but the subscription account is not connected.')
-        }
-        this.runtimeState = 'ready'
-        this.statusError = undefined
-        this.modelCount = (await this.readModels()).length
-        await this.refreshRateLimits(true)
-      }).catch((error: unknown) => {
-        this.accountState = 'error'
-        this.runtimeState = 'error'
-        this.statusError = safeError(error)
-      })
+      this.completeSuccessfulLogin(attempt)
       return
     }
     if (method === 'turn/started') {
@@ -752,6 +1385,96 @@ export class CodexSubscriptionRuntime extends Service implements ExternalModelPr
     }
   }
 
+  private invalidateAuthentication(): void {
+    this.authStateEpoch++
+    const attempt = this.loginAttempt
+    if (attempt !== undefined && attempt.phase !== 'committed') {
+      attempt.phase = 'failed'
+      this.loginAttempt = undefined
+    }
+    const scope = this.runtimeSettings
+    const owner = this.settingsOwner
+    const transition: AuthTransitionRecord = { id: randomUUID(), kind: 'invalidated' }
+    this.pendingAuthTransition = transition
+    this.authLifecycleBlocked = true
+    this.accountState = 'reauth-required'
+    this.modelCount = 0
+    this.usage = UNAVAILABLE_USAGE
+    this.rateLimitReadAt = 0
+    this.runtimeState = 'ready'
+    this.statusError = undefined
+    if (scope !== undefined) {
+      void this.beginAuthTransition(transition, scope, owner).catch((error: unknown) => {
+        if (this.runtimeSettings === scope && this.settingsOwner === owner
+          && this.pendingAuthTransition?.id === transition.id) {
+          this.runtimeState = 'error'
+          this.statusError = safeError(error)
+        }
+      })
+    }
+  }
+
+  private completeSuccessfulLogin(attempt: PendingLoginAttempt): void {
+    if (!this.isCurrentLoginAttempt(attempt) || attempt.phase !== 'pending' || attempt.completion !== undefined) return
+    attempt.phase = 'completing'
+    attempt.completion = this.finishSuccessfulLogin(attempt)
+  }
+
+  private async finishSuccessfulLogin(attempt: PendingLoginAttempt): Promise<void> {
+    let releaseTransition: (() => void) | undefined
+    try {
+      while (this.isCurrentLoginAttempt(attempt) && this.exclusiveRemoteTransition) {
+        await this.exclusiveTransitionReleased
+        this.assertCurrentAuthSnapshot(this.snapshotAuthState(attempt, 'completing'))
+      }
+      if (!this.isCurrentLoginAttempt(attempt) || attempt.phase !== 'completing') return
+      releaseTransition = this.beginExclusiveRemoteTransition(true)
+      const snapshot = this.snapshotAuthState(attempt, 'completing')
+      if (await this.readAccountState(snapshot) !== 'connected') {
+        throw new Error('Official ChatGPT login completed but the subscription account is not connected.')
+      }
+      this.assertCurrentAuthSnapshot(snapshot)
+      const transition: AuthTransitionRecord = { id: attempt.token, kind: 'login' }
+      const generation = await this.commitAuthGeneration(
+        transition,
+        attempt.settings,
+        attempt.settingsOwner,
+        attempt,
+      )
+      attempt.committedGeneration = generation
+      attempt.phase = 'committed'
+      if (attempt.epoch !== this.authStateEpoch || this.client !== attempt.client
+        || this.clientOwner !== attempt.clientOwner || this.pendingAuthTransition !== undefined
+        || this.authLifecycleBlocked) {
+        if (this.isCurrentLoginAttempt(attempt)) this.loginAttempt = undefined
+        return
+      }
+      // The persisted generation and cleared marker are the auth commit point.
+      this.accountState = 'connected'
+      this.loginAttempt = undefined
+      this.runtimeState = 'catalog-loading'
+      this.statusError = undefined
+      const committedSnapshot = this.snapshotAuthState()
+      const models = await this.readModels(undefined, committedSnapshot)
+      if (!this.isCurrentAuthSnapshot(committedSnapshot)) return
+      this.modelCount = models.length
+      await this.refreshRateLimits(true, committedSnapshot)
+      if (!this.isCurrentAuthSnapshot(committedSnapshot)) return
+      this.runtimeState = 'ready'
+    } catch (error: unknown) {
+      if (this.isCurrentLoginAttempt(attempt) && attempt.phase === 'completing') {
+        attempt.phase = 'failed'
+        this.loginAttempt = undefined
+        this.authLifecycleBlocked = true
+        this.accountState = 'reauth-required'
+        this.runtimeState = 'error'
+        this.statusError = safeError(error)
+      }
+    } finally {
+      releaseTransition?.()
+    }
+  }
+
   private activityIdentity(
     active: ActiveCodexTurn,
     itemId: string,
@@ -821,11 +1544,29 @@ export class CodexSubscriptionRuntime extends Service implements ExternalModelPr
   }
 
   private async executeTurn(request: ExternalTurnRequest, runtimeModel: string): Promise<ExternalTurnResult> {
+    const lease = this.acquireAuthBoundOperation()
+    try {
+      return await this.executeTurnWithLease(request, runtimeModel, lease)
+    } finally {
+      lease.release()
+    }
+  }
+
+  private async executeTurnWithLease(
+    request: ExternalTurnRequest,
+    runtimeModel: string,
+    lease: AuthBoundOperationLease,
+  ): Promise<ExternalTurnResult> {
     const client = await this.ensureStarted()
-    await this.refreshAccount()
+    this.bindAuthLease(lease, client)
+    const accountSnapshot = this.snapshotAuthState()
+    await this.refreshAccount(accountSnapshot)
+    this.assertAuthLeaseCurrent(lease)
     if (this.accountState !== 'connected') throw new Error('OpenAI Codex is not connected to a ChatGPT subscription.')
     const cwd = await canonicalWorkspace(request.cwd)
+    this.assertAuthLeaseCurrent(lease)
     const workspace = await this.resolveWorkspace(request.session, cwd, request.signal)
+    this.assertAuthLeaseCurrent(lease)
     if (workspace.identity !== request.workspaceIdentity || workspace.cwd !== cwd) {
       throw new Error('Codex turn workspace identity no longer matches the canonical DSH workspace.')
     }
@@ -843,13 +1584,55 @@ export class CodexSubscriptionRuntime extends Service implements ExternalModelPr
       throw new Error('A previous Codex reconciliation could not be durably committed; no new turn was sent.')
     }
 
+    if (mapping.authGeneration !== lease.authGeneration) {
+      if (mapping.dispatch !== null) {
+        // The old remote thread belongs to an unverified auth generation. Do not
+        // resume/reconcile it under the current account, and never replay it.
+        await this.commitReconciliation(
+          request,
+          mapping,
+          mapping.dispatch,
+          'unknown',
+          null,
+          { count: 0, kinds: [] },
+          true,
+          lease,
+        )
+        this.assertAuthLeaseCurrent(lease)
+        throw new Error('The previous Codex turn belongs to a retired authentication generation; it was not resumed or replayed.')
+      }
+      const retiredThreadIds = mapping.activeThreadId === null
+        ? mapping.retiredThreadIds
+        : [...mapping.retiredThreadIds, mapping.activeThreadId].slice(-16)
+      mapping = {
+        ...mapping,
+        generation: mapping.generation + 1,
+        authGeneration: lease.authGeneration,
+        activeThreadId: null,
+        retiredThreadIds,
+        workspaceIdentity: null,
+        cwd: null,
+        latestTurnId: null,
+        committedMessageId: null,
+        pendingSync: null,
+        lastReconciliation: mapping.lastReconciliation === null
+          ? null
+          : { ...mapping.lastReconciliation, status: 'unknown' },
+        bootstrap: null,
+      }
+      writeMapping(request.session, mapping)
+      await this.ctx.sessions.flush(request.session)
+      this.assertAuthLeaseCurrent(lease)
+    }
+
     // Resolve any persisted side-effecting dispatch before touching the thread.
     // Authoritative terminal state releases the barrier; ambiguous state never
     // causes the old turn to be replayed.
     if (mapping.dispatch !== null) {
       const recovered = await this.reconcileDispatch(
-        client, request, mapping, cwd, inputHash, effort, requestedMessageId,
+        client, request, mapping, cwd, inputHash, effort, requestedMessageId, lease,
       )
+      this.assertAuthLeaseCurrent(lease)
       if (recovered !== undefined) return recovered
       mapping = this.ctx.sessionProjections.stateOf(request.session, 'codexSubscription') ?? mapping
     } else {
@@ -862,7 +1645,7 @@ export class CodexSubscriptionRuntime extends Service implements ExternalModelPr
         effort,
         requestedMessageId,
       )) {
-        return this.recoverCompletedReconciliation(client, request, reconciliation, cwd)
+        return this.recoverCompletedReconciliation(client, request, reconciliation, cwd, lease)
       }
     }
     const transcript = request.session.deriveMessages()
@@ -876,21 +1659,28 @@ export class CodexSubscriptionRuntime extends Service implements ExternalModelPr
 
     if (mapping.activeThreadId !== null && !mustBootstrap && !this.resumedThreads.has(mapping.activeThreadId)) {
       try {
-        await client.request('thread/resume', { threadId: mapping.activeThreadId }, 20_000)
-        const resumed = jsonObject(await client.request('thread/read', { threadId: mapping.activeThreadId }, 20_000), 'resumed thread')
+        await this.requestForAuthLease(lease, client, 'thread/resume', { threadId: mapping.activeThreadId }, 20_000)
+        const resumed = jsonObject(await this.requestForAuthLease(
+          lease,
+          client,
+          'thread/read',
+          { threadId: mapping.activeThreadId },
+          20_000,
+        ), 'resumed thread')
         const resumedThread = jsonObject(resumed.thread, 'resumed thread metadata')
         if (requiredString(resumedThread.cwd, 'resumed thread workspace') !== cwd) {
           throw new Error('Codex thread workspace no longer matches the canonical DSH workspace.')
         }
         this.resumedThreads.add(mapping.activeThreadId)
-      } catch {
+      } catch (error: unknown) {
+        if (!this.isAuthLeaseCurrent(lease)) throw error
         mustBootstrap = true
       }
     }
     let threadId = mapping.activeThreadId
     if (mustBootstrap || threadId === null) {
       const retired = threadId === null ? mapping.retiredThreadIds : [...mapping.retiredThreadIds, threadId].slice(-16)
-      const response = jsonObject(await client.request('thread/start', {
+      const response = jsonObject(await this.requestForAuthLease(lease, client, 'thread/start', {
         cwd,
         approvalPolicy: 'on-request',
         sandbox: 'workspace-write',
@@ -904,6 +1694,7 @@ export class CodexSubscriptionRuntime extends Service implements ExternalModelPr
       mapping = {
         ...mapping,
         generation: mapping.generation + 1,
+        authGeneration: lease.authGeneration,
         activeThreadId: threadId,
         retiredThreadIds: retired,
         workspaceIdentity: request.workspaceIdentity,
@@ -931,7 +1722,9 @@ export class CodexSubscriptionRuntime extends Service implements ExternalModelPr
           },
         }
         writeMapping(request.session, mapping)
-        await client.request('thread/inject_items', { threadId, items: bootstrap.items }, RPC_TIMEOUT_MS)
+        await this.requestForAuthLease(
+          lease, client, 'thread/inject_items', { threadId, items: bootstrap.items }, RPC_TIMEOUT_MS,
+        )
       } else {
         mapping = { ...mapping, bootstrap: { fromMessageId: null, toMessageId: null, messageCount: 0, truncated: false } }
       }
@@ -950,7 +1743,9 @@ export class CodexSubscriptionRuntime extends Service implements ExternalModelPr
       mapping = { ...mapping, pendingSync }
       writeMapping(request.session, mapping)
       try {
-        await client.request('thread/inject_items', { threadId, items: batch.items }, RPC_TIMEOUT_MS)
+        await this.requestForAuthLease(
+          lease, client, 'thread/inject_items', { threadId, items: batch.items }, RPC_TIMEOUT_MS,
+        )
       } catch (error: unknown) {
         // pendingSync remains durable. It is enough to force a fresh internal
         // thread and canonical bootstrap; injection has no tool side effects.
@@ -986,12 +1781,12 @@ export class CodexSubscriptionRuntime extends Service implements ExternalModelPr
     }
     // Persist the intent before crossing the side-effecting turn/start boundary.
     writeMapping(request.session, { ...mapping, dispatch })
-    const active: ActiveCodexTurn = { request, threadId, finalText: '' }
+    const active: ActiveCodexTurn = { request, threadId, lease, finalText: '' }
     this.activeTurns.set(threadId, active)
     let terminal: Record<string, unknown>
     let turnId: string
     try {
-      const started = jsonObject(await client.request('turn/start', {
+      const started = jsonObject(await this.requestForAuthLease(lease, client, 'turn/start', {
         threadId,
         clientUserMessageId,
         input: textInput.map(text => ({ type: 'text', text, text_elements: [] })),
@@ -1006,14 +1801,17 @@ export class CodexSubscriptionRuntime extends Service implements ExternalModelPr
       active.turnId = turnId
       mapping = { ...mapping, latestTurnId: turnId }
       writeMapping(request.session, { ...mapping, dispatch: { ...dispatch, status: 'accepted', turnId } })
-      terminal = await this.waitForTurn(client, threadId, turnId, request)
+      terminal = await this.waitForTurn(client, threadId, turnId, request, lease)
+      this.assertAuthLeaseCurrent(lease)
     } catch (error: unknown) {
       const observedTurnId = active.turnId ?? null
-      writeMapping(request.session, {
-        ...mapping,
-        ...(observedTurnId === null ? {} : { latestTurnId: observedTurnId }),
-        dispatch: { ...dispatch, status: 'uncertain', turnId: observedTurnId },
-      })
+      if (this.isAuthLeaseCurrent(lease)) {
+        writeMapping(request.session, {
+          ...mapping,
+          ...(observedTurnId === null ? {} : { latestTurnId: observedTurnId }),
+          dispatch: { ...dispatch, status: 'uncertain', turnId: observedTurnId },
+        })
+      }
       throw error
     } finally {
       this.activeTurns.delete(threadId)
@@ -1036,6 +1834,7 @@ export class CodexSubscriptionRuntime extends Service implements ExternalModelPr
     return { text, reason: 'completed' }
   }
 
+  /** Thread IDs validated for one App Server client; replacement and owned exit clear this cache. */
   private readonly resumedThreads = new Set<string>()
 
   /** Reconcile a persisted dispatch against authoritative App Server history. */
@@ -1047,6 +1846,7 @@ export class CodexSubscriptionRuntime extends Service implements ExternalModelPr
     inputHash: string,
     effort: string,
     messageId: string,
+    lease: AuthBoundOperationLease,
   ): Promise<ExternalTurnResult | undefined> {
     const dispatch = mapping.dispatch
     if (dispatch === null) return undefined
@@ -1057,17 +1857,20 @@ export class CodexSubscriptionRuntime extends Service implements ExternalModelPr
     }
 
     try {
-      await this.resumeAndVerifyThread(client, dispatch.threadId, cwd)
+      await this.resumeAndVerifyThread(client, dispatch.threadId, cwd, lease)
     } catch (error: unknown) {
+      if (!this.isAuthLeaseCurrent(lease)) throw error
       if (!isMissingThreadError(error)) throw error
-      await this.commitReconciliation(request, mapping, dispatch, 'unknown', null, { count: 0, kinds: [] }, true)
+      await this.commitReconciliation(request, mapping, dispatch, 'unknown', null, { count: 0, kinds: [] }, true, lease)
       if (sameRequest) throw new Error('The previous Codex turn is missing and was not replayed; start a new DSH turn to continue.')
       return undefined
     }
 
-    let turn = await this.findDispatchedTurn(client, dispatch.threadId, dispatch.turnId, clientUserMessageId)
+    let turn = await this.findDispatchedTurn(client, dispatch.threadId, dispatch.turnId, clientUserMessageId, lease)
     if (turn === undefined) {
-      await this.commitReconciliation(request, mapping, dispatch, 'unknown', null, { count: 0, kinds: [] }, true)
+      await this.commitReconciliation(
+        request, mapping, dispatch, 'unknown', null, { count: 0, kinds: [] }, true, lease,
+      )
       if (sameRequest) throw new Error('Codex could not confirm the previous turn; it was retired and not replayed.')
       return undefined
     }
@@ -1079,7 +1882,7 @@ export class CodexSubscriptionRuntime extends Service implements ExternalModelPr
     const status = turn.status
     if (status === 'inProgress') {
       const active: ActiveCodexTurn = {
-        request, threadId: dispatch.threadId, turnId,
+        request, threadId: dispatch.threadId, lease, turnId,
         finalText: finalAssistantTextFromTurn(turn) ?? '',
       }
       this.activeTurns.set(dispatch.threadId, active)
@@ -1089,8 +1892,9 @@ export class CodexSubscriptionRuntime extends Service implements ExternalModelPr
           dispatch.threadId,
           turnId,
           request,
+          lease,
           async () => {
-            const current = await this.findDispatchedTurn(client, dispatch.threadId, turnId, clientUserMessageId)
+            const current = await this.findDispatchedTurn(client, dispatch.threadId, turnId, clientUserMessageId, lease)
             if (current === undefined) throw new Error('The previously accepted Codex turn disappeared during reconciliation.')
             if (current.status === 'inProgress') return undefined
             turn = current
@@ -1109,8 +1913,10 @@ export class CodexSubscriptionRuntime extends Service implements ExternalModelPr
     const sideEffects = sideEffectSummary(turn)
     await this.commitReconciliation(
       request, mapping, dispatch, terminalStatus, turnId, sideEffects, false,
+      lease,
     )
 
+    this.assertAuthLeaseCurrent(lease)
     if (!sameRequest) return undefined
     if (terminalStatus !== 'completed') {
       throw new Error(`The previous Codex turn is confirmed as ${terminalStatus}; it was not replayed.`)
@@ -1141,6 +1947,7 @@ export class CodexSubscriptionRuntime extends Service implements ExternalModelPr
     turnId: string | null,
     sideEffects: { readonly count: number; readonly kinds: readonly ('commandExecution' | 'fileChange' | 'other')[] },
     retireThread: boolean,
+    lease: AuthBoundOperationLease,
   ): Promise<void> {
     const lastReconciliation: NonNullable<CodexSessionMappingState['lastReconciliation']> = {
       status,
@@ -1163,6 +1970,7 @@ export class CodexSubscriptionRuntime extends Service implements ExternalModelPr
       : mapping.retiredThreadIds
     const next: CodexSessionMappingState = {
       ...mapping,
+      authGeneration: lease.authGeneration,
       activeThreadId: retireThread ? null : mapping.activeThreadId,
       retiredThreadIds,
       latestTurnId: retireThread ? null : turnId,
@@ -1171,11 +1979,13 @@ export class CodexSubscriptionRuntime extends Service implements ExternalModelPr
       dispatch: null,
       lastReconciliation,
     }
+    this.assertAuthLeaseCurrent(lease)
     writeMapping(request.session, next)
     try {
       // One Session flush commits the reconciliation record and barrier release
       // together; if it fails, this runtime remains fail-closed.
       await this.ctx.sessions.flush(request.session)
+      this.assertAuthLeaseCurrent(lease)
     } catch (error: unknown) {
       this.failedReconciliationCommits.add(request.session)
       throw error
@@ -1187,6 +1997,7 @@ export class CodexSubscriptionRuntime extends Service implements ExternalModelPr
     request: ExternalTurnRequest,
     reconciliation: NonNullable<CodexSessionMappingState['lastReconciliation']>,
     cwd: string,
+    lease: AuthBoundOperationLease,
   ): Promise<ExternalTurnResult> {
     if (reconciliation.status !== 'completed') {
       throw new Error(`The previous Codex turn was reconciled as ${reconciliation.status}; it was not replayed.`)
@@ -1200,13 +2011,15 @@ export class CodexSubscriptionRuntime extends Service implements ExternalModelPr
       )) {
       throw new Error('The previous Codex result was already delivered or committed; it was not replayed.')
     }
-    await this.resumeAndVerifyThread(client, reconciliation.threadId, cwd)
+    await this.resumeAndVerifyThread(client, reconciliation.threadId, cwd, lease)
     const turn = await this.findDispatchedTurn(
       client,
       reconciliation.threadId,
       reconciliation.turnId,
       reconciliation.clientUserMessageId,
+      lease,
     )
+    this.assertAuthLeaseCurrent(lease)
     if (turn?.status !== 'completed') {
       throw new Error('The completed Codex result is no longer available for safe recovery; no turn was replayed.')
     }
@@ -1235,9 +2048,10 @@ export class CodexSubscriptionRuntime extends Service implements ExternalModelPr
     client: CodexAppServerConnection,
     threadId: string,
     cwd: string,
+    lease: AuthBoundOperationLease,
   ): Promise<void> {
-    await client.request('thread/resume', { threadId }, 20_000)
-    const response = jsonObject(await client.request('thread/read', { threadId }, 20_000), 'reconciled thread')
+    await this.requestForAuthLease(lease, client, 'thread/resume', { threadId }, 20_000)
+    const response = jsonObject(await this.requestForAuthLease(lease, client, 'thread/read', { threadId }, 20_000), 'reconciled thread')
     const thread = jsonObject(response.thread, 'reconciled thread metadata')
     if (requiredString(thread.cwd, 'reconciled thread workspace') !== cwd) {
       throw new Error('Codex thread workspace no longer matches the canonical DSH workspace.')
@@ -1250,8 +2064,9 @@ export class CodexSubscriptionRuntime extends Service implements ExternalModelPr
     threadId: string,
     expectedTurnId: string | null,
     clientUserMessageId: string,
+    lease: AuthBoundOperationLease,
   ): Promise<JsonObject | undefined> {
-    const response = jsonObject(await client.request('thread/turns/list', {
+    const response = jsonObject(await this.requestForAuthLease(lease, client, 'thread/turns/list', {
       threadId,
       limit: 100,
       sortDirection: 'desc',
@@ -1277,16 +2092,17 @@ export class CodexSubscriptionRuntime extends Service implements ExternalModelPr
     threadId: string,
     turnId: string,
     request: ExternalTurnRequest,
+    lease: AuthBoundOperationLease,
     reconcile?: () => Promise<Record<string, unknown> | undefined>,
   ): Promise<Record<string, unknown>> {
     const done = Promise.withResolvers<Record<string, unknown>>()
     const previous = this.turnWaiters.get(threadId)
     if (previous !== undefined) throw new Error('Codex thread already has an active turn waiter.')
-    this.turnWaiters.set(threadId, { turnId, resolve: done.resolve, reject: done.reject, request, completion: done.promise })
+    this.turnWaiters.set(threadId, { turnId, resolve: done.resolve, reject: done.reject, request, lease, completion: done.promise })
     const active = this.activeTurns.get(threadId)
     if (active?.turnId === turnId && active.terminal !== undefined) done.resolve(active.terminal)
     const onAbort = (): void => {
-      void client.request('turn/interrupt', { threadId, turnId }, 8_000).catch(() => {})
+      void this.requestForAuthLease(lease, client, 'turn/interrupt', { threadId, turnId }, 8_000).catch(() => {})
     }
     request.signal.addEventListener('abort', onAbort, { once: true })
     if (request.signal.aborted) onAbort()
@@ -1299,11 +2115,13 @@ export class CodexSubscriptionRuntime extends Service implements ExternalModelPr
       }
     }
     const timer = setTimeout(() => {
-      void client.request('turn/interrupt', { threadId, turnId }, 8_000).catch(() => {})
+      void this.requestForAuthLease(lease, client, 'turn/interrupt', { threadId, turnId }, 8_000).catch(() => {})
       done.reject(new Error('Codex turn did not reach a terminal event before the deadline.'))
     }, 20 * 60_000)
     try {
-      return await done.promise
+      const terminal = await done.promise
+      this.assertAuthLeaseCurrent(lease)
+      return terminal
     } catch (error: unknown) {
       throw error
     } finally {
@@ -1318,6 +2136,7 @@ export class CodexSubscriptionRuntime extends Service implements ExternalModelPr
     readonly resolve: (turn: Record<string, unknown>) => void
     readonly reject: (error: Error) => void
     readonly request: ExternalTurnRequest
+    readonly lease: AuthBoundOperationLease
     readonly completion: Promise<Record<string, unknown>>
   }>()
 
@@ -1327,6 +2146,7 @@ export class CodexSubscriptionRuntime extends Service implements ExternalModelPr
       const turnId = requiredString(params.turnId, 'approval turn id')
       const active = this.activeTurns.get(threadId)
       if (active === undefined || active.turnId !== turnId) throw new Error('Codex approval did not match an active DSH turn.')
+      this.assertAuthLeaseCurrent(active.lease)
       const requestId = typeof params.itemId === 'string' ? params.itemId : 'unknown-item'
       const kind = method.includes('commandExecution') ? 'command' : 'file change'
       const description = safeApprovalDescription(params)
@@ -1343,6 +2163,10 @@ export class CodexSubscriptionRuntime extends Service implements ExternalModelPr
         reason: `Codex request ${requestId}: ${description}`,
         signal: active.request.signal,
       })
+      this.assertAuthLeaseCurrent(active.lease)
+      if (this.activeTurns.get(threadId) !== active) {
+        throw new StaleAuthStateResultError()
+      }
       const allow = outcome === 'allowed-once' && choices.includes('accept')
       const decision = allow ? 'accept' : choices.includes('decline') ? 'decline' : 'cancel'
       this.publishApproval(active, requestId, kind, allow ? 'allowed' : 'rejected', 'approval/resolved')
@@ -1353,6 +2177,7 @@ export class CodexSubscriptionRuntime extends Service implements ExternalModelPr
       const turnId = requiredString(params.turnId, 'permission turn id')
       const active = this.activeTurns.get(threadId)
       if (active === undefined || active.turnId !== turnId) throw new Error('Codex permission request did not match an active DSH turn.')
+      this.assertAuthLeaseCurrent(active.lease)
       this.publishApproval(active, 'permission-grant', 'permission', 'rejected', method)
       return { permissions: {}, scope: 'turn' }
     }
@@ -1426,11 +2251,6 @@ async function verifySystemRuntimeCapabilities(client: CodexAppServerConnection)
       }
     }
   }
-}
-
-async function secureHome(path: string): Promise<void> {
-  await mkdir(path, { recursive: true, mode: 0o700 })
-  await chmod(path, 0o700)
 }
 
 async function canonicalWorkspace(path: string): Promise<string> {

@@ -56,6 +56,8 @@ DS Harness Custom 桌面组合会将此 provider 与 Local 模型路由并列挂
 
 运行时通过 stdio 管理一个官方 App Server 进程，并将其私有线程与 DSH 公开 Session 分开。模型设置卡会持久化“自动 / System Codex / Bundled Codex”选择；切换只会在当前轮次结束并启动新连接后生效。模型不在当前目录时不会触发可执行文件切换。运行时同步有界的公开历史，在模型轮次前持久化 dispatch 意图，并拒绝无法验证的工作区或审批请求。它通过有界、进程本地的 Session live-follow 窗口发布经过净化的命令、文件变更、审批和终态活动，并将其与 Local 工具调用及持久 Session 事件分开。丢失 `turn/start` 响应后，运行时会依据远端 thread 和 turn 对账；已确认的终态会在不重放的情况下解除本地 dispatch barrier，仍无法确认的轮次则继续 fail-closed 或退役其映射。Session 投影会追踪最近一次已提交的助手结果，确保重启后不会重复投递已恢复的结果。
 
+DSH 会在设置中持久化非机密的 `authGeneration`，并将每个 Session 的私有线程映射绑定到该值。DSH 或 App Server 重启、运行时选择及暂时的 account/read 故障都会保留此值；只有 DSH 成功注销或官方登录成功后才会轮换。登录或注销 RPC 前会先持久化非机密的 `authTransition`，并与新代次一并原子清除；标记未清除时，启动不会恢复账号状态，绑定账号的操作也会被阻止，直到一次明确的认证事务完成。进程内认证 epoch 会在客户端、设置所有者或认证事务所有者改变后丢弃过期的账号、模型目录、配额和登录结果。旧代次或 legacy 映射只在本地退役，不进行远端对账或重放；后续轮次会从 DSH 公开对话记录重新建立线程。官方浏览器登录待完成期间，所有绑定账号的远端操作都会被阻止。登录完成通知会与当前 DSH 登录尝试关联并串行处理；新的代次持久化后，运行时才公布已连接状态。`resumedThreads` 只属于当前进程内的 App Server 客户端，在客户端替换或退出时清空；进程退出不会改变持久化的 Session 映射或 `authGeneration`。`CODEX_HOME` 只会创建在独立提供的 DSH Custom 数据根目录或显式 rehearsal 根目录下；遇到符号链接、非目录或越界路径时会安全拒绝，并会在启动 App Server 前重新验证该路径。
+
 | 源码 | 职责 |
 |---|---|
 | `src/index.ts` | 组合入口和声明的服务依赖。 |

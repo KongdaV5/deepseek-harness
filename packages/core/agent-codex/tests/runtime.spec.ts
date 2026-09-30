@@ -1,4 +1,4 @@
-import { mkdtemp, mkdir, rm } from 'node:fs/promises'
+import { lstat, mkdtemp, mkdir, realpath, rm, symlink } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -27,10 +27,17 @@ interface StoredTurn extends Record<string, unknown> {
 
 interface RuntimePreferenceSettings {
   preference: 'auto' | 'system' | 'bundled'
+  authGeneration?: string
+  authTransition?: { readonly id: string; readonly kind: 'login' | 'logout' | 'invalidated' } | null
 }
 
 const RuntimePreferenceSchema = z.object({
   preference: z.union(['auto', 'system', 'bundled']).default('auto'),
+  authGeneration: z.string().min(1).required(false),
+  authTransition: z.union([
+    z.object({ id: z.string().min(1), kind: z.union(['login', 'logout', 'invalidated']) }),
+    z.const(null),
+  ]).required(false),
 })
 
 const systemCodex: CodexRuntimeDescriptor = {
@@ -48,8 +55,12 @@ class FakeAppServer implements CodexAppServerConnection {
   readonly dispose = vi.fn(async () => undefined)
   account: Record<string, unknown> | null = { type: 'chatgpt', email: 'private@example.test', planType: 'plus' }
   accountFailure: Error | undefined
+  logoutFailure: Error | undefined
   rateLimitFailure: Error | undefined
+  loginIds = ['login-transaction']
+  loginStartCount = 0
   onStart: ((params: Record<string, unknown>) => Promise<unknown>) | undefined
+  requestGate: ((method: string, params: Record<string, unknown>) => Promise<void>) | undefined
   onTurnList: (() => void) | undefined
   callbacks: CodexServerCallbacks | undefined
   home = ''
@@ -65,6 +76,7 @@ class FakeAppServer implements CodexAppServerConnection {
 
   async request(method: string, params: Record<string, unknown>): Promise<unknown> {
     this.calls.push({ method, params })
+    await this.requestGate?.(method, params)
     if (method === 'thread/start' && params.cwd === null) {
       if (this.missingCapability === method) throw new JsonRpcResponseError(-32601, 'method not found')
       throw new JsonRpcResponseError(-32602, 'invalid capability probe parameters')
@@ -91,10 +103,17 @@ class FakeAppServer implements CodexAppServerConnection {
           },
         }
       case 'account/login/start':
-        return { type: 'chatgpt', loginId: 'login-transaction', authUrl: 'https://auth.openai.com/authorize?code=temporary' }
+      {
+        const loginId = this.loginIds[this.loginStartCount] ?? `login-transaction-${this.loginStartCount + 1}`
+        this.loginStartCount++
+        return { type: 'chatgpt', loginId, authUrl: 'https://auth.openai.com/authorize?code=temporary' }
+      }
       case 'account/login/cancel':
-      case 'account/logout':
       case 'thread/resume':
+        return {}
+      case 'account/logout':
+        if (this.logoutFailure !== undefined) throw this.logoutFailure
+        this.account = null
         return {}
       case 'model/list':
         return {
@@ -144,6 +163,7 @@ class FakeAppServer implements CodexAppServerConnection {
 }
 
 interface Harness {
+  readonly root: string
   readonly ctx: Context
   readonly runtime: CodexSubscriptionRuntime
   readonly server: FakeAppServer
@@ -151,7 +171,18 @@ interface Harness {
   readonly runtimeSettings: SettingsScope<RuntimePreferenceSettings>
   readonly session: ReturnType<Context['sessions']['create']>
   readonly workspaces: Array<{ readonly id: string; readonly path: string; readonly sessionIds: readonly string[] }>
+  readonly startCount: () => number
   readonly cleanup: () => Promise<void>
+}
+
+function settingsDocument(h: Harness): Record<string, unknown> {
+  return structuredClone((h.ctx.get('settings') as unknown as MemorySettings).doc)
+}
+
+function deferred<T = undefined>() {
+  let resolve!: (value: T) => void
+  const promise = new Promise<T>((resolvePromise) => { resolve = resolvePromise })
+  return { promise, resolve }
 }
 
 async function harness(
@@ -160,9 +191,13 @@ async function harness(
     systemRuntime?: SystemCodexRuntimeResolution
     missingSystemCapability?: string
     settingsDocument?: Record<string, unknown>
+    root?: string
+    ensureHome?: CodexRuntimeInternals['ensureHome']
+    resolveHomePath?: CodexRuntimeInternals['resolveHomePath']
+    resolveAllowedHomeRoot?: CodexRuntimeInternals['resolveAllowedHomeRoot']
   } = {},
 ): Promise<Harness> {
-  const root = await mkdtemp(join(tmpdir(), 'dsh-codex-runtime-'))
+  const root = await realpath(options.root ?? await mkdtemp(join(tmpdir(), 'dsh-codex-runtime-')))
   const ctx = new Context()
   await ctx.plugin(SessionStore)
   await ctx.plugin(SessionProjectionRegistry)
@@ -176,8 +211,9 @@ async function harness(
   const servers = [server]
   let startCount = 0
   const internals: CodexRuntimeInternals = {
-    resolveHomePath: () => join(root, 'codex-home'),
-    ensureHome: async (path) => { await mkdir(path, { recursive: true, mode: 0o700 }) },
+    resolveHomePath: options.resolveHomePath ?? ((...segments) => join(root, ...segments)),
+    resolveAllowedHomeRoot: options.resolveAllowedHomeRoot ?? (() => root),
+    ...(options.ensureHome === undefined ? {} : { ensureHome: options.ensureHome }),
     openLoginUrl,
     resolveSystemRuntime: () => options.systemRuntime ?? { unavailableReason: 'system runtime is disabled in this test harness' },
     startClient: (runtime, home, cwd, callbacks) => {
@@ -204,7 +240,13 @@ async function harness(
     await runtime.dispose()
     await rm(root, { recursive: true, force: true })
   }
-  return { ctx, runtime, server, servers, runtimeSettings, session, workspaces, cleanup }
+  return { root, ctx, runtime, server, servers, runtimeSettings, session, workspaces, startCount: () => startCount, cleanup }
+}
+
+function replacementRuntimeSettings(h: Harness, generation: string): SettingsScope<RuntimePreferenceSettings> {
+  return h.ctx.settings.register('openai-codex-runtime-replacement', RuntimePreferenceSchema, {
+    base: { preference: 'auto', authGeneration: generation, authTransition: null },
+  })
 }
 
 function userMessage(text: string) {
@@ -299,6 +341,42 @@ describe('Codex subscription runtime', () => {
       .rejects.toThrow('not available')
   })
 
+  it('does not start App Server when the independently trusted home root is a symlink', async () => {
+    const root = await realpath(await mkdtemp(join(tmpdir(), 'dsh-codex-trusted-root-')))
+    const target = join(root, 'external-target')
+    const linkedRoot = join(root, 'trusted-root-link')
+    await mkdir(target)
+    await symlink(target, linkedRoot, 'dir')
+    const h = await harness(undefined, {
+      root,
+      resolveAllowedHomeRoot: () => linkedRoot,
+      resolveHomePath: (...segments) => join(linkedRoot, ...segments),
+    })
+    cleanups.push(h.cleanup)
+
+    const status = await h.runtime.status()
+    expect(status).toMatchObject({ runtime: 'crashed', account: 'error' })
+    expect(h.startCount()).toBe(0)
+    await expect(lstat(join(target, 'codex-subscription'))).rejects.toMatchObject({ code: 'ENOENT' })
+  })
+
+  it('keeps the persisted authentication generation stable through account-read errors and runtime restarts', async () => {
+    const h = await harness()
+    cleanups.push(h.cleanup)
+    h.server.accountFailure = new Error('temporary account endpoint failure')
+    expect(await h.runtime.status()).toMatchObject({ runtime: 'error', account: 'error' })
+    const generation = h.runtimeSettings.get().authGeneration
+    expect(generation).toMatch(/^[0-9a-f-]{36}$/u)
+
+    h.server.accountFailure = undefined
+    expect(await h.runtime.status()).toMatchObject({ runtime: 'ready', account: 'connected' })
+    expect(h.runtimeSettings.get().authGeneration).toBe(generation)
+
+    await h.runtime.reconnect()
+    expect(h.runtimeSettings.get().authGeneration).toBe(generation)
+    expect(h.startCount()).toBe(2)
+  })
+
   it('prefers the verified system runtime and discovers its catalog dynamically', async () => {
     const h = await harness(undefined, { systemRuntime: { runtime: systemCodex } })
     cleanups.push(h.cleanup)
@@ -382,8 +460,13 @@ describe('Codex subscription runtime', () => {
     expect(h.servers).toHaveLength(2)
     expect(h.servers[0]?.dispose).toHaveBeenCalledOnce()
     expect(h.servers[1]?.runtimeSource).toBe('bundled')
-    const persisted = structuredClone((h.ctx.get('settings') as unknown as MemorySettings).doc)
-    expect(persisted['openai-codex-runtime']).toEqual({ preference: 'bundled' })
+    const persisted = settingsDocument(h)
+    expect(persisted['openai-codex-runtime']).toMatchObject({
+      preference: 'bundled',
+      authGeneration: h.runtimeSettings.get().authGeneration,
+    })
+    const generation = h.runtimeSettings.get().authGeneration
+    expect(generation).toMatch(/^[0-9a-f-]{36}$/u)
 
     const restarted = await harness(undefined, {
       systemRuntime: { runtime: systemCodex },
@@ -395,8 +478,10 @@ describe('Codex subscription runtime', () => {
     })
     expect(restarted.servers).toHaveLength(1)
     expect(restarted.server.runtimeSource).toBe('bundled')
+    expect(restarted.runtimeSettings.get().authGeneration).toBe(generation)
     const selectedSystem = await restarted.runtime.selectRuntime('system')
     expect(selectedSystem).toMatchObject({ runtimePreference: 'system', runtimeSource: 'system' })
+    expect(restarted.runtimeSettings.get().authGeneration).toBe(generation)
     expect(restarted.servers[0]?.dispose).toHaveBeenCalledOnce()
     expect(restarted.servers[1]?.runtimeSource).toBe('system')
     await expect(restarted.runtime.listModels()).resolves.toMatchObject([{ id: 'gpt-6-luna' }])
@@ -408,7 +493,8 @@ describe('Codex subscription runtime', () => {
 
     await expect(h.runtime.selectRuntime('path')).rejects.toThrow('Choose Automatic, System Codex, or Bundled Codex')
     expect(h.server.calls).toHaveLength(0)
-    expect(h.runtimeSettings.get()).toEqual({ preference: 'auto' })
+    expect(h.runtimeSettings.get().preference).toBe('auto')
+    expect(h.runtimeSettings.get().authGeneration).toMatch(/^[0-9a-f-]{36}$/u)
   })
 
   it('refuses a runtime change while a Codex turn is active', async () => {
@@ -424,18 +510,364 @@ describe('Codex subscription runtime', () => {
         reasoningEffort: ReasoningEffortId('high'),
       },
     }
+    const turnStarted = deferred()
     h.server.onStart = async () => {
+      turnStarted.resolve(undefined)
       h.server.callbacks?.onNotification('turn/started', { threadId: 'thread-1', turn: { id: 'turn-active' } })
       return { turn: { id: 'turn-active', status: 'inProgress', items: [] } }
     }
     const executor = await h.runtime.executorFor(turnRequest.selection, turnRequest.signal)
     const pending = executor.executeTurn(turnRequest)
-    await vi.waitFor(() => { expect(h.server.starts).toHaveLength(1) })
-    await expect(h.runtime.selectRuntime('bundled')).rejects.toThrow('active Codex turn')
+    await turnStarted.promise
+    await expect(h.runtime.selectRuntime('bundled')).rejects.toThrow('active Codex operation')
     h.server.callbacks?.onNotification('turn/completed', {
       threadId: 'thread-1', turn: finalTurn('turn-active', String(h.server.starts[0]?.clientUserMessageId), 'done'),
     })
     await expect(pending).resolves.toMatchObject({ text: 'done', reason: 'completed' })
+  })
+
+  it('allows concurrent Session turns but rejects account transitions while either lease is active', async () => {
+    const h = await harness()
+    cleanups.push(h.cleanup)
+    await h.runtime.status()
+    const secondSession = h.ctx.sessions.create(SessionId('codex-runtime-second-session'), {
+      meta: { cwd: process.cwd() },
+    })
+    h.workspaces.push({
+      id: 'workspace-codex-runtime-second', path: process.cwd(), sessionIds: [String(secondSession.id)],
+    })
+    const first = request(h.session, appendUser(h.session, 'Run concurrently one'), undefined, 1)
+    const second = {
+      ...request(secondSession, appendUser(secondSession, 'Run concurrently two'), undefined, 1),
+      workspaceIdentity: 'workspace-codex-runtime-second',
+    }
+    const firstExecutor = await h.runtime.executorFor(first.selection, first.signal)
+    const secondExecutor = await h.runtime.executorFor(second.selection, second.signal)
+    let arrivals = 0
+    let bothAtTurnStart!: () => void
+    const bothStarted = new Promise<void>((resolve) => { bothAtTurnStart = resolve })
+    let releaseTurnStarts!: () => void
+    const turnStartGate = new Promise<void>((resolve) => { releaseTurnStarts = resolve })
+    h.server.requestGate = async (method) => {
+      if (method !== 'turn/start') return
+      arrivals++
+      if (arrivals === 2) bothAtTurnStart()
+      await turnStartGate
+    }
+    h.server.onStart = async (params) => {
+      const threadId = String(params.threadId)
+      const turnId = `turn-${threadId}`
+      h.server.callbacks?.onNotification('turn/started', { threadId, turn: { id: turnId } })
+      const turn = finalTurn(turnId, String(params.clientUserMessageId), `Finished ${threadId}`)
+      h.server.callbacks?.onNotification('turn/completed', { threadId, turn })
+      return { turn: { id: turnId, status: 'inProgress', items: [] } }
+    }
+
+    const firstPending = firstExecutor.executeTurn(first)
+    const secondPending = secondExecutor.executeTurn(second)
+    await bothStarted
+    await expect(h.runtime.disconnect()).rejects.toThrow('active Codex operation')
+    expect(h.server.calls.some(call => call.method === 'account/logout')).toBe(false)
+    releaseTurnStarts()
+    const results = await Promise.all([firstPending, secondPending])
+    expect(results.map(result => result.text).sort()).toEqual(['Finished thread-1', 'Finished thread-2'])
+    expect(results.every(result => result.reason === 'completed')).toBe(true)
+    expect(h.server.starts).toHaveLength(2)
+  })
+
+  it('holds the account-transition gate during pre-turn history injection before active-turn registration', async () => {
+    const h = await harness()
+    cleanups.push(h.cleanup)
+    await h.runtime.status()
+    appendUser(h.session, 'Earlier public history')
+    const current = request(h.session, appendUser(h.session, 'Send after history sync'))
+    const executor = await h.runtime.executorFor(current.selection, current.signal)
+    let injectionReached!: () => void
+    const atInjection = new Promise<void>((resolve) => { injectionReached = resolve })
+    let releaseInjection!: () => void
+    const injectionGate = new Promise<void>((resolve) => { releaseInjection = resolve })
+    h.server.requestGate = async (method) => {
+      if (method !== 'thread/inject_items') return
+      injectionReached()
+      await injectionGate
+    }
+    h.server.onStart = async (params) => {
+      h.server.callbacks?.onNotification('turn/started', {
+        threadId: String(params.threadId), turn: { id: 'turn-after-history' },
+      })
+      const turn = finalTurn('turn-after-history', String(params.clientUserMessageId), 'History synced')
+      h.server.callbacks?.onNotification('turn/completed', { threadId: String(params.threadId), turn })
+      return { turn: { id: 'turn-after-history', status: 'inProgress', items: [] } }
+    }
+
+    const pending = executor.executeTurn(current)
+    await atInjection
+    expect(h.server.starts).toHaveLength(0)
+    await expect(h.runtime.disconnect()).rejects.toThrow('active Codex operation')
+    expect(h.server.calls.some(call => call.method === 'account/logout')).toBe(false)
+    releaseInjection()
+    await expect(pending).resolves.toMatchObject({ text: 'History synced', reason: 'completed' })
+  })
+
+  it('keeps an App Server restart in the same auth generation and resumes the existing Session thread', async () => {
+    const h = await harness()
+    cleanups.push(h.cleanup)
+    await h.runtime.status()
+    const first = request(h.session, appendUser(h.session, 'Create a durable private thread'), undefined, 1)
+    const executor = await h.runtime.executorFor(first.selection, first.signal)
+    h.server.onStart = async (params) => {
+      h.server.callbacks?.onNotification('turn/started', { threadId: 'thread-1', turn: { id: 'turn-before-restart' } })
+      const turn = finalTurn('turn-before-restart', String(params.clientUserMessageId), 'First result')
+      h.server.callbacks?.onNotification('turn/completed', { threadId: 'thread-1', turn })
+      return { turn: { id: 'turn-before-restart', status: 'inProgress', items: [] } }
+    }
+    await expect(executor.executeTurn(first)).resolves.toMatchObject({ text: 'First result' })
+    const generation = h.runtimeSettings.get().authGeneration
+    const status = await h.runtime.reconnect()
+    expect(status.account).toBe('connected')
+    expect(h.runtimeSettings.get().authGeneration).toBe(generation)
+    const restartedServer = h.servers[1]
+    if (restartedServer === undefined) throw new Error('Missing restarted App Server fixture.')
+    restartedServer.cwd = process.cwd()
+    const next = request(h.session, appendUser(h.session, 'Continue after server restart'), undefined, 2)
+    restartedServer.onStart = async (params) => {
+      restartedServer.callbacks?.onNotification('turn/started', {
+        threadId: 'thread-1', turn: { id: 'turn-after-restart' },
+      })
+      const turn = finalTurn('turn-after-restart', String(params.clientUserMessageId), 'Resumed result')
+      restartedServer.callbacks?.onNotification('turn/completed', { threadId: 'thread-1', turn })
+      return { turn: { id: 'turn-after-restart', status: 'inProgress', items: [] } }
+    }
+    await expect(executor.executeTurn(next)).resolves.toMatchObject({ text: 'Resumed result' })
+    expect(restartedServer.calls.some(call => call.method === 'thread/resume' && call.params.threadId === 'thread-1'))
+      .toBe(true)
+  })
+
+  it('clears process-local resume state on unexpected exit and revalidates the persisted thread', async () => {
+    const h = await harness()
+    cleanups.push(h.cleanup)
+    await h.runtime.status()
+    const executorRequest = request(h.session, appendUser(h.session, 'Create a private thread before process exit'), undefined, 1)
+    const executor = await h.runtime.executorFor(executorRequest.selection, executorRequest.signal)
+    h.server.onStart = async (params) => {
+      h.server.callbacks?.onNotification('turn/started', { threadId: 'thread-1', turn: { id: 'before-exit' } })
+      const turn = finalTurn('before-exit', String(params.clientUserMessageId), 'Before exit')
+      h.server.callbacks?.onNotification('turn/completed', { threadId: 'thread-1', turn })
+      return { turn: { id: 'before-exit', status: 'inProgress', items: [] } }
+    }
+    await executor.executeTurn(executorRequest)
+    const generation = h.runtimeSettings.get().authGeneration
+    const mappingBeforeExit = h.ctx.sessionProjections.stateOf(h.session, 'codexSubscription')
+    const firstProcessCallbacks = h.server.callbacks
+    firstProcessCallbacks?.onExit(new Error('simulated App Server process exit'))
+
+    expect(h.runtimeSettings.get().authGeneration).toBe(generation)
+    expect(h.ctx.sessionProjections.stateOf(h.session, 'codexSubscription')).toEqual(mappingBeforeExit)
+    await expect(h.runtime.status()).resolves.toMatchObject({ runtime: 'ready', account: 'connected' })
+    const secondProcess = h.servers[1]
+    if (secondProcess === undefined) throw new Error('Missing App Server process after unexpected exit.')
+    secondProcess.cwd = process.cwd()
+    secondProcess.onStart = async (params) => {
+      secondProcess.callbacks?.onNotification('turn/started', { threadId: 'thread-1', turn: { id: 'after-exit' } })
+      const turn = finalTurn('after-exit', String(params.clientUserMessageId), 'After exit')
+      secondProcess.callbacks?.onNotification('turn/completed', { threadId: 'thread-1', turn })
+      return { turn: { id: 'after-exit', status: 'inProgress', items: [] } }
+    }
+    const next = request(h.session, appendUser(h.session, 'Continue after process exit'), undefined, 2)
+    await expect(executor.executeTurn(next)).resolves.toMatchObject({ text: 'After exit' })
+    const methods = secondProcess.calls.map(call => call.method)
+    const resumeIndex = methods.indexOf('thread/resume')
+    const readIndex = methods.indexOf('thread/read')
+    const turnStartIndex = methods.indexOf('turn/start')
+    expect(resumeIndex).toBeGreaterThanOrEqual(0)
+    expect(readIndex).toBeGreaterThan(resumeIndex)
+    expect(turnStartIndex).toBeGreaterThan(readIndex)
+    expect(secondProcess.calls[readIndex]?.params).toMatchObject({ threadId: 'thread-1' })
+    expect(secondProcess.starts).toHaveLength(1)
+    expect(h.runtimeSettings.get().authGeneration).toBe(generation)
+    expect(h.ctx.sessionProjections.stateOf(h.session, 'codexSubscription')).toMatchObject({
+      authGeneration: generation,
+      activeThreadId: 'thread-1',
+    })
+  })
+
+  it('ignores a stale process exit after a replacement App Server resumed a thread', async () => {
+    const h = await harness()
+    cleanups.push(h.cleanup)
+    await h.runtime.status()
+    const first = request(h.session, appendUser(h.session, 'Create a thread for stale-exit test'), undefined, 1)
+    const executor = await h.runtime.executorFor(first.selection, first.signal)
+    h.server.onStart = async (params) => {
+      h.server.callbacks?.onNotification('turn/started', { threadId: 'thread-1', turn: { id: 'stale-seed' } })
+      const turn = finalTurn('stale-seed', String(params.clientUserMessageId), 'Seed')
+      h.server.callbacks?.onNotification('turn/completed', { threadId: 'thread-1', turn })
+      return { turn: { id: 'stale-seed', status: 'inProgress', items: [] } }
+    }
+    await executor.executeTurn(first)
+    const generation = h.runtimeSettings.get().authGeneration
+    const oldProcessCallbacks = h.server.callbacks
+    await h.runtime.reconnect()
+
+    const currentProcess = h.servers[1]
+    if (currentProcess === undefined) throw new Error('Missing replacement App Server process.')
+    currentProcess.cwd = process.cwd()
+    currentProcess.onStart = async (params) => {
+      currentProcess.callbacks?.onNotification('turn/started', { threadId: 'thread-1', turn: { id: 'current-turn' } })
+      const turn = finalTurn('current-turn', String(params.clientUserMessageId), 'Current process result')
+      currentProcess.callbacks?.onNotification('turn/completed', { threadId: 'thread-1', turn })
+      return { turn: { id: 'current-turn', status: 'inProgress', items: [] } }
+    }
+    const second = request(h.session, appendUser(h.session, 'Resume in replacement process'), undefined, 2)
+    await executor.executeTurn(second)
+    const resumeCount = currentProcess.calls.filter(call => call.method === 'thread/resume').length
+    const readCount = currentProcess.calls.filter(call => call.method === 'thread/read').length
+    expect(resumeCount).toBe(1)
+    expect(readCount).toBe(1)
+
+    const turnStartReached = deferred()
+    const releaseTurnStart = deferred()
+    currentProcess.requestGate = async (method) => {
+      if (method === 'turn/start') {
+        turnStartReached.resolve(undefined)
+        await releaseTurnStart.promise
+      }
+    }
+    currentProcess.onStart = async (params) => {
+      currentProcess.callbacks?.onNotification('turn/started', { threadId: 'thread-1', turn: { id: 'after-stale-exit' } })
+      const turn = finalTurn('after-stale-exit', String(params.clientUserMessageId), 'Still owned by replacement')
+      currentProcess.callbacks?.onNotification('turn/completed', { threadId: 'thread-1', turn })
+      return { turn: { id: 'after-stale-exit', status: 'inProgress', items: [] } }
+    }
+    const third = request(h.session, appendUser(h.session, 'Keep replacement operation alive'), undefined, 3)
+    const running = executor.executeTurn(third)
+    await turnStartReached.promise
+    oldProcessCallbacks?.onExit(new Error('late old process exit'))
+    releaseTurnStart.resolve(undefined)
+    await expect(running).resolves.toMatchObject({ text: 'Still owned by replacement' })
+    expect(currentProcess.calls.filter(call => call.method === 'thread/resume')).toHaveLength(resumeCount)
+    expect(currentProcess.calls.filter(call => call.method === 'thread/read')).toHaveLength(readCount)
+    expect(h.runtimeSettings.get().authGeneration).toBe(generation)
+  })
+
+  it('retires a legacy mapping without authGeneration and bootstraps the same DSH Session without old-thread calls', async () => {
+    const original = await harness()
+    cleanups.push(original.cleanup)
+    await original.runtime.status()
+    const first = request(original.session, appendUser(original.session, 'Public history to preserve'), undefined, 1)
+    const executor = await original.runtime.executorFor(first.selection, first.signal)
+    original.server.onStart = async (params) => {
+      original.server.callbacks?.onNotification('turn/started', { threadId: 'thread-1', turn: { id: 'legacy-turn' } })
+      const turn = finalTurn('legacy-turn', String(params.clientUserMessageId), 'Legacy result')
+      original.server.callbacks?.onNotification('turn/completed', { threadId: 'thread-1', turn })
+      return { turn: { id: 'legacy-turn', status: 'inProgress', items: [] } }
+    }
+    await expect(executor.executeTurn(first)).resolves.toMatchObject({ text: 'Legacy result' })
+    const legacyEvents = original.session.snapshotEvents().map((event) => {
+      if (event.type !== 'codex/subscription-state') return event
+      const state: Record<string, unknown> = { ...event.data.state }
+      delete state.authGeneration
+      return { ...event, data: { ...event.data, state } } as unknown as typeof event
+    })
+
+    const restored = await harness(undefined, { settingsDocument: settingsDocument(original) })
+    cleanups.push(restored.cleanup)
+    await restored.runtime.status()
+    restored.server.threadCount = 1
+    const legacySession = restored.ctx.sessions.create(SessionId('codex-legacy-mapping'), {
+      seed: legacyEvents,
+      meta: { cwd: process.cwd() },
+    })
+    const workspace = restored.workspaces[0]
+    if (workspace === undefined) throw new Error('Missing restored test workspace.')
+    restored.workspaces[0] = {
+      ...workspace,
+      sessionIds: [...workspace.sessionIds, String(legacySession.id)],
+    }
+    expect(restored.ctx.sessionProjections.stateOf(legacySession, 'codexSubscription')?.authGeneration).toBeNull()
+
+    const callsBefore = restored.server.calls.length
+    const next = request(legacySession, appendUser(legacySession, 'Continue from canonical Session history'), undefined, 2)
+    const nextExecutor = await restored.runtime.executorFor(next.selection, next.signal)
+    restored.server.onStart = async (params) => {
+      const threadId = String(params.threadId)
+      restored.server.callbacks?.onNotification('turn/started', { threadId, turn: { id: 'legacy-bootstrap-turn' } })
+      const turn = finalTurn('legacy-bootstrap-turn', String(params.clientUserMessageId), 'Bootstrapped result')
+      restored.server.callbacks?.onNotification('turn/completed', { threadId, turn })
+      return { turn: { id: 'legacy-bootstrap-turn', status: 'inProgress', items: [] } }
+    }
+    await expect(nextExecutor.executeTurn(next)).resolves.toMatchObject({ text: 'Bootstrapped result' })
+    const remoteThreadCalls = restored.server.calls.slice(callsBefore)
+      .filter(call => ['thread/resume', 'thread/read', 'thread/turns/list', 'turn/interrupt'].includes(call.method))
+    expect(remoteThreadCalls).toEqual([])
+    expect(restored.server.calls.slice(callsBefore).filter(call => call.method === 'thread/start'))
+      .toHaveLength(1)
+    expect(restored.server.injections.flat().some(item => JSON.stringify(item).includes('Public history to preserve')))
+      .toBe(true)
+    expect(restored.server.starts).toHaveLength(1)
+  })
+
+  it('retires an old-account dispatch locally after logout and re-login, then bootstraps without replay', async () => {
+    const openLoginUrl = vi.fn(async () => undefined)
+    const h = await harness(openLoginUrl)
+    cleanups.push(h.cleanup)
+    await h.runtime.status()
+    const generationA = h.runtimeSettings.get().authGeneration
+    const uncertain = request(h.session, appendUser(h.session, 'Do not replay across accounts'), undefined, 1)
+    const executor = await h.runtime.executorFor(uncertain.selection, uncertain.signal)
+    h.server.onStart = async (params) => {
+      h.server.turns.push(interruptedTurn('account-a-uncertain-turn', String(params.clientUserMessageId)))
+      throw new Error('connection lost after dispatch')
+    }
+    await expect(executor.executeTurn(uncertain)).rejects.toThrow('connection lost after dispatch')
+
+    h.server.logoutFailure = new Error('logout request failed')
+    h.server.requestGate = async (method) => {
+      if (method === 'account/logout') {
+        expect(h.runtimeSettings.get().authTransition).toMatchObject({ kind: 'logout' })
+      }
+    }
+    await expect(h.runtime.disconnect()).rejects.toThrow('logout request failed')
+    expect(h.runtimeSettings.get().authGeneration).toBe(generationA)
+    expect(h.runtimeSettings.get().authTransition).toMatchObject({ kind: 'logout' })
+    h.server.logoutFailure = undefined
+    h.server.requestGate = undefined
+    await h.runtime.disconnect()
+    expect(h.runtimeSettings.get().authTransition).toBeNull()
+    const generationAfterLogout = h.runtimeSettings.get().authGeneration
+    expect(generationAfterLogout).not.toBe(generationA)
+
+    await expect(h.runtime.connectChatGPT()).resolves.toEqual({ status: 'signing-in' })
+    expect(h.runtimeSettings.get().authGeneration).toBe(generationAfterLogout)
+    h.server.account = { type: 'chatgpt', email: 'different-private@example.test', planType: 'plus' }
+    h.server.callbacks?.onNotification('account/login/completed', { loginId: 'login-transaction', success: true })
+    const completion = (h.runtime as unknown as { loginAttempt?: { completion?: Promise<void> } }).loginAttempt?.completion
+    expect(completion).toBeDefined()
+    await completion
+    expect(h.runtimeSettings.get().authGeneration).not.toBe(generationAfterLogout)
+    expect(h.server.calls.filter(call => call.method === 'account/rateLimits/read').length).toBeGreaterThanOrEqual(2)
+    const generationAfterLogin = h.runtimeSettings.get().authGeneration
+    await expect(h.runtime.connectChatGPT()).resolves.toEqual({ status: 'connected' })
+    expect(generationAfterLogin).not.toBe(generationA)
+
+    const callsBeforeRetirement = h.server.calls.length
+    await expect(executor.executeTurn(uncertain)).rejects.toThrow(/retired authentication generation/u)
+    const callsDuringRetirement = h.server.calls.slice(callsBeforeRetirement)
+    expect(callsDuringRetirement.map(call => call.method)).toEqual(['account/read'])
+    expect(h.server.starts).toHaveLength(1)
+
+    const next = request(h.session, appendUser(h.session, 'Continue in the same public Session'), undefined, 2)
+    h.server.onStart = async (params) => {
+      const threadId = String(params.threadId)
+      h.server.callbacks?.onNotification('turn/started', { threadId, turn: { id: 'new-account-turn' } })
+      const turn = finalTurn('new-account-turn', String(params.clientUserMessageId), 'Fresh account result')
+      h.server.callbacks?.onNotification('turn/completed', { threadId, turn })
+      return { turn: { id: 'new-account-turn', status: 'inProgress', items: [] } }
+    }
+    await expect(executor.executeTurn(next)).resolves.toMatchObject({ text: 'Fresh account result' })
+    expect(h.server.threadCount).toBe(2)
+    expect(h.server.starts).toHaveLength(2)
+    expect(h.server.injections.flat().some(item => JSON.stringify(item).includes('Do not replay across accounts')))
+      .toBe(true)
   })
 
   it('keeps quota failures informational and never lets them break a connected account', async () => {
@@ -727,7 +1159,7 @@ describe('Codex subscription runtime', () => {
     expect(h.ctx.sessionProjections.stateOf(h.session, 'codexSubscription')?.lastAssistantSettlement)
       .toEqual({ turn: 1, step: 1 })
 
-    const restored = await harness()
+    const restored = await harness(undefined, { settingsDocument: settingsDocument(h) })
     cleanups.push(restored.cleanup)
     restored.server.threadCount = 1
     restored.server.turns.push(...h.server.turns)
@@ -853,7 +1285,7 @@ describe('Codex subscription runtime', () => {
     expect(flush).toHaveBeenCalledOnce()
     expect(beforeCrash.server.starts).toHaveLength(1)
 
-    const afterCrash = await harness()
+    const afterCrash = await harness(undefined, { settingsDocument: settingsDocument(beforeCrash) })
     cleanups.push(afterCrash.cleanup)
     afterCrash.server.threadCount = 1
     afterCrash.server.turns.push(...beforeCrash.server.turns)
@@ -940,6 +1372,690 @@ describe('Codex subscription runtime', () => {
     ))).toBe(true)
   })
 
+  it('commits login success during browser launch and rotates authGeneration only once', async () => {
+    const browserStarted = deferred()
+    const browserRelease = deferred()
+    const openLoginUrl = vi.fn(() => {
+      browserStarted.resolve(undefined)
+      return browserRelease.promise
+    })
+    const h = await harness(openLoginUrl)
+    cleanups.push(h.cleanup)
+    h.server.account = null
+    await h.runtime.status()
+    let markerAtLoginStart: RuntimePreferenceSettings['authTransition'] = undefined
+    h.server.requestGate = async (method) => {
+      if (method === 'account/login/start') markerAtLoginStart = h.runtimeSettings.get().authTransition
+    }
+    const generationBefore = h.runtimeSettings.get().authGeneration
+    const update = vi.spyOn(h.runtimeSettings, 'update')
+
+    const connecting = h.runtime.connectChatGPT()
+    await browserStarted.promise
+    expect(await h.runtime.status()).toMatchObject({ account: 'reauth-required', login: 'signing-in' })
+
+    h.server.account = { type: 'chatgpt', email: 'new-private@example.test', planType: 'plus' }
+    const notification = { loginId: 'login-transaction', success: true }
+    h.server.callbacks?.onNotification('account/login/completed', notification)
+    h.server.callbacks?.onNotification('account/login/completed', notification)
+    const completion = (h.runtime as unknown as { loginAttempt?: { completion?: Promise<void> } }).loginAttempt?.completion
+    expect(completion).toBeDefined()
+    await completion
+    expect(h.runtimeSettings.get().authGeneration).not.toBe(generationBefore)
+    expect(await h.runtime.status()).toMatchObject({ account: 'connected', login: 'idle' })
+    expect(update.mock.calls.filter(([patch]) => Object.hasOwn(patch, 'authGeneration'))).toHaveLength(1)
+    expect(markerAtLoginStart).toMatchObject({ kind: 'login' })
+    expect(h.runtimeSettings.get().authTransition).toBeNull()
+    expect(JSON.stringify(h.server.calls)).not.toMatch(/auth\.json|accessToken|cookie/u)
+
+    browserRelease.resolve(undefined)
+    await expect(connecting).resolves.toEqual({ status: 'connected' })
+  })
+
+  it('does not publish Connected from an account read started before LoginPending', async () => {
+    const browserStarted = deferred()
+    const browserRelease = deferred()
+    const h = await harness(async () => {
+      browserStarted.resolve(undefined)
+      await browserRelease.promise
+    })
+    cleanups.push(h.cleanup)
+    h.server.account = null
+    await h.runtime.status()
+    const generationBefore = h.runtimeSettings.get().authGeneration
+    const readStarted = deferred()
+    const readRelease = deferred()
+    let holdNextRead = true
+    h.server.requestGate = async (method) => {
+      if (method === 'account/read' && holdNextRead) {
+        holdNextRead = false
+        readStarted.resolve(undefined)
+        await readRelease.promise
+      }
+    }
+
+    const statusBeforeLogin = h.runtime.status()
+    await readStarted.promise
+    const connecting = h.runtime.connectChatGPT()
+    await browserStarted.promise
+    h.server.account = { type: 'chatgpt', email: 'new-private@example.test', planType: 'plus' }
+    readRelease.resolve(undefined)
+    const observed = await statusBeforeLogin
+    browserRelease.resolve(undefined)
+    const connectResult = await connecting
+
+    expect(h.runtimeSettings.get().authGeneration).toBe(generationBefore)
+    expect({ account: observed.account, login: observed.login, connectStatus: connectResult.status }).toEqual({
+      account: 'reauth-required',
+      login: 'signing-in',
+      connectStatus: 'signing-in',
+    })
+  })
+
+  it.each(['disconnected', 'error'] as const)('discards a stale %s account read after login commits', async (outcome) => {
+    const h = await harness()
+    cleanups.push(h.cleanup)
+    h.server.account = null
+    await h.runtime.status()
+    const started = deferred()
+    const release = deferred()
+    const original = h.server.request.bind(h.server)
+    let hold = true
+    vi.spyOn(h.server, 'request').mockImplementation(async (method, params) => {
+      if (method === 'account/read' && hold) {
+        hold = false
+        started.resolve(undefined)
+        await release.promise
+        if (outcome === 'error') throw new Error('old account read timed out')
+        return { account: null, requiresOpenaiAuth: true }
+      }
+      return original(method, params)
+    })
+    const oldStatus = h.runtime.status()
+    await started.promise
+    await h.runtime.connectChatGPT()
+    h.server.account = { type: 'chatgpt', planType: 'plus' }
+    h.server.callbacks?.onNotification('account/login/completed', { loginId: 'login-transaction', success: true })
+    // Await the attempt-owned settlement so the late read is released only after its commit boundary.
+    const completion = (h.runtime as unknown as { loginAttempt?: { completion?: Promise<void> } }).loginAttempt?.completion
+    expect(completion).toBeDefined()
+    await completion
+    const committedGeneration = h.runtimeSettings.get().authGeneration
+    release.resolve(undefined)
+    const observed = await oldStatus
+    expect(h.runtimeSettings.get().authGeneration).toBe(committedGeneration)
+    expect(observed).toMatchObject({ account: 'connected', login: 'idle', runtime: 'ready' })
+    expect(observed.error).toBeUndefined()
+  })
+
+  it('discards a stale Connected account read after logout commits', async () => {
+    const h = await harness()
+    cleanups.push(h.cleanup)
+    await h.runtime.status()
+    const before = h.runtimeSettings.get().authGeneration
+    const started = deferred()
+    const release = deferred()
+    const original = h.server.request.bind(h.server)
+    let hold = true
+    vi.spyOn(h.server, 'request').mockImplementation(async (method, params) => {
+      if (method === 'account/read' && hold) {
+        hold = false
+        started.resolve(undefined)
+        await release.promise
+        return { account: { type: 'chatgpt', planType: 'plus' }, requiresOpenaiAuth: false }
+      }
+      return original(method, params)
+    })
+    const oldStatus = h.runtime.status()
+    await started.promise
+    await h.runtime.disconnect()
+    expect(h.runtimeSettings.get().authGeneration).not.toBe(before)
+    release.resolve(undefined)
+    expect(await oldStatus).toMatchObject({ account: 'reauth-required', login: 'idle' })
+  })
+
+  it('does not let a cancelled browser call inherit a later login result', async () => {
+    const browserStarted = deferred()
+    const browserRelease = deferred()
+    let opens = 0
+    const h = await harness(async () => {
+      if (opens++ === 0) {
+        browserStarted.resolve(undefined)
+        await browserRelease.promise
+      }
+    })
+    cleanups.push(h.cleanup)
+    h.server.loginIds = ['login-a', 'login-b']
+    h.server.account = null
+    await h.runtime.status()
+    const loginA = h.runtime.connectChatGPT()
+    await browserStarted.promise
+    await h.runtime.cancelLogin()
+    await h.runtime.connectChatGPT()
+    h.server.account = { type: 'chatgpt', planType: 'plus' }
+    h.server.callbacks?.onNotification('account/login/completed', { loginId: 'login-b', success: true })
+    const completion = (h.runtime as unknown as { loginAttempt?: { completion?: Promise<void> } }).loginAttempt?.completion
+    await completion
+    browserRelease.resolve(undefined)
+    const outcome = await loginA.then(value => value.status, () => 'cancelled')
+    expect(outcome).not.toBe('connected')
+  })
+
+  it('does not commit a success notification received after cancellation begins', async () => {
+    const h = await harness()
+    cleanups.push(h.cleanup)
+    h.server.account = null
+    await h.runtime.status()
+    await h.runtime.connectChatGPT()
+    const before = h.runtimeSettings.get().authGeneration
+    const started = deferred()
+    const release = deferred()
+    h.server.requestGate = async (method) => {
+      if (method === 'account/login/cancel') {
+        started.resolve(undefined)
+        await release.promise
+      }
+    }
+    const cancelling = h.runtime.cancelLogin()
+    await started.promise
+    h.server.account = { type: 'chatgpt', planType: 'plus' }
+    h.server.callbacks?.onNotification('account/login/completed', { loginId: 'login-transaction', success: true })
+    const completion = (h.runtime as unknown as { loginAttempt?: { completion?: Promise<void> } }).loginAttempt?.completion
+    release.resolve(undefined)
+    await cancelling
+    await completion
+    expect(h.runtimeSettings.get().authGeneration).toBe(before)
+  })
+
+  it('never publishes Connected after auth generation persistence fails', async () => {
+    const h = await harness()
+    cleanups.push(h.cleanup)
+    h.server.account = null
+    await h.runtime.status()
+    await h.runtime.connectChatGPT()
+    const before = h.runtimeSettings.get().authGeneration
+    vi.spyOn(h.runtimeSettings, 'update').mockRejectedValue(new Error('controlled persistence failure'))
+    h.server.account = { type: 'chatgpt', planType: 'plus' }
+    h.server.callbacks?.onNotification('account/login/completed', { loginId: 'login-transaction', success: true })
+    const completion = (h.runtime as unknown as { loginAttempt?: { completion?: Promise<void> } }).loginAttempt?.completion
+    await completion
+    expect(h.runtimeSettings.get().authGeneration).toBe(before)
+    expect(h.runtimeSettings.get().authTransition).toMatchObject({ kind: 'login' })
+    expect((h.runtime as unknown as { authLifecycleBlocked: boolean }).authLifecycleBlocked).toBe(true)
+    expect((await h.runtime.status()).account).not.toBe('connected')
+    await expect(h.runtime.executorFor(request(h.session, appendUser(h.session, 'Blocked')).selection, new AbortController().signal))
+      .rejects.toThrow(/authentication transition/u)
+    expect(h.server.calls.some(call => call.method === 'model/list' || call.method.startsWith('thread/')
+      || call.method.startsWith('turn/'))).toBe(false)
+    await expect(h.runtime.connectChatGPT()).rejects.toThrow(/persistence failure/u)
+  })
+
+  it('does not let a successful stale login commit block a replacement settings owner', async () => {
+    const h = await harness()
+    cleanups.push(h.cleanup)
+    h.server.account = null
+    await h.runtime.status()
+    await h.runtime.connectChatGPT()
+    h.server.account = { type: 'chatgpt', planType: 'plus' }
+    const commitStarted = deferred()
+    const releaseCommit = deferred()
+    const update = h.runtimeSettings.update.bind(h.runtimeSettings)
+    vi.spyOn(h.runtimeSettings, 'update').mockImplementation(async (patch) => {
+      if ((patch as Partial<RuntimePreferenceSettings>).authGeneration !== undefined
+        && (patch as Partial<RuntimePreferenceSettings>).authTransition === null) {
+        commitStarted.resolve(undefined)
+        await releaseCommit.promise
+      }
+      await update(patch)
+    })
+    h.server.callbacks?.onNotification('account/login/completed', { loginId: 'login-transaction', success: true })
+    const completion = (h.runtime as unknown as { loginAttempt?: { completion?: Promise<void> } }).loginAttempt?.completion
+    await commitStarted.promise
+
+    const replacement = replacementRuntimeSettings(h, 'committed-owner-b')
+    h.runtime.attachSettings(replacement)
+    const before = await h.runtime.status()
+    expect(before.account).toBe('connected')
+    expect((h.runtime as unknown as { authLifecycleBlocked: boolean }).authLifecycleBlocked).toBe(false)
+    releaseCommit.resolve(undefined)
+    await completion
+
+    expect(replacement.get().authGeneration).toBe('committed-owner-b')
+    expect(replacement.get().authTransition).toBeNull()
+    expect((h.runtime as unknown as { authGeneration: string }).authGeneration).toBe('committed-owner-b')
+    expect((h.runtime as unknown as { authLifecycleBlocked: boolean }).authLifecycleBlocked).toBe(false)
+    expect(await h.runtime.status()).toMatchObject({ account: 'connected', runtime: 'ready' })
+  })
+
+  it('does not let a failed stale login commit block a replacement settings owner', async () => {
+    const h = await harness()
+    cleanups.push(h.cleanup)
+    h.server.account = null
+    await h.runtime.status()
+    await h.runtime.connectChatGPT()
+    h.server.account = { type: 'chatgpt', planType: 'plus' }
+    const commitStarted = deferred()
+    const releaseCommit = deferred()
+    vi.spyOn(h.runtimeSettings, 'update').mockImplementation(async (patch) => {
+      if ((patch as Partial<RuntimePreferenceSettings>).authGeneration !== undefined
+        && (patch as Partial<RuntimePreferenceSettings>).authTransition === null) {
+        commitStarted.resolve(undefined)
+        await releaseCommit.promise
+        throw new Error('stale owner persistence failed')
+      }
+    })
+    h.server.callbacks?.onNotification('account/login/completed', { loginId: 'login-transaction', success: true })
+    const completion = (h.runtime as unknown as { loginAttempt?: { completion?: Promise<void> } }).loginAttempt?.completion
+    await commitStarted.promise
+
+    const replacement = replacementRuntimeSettings(h, 'committed-owner-b')
+    h.runtime.attachSettings(replacement)
+    const before = await h.runtime.status()
+    expect(before.account).toBe('connected')
+    expect((h.runtime as unknown as { authLifecycleBlocked: boolean }).authLifecycleBlocked).toBe(false)
+    releaseCommit.resolve(undefined)
+    await completion
+
+    expect(replacement.get().authGeneration).toBe('committed-owner-b')
+    expect(replacement.get().authTransition).toBeNull()
+    expect((h.runtime as unknown as { authGeneration: string }).authGeneration).toBe('committed-owner-b')
+    expect((h.runtime as unknown as { authLifecycleBlocked: boolean }).authLifecycleBlocked).toBe(false)
+    expect(await h.runtime.status()).toMatchObject({ account: 'connected', runtime: 'ready' })
+  })
+
+  it('does not commit login from an account read whose App Server exited', async () => {
+    const h = await harness()
+    cleanups.push(h.cleanup)
+    h.server.account = null
+    await h.runtime.status()
+    await h.runtime.connectChatGPT()
+    const before = h.runtimeSettings.get().authGeneration
+    const started = deferred()
+    const release = deferred()
+    h.server.account = { type: 'chatgpt', planType: 'plus' }
+    h.server.requestGate = async (method) => {
+      if (method === 'account/read') {
+        started.resolve(undefined)
+        await release.promise
+      }
+    }
+    h.server.callbacks?.onNotification('account/login/completed', { loginId: 'login-transaction', success: true })
+    const completion = (h.runtime as unknown as { loginAttempt?: { completion?: Promise<void> } }).loginAttempt?.completion
+    await started.promise
+    h.server.callbacks?.onExit(new Error('controlled current process exit'))
+    release.resolve(undefined)
+    await completion
+    expect(h.runtimeSettings.get().authGeneration).toBe(before)
+  })
+
+  it('keeps a persisted auth generation when the App Server exits before Connected publication', async () => {
+    const browserStarted = deferred()
+    const browserRelease = deferred()
+    const h = await harness(async () => {
+      browserStarted.resolve(undefined)
+      await browserRelease.promise
+    })
+    cleanups.push(h.cleanup)
+    h.server.account = null
+    await h.runtime.status()
+    const generationBefore = h.runtimeSettings.get().authGeneration
+    const connecting = h.runtime.connectChatGPT()
+    await browserStarted.promise
+    h.server.account = { type: 'chatgpt', planType: 'plus' }
+
+    const persisted = deferred()
+    const persistenceContinuation = deferred()
+    const update = h.runtimeSettings.update.bind(h.runtimeSettings)
+    vi.spyOn(h.runtimeSettings, 'update').mockImplementation(async (patch) => {
+      await update(patch)
+      if ((patch as Partial<RuntimePreferenceSettings>).authGeneration !== undefined
+        && (patch as Partial<RuntimePreferenceSettings>).authTransition === null) {
+        persisted.resolve(undefined)
+        await persistenceContinuation.promise
+      }
+    })
+    h.server.callbacks?.onNotification('account/login/completed', { loginId: 'login-transaction', success: true })
+    const completion = (h.runtime as unknown as { loginAttempt?: { completion?: Promise<void> } }).loginAttempt?.completion
+    expect(completion).toBeDefined()
+    await persisted.promise
+
+    const generationCommitted = h.runtimeSettings.get().authGeneration
+    expect(generationCommitted).not.toBe(generationBefore)
+    expect(h.runtimeSettings.get().authTransition).toBeNull()
+    h.server.callbacks?.onExit(new Error('controlled current process exit'))
+    persistenceContinuation.resolve(undefined)
+    await completion
+    const projection = (h.runtime as unknown as {
+      statusProjection: () => { account: string; login: string; runtime: string }
+    }).statusProjection()
+    expect(h.runtimeSettings.get().authGeneration).toBe(generationCommitted)
+    expect(projection).toMatchObject({ account: 'reauth-required', login: 'idle', runtime: 'crashed' })
+
+    browserRelease.resolve(undefined)
+    await expect(connecting).rejects.toThrow(/cancelled, failed, or superseded/u)
+  })
+
+  it('retains a failed login commit barrier across DSH runtime recreation', async () => {
+    const h = await harness()
+    cleanups.push(h.cleanup)
+    h.server.account = null
+    await h.runtime.status()
+    await h.runtime.connectChatGPT()
+    vi.spyOn(h.runtimeSettings, 'update').mockRejectedValue(new Error('controlled persistence failure'))
+    h.server.account = { type: 'chatgpt', planType: 'plus' }
+    h.server.callbacks?.onNotification('account/login/completed', { loginId: 'login-transaction', success: true })
+    const completion = (h.runtime as unknown as { loginAttempt?: { completion?: Promise<void> } }).loginAttempt?.completion
+    await completion
+    const persisted = settingsDocument(h)
+    const persistedRuntimeSettings = persisted['openai-codex-runtime'] as RuntimePreferenceSettings
+    expect(persistedRuntimeSettings.authTransition).toMatchObject({ kind: 'login' })
+    const restored = await harness(undefined, { settingsDocument: persisted, root: h.root })
+    cleanups.push(async () => { await restored.runtime.dispose() })
+    expect(await restored.runtime.status()).toMatchObject({ account: 'reauth-required', login: 'idle' })
+    expect(restored.server.calls.some(call => call.method === 'account/read')).toBe(false)
+    expect(restored.runtimeSettings.get().authTransition).toEqual(persistedRuntimeSettings.authTransition)
+  })
+
+  it('discards a catalog result started before LoginPending', async () => {
+    const h = await harness()
+    cleanups.push(h.cleanup)
+    await h.runtime.status()
+    const started = deferred()
+    const release = deferred()
+    let hold = true
+    h.server.requestGate = async (method) => {
+      if (method === 'model/list' && hold) {
+        hold = false
+        started.resolve(undefined)
+        await release.promise
+      }
+    }
+    const oldStatus = h.runtime.status()
+    await started.promise
+    h.server.account = null
+    await h.runtime.connectChatGPT()
+    release.resolve(undefined)
+    expect(await oldStatus).toMatchObject({ login: 'signing-in', modelCount: 0, runtime: 'auth-check' })
+  })
+
+  it('discards a quota result started before logout', async () => {
+    const h = await harness()
+    cleanups.push(h.cleanup)
+    await h.runtime.status()
+    h.server.account = null
+    await h.runtime.status()
+    h.server.account = { type: 'chatgpt', planType: 'plus' }
+    const started = deferred()
+    const release = deferred()
+    h.server.requestGate = async (method) => {
+      if (method === 'account/rateLimits/read') {
+        started.resolve(undefined)
+        await release.promise
+      }
+    }
+    const oldStatus = h.runtime.status()
+    await started.promise
+    await h.runtime.disconnect()
+    release.resolve(undefined)
+    expect(await oldStatus).toMatchObject({ account: 'reauth-required', usage: { state: 'unavailable' } })
+  })
+
+  it('waits for initialization before a concurrent login issues account RPCs', async () => {
+    const h = await harness()
+    cleanups.push(h.cleanup)
+    h.server.account = null
+    const started = deferred()
+    const release = deferred()
+    const initialize = h.server.initialize.bind(h.server)
+    vi.spyOn(h.server, 'initialize').mockImplementation(async () => {
+      started.resolve(undefined)
+      await release.promise
+      return initialize()
+    })
+    const starting = h.runtime.status()
+    await started.promise
+    const connecting = h.runtime.connectChatGPT()
+    // Drain the already-queued login continuation while initialization is explicitly held, without a clock delay.
+    await Promise.resolve()
+    const callsBeforeInitialized = h.server.calls.map(call => call.method)
+    release.resolve(undefined)
+    await starting
+    await connecting
+    expect(callsBeforeInitialized).toEqual([])
+  })
+
+  it('waits for App Server initialization before a model resolver reads the catalog', async () => {
+    const h = await harness()
+    cleanups.push(h.cleanup)
+    const started = deferred()
+    const release = deferred()
+    const initialize = h.server.initialize.bind(h.server)
+    vi.spyOn(h.server, 'initialize').mockImplementation(async () => {
+      started.resolve(undefined)
+      await release.promise
+      return initialize()
+    })
+    const status = h.runtime.status()
+    await started.promise
+
+    const resolving = h.runtime.resolveSelection({
+      provider: 'openai-codex-subscription',
+      model: 'catalog-model-a',
+    })
+    expect(h.server.calls).toEqual([])
+
+    release.resolve(undefined)
+    await status
+    await expect(resolving).resolves.toMatchObject({
+      provider: 'openai-codex-subscription',
+      model: 'catalog-model-a',
+      reasoningEffort: 'high',
+    })
+    expect(h.server.calls.some(call => call.method === 'model/list')).toBe(true)
+  })
+
+  it('ignores failed generation initialization belonging to a replaced settings scope', async () => {
+    const h = await harness()
+    cleanups.push(h.cleanup)
+    await h.runtime.status()
+    const before = h.runtimeSettings.get().authGeneration
+    const pending = Promise.withResolvers<undefined>()
+    const updateStarted = deferred()
+    // Minimal obsolete-scope responder; only get/update are used by attachSettings.
+    const obsolete = {
+      get: () => ({ preference: 'auto' as const }),
+      update: () => {
+        updateStarted.resolve(undefined)
+        return pending.promise
+      },
+    } as unknown as SettingsScope<RuntimePreferenceSettings>
+    h.runtime.attachSettings(obsolete)
+    await updateStarted.promise
+    const initialization = (h.runtime as unknown as { authGenerationInitialization?: Promise<void> }).authGenerationInitialization
+    h.runtime.attachSettings(h.runtimeSettings)
+    pending.reject(new Error('obsolete scope persistence failed'))
+    await initialization
+    expect((h.runtime as unknown as { authGeneration?: string }).authGeneration).toBe(before)
+  })
+
+  it('invalidates an execution account read when account/updated removes authentication', async () => {
+    const h = await harness()
+    cleanups.push(h.cleanup)
+    await h.runtime.status()
+    const markerPersisted = deferred()
+    const updateSettings = h.runtimeSettings.update.bind(h.runtimeSettings)
+    vi.spyOn(h.runtimeSettings, 'update').mockImplementation(async (patch) => {
+      await updateSettings(patch)
+      if ((patch as Partial<RuntimePreferenceSettings>).authTransition?.kind === 'invalidated') {
+        markerPersisted.resolve(undefined)
+      }
+    })
+    const turnRequest = request(h.session, appendUser(h.session, 'Never execute after auth invalidation'))
+    const executor = await h.runtime.executorFor(turnRequest.selection, turnRequest.signal)
+    const started = deferred()
+    const release = deferred()
+    const original = h.server.request.bind(h.server)
+    let hold = true
+    vi.spyOn(h.server, 'request').mockImplementation(async (method, params) => {
+      if (method === 'account/read' && hold) {
+        hold = false
+        started.resolve(undefined)
+        await release.promise
+        return { account: { type: 'chatgpt', planType: 'plus' }, requiresOpenaiAuth: false }
+      }
+      return original(method, params)
+    })
+    h.server.onStart = async (params) => {
+      const turn = finalTurn('invalidated-turn', String(params.clientUserMessageId), 'Should never execute')
+      h.server.callbacks?.onNotification('turn/completed', { threadId: String(params.threadId), turn })
+      return { turn: { id: 'invalidated-turn', status: 'inProgress', items: [] } }
+    }
+    const execution = executor.executeTurn(turnRequest).then(() => 'executed', () => 'blocked')
+    await started.promise
+    h.server.account = null
+    h.server.callbacks?.onNotification('account/updated', { authMode: null, planType: null })
+    await markerPersisted.promise
+    expect(h.runtimeSettings.get().authTransition).toMatchObject({ kind: 'invalidated' })
+    release.resolve(undefined)
+    const outcome = await execution
+    expect({ outcome, starts: h.server.starts.length }).toEqual({ outcome: 'blocked', starts: 0 })
+  })
+
+  it('blocks mapped and uncertain old-thread operations throughout LoginPending', async () => {
+    const browserStarted = deferred()
+    const browserRelease = deferred()
+    const openLoginUrl = vi.fn(() => {
+      browserStarted.resolve(undefined)
+      return browserRelease.promise
+    })
+    const h = await harness(openLoginUrl)
+    cleanups.push(h.cleanup)
+    await h.runtime.status()
+    const seed = request(h.session, appendUser(h.session, 'Establish a private thread'), undefined, 1)
+    const executor = await h.runtime.executorFor(seed.selection, seed.signal)
+    h.server.onStart = async (params) => {
+      h.server.callbacks?.onNotification('turn/started', { threadId: 'thread-1', turn: { id: 'seed-turn' } })
+      const turn = finalTurn('seed-turn', String(params.clientUserMessageId), 'Seed result')
+      h.server.callbacks?.onNotification('turn/completed', { threadId: 'thread-1', turn })
+      return { turn: { id: 'seed-turn', status: 'inProgress', items: [] } }
+    }
+    await executor.executeTurn(seed)
+
+    const uncertain = request(h.session, appendUser(h.session, 'Do not reconcile during login'), undefined, 2)
+    h.server.onStart = async () => { throw new Error('connection lost after dispatch') }
+    await expect(executor.executeTurn(uncertain)).rejects.toThrow('connection lost after dispatch')
+    const mappingBefore = h.ctx.sessionProjections.stateOf(h.session, 'codexSubscription')
+    const generationBefore = h.runtimeSettings.get().authGeneration
+
+    h.server.account = null
+    const connecting = h.runtime.connectChatGPT()
+    await browserStarted.promise
+    const callsBefore = h.server.calls.length
+    const mappedTurn = request(h.session, appendUser(h.session, 'Do not resume or inject during login'), undefined, 3)
+    await expect(executor.executeTurn(mappedTurn)).rejects.toThrow(/account transition is in progress/u)
+    await expect(executor.executeTurn(uncertain)).rejects.toThrow(/account transition is in progress/u)
+    expect(h.server.calls).toHaveLength(callsBefore)
+    expect(h.ctx.sessionProjections.stateOf(h.session, 'codexSubscription')).toEqual(mappingBefore)
+
+    await h.runtime.cancelLogin()
+    expect(h.runtimeSettings.get().authGeneration).toBe(generationBefore)
+    expect(h.ctx.sessionProjections.stateOf(h.session, 'codexSubscription')).toEqual(mappingBefore)
+    browserRelease.resolve(undefined)
+    await expect(connecting).rejects.toThrow(/cancelled, failed, or superseded/u)
+  })
+
+  it('keeps admission closed until the new authGeneration is persisted', async () => {
+    const browserStarted = deferred()
+    const browserRelease = deferred()
+    const openLoginUrl = vi.fn(() => {
+      browserStarted.resolve(undefined)
+      return browserRelease.promise
+    })
+    const h = await harness(openLoginUrl)
+    cleanups.push(h.cleanup)
+    await h.runtime.status()
+    const seed = request(h.session, appendUser(h.session, 'Keep this account thread private'), undefined, 1)
+    const executor = await h.runtime.executorFor(seed.selection, seed.signal)
+    h.server.onStart = async (params) => {
+      h.server.callbacks?.onNotification('turn/started', { threadId: 'thread-1', turn: { id: 'seed-turn' } })
+      const turn = finalTurn('seed-turn', String(params.clientUserMessageId), 'Seed result')
+      h.server.callbacks?.onNotification('turn/completed', { threadId: 'thread-1', turn })
+      return { turn: { id: 'seed-turn', status: 'inProgress', items: [] } }
+    }
+    await executor.executeTurn(seed)
+    const generationBefore = h.runtimeSettings.get().authGeneration
+
+    h.server.account = null
+    const connecting = h.runtime.connectChatGPT()
+    await browserStarted.promise
+    h.server.account = { type: 'chatgpt', email: 'new-private@example.test', planType: 'plus' }
+    const persistStarted = deferred()
+    const persistRelease = deferred()
+    const originalUpdate = h.runtimeSettings.update.bind(h.runtimeSettings)
+    vi.spyOn(h.runtimeSettings, 'update').mockImplementation(async (patch) => {
+      if ((patch as Record<string, unknown>).authGeneration !== undefined) {
+        persistStarted.resolve(undefined)
+        await persistRelease.promise
+      }
+      await originalUpdate(patch)
+    })
+    h.server.callbacks?.onNotification('account/login/completed', { loginId: 'login-transaction', success: true })
+    const completion = (h.runtime as unknown as { loginAttempt?: { completion?: Promise<void> } }).loginAttempt?.completion
+    expect(completion).toBeDefined()
+    await persistStarted.promise
+    expect(h.runtimeSettings.get().authGeneration).toBe(generationBefore)
+    expect(await h.runtime.status()).toMatchObject({ account: 'reauth-required', login: 'signing-in' })
+
+    const next = request(h.session, appendUser(h.session, 'Run only after generation commit'), undefined, 2)
+    const callsBefore = h.server.calls.length
+    await expect(executor.executeTurn(next)).rejects.toThrow(/account transition is in progress/u)
+    expect(h.server.calls).toHaveLength(callsBefore)
+
+    persistRelease.resolve(undefined)
+    await completion
+    expect(h.runtimeSettings.get().authGeneration).not.toBe(generationBefore)
+    browserRelease.resolve(undefined)
+    await expect(connecting).resolves.toEqual({ status: 'connected' })
+    h.server.onStart = async (params) => {
+      h.server.callbacks?.onNotification('turn/started', { threadId: 'thread-2', turn: { id: 'post-login-turn' } })
+      const turn = finalTurn('post-login-turn', String(params.clientUserMessageId), 'Post-login result')
+      h.server.callbacks?.onNotification('turn/completed', { threadId: 'thread-2', turn })
+      return { turn: { id: 'post-login-turn', status: 'inProgress', items: [] } }
+    }
+    await expect(executor.executeTurn(next)).resolves.toMatchObject({ text: 'Post-login result' })
+  })
+
+  it('ignores cancelled and replaced login notifications', async () => {
+    const h = await harness()
+    cleanups.push(h.cleanup)
+    h.server.loginIds = ['login-a', 'login-b']
+    h.server.account = null
+    await h.runtime.status()
+    const generationBefore = h.runtimeSettings.get().authGeneration
+    const update = vi.spyOn(h.runtimeSettings, 'update')
+
+    await expect(h.runtime.connectChatGPT()).resolves.toEqual({ status: 'signing-in' })
+    await h.runtime.cancelLogin()
+    expect(h.runtimeSettings.get().authGeneration).toBe(generationBefore)
+    h.server.callbacks?.onNotification('account/login/completed', { loginId: 'login-a', success: true })
+    expect(h.runtimeSettings.get().authGeneration).toBe(generationBefore)
+    expect((await h.runtime.status()).login).toBe('idle')
+
+    await expect(h.runtime.connectChatGPT()).resolves.toEqual({ status: 'signing-in' })
+    h.server.callbacks?.onNotification('account/login/completed', { loginId: 'login-a', success: true })
+    expect(h.runtimeSettings.get().authGeneration).toBe(generationBefore)
+    expect(await h.runtime.status()).toMatchObject({ account: 'reauth-required', login: 'signing-in' })
+
+    h.server.account = { type: 'chatgpt', email: 'current-private@example.test', planType: 'plus' }
+    h.server.callbacks?.onNotification('account/login/completed', { loginId: 'login-b', success: true })
+    const completion = (h.runtime as unknown as { loginAttempt?: { completion?: Promise<void> } }).loginAttempt?.completion
+    expect(completion).toBeDefined()
+    await completion
+    expect(h.runtimeSettings.get().authGeneration).not.toBe(generationBefore)
+    expect(update.mock.calls.filter(([patch]) => Object.hasOwn(patch, 'authGeneration'))).toHaveLength(1)
+    expect(await h.runtime.status()).toMatchObject({ account: 'connected', login: 'idle' })
+  })
+
   it('uses only the official browser login transaction and exposes no credential or URL in status', async () => {
     const openLoginUrl = vi.fn(async () => undefined)
     const h = await harness(openLoginUrl)
@@ -952,7 +2068,9 @@ describe('Codex subscription runtime', () => {
     expect(status).toMatchObject({ account: 'reauth-required', login: 'signing-in' })
     expect(JSON.stringify(status)).not.toMatch(/authUrl|accessToken|refreshToken|private@example/u)
     const loginId = 'login-transaction'
+    const generation = h.runtimeSettings.get().authGeneration
     h.server.callbacks?.onNotification('account/login/completed', { loginId, success: false, error: 'cancelled by user' })
     expect((await h.runtime.status()).account).toBe('reauth-required')
+    expect(h.runtimeSettings.get().authGeneration).toBe(generation)
   })
 })

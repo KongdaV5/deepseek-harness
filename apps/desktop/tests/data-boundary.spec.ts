@@ -1,10 +1,11 @@
 import { isAbsolute, join, relative, resolve } from 'node:path'
-import { mkdirSync, mkdtempSync, rmSync, symlinkSync } from 'node:fs'
+import { lstatSync, mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { describe, expect, it } from 'vitest'
 import {
   DESKTOP_QUALIFICATION_ROOT_ARGUMENT,
   DESKTOP_DATA_MODE_ENV,
+  DESKTOP_CODEX_HOME_ALLOWED_ROOT_ENV,
   DESKTOP_REHEARSAL_ROOT_ENV,
   desktopHostEnvironment,
   prepareDesktopRehearsalPaths,
@@ -31,7 +32,8 @@ function rehearsal(root: string): NodeJS.ProcessEnv {
 describe('desktop data boundary', () => {
   it('preserves official upstream defaults when no data mode is selected', () => {
     const dshHome = resolve('/synthetic/official/.dsh')
-    expect(resolveDesktopDataBoundary(official, { DSH_HOME: dshHome })).toEqual({
+    const boundary = resolveDesktopDataBoundary(official, { DSH_HOME: dshHome })
+    expect(boundary).toEqual({
       mode: 'upstream-default',
       policy: {
         profile: 'flavor-isolated', settings: 'shared-global', sessions: 'shared-global',
@@ -45,6 +47,9 @@ describe('desktop data boundary', () => {
       electronUserData: { mode: 'electron-default' },
       migration: { historicalSessionRead: 'upstream-native', liveSharedDataMigrationAllowed: true },
       approvedRoots: [dshHome],
+    })
+    expect(desktopHostEnvironment(boundary, {})).toMatchObject({
+      [DESKTOP_CODEX_HOME_ALLOWED_ROOT_ENV]: dshHome,
     })
   })
 
@@ -75,6 +80,10 @@ describe('desktop data boundary', () => {
       electronUserData: { mode: 'explicit', path: join(root, 'electron') },
       migration: { historicalSessionRead: 'disabled', liveSharedDataMigrationAllowed: false },
       approvedRoots: [root],
+    })
+    expect(desktopHostEnvironment(boundary, {})).toMatchObject({
+      DSH_HOME: root,
+      [DESKTOP_CODEX_HOME_ALLOWED_ROOT_ENV]: root,
     })
   })
 
@@ -126,6 +135,7 @@ describe('desktop data boundary', () => {
       HOME: join(root, 'home'),
       TMPDIR: join(root, 'tmp'),
       DSH_HOME: join(root, 'dsh-home'),
+      [DESKTOP_CODEX_HOME_ALLOWED_ROOT_ENV]: root,
       DSH_DESKTOP_PROFILE_PATH: boundary.profile,
       DSH_DESKTOP_SESSION_ROOT: boundary.sessions,
       DSH_DESKTOP_ELECTRON_USER_DATA: join(root, 'electron', 'ds-harness'),
@@ -155,7 +165,7 @@ describe('desktop data boundary', () => {
   })
 
   it('creates only verified rehearsal directories and rejects an escaping symlink', () => {
-    const tempRoot = mkdtempSync(join(tmpdir(), 'dsh-data-boundary-'))
+    const tempRoot = realpathSync(mkdtempSync(join(tmpdir(), 'dsh-data-boundary-')))
     const rehearsalRoot = join(tempRoot, 'rehearsal')
     try {
       const boundary = resolveDesktopDataBoundary(custom, {
@@ -176,6 +186,24 @@ describe('desktop data boundary', () => {
       mkdirSync(unsafeRoot, { recursive: true })
       symlinkSync(tempRoot, join(unsafeRoot, 'cache'), 'dir')
       expect(() => prepareDesktopRehearsalPaths(unsafeBoundary)).toThrow('real directory')
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true })
+    }
+  })
+
+  it('rejects a symlinked rehearsal root before creating any owned path in its target', () => {
+    const tempRoot = realpathSync(mkdtempSync(join(tmpdir(), 'dsh-data-boundary-root-link-')))
+    const external = join(tempRoot, 'external')
+    const linkedRoot = join(tempRoot, 'rehearsal-link')
+    try {
+      mkdirSync(external)
+      symlinkSync(external, linkedRoot, 'dir')
+      const boundary = resolveDesktopDataBoundary(custom, {
+        [DESKTOP_DATA_MODE_ENV]: 'candidate-rehearsal',
+        [DESKTOP_REHEARSAL_ROOT_ENV]: linkedRoot,
+      })
+      expect(() => prepareDesktopRehearsalPaths(boundary)).toThrow(/canonical real directory/u)
+      expect(() => lstatSync(join(external, 'dsh-home'))).toThrow()
     } finally {
       rmSync(tempRoot, { recursive: true, force: true })
     }

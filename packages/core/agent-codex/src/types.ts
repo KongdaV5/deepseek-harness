@@ -1,6 +1,8 @@
 /** Session-persisted, non-secret Codex thread ownership and recovery facts. */
 export interface CodexSessionMappingState {
   readonly generation: number
+  /** Persistent DSH-managed authentication epoch; null denotes a legacy mapping. */
+  readonly authGeneration: string | null
   readonly activeThreadId: string | null
   readonly retiredThreadIds: readonly string[]
   readonly workspaceIdentity: string | null

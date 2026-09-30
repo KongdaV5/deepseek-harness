@@ -45,6 +45,7 @@ import {
   resolveDesktopRuntimeProductFlavor,
 } from './product-flavor.ts'
 import {
+  DESKTOP_CODEX_HOME_ALLOWED_ROOT_ENV,
   desktopHostEnvironment,
   prepareDesktopRehearsalPaths,
   readDesktopQualificationRootArgument,
@@ -62,6 +63,7 @@ const desktopEnvironment = desktopHostEnvironment(dataBoundary, process.env)
 if (dataBoundary.mode === 'candidate-rehearsal') {
   for (const name of [
     'HOME', 'TMPDIR', 'DSH_HOME', 'DSH_DESKTOP_PROFILE_PATH', 'DSH_DESKTOP_SESSION_ROOT',
+    DESKTOP_CODEX_HOME_ALLOWED_ROOT_ENV,
     'DSH_DESKTOP_ELECTRON_USER_DATA', 'DSH_DESKTOP_DATA_MODE', 'DSH_DESKTOP_REHEARSAL_ROOT',
     'DSH_DESKTOP_WORKSPACE_ROOT', 'DSH_DESKTOP_MAINTENANCE_ROOT',
     'XDG_CONFIG_HOME', 'XDG_DATA_HOME', 'XDG_CACHE_HOME',

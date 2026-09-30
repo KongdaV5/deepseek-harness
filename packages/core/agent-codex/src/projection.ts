@@ -6,6 +6,7 @@ import type { CodexSessionMappingState } from './types.ts'
 
 const mappingSchema: z.ZodType<CodexSessionMappingState> = z.object({
   generation: z.number().int().nonnegative(),
+  authGeneration: z.string().min(1).nullable().default(null),
   activeThreadId: z.string().nullable(),
   retiredThreadIds: z.array(z.string()).max(16),
   workspaceIdentity: z.string().nullable().default(null),
@@ -62,6 +63,7 @@ const mappingSchema: z.ZodType<CodexSessionMappingState> = z.object({
 /** Empty projection used before a DSH Session owns a Codex App Server thread. */
 export const EMPTY_CODEX_MAPPING: CodexSessionMappingState = {
   generation: 0,
+  authGeneration: null,
   activeThreadId: null,
   retiredThreadIds: [],
   workspaceIdentity: null,
@@ -78,13 +80,14 @@ export const EMPTY_CODEX_MAPPING: CodexSessionMappingState = {
 /** Fold the non-secret Codex thread mapping from ignorable Session events. */
 export const codexSubscriptionProjection = {
   key: 'codexSubscription',
-  stateVersion: 2,
+  stateVersion: 3,
   stateSchema: mappingSchema,
   init: () => EMPTY_CODEX_MAPPING,
   apply: (state, event) => {
     if (event.type === 'codex/subscription-state') {
       return {
         ...event.data.state,
+        authGeneration: event.data.state.authGeneration ?? null,
         lastAssistantSettlement: event.data.state.lastAssistantSettlement ?? state.lastAssistantSettlement ?? null,
       }
     }
