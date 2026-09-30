@@ -1,6 +1,6 @@
 {
   "formatVersion": 1,
-  "baseline": "ds-harness-product-baseline-2026-09-17",
+  "baseline": "dsh-v0.1.6-alpha.2",
   "customChangeSurface": [
     {
       "domain": "desktop-product-identity",
@@ -387,7 +387,7 @@
         "packages/runtime-diagnostics/agent-run-state/tests/projection.spec.ts",
         "packages/runtime-diagnostics/agent-run-policy/tests/policy.spec.ts",
         "packages/runtime-diagnostics/agent-lifecycle-facts/tests",
-        "packages/session/task-checkpoint/tests/guards.spec.ts"
+        "packages/session/task-checkpoint/tests/schema.spec.ts"
       ]
     },
     {
@@ -418,7 +418,7 @@
       "tests": [
         "packages/llm/llm-pi-ai/tests/adapter.spec.ts",
         "packages/runtime-diagnostics/reasoning-policy/tests/policy.spec.ts",
-        "packages/runtime-diagnostics/agent-run-state/tests/service.spec.ts"
+        "packages/runtime-diagnostics/agent-run-state/tests/projection.spec.ts"
       ]
     },
     {
@@ -452,8 +452,8 @@
       "risk": "CRITICAL",
       "tests": [
         "packages/runtime-diagnostics/agent-run-state/tests/projection.spec.ts",
-        "packages/session/task-checkpoint/tests/task-checkpoint.spec.ts",
-        "packages/session/task-checkpoint/tests/resume-execution.spec.ts"
+        "packages/session/task-checkpoint/tests/projection.spec.ts",
+        "packages/session/task-checkpoint/tests/resume.spec.ts"
       ]
     },
     {
@@ -486,10 +486,10 @@
       "detectionMethod": "Compaction/token-surface paths, schema/type changes, and direct overlap detection.",
       "risk": "HIGH",
       "tests": [
-        "packages/runtime-diagnostics/reasoning-policy/tests/compaction-policy.spec.ts",
+        "packages/runtime-diagnostics/reasoning-policy/tests/policy.spec.ts",
         "packages/compaction/compaction-basic/tests/compaction-basic.spec.ts",
         "packages/compaction/compaction-task-aware-policy/tests",
-        "packages/session/task-checkpoint/tests/resume-execution.spec.ts"
+        "packages/session/task-checkpoint/tests/resume.spec.ts"
       ]
     },
     {
@@ -573,6 +573,960 @@
         "scripts/verify-runtime-closure.spec.ts",
         "apps/desktop/tests/runtime-fixture.ts",
         "apps/desktop/tests/macos-signature.spec.ts"
+      ]
+    }
+  ],
+  "ownershipRevision": 1,
+  "contractRevision": 1,
+  "defaultOwner": "UPSTREAM",
+  "invariants": {
+    "LOCAL_FIRST": "Preserve the qualified Huihui Qwen local-first default route.",
+    "CODEX_OFFICIAL_ONLY": "Official subscription transport only: no key fallback, private endpoint, auth.json reads or token copying.",
+    "CANONICAL_DSH_CONVERSATION": "DSH Session is canonical; preserve Codex projection identity.",
+    "NO_REPLAY": "Never replay persisted side effects to reconstruct a turn.",
+    "ACCOUNT_GENERATION_ISOLATION": "Auth generation isolates threads and delayed results.",
+    "CODEX_RUNTIME_MAINT_INDEPENDENT": "Compatibility evidence depends on the adapter/process contract.",
+    "CUSTOM_PROFILE_BOUNDARY": "Custom profile and official userData ownership remain distinct.",
+    "NO_SILENT_MODEL_SUBSTITUTION": "Admission failures cannot silently select another model.",
+    "LOCAL_RUNTIME_SERIALIZATION": "Local process start/stop and inference ownership remain serialized."
+  },
+  "contracts": [
+    {
+      "id": "session-format",
+      "patterns": [
+        "packages/core/session/src/format/**",
+        "packages/session/session-format*/src/**",
+        "packages/session/session-persistence*/src/**",
+        "packages/storage/*/src/**"
+      ],
+      "impactFloor": 3,
+      "affectedTests": [
+        "packages/core/session/tests/canonical-envelopes.spec.ts",
+        "packages/core/session/tests/repair.spec.ts",
+        "packages/session/session-persistence/tests/storage-contract.spec.ts"
+      ],
+      "dependsOn": [],
+      "symbols": [
+        {
+          "path": "packages/core/session/src/types.ts",
+          "name": "SESSION_FORMAT_VERSION"
+        }
+      ]
+    },
+    {
+      "id": "session-history",
+      "patterns": [
+        "packages/core/session/src/**",
+        "packages/session/session-projection*/src/**"
+      ],
+      "impactFloor": 3,
+      "affectedTests": [
+        "packages/core/session/tests/message-projections.spec.ts",
+        "packages/core/session/tests/fork.spec.ts"
+      ],
+      "dependsOn": [
+        "session-format"
+      ],
+      "symbols": []
+    },
+    {
+      "id": "session-controller",
+      "patterns": [
+        "packages/api/session-controller/src/**"
+      ],
+      "impactFloor": 3,
+      "affectedTests": [
+        "packages/api/session-controller/tests/session-history-journal.host.spec.ts",
+        "packages/api/session-controller/tests/session-models.host.spec.ts",
+        "packages/api/session-controller/tests/session-fork.host.spec.ts",
+        "packages/api/session-controller/tests/transport.client.spec.ts"
+      ],
+      "dependsOn": [
+        "session-history",
+        "model-admission",
+        "agent-turn-lifecycle"
+      ],
+      "symbols": []
+    },
+    {
+      "id": "agent-turn-lifecycle",
+      "patterns": [
+        "packages/core/agent/src/**",
+        "packages/core/agent-loop/src/**"
+      ],
+      "impactFloor": 3,
+      "affectedTests": [
+        "packages/core/agent-loop/tests/external-turn.spec.ts",
+        "packages/core/agent-loop/tests/runtime-context.spec.ts"
+      ],
+      "dependsOn": [
+        "session-history"
+      ],
+      "symbols": []
+    },
+    {
+      "id": "agent-recovery",
+      "patterns": [
+        "packages/core/agent-loop/src/agent.ts",
+        "packages/core/agent-loop/src/index.ts",
+        "packages/core/agent-loop/src/tool-calls.ts"
+      ],
+      "impactFloor": 3,
+      "affectedTests": [
+        "packages/core/agent-loop/tests/resume.spec.ts",
+        "packages/core/agent-loop/tests/contract-regressions.spec.ts"
+      ],
+      "dependsOn": [
+        "session-history",
+        "agent-turn-lifecycle"
+      ],
+      "symbols": []
+    },
+    {
+      "id": "settings-api",
+      "patterns": [
+        "packages/settings/*/src/**",
+        "packages/api/settings-controller/src/**",
+        "packages/boot/config-editor/src/**",
+        "vendor/loader/src/config/**"
+      ],
+      "impactFloor": 3,
+      "affectedTests": [
+        "packages/api/settings-controller/tests/settings-controller.host.spec.ts",
+        "packages/api/settings-controller/tests/credentials-controller.host.spec.ts"
+      ],
+      "dependsOn": [],
+      "symbols": []
+    },
+    {
+      "id": "profile-config",
+      "patterns": [
+        "vendor/loader/src/config/**",
+        "packages/boot/app-boot/src/profile*.ts",
+        "packages/boot/app-boot/src/profile-resolution/**",
+        "packages/boot/config-editor/src/**",
+        "apps/cli/config/**",
+        "packages/settings/settings-file/src/**"
+      ],
+      "impactFloor": 3,
+      "affectedTests": [
+        "apps/desktop/tests/profile-packages.spec.ts"
+      ],
+      "dependsOn": [
+        "settings-api"
+      ],
+      "symbols": []
+    },
+    {
+      "id": "model-catalog",
+      "patterns": [
+        "packages/llm/llm/src/**",
+        "packages/llm/llm-pi-ai/src/**",
+        "packages/llm/llm-deepseek*/src/**"
+      ],
+      "impactFloor": 3,
+      "affectedTests": [
+        "packages/client/ui-model-selection/tests/catalog.client.spec.ts"
+      ],
+      "dependsOn": [
+        "settings-api"
+      ],
+      "symbols": []
+    },
+    {
+      "id": "model-admission",
+      "patterns": [
+        "packages/core/agent-default-model/src/**",
+        "packages/api/session-controller/src/agent.ts",
+        "packages/api/session-controller/src/catalog.ts"
+      ],
+      "impactFloor": 3,
+      "affectedTests": [
+        "packages/core/agent-default-model/tests/agent-default-model.spec.ts",
+        "packages/api/session-controller/tests/session-models.host.spec.ts"
+      ],
+      "dependsOn": [
+        "model-catalog"
+      ],
+      "symbols": []
+    },
+    {
+      "id": "desktop-host-lifecycle",
+      "patterns": [
+        "apps/desktop/src/main.ts",
+        "apps/desktop/src/host-process.ts",
+        "apps/desktop/src/project-manager.ts",
+        "apps/desktop-host/src/**"
+      ],
+      "impactFloor": 3,
+      "affectedTests": [
+        "apps/desktop/tests/main-startup.spec.ts",
+        "apps/desktop/tests/host-process.spec.ts",
+        "apps/desktop/tests/project-manager.spec.ts"
+      ],
+      "dependsOn": [
+        "runtime-process-lifecycle",
+        "plugin-composition"
+      ],
+      "symbols": []
+    },
+    {
+      "id": "desktop-profile-boundary",
+      "patterns": [
+        "apps/desktop/src/data-boundary.ts",
+        "apps/desktop/src/paths.ts",
+        "apps/desktop/src/profile-*.ts",
+        "apps/desktop/src/product-flavor*"
+      ],
+      "impactFloor": 3,
+      "affectedTests": [
+        "apps/desktop/tests/data-boundary.spec.ts",
+        "apps/desktop/tests/product-flavor.spec.ts",
+        "apps/desktop/tests/profile-core-cleanup.spec.ts"
+      ],
+      "dependsOn": [
+        "profile-config"
+      ],
+      "symbols": []
+    },
+    {
+      "id": "runtime-process-lifecycle",
+      "patterns": [
+        "packages/subprocess/*/src/**",
+        "apps/desktop/scripts/prepare-runtime*.ts",
+        "apps/desktop/scripts/primary-runtime*",
+        "packages/api/settings-controller/src/local-model-runtime.ts"
+      ],
+      "impactFloor": 3,
+      "affectedTests": [
+        "packages/api/settings-controller/tests/local-model-runtime.host.spec.ts",
+        "packages/api/settings-controller/tests/local-model-runtime.system.host.spec.ts"
+      ],
+      "dependsOn": [],
+      "symbols": []
+    },
+    {
+      "id": "plugin-composition",
+      "patterns": [
+        "vendor/cordis/src/**",
+        "vendor/loader/src/**",
+        "packages/bundle/*/src/**",
+        "packages/bundle/*/cordis.patch.yml",
+        "packages/boot/app-boot/src/profile-plugins.ts"
+      ],
+      "impactFloor": 3,
+      "affectedTests": [
+        "apps/desktop/tests/desktop-composition.spec.ts"
+      ],
+      "dependsOn": [
+        "profile-config"
+      ],
+      "symbols": []
+    },
+    {
+      "id": "client-model-selector",
+      "patterns": [
+        "packages/client/ui-model-selection/src/**",
+        "packages/client/ui-settings-models/src/**"
+      ],
+      "impactFloor": 2,
+      "affectedTests": [
+        "packages/client/ui-model-selection/tests/browser-plugin.client.spec.ts",
+        "packages/client/ui-model-selection/tests/catalog.client.spec.ts"
+      ],
+      "dependsOn": [
+        "model-catalog"
+      ],
+      "symbols": []
+    },
+    {
+      "id": "run-details-transport",
+      "patterns": [
+        "packages/api/remotes/src/**",
+        "packages/typert/*/src/**",
+        "packages/api/runtime-diagnostics-controller/src/**",
+        "packages/runtime-diagnostics/run-details/src/**"
+      ],
+      "impactFloor": 3,
+      "affectedTests": [
+        "packages/api/runtime-diagnostics-controller/tests/controller.spec.ts",
+        "packages/api/runtime-diagnostics-controller/tests/stream.spec.ts",
+        "packages/runtime-diagnostics/run-details/tests/projection.spec.ts"
+      ],
+      "dependsOn": [
+        "agent-turn-lifecycle",
+        "session-history"
+      ],
+      "symbols": []
+    },
+    {
+      "id": "compaction-contract",
+      "patterns": [
+        "packages/compaction/*/src/**",
+        "packages/llm/token-meter/src/**"
+      ],
+      "impactFloor": 3,
+      "affectedTests": [
+        "packages/compaction/compaction-task-aware-policy/tests/protection.spec.ts",
+        "packages/compaction/compaction-task-aware-policy/tests/reasoning.spec.ts",
+        "packages/compaction/compaction-task-aware-policy/tests/diagnostics-transport.spec.ts"
+      ],
+      "dependsOn": [
+        "session-history",
+        "agent-recovery"
+      ],
+      "symbols": []
+    },
+    {
+      "id": "codex-thread",
+      "patterns": [
+        "packages/core/agent-codex/src/runtime.ts"
+      ],
+      "impactFloor": 4,
+      "affectedTests": [
+        "packages/core/agent-codex/tests/runtime.spec.ts"
+      ],
+      "dependsOn": [
+        "session-history",
+        "agent-turn-lifecycle",
+        "agent-recovery"
+      ],
+      "symbols": []
+    },
+    {
+      "id": "codex-auth",
+      "patterns": [
+        "packages/core/agent-codex/src/home.ts",
+        "packages/core/agent-codex/src/runtime.ts"
+      ],
+      "impactFloor": 4,
+      "affectedTests": [
+        "packages/core/agent-codex/tests/home.spec.ts",
+        "packages/core/agent-codex/tests/plugin.spec.ts"
+      ],
+      "dependsOn": [
+        "settings-api"
+      ],
+      "symbols": [
+        {
+          "path": "packages/core/agent-codex/src/home.ts",
+          "name": "secureCodexHome"
+        }
+      ]
+    },
+    {
+      "id": "codex-adapter",
+      "patterns": [
+        "packages/core/agent-codex/src/app-server.ts",
+        "scripts/codex-runtime-compat.ts",
+        "packages/core/agent-codex/src/compatibility.ts"
+      ],
+      "impactFloor": 3,
+      "affectedTests": [
+        "packages/core/agent-codex/tests/app-server.spec.ts"
+      ],
+      "dependsOn": [],
+      "symbols": []
+    },
+    {
+      "id": "schedule",
+      "patterns": [
+        "packages/schedule/*/src/**",
+        "packages/experimental/schedule-bundle/src/**",
+        "packages/context/time-context/src/**",
+        "packages/client/ui-schedule/src/**"
+      ],
+      "impactFloor": 3,
+      "affectedTests": [],
+      "dependsOn": [
+        "session-controller",
+        "agent-recovery"
+      ],
+      "symbols": []
+    },
+    {
+      "id": "computer-use",
+      "patterns": [
+        "packages/computer-use/*/src/**",
+        "packages/experimental/computer-use-cua-driver-*/src/**"
+      ],
+      "impactFloor": 3,
+      "affectedTests": [],
+      "dependsOn": [
+        "runtime-process-lifecycle"
+      ],
+      "symbols": []
+    },
+    {
+      "id": "package-payload",
+      "patterns": [
+        "apps/desktop/scripts/package-*.ts",
+        "apps/desktop/scripts/prepare-*.ts",
+        "apps/desktop/electron-builder.config.*",
+        "pnpm-lock.yaml",
+        "package.json",
+        "tsconfig*.json"
+      ],
+      "impactFloor": 3,
+      "affectedTests": [
+        "apps/desktop/tests/runtime-package-manifests.spec.ts"
+      ],
+      "dependsOn": [
+        "plugin-composition"
+      ],
+      "symbols": []
+    },
+    {
+      "id": "maintenance-tooling",
+      "patterns": [
+        "scripts/upstream-*.ts",
+        "scripts/upstream-*.json"
+      ],
+      "impactFloor": 1,
+      "affectedTests": [
+        "scripts/upstream-maintenance.spec.ts",
+        "scripts/upstream-audit.spec.ts",
+        "scripts/upstream-monitor.spec.ts",
+        "scripts/upstream-tracking-seams.spec.ts"
+      ],
+      "dependsOn": [],
+      "symbols": []
+    }
+  ],
+  "ownershipRules": [
+    {
+      "id": "codex",
+      "patterns": [
+        "packages/core/agent-codex/**"
+      ],
+      "owner": "CUSTOM",
+      "reason": "Official subscription adapter and DSH conversation projection.",
+      "dependsOn": [
+        "settings-api",
+        "session-history",
+        "agent-turn-lifecycle",
+        "agent-recovery",
+        "model-catalog"
+      ],
+      "invariants": [
+        "CODEX_OFFICIAL_ONLY",
+        "CANONICAL_DSH_CONVERSATION",
+        "NO_REPLAY",
+        "ACCOUNT_GENERATION_ISOLATION",
+        "CODEX_RUNTIME_MAINT_INDEPENDENT"
+      ],
+      "affectedTests": [
+        "packages/core/agent-codex/tests/runtime.spec.ts",
+        "packages/core/agent-codex/tests/plugin.spec.ts",
+        "packages/core/agent-codex/tests/home.spec.ts"
+      ],
+      "impactFloor": 3,
+      "technicalTags": []
+    },
+    {
+      "id": "local-settings",
+      "patterns": [
+        "packages/api/settings-controller/**",
+        "packages/core/agent-default-model/**",
+        "packages/llm/llm-pi-ai/**"
+      ],
+      "owner": "MIXED",
+      "reason": "Local preference and default admission consume upstream settings/catalog contracts.",
+      "dependsOn": [
+        "settings-api",
+        "model-catalog",
+        "runtime-process-lifecycle",
+        "model-admission"
+      ],
+      "invariants": [
+        "LOCAL_FIRST",
+        "NO_SILENT_MODEL_SUBSTITUTION",
+        "LOCAL_RUNTIME_SERIALIZATION"
+      ],
+      "affectedTests": [
+        "packages/api/settings-controller/tests/local-model-runtime.host.spec.ts",
+        "packages/api/settings-controller/tests/local-model-runtime.system.host.spec.ts",
+        "packages/core/agent-default-model/tests/agent-default-model.spec.ts"
+      ],
+      "impactFloor": 3,
+      "technicalTags": []
+    },
+    {
+      "id": "agent-session",
+      "patterns": [
+        "packages/core/agent/**",
+        "packages/core/agent-loop/**",
+        "packages/core/session/**",
+        "packages/api/session-controller/**"
+      ],
+      "owner": "MIXED",
+      "reason": "External turns and admission share official history semantics.",
+      "dependsOn": [
+        "session-format",
+        "session-history",
+        "agent-turn-lifecycle",
+        "agent-recovery"
+      ],
+      "invariants": [
+        "CANONICAL_DSH_CONVERSATION",
+        "NO_REPLAY",
+        "NO_SILENT_MODEL_SUBSTITUTION"
+      ],
+      "affectedTests": [
+        "packages/core/agent-loop/tests/external-turn.spec.ts",
+        "packages/api/session-controller/tests/session-models.host.spec.ts"
+      ],
+      "impactFloor": 3,
+      "technicalTags": []
+    },
+    {
+      "id": "diagnostics-continuity",
+      "patterns": [
+        "packages/runtime-diagnostics/**",
+        "packages/session/task-checkpoint/**",
+        "packages/compaction/compaction-task-aware-policy/**",
+        "packages/api/runtime-diagnostics-controller/**",
+        "packages/client/ui-run-details/**"
+      ],
+      "owner": "CUSTOM",
+      "reason": "Custom continuity, event projections and diagnostic UI.",
+      "dependsOn": [
+        "session-format",
+        "session-history",
+        "run-details-transport",
+        "agent-recovery",
+        "compaction-contract"
+      ],
+      "invariants": [
+        "NO_REPLAY",
+        "CANONICAL_DSH_CONVERSATION"
+      ],
+      "affectedTests": [
+        "packages/session/task-checkpoint/tests/projection.spec.ts",
+        "packages/session/task-checkpoint/tests/ignorable-append.spec.ts",
+        "packages/session/task-checkpoint/tests/resume.spec.ts",
+        "packages/runtime-diagnostics/agent-run-state/tests/projection.spec.ts",
+        "packages/runtime-diagnostics/reasoning-policy/tests/policy.spec.ts"
+      ],
+      "impactFloor": 3,
+      "technicalTags": []
+    },
+    {
+      "id": "custom-composition",
+      "patterns": [
+        "packages/bundle/desktop-custom/**"
+      ],
+      "owner": "CUSTOM",
+      "reason": "Qualified Custom plugin tail composition.",
+      "dependsOn": [
+        "plugin-composition",
+        "profile-config"
+      ],
+      "invariants": [
+        "CUSTOM_PROFILE_BOUNDARY",
+        "LOCAL_FIRST"
+      ],
+      "affectedTests": [
+        "apps/desktop/tests/desktop-composition.spec.ts"
+      ],
+      "impactFloor": 3,
+      "technicalTags": []
+    },
+    {
+      "id": "base-composition",
+      "patterns": [
+        "packages/bundle/base/cordis.patch.yml"
+      ],
+      "owner": "MIXED",
+      "reason": "Custom default provider removal and official base composition share the plugin graph.",
+      "dependsOn": [
+        "plugin-composition",
+        "model-catalog"
+      ],
+      "invariants": [
+        "LOCAL_FIRST"
+      ],
+      "affectedTests": [
+        "apps/desktop/tests/desktop-composition.spec.ts"
+      ],
+      "impactFloor": 3,
+      "technicalTags": []
+    },
+    {
+      "id": "desktop",
+      "patterns": [
+        "apps/desktop/src/**",
+        "apps/desktop/scripts/**",
+        "apps/desktop-host/src/**",
+        "apps/desktop/electron-builder.config.*"
+      ],
+      "owner": "MIXED",
+      "reason": "Product identity, profile boundary and host/runtime lifecycle.",
+      "dependsOn": [
+        "desktop-host-lifecycle",
+        "desktop-profile-boundary",
+        "runtime-process-lifecycle",
+        "package-payload"
+      ],
+      "invariants": [
+        "CUSTOM_PROFILE_BOUNDARY"
+      ],
+      "affectedTests": [
+        "apps/desktop/tests/data-boundary.spec.ts",
+        "apps/desktop/tests/host-process.spec.ts"
+      ],
+      "impactFloor": 3,
+      "technicalTags": []
+    },
+    {
+      "id": "client-leaves",
+      "patterns": [
+        "packages/client/ui-brand-official/**",
+        "packages/client/ui-conversation/**",
+        "packages/client/ui-layout/**",
+        "packages/client/ui-model-selection/**",
+        "packages/client/ui-primitives/**",
+        "packages/client/ui-session/**",
+        "packages/client/ui-settings-models/**",
+        "packages/client/ui-settings-plugin-inventory/**",
+        "packages/client/ui-sidebar/**",
+        "packages/client/ui-theme/**"
+      ],
+      "owner": "MIXED",
+      "reason": "Model selector, layout, theme and client changes.",
+      "dependsOn": [
+        "client-model-selector"
+      ],
+      "invariants": [
+        "NO_SILENT_MODEL_SUBSTITUTION"
+      ],
+      "affectedTests": [
+        "packages/client/ui-model-selection/tests/catalog.client.spec.ts"
+      ],
+      "impactFloor": 2,
+      "technicalTags": []
+    },
+    {
+      "id": "compaction-retry",
+      "patterns": [
+        "packages/compaction/compaction/**",
+        "packages/compaction/compaction-basic/**",
+        "packages/llm/llm-retry/**",
+        "packages/guard/repeat-tool-reminder/**",
+        "packages/api/remotes/**"
+      ],
+      "owner": "MIXED",
+      "reason": "Reasoning/retry and transport hooks share official contracts.",
+      "dependsOn": [
+        "compaction-contract",
+        "run-details-transport",
+        "agent-turn-lifecycle"
+      ],
+      "invariants": [
+        "NO_REPLAY"
+      ],
+      "affectedTests": [
+        "packages/compaction/compaction/tests/invariant.spec.ts"
+      ],
+      "impactFloor": 3,
+      "technicalTags": []
+    },
+    {
+      "id": "generated-catalog",
+      "patterns": [
+        "packages/core/scope/src/scoped-events.generated.ts",
+        "packages/extensions/cordis-client-runner/src/**",
+        "packages/extensions/tool-cordis/src/api-catalog.ts"
+      ],
+      "owner": "MIXED",
+      "reason": "Generated Cordis consumer catalogs.",
+      "dependsOn": [
+        "plugin-composition"
+      ],
+      "invariants": [],
+      "affectedTests": [],
+      "impactFloor": 2,
+      "technicalTags": [
+        "GENERATED",
+        "DERIVED"
+      ]
+    },
+    {
+      "id": "maintenance",
+      "patterns": [
+        "scripts/upstream-*",
+        "scripts/check-workspace-constraints.ts",
+        "scripts/codex-runtime-compat.ts",
+        "scripts/doc-standard.spec.ts",
+        "scripts/gen-cordis-catalog.ts",
+        "scripts/gen-doc-graphs.ts",
+        "scripts/verify-package-readme-model-experience.ts",
+        "scripts/verify-repository-references.ts",
+        "scripts/verify-repository-references.spec.ts"
+      ],
+      "owner": "MIXED",
+      "reason": "Repository tooling and engineering decisions.",
+      "dependsOn": [
+        "maintenance-tooling"
+      ],
+      "invariants": [],
+      "affectedTests": [
+        "scripts/upstream-maintenance.spec.ts"
+      ],
+      "impactFloor": 1,
+      "technicalTags": []
+    },
+    {
+      "id": "workspace",
+      "patterns": [
+        "package.json",
+        "pnpm-workspace.yaml",
+        "tsconfig*.json",
+        ".oxlintrc*",
+        "vitest.config.ts",
+        ".gitignore",
+        ".github/**",
+        "apps/desktop/package.json",
+        "apps/desktop-host/package.json",
+        "apps/cli/package.json",
+        "apps/desktop/tsconfig.json"
+      ],
+      "owner": "MIXED",
+      "reason": "Build and composition configuration.",
+      "dependsOn": [
+        "package-payload"
+      ],
+      "invariants": [],
+      "affectedTests": [],
+      "impactFloor": 3,
+      "technicalTags": []
+    },
+    {
+      "id": "lockfile",
+      "patterns": [
+        "pnpm-lock.yaml"
+      ],
+      "owner": "MIXED",
+      "reason": "Dependency resolution requires separate payload qualification.",
+      "dependsOn": [
+        "package-payload"
+      ],
+      "invariants": [],
+      "affectedTests": [],
+      "impactFloor": 3,
+      "technicalTags": [
+        "LOCKFILE"
+      ]
+    },
+    {
+      "id": "documentation",
+      "patterns": [
+        ".agents/notes/implemented/architecture/2026-08-10-session-log-version-mechanism.i18n.yaml",
+        ".agents/notes/implemented/architecture/2026-08-10-session-log-version-mechanism.md",
+        ".agents/notes/implemented/architecture/2026-08-10-session-log-version-mechanism.zh.md",
+        ".agents/notes/implemented/architecture/2026-09-17-incremental-upstream-monitor.i18n.yaml",
+        ".agents/notes/implemented/architecture/2026-09-17-incremental-upstream-monitor.md",
+        ".agents/notes/implemented/architecture/2026-09-17-incremental-upstream-monitor.zh.md",
+        ".agents/notes/implemented/architecture/2026-09-17-upstream-adaptation-strategy.i18n.yaml",
+        ".agents/notes/implemented/architecture/2026-09-17-upstream-adaptation-strategy.manifest.json",
+        ".agents/notes/implemented/architecture/2026-09-17-upstream-adaptation-strategy.md",
+        ".agents/notes/implemented/architecture/2026-09-17-upstream-adaptation-strategy.zh.md",
+        ".agents/notes/implemented/architecture/2026-09-17-upstream-monitor-scheduling-and-notification.i18n.yaml",
+        ".agents/notes/implemented/architecture/2026-09-17-upstream-monitor-scheduling-and-notification.md",
+        ".agents/notes/implemented/architecture/2026-09-17-upstream-monitor-scheduling-and-notification.zh.md",
+        ".agents/notes/implemented/architecture/2026-09-17-upstream-scheduler-maintenance-runtime-resilience.i18n.yaml",
+        ".agents/notes/implemented/architecture/2026-09-17-upstream-scheduler-maintenance-runtime-resilience.md",
+        ".agents/notes/implemented/architecture/2026-09-17-upstream-scheduler-maintenance-runtime-resilience.zh.md",
+        ".agents/notes/implemented/architecture/2026-09-17-upstream-tracking-read-only-auditor.i18n.yaml",
+        ".agents/notes/implemented/architecture/2026-09-17-upstream-tracking-read-only-auditor.md",
+        ".agents/notes/implemented/architecture/2026-09-17-upstream-tracking-read-only-auditor.zh.md",
+        ".agents/notes/implemented/feature/2026-09-27-shared-dsh-mascot-motion.i18n.yaml",
+        ".agents/notes/implemented/feature/2026-09-27-shared-dsh-mascot-motion.md",
+        ".agents/notes/implemented/feature/2026-09-27-shared-dsh-mascot-motion.zh.md",
+        "docs/capability-seams.i18n.yaml",
+        "docs/capability-seams.md",
+        "docs/capability-seams.zh.md",
+        "docs/config-catalog.i18n.yaml",
+        "docs/config-catalog.md",
+        "docs/config-catalog.zh.md",
+        "docs/event-producer-consumer.i18n.yaml",
+        "docs/event-producer-consumer.md",
+        "docs/event-producer-consumer.zh.md",
+        "docs/module-graph.i18n.yaml",
+        "docs/module-graph.md",
+        "docs/module-graph.zh.md",
+        "docs/persistence-catalog.i18n.yaml",
+        "docs/persistence-catalog.md",
+        "docs/persistence-catalog.zh.md",
+        "docs/persistence-changes/2026-09-18-restore-task-checkpoint-events.i18n.yaml",
+        "docs/persistence-changes/2026-09-18-restore-task-checkpoint-events.md",
+        "docs/persistence-changes/2026-09-18-restore-task-checkpoint-events.schema.json",
+        "docs/persistence-changes/2026-09-18-restore-task-checkpoint-events.zh.md",
+        "docs/persistence-changes/2026-09-19-task-aware-compaction-audit.i18n.yaml",
+        "docs/persistence-changes/2026-09-19-task-aware-compaction-audit.md",
+        "docs/persistence-changes/2026-09-19-task-aware-compaction-audit.schema.json",
+        "docs/persistence-changes/2026-09-19-task-aware-compaction-audit.zh.md",
+        "docs/persistence-changes/2026-09-28-codex-subscription-session-mapping.i18n.yaml",
+        "docs/persistence-changes/2026-09-28-codex-subscription-session-mapping.md",
+        "docs/persistence-changes/2026-09-28-codex-subscription-session-mapping.schema.json",
+        "docs/persistence-changes/2026-09-28-codex-subscription-session-mapping.zh.md",
+        "docs/persistence-changes/2026-09-30-codex-runtime-fingerprint.i18n.yaml",
+        "docs/persistence-changes/2026-09-30-codex-runtime-fingerprint.md",
+        "docs/persistence-changes/2026-09-30-codex-runtime-fingerprint.schema.json",
+        "docs/persistence-changes/2026-09-30-codex-runtime-fingerprint.zh.md",
+        "docs/persistence-changes/historical-formats/README.i18n.yaml",
+        "docs/persistence-changes/historical-formats/README.md",
+        "docs/persistence-changes/historical-formats/README.zh.md",
+        "docs/persistence-schema.json",
+        "docs/subsystems/compaction.i18n.yaml",
+        "docs/subsystems/compaction.md",
+        "docs/subsystems/compaction.zh.md",
+        "docs/subsystems/core.i18n.yaml",
+        "docs/subsystems/core.md",
+        "docs/subsystems/core.zh.md",
+        "docs/subsystems/llm-streaming.i18n.yaml",
+        "docs/subsystems/llm-streaming.md",
+        "docs/subsystems/llm-streaming.zh.md",
+        "docs/subsystems/session.i18n.yaml",
+        "docs/subsystems/session.md",
+        "docs/subsystems/session.zh.md",
+        "docs/subsystems/settings.i18n.yaml",
+        "docs/subsystems/settings.md",
+        "docs/subsystems/settings.zh.md",
+        "docs/subsystems/typert.i18n.yaml",
+        "docs/subsystems/typert.md",
+        "docs/subsystems/typert.zh.md",
+        "docs/upstream-maintenance*",
+        "docs/development*",
+        "apps/desktop/README*",
+        "packages/core/README*"
+      ],
+      "owner": "MIXED",
+      "reason": "Maintained documentation and locales.",
+      "dependsOn": [],
+      "invariants": [],
+      "affectedTests": [],
+      "impactFloor": 0,
+      "technicalTags": [
+        "DERIVED"
+      ]
+    },
+    {
+      "id": "custom-evidence",
+      "patterns": [
+        "apps/desktop/tests/**",
+        "apps/desktop-host/tests/**",
+        "packages/core/scope/tests/**",
+        "packages/client/ui-attachment/tests/message-image.client.spec.tsx",
+        "packages/client/ui-chat/tests/chat-view.client.spec.tsx",
+        "packages/client/ui-sidebar-terminal/tests/apply.client.spec.ts",
+        "packages/client/ui-sidebar-terminal/tests/terminal-body.client.spec.tsx",
+        "packages/client/ui-trajectory/tests/views.client.spec.tsx",
+        "packages/client/ui-user-questions/tests/plan-review-panel.client.spec.tsx",
+        "packages/client/ui-user-questions/tests/user-questions-composer.client.spec.tsx",
+        "packages/client/ui-workflow-run/tests/workflow-run.client.spec.tsx"
+      ],
+      "owner": "MIXED",
+      "reason": "Custom UI and Desktop evidence extends shared official test modules.",
+      "dependsOn": [],
+      "invariants": [],
+      "affectedTests": [],
+      "impactFloor": 1,
+      "technicalTags": []
+    }
+  ],
+  "evidence": [
+    {
+      "id": "codex-settings",
+      "dependsOn": [
+        "settings-api"
+      ],
+      "invalidatedBy": [],
+      "invariants": [
+        "CODEX_OFFICIAL_ONLY"
+      ]
+    },
+    {
+      "id": "codex-q1-thread",
+      "dependsOn": [
+        "session-history",
+        "agent-turn-lifecycle",
+        "agent-recovery",
+        "codex-thread"
+      ],
+      "invalidatedBy": [
+        "session-format",
+        "codex-thread"
+      ],
+      "invariants": [
+        "CANONICAL_DSH_CONVERSATION",
+        "NO_REPLAY"
+      ]
+    },
+    {
+      "id": "codex-q1-auth",
+      "dependsOn": [
+        "codex-auth"
+      ],
+      "invalidatedBy": [
+        "codex-auth"
+      ],
+      "invariants": [
+        "ACCOUNT_GENERATION_ISOLATION"
+      ]
+    },
+    {
+      "id": "codex-runtime-maintenance",
+      "dependsOn": [
+        "codex-adapter"
+      ],
+      "invalidatedBy": [
+        "codex-adapter"
+      ],
+      "invariants": [
+        "CODEX_RUNTIME_MAINT_INDEPENDENT"
+      ]
+    },
+    {
+      "id": "local-model",
+      "dependsOn": [
+        "settings-api",
+        "runtime-process-lifecycle",
+        "model-admission"
+      ],
+      "invalidatedBy": [
+        "runtime-process-lifecycle"
+      ],
+      "invariants": [
+        "LOCAL_FIRST",
+        "LOCAL_RUNTIME_SERIALIZATION"
+      ]
+    },
+    {
+      "id": "desktop-profile",
+      "dependsOn": [
+        "desktop-profile-boundary",
+        "profile-config"
+      ],
+      "invalidatedBy": [
+        "desktop-profile-boundary"
+      ],
+      "invariants": [
+        "CUSTOM_PROFILE_BOUNDARY"
+      ]
+    },
+    {
+      "id": "continuity",
+      "dependsOn": [
+        "session-format",
+        "session-history",
+        "compaction-contract"
+      ],
+      "invalidatedBy": [
+        "session-format"
+      ],
+      "invariants": [
+        "NO_REPLAY"
       ]
     }
   ]

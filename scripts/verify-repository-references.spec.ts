@@ -69,6 +69,18 @@ describe('maintained repository reference policy', () => {
     expect(scanRepositoryReferences(fixture.root)).toHaveLength(4)
   })
 
+  it('accepts only the exact official integration pin field, with negative controls', (test) => {
+    const fixture = repository(test)
+    const policy = { schemaVersion: 1, lastSynced: { tag: 'dsh-v0.1.6-alpha.2', sha: fixture.commit }, policy: { officialRepository: 'deepseek-ai/deepseek-harness' } }
+    const source = JSON.stringify(policy, null, 2)
+    expect(findRepositoryReferences('scripts/upstream-maintenance.json', source, new Set([fixture.commit]))).toEqual([])
+    expect(findRepositoryReferences('docs/pin.json', source, new Set([fixture.commit]))).toHaveLength(1)
+    expect(findRepositoryReferences('scripts/upstream-maintenance.json', source.replace('deepseek-ai/', 'fork/'), new Set([fixture.commit]))).toHaveLength(1)
+    expect(findRepositoryReferences('scripts/upstream-maintenance.json', source.replace('dsh-v0.1.6-alpha.2', 'arbitrary'), new Set([fixture.commit]))).toHaveLength(1)
+    expect(findRepositoryReferences('scripts/upstream-maintenance.json', JSON.stringify({ ...policy, other: fixture.commit }, null, 2), new Set([fixture.commit]))).toHaveLength(2)
+    expect(findRepositoryReferences('scripts/upstream-maintenance.json', '{"sha": "'+fixture.commit+'"}', new Set([fixture.commit]))).toHaveLength(1)
+  })
+
   it('checks available unreachable commits without requiring a branch or network', (test) => {
     const fixture = repository(test)
     const unreachable = fixture.git(['commit-tree', fixture.tree, '-m', 'unreachable fixture'])

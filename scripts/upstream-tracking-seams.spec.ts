@@ -42,7 +42,7 @@ describe('current compatibility seam registry', () => {
     const registry = loadSeamRegistry(registryPath)
 
     expect(registry.formatVersion).toBe(1)
-    expect(registry.baseline).toBe('ds-harness-product-baseline-2026-09-17')
+    expect(registry.baseline).toBe('dsh-v0.1.6-alpha.2')
     expect(registry.seams.map(seam => seam.id)).toEqual(STABLE_SEAM_IDS)
   })
 

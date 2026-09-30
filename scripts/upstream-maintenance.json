@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "ownershipRevision": 1,
+  "contractRevision": 1,
+  "trackedChannels": [
+    "published-rc",
+    "published-stable"
+  ],
+  "lastSynced": {
+    "tag": "dsh-v0.1.6-alpha.2",
+    "sha": "ddefc45fbc7f8e46dd73185e68295696d1297887"
+  },
+  "policy": {
+    "officialRepository": "deepseek-ai/deepseek-harness",
+    "officialRemote": "origin",
+    "sync": "explicit-immutable-tag-and-sha",
+    "master": "explicit-developer-inspection",
+    "featureActivation": "explicit",
+    "statistics": "rename50-full-copyOff"
+  }
+}

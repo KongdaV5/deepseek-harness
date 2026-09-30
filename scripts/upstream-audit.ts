@@ -7,7 +7,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { parseArgs, TextDecoder } from 'node:util'
 
 const FORMAT_VERSION = 1
-const DEFAULT_BASE = 'ds-harness-product-baseline-2026-09-17'
+const DEFAULT_BASE = 'HEAD'
 const DEFAULT_OUTPUT_DIRECTORY = '.artifacts/upstream-audit'
 const DEFAULT_REGISTRY = fileURLToPath(new URL('./upstream-tracking-seams.json', import.meta.url))
 const MAX_GIT_OUTPUT = 128 * 1024 * 1024
@@ -190,6 +190,7 @@ function runGit(root: string, args: string[]): GitResult {
     env: {
       ...process.env,
       GIT_OPTIONAL_LOCKS: '0',
+      GIT_NO_LAZY_FETCH: '1',
       LANG: 'C',
       LC_ALL: 'C',
     },
@@ -216,7 +217,8 @@ function failure(result: GitResult): string {
     ?? (decode(result.stderr, 'cannot decode Git error').trim() || `Git exited with status ${String(result.status)}`)
 }
 
-function requireGit(root: string, args: string[], context: string): string {
+/** Read Git output without optional worktree locks or lazy object fetching. */
+export function requireGit(root: string, args: string[], context: string): string {
   const result = runGit(root, args)
   if (result.status !== 0) throw new Error(`${context}: ${failure(result)}`)
   return decode(result.stdout, context)
@@ -247,7 +249,8 @@ function resolveCommit(root: string, label: 'base' | 'target', ref: string): str
   return commits[0] as string
 }
 
-function mergeBase(root: string, baseSha: string, targetSha: string): string {
+/** Require a unique, real merge base rather than selecting an arbitrary ancestor. */
+export function mergeBase(root: string, baseSha: string, targetSha: string): string {
   const output = requireGit(root, ['merge-base', '--all', baseSha, targetSha], 'cannot resolve merge base')
   const commits = output.trim().split(/\r?\n/u).filter(Boolean)
   if (commits.length !== 1) {
@@ -295,14 +298,15 @@ function parseNameStatus(bytes: Buffer): RawChangedPath[] {
   return changes
 }
 
-function changedPaths(root: string, fromSha: string, targetSha: string): RawChangedPath[] {
+/** Count logical changes using full 50% rename detection and no copy detection. */
+export function changedPaths(root: string, fromSha: string, targetSha: string): RawChangedPath[] {
   const result = runGit(root, [
+    '-c', 'diff.renameLimit=0',
     'diff',
     '--no-ext-diff',
     '--no-textconv',
     '--ignore-submodules=none',
     '--find-renames=50%',
-    '--find-copies=50%',
     '--name-status',
     '-z',
     fromSha,

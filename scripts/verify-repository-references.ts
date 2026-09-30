@@ -42,12 +42,29 @@ export function findRepositoryReferences(
   commits: ReadonlySet<string>,
 ): RepositoryReference[] {
   if (!isMaintained(file)) return []
+  // Machine-readable integration pins need an exact SHA; prose still uses release tags.
+  let integrationPin: string | undefined
+  if (file === 'scripts/upstream-maintenance.json') {
+    try {
+      const policy = JSON.parse(source) as {
+        schemaVersion?: unknown
+        lastSynced?: { tag?: unknown; sha?: unknown }
+        policy?: { officialRepository?: unknown }
+      }
+      const pin = policy.lastSynced?.sha
+      if (policy.schemaVersion === 1 && policy.policy?.officialRepository === 'deepseek-ai/deepseek-harness'
+        && typeof policy.lastSynced?.tag === 'string' && /^dsh-v\d+\.\d+\.\d+(?:-(?:alpha|beta|rc)\.\d+)?$/u.test(policy.lastSynced.tag)
+        && typeof pin === 'string' && /^[a-f0-9]{40}$/u.test(pin)
+        && source.split(pin).length === 2) integrationPin = pin
+    } catch { /* Invalid metadata receives no exception. */ }
+  }
   const references: RepositoryReference[] = []
   for (const [index, line] of source.split('\n').entries()) {
     if (organizationUrl.test(canonicalReferenceText(line).replace(kitRepositoryUrl, ''))) {
       references.push({ file, line: index + 1, kind: 'organization-url' })
     }
-    if ([...line.matchAll(commitCandidate)].some(match => commits.has(match[0].toLowerCase()))) {
+    if ([...line.matchAll(commitCandidate)].some(match => commits.has(match[0].toLowerCase())
+      && !(integrationPin === match[0] && new RegExp(`^\\s*"sha":\\s*"${integrationPin}",?\\s*$`, 'u').test(line)))) {
       references.push({ file, line: index + 1, kind: 'commit-hash' })
     }
   }
@@ -105,7 +122,7 @@ const invokedPath = process.argv[1]
 if (invokedPath !== undefined && import.meta.url === pathToFileURL(resolve(invokedPath)).href) {
   const references = scanRepositoryReferences(root)
   if (references.length === 0) {
-    console.log('verify-repository-references: maintained files contain no repository commit identifiers or disallowed organization URLs.')
+    console.log('verify-repository-references: maintained files contain no prohibited commit references or disallowed organization URLs.')
   } else {
     console.error('verify-repository-references: use release tags or maintained repository links:')
     for (const { file, line, kind } of references) console.error(`  ${file}:${String(line)} ${kind}`)
