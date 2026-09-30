@@ -16,6 +16,11 @@ function object(value: SessionFormatJsonValue | undefined): SessionFormatJsonObj
  * @returns the event with target coordinates; unchanged events retain their identity.
  */
 export function remapV3References(event: SessionFormatEvent, seq: number, mapping: readonly number[]): SessionFormatEvent {
+  const originalData = isSessionFormatJsonObject(event.data) ? event.data : undefined
+  if (event.type === 'compaction/summary' && originalData?.['policyAudit'] !== undefined) {
+    const { policyAudit, ...rest } = originalData
+    event = { ...event, data: { ...rest, 'plugin:task-compaction-audit': { sessionFormatVersion: 3, audit: policyAudit } } }
+  }
   if (seq === event.seq) return event
   const reference = (value: SessionFormatJsonValue | undefined): number => {
     const source = sessionFormatCount(value, 'V3 source event reference')

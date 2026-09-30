@@ -1,0 +1,46 @@
+# Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write packages/session/task-checkpoint/README.md
+/:
+  en: db6bcc49bc5e00c4
+  zh: cd26f97218391c30
+/deepseek-ai-dsh-task-checkpoint:
+  en: 2ccb02ab0fc6f176
+  zh: 534b92edd4e87763
+/deepseek-ai-dsh-task-checkpoint/summary:
+  en: 8f62fc0cf957b4b9
+  zh: 7c81e22de81d8c62
+/deepseek-ai-dsh-task-checkpoint/table-of-contents:
+  en: d152484eb41ac6b4
+  zh: f0420ffe0b1d1a61
+/deepseek-ai-dsh-task-checkpoint/use-this-package:
+  en: 740c744b0a99146c
+  zh: a5a5ec5e9062dfd1
+/deepseek-ai-dsh-task-checkpoint/understand-the-implementation:
+  en: bc4d28dc10cf7222
+  zh: 93de99b3036ee333
+/deepseek-ai-dsh-task-checkpoint/further-exploration:
+  en: b30fed0c7693f960
+  zh: fe6a7749dda00f24
+/deepseek-ai-dsh-task-checkpoint/model-experience:
+  en: 215e7ba838619b7b
+  zh: a311da3843709f90
+/deepseek-ai-dsh-task-checkpoint/model-experience/persistence-foundation:
+  en: 91e856b0bcf2e7b5
+  zh: a48e96d075c3bf9b
+/deepseek-ai-dsh-task-checkpoint/model-experience/persistence-foundation/what-the-model-sees:
+  en: 5bea4d49ab071145
+  zh: 59182ef648571a66
+/deepseek-ai-dsh-task-checkpoint/model-experience/persistence-foundation/token-effect:
+  en: 1af272a3b12b2cb2
+  zh: 721890afbea57426
+/deepseek-ai-dsh-task-checkpoint/model-experience/persistence-foundation/kv-cache-effect:
+  en: 27d5520dd8af9e74
+  zh: 1874591cdf46c35a
+/deepseek-ai-dsh-task-checkpoint/known-limitations-and-deferred-work:
+  en: ca97cfa2c79dad3f
+  zh: 14576bbbdd569f82
+/deepseek-ai-dsh-task-checkpoint/known-limitations-and-deferred-work/dev-note:
+  en: b0499e81e3e75bf5
+  zh: 68528e3e481844eb

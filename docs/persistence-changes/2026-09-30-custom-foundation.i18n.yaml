@@ -1,0 +1,28 @@
+# Bilingual-pair consistency record for 2026-09-30-custom-foundation.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write docs/persistence-changes/2026-09-30-custom-foundation.md
+/:
+  en: 3d5a424ae7d7e46b
+  zh: c22a8e4a62d8cc1a
+/2026-09-30-custom-foundation:
+  en: 53eecbfc83f6c102
+  zh: 961ed7f6ede8a29b
+/2026-09-30-custom-foundation/summary:
+  en: 6dbb3282d96e8ed5
+  zh: b04ff95d27d8fbaa
+/2026-09-30-custom-foundation/table-of-contents:
+  en: 6cf314a069ceb451
+  zh: 9adff678e9ecab3b
+/2026-09-30-custom-foundation/declaration:
+  en: 6907136f28e48c90
+  zh: 02f8298485f3d8e7
+/2026-09-30-custom-foundation/compatibility:
+  en: b59579060646001b
+  zh: d8ea97a31108718d
+/2026-09-30-custom-foundation/verification:
+  en: c86dac000fbc2ea0
+  zh: c9fe2b78929616fe
+/2026-09-30-custom-foundation/dev-note:
+  en: b75c8458928b72b9
+  zh: 003ba4e17b4b5269

@@ -55,6 +55,8 @@ const KIND_TEMPLATES: Readonly<Record<string, string>> = {
  * library; the check re-derives the entry shape so a stale entry fails loud.
  */
 const PACKAGE_LIBRARIES: Readonly<Record<string, string>> = {
+  'packages/runtime-diagnostics/agent-run-state': 'Pure committed-turn identity and run projection library; no plugin entry.',
+  'packages/runtime-diagnostics/agent-lifecycle-facts': 'Pure committed lifecycle fold; no plugin entry.',
   'packages/experimental/browser-use-runtime': 'Provider-owned browser resource management and MCP integration helpers; no plugin entry.',
   'packages/boot/app-boot': 'Boot library the app bins import; plain helper exports.',
   'packages/boot/cmdline': 'Command-line library the app bins import; plain module exports.',

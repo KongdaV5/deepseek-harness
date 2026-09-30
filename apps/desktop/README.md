@@ -482,6 +482,8 @@ Private Platform deployment headers are injected by the embedded browser session
 
 The account provider’s `embeddedPageDist` configuration adds a `dist` query parameter to embedded Usage and Top-up URLs. Its default is empty; private frontend branch selectors belong in the local profile patch. It does not change API URLs or credential delivery.
 
+Custom flavor metadata selects its reserved bundle identity, `desktop-custom` profile and independent Harness/Electron roots before the single-instance check. Explicit rehearsal roots isolate qualification. The Host initializes canonical Custom Config before loading this composition. Runtime and final UI integration remain outside the [foundation boundary](../../docs/custom-foundation.md).
+
 ## Dev Note
 
 Pre-launch CDN and capacity decisions are tracked in the [Desktop update proposal](../../.agents/notes/proposed/feature/2026-09-08-desktop-update-policy-and-installation.md#cdn-and-capacity-qualification).

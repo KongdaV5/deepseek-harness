@@ -123,6 +123,8 @@ session.deriveMessages()         // the derived model history
 
 -----
 
+`appendIgnorable()` 通过同一个写入器提交已注册插件的元数据，将其标记为对未安装插件的读取器可选，并禁止它取得对话表面权限。[Custom 基础迁移账本](../../../docs/custom-foundation.zh.md) 记录已安装的 V4 标识。
+
 <a id="further-exploration"></a>
 ## 进一步探索
 

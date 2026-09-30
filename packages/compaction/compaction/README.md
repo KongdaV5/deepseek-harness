@@ -119,6 +119,8 @@ The `compaction/*` events extend `SessionEventMap` (merge-extensible) via declar
 
 -----
 
+A migrated Custom V3 `policyAudit` is retained in `plugin:task-compaction-audit` with `sessionFormatVersion: 3`. Its capture remains historical evidence; current task authority is reconstructed from V4 checkpoint projections.
+
 <a id="further-exploration"></a>
 ## Further Exploration
 

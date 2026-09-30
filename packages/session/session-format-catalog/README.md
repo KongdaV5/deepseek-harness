@@ -63,6 +63,8 @@ The catalog contains all supported historical readers directly. A profile cannot
 
 -----
 
+The incoming V3 edge explicitly converts installed Custom Codex mapping and task authority payloads. Native V4 recognizes only their plugin-qualified identities. See the [Custom foundation ledger](../../../docs/custom-foundation.md) for domain reference ownership and generation-qualified compaction captures.
+
 <a id="further-exploration"></a>
 ## Further Exploration
 

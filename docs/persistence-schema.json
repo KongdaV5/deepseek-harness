@@ -5922,7 +5922,7 @@
       "kind": "event",
       "event": "compaction/summary",
       "surface": false,
-      "digest": "e2f9a41e0989f54ed8cee80f8db2bcf9d60a5c810dc9d45b83fa050b9dce7602",
+      "digest": "57642d49abd6ad289a01ec31be22d07082e99b527df4b3956cd659da98023391",
       "schema": {
         "root": 0,
         "nodes": [
@@ -5951,7 +5951,7 @@
               },
               {
                 "name": "type",
-                "type": 35,
+                "type": 40,
                 "optional": false
               }
             ],
@@ -5961,7 +5961,7 @@
             "kind": "union",
             "types": [
               2,
-              34
+              39
             ]
           },
           {
@@ -5988,23 +5988,28 @@
                 "optional": false
               },
               {
+                "name": "plugin:task-compaction-audit",
+                "type": 6,
+                "optional": true
+              },
+              {
                 "name": "provider",
                 "type": 3,
                 "optional": false
               },
               {
                 "name": "rawOutput",
-                "type": 6,
+                "type": 11,
                 "optional": false
               },
               {
                 "name": "shadowedRange",
-                "type": 31,
+                "type": 36,
                 "optional": false
               },
               {
                 "name": "shadowedSeqs",
-                "type": 32,
+                "type": 37,
                 "optional": false
               },
               {
@@ -6019,12 +6024,12 @@
               },
               {
                 "name": "summary",
-                "type": 6,
+                "type": 11,
                 "optional": false
               },
               {
                 "name": "usage",
-                "type": 33,
+                "type": 38,
                 "optional": true
               }
             ],
@@ -6043,19 +6048,52 @@
             "type": "number"
           },
           {
+            "kind": "union",
+            "types": [
+              3,
+              5,
+              7,
+              8,
+              9,
+              10
+            ]
+          },
+          {
             "kind": "array",
-            "element": 7
+            "element": 6
+          },
+          {
+            "kind": "primitive",
+            "type": "boolean"
+          },
+          {
+            "kind": "primitive",
+            "type": "null"
+          },
+          {
+            "kind": "object",
+            "properties": [],
+            "indices": [
+              {
+                "key": 3,
+                "value": 6
+              }
+            ]
+          },
+          {
+            "kind": "array",
+            "element": 12
           },
           {
             "kind": "union",
             "types": [
-              8,
-              10,
-              12,
+              13,
               15,
               17,
-              19,
-              28
+              20,
+              22,
+              25,
+              27
             ]
           },
           {
@@ -6068,7 +6106,7 @@
               },
               {
                 "name": "type",
-                "type": 9,
+                "type": 14,
                 "optional": false
               }
             ],
@@ -6088,7 +6126,7 @@
               },
               {
                 "name": "type",
-                "type": 11,
+                "type": 16,
                 "optional": false
               }
             ],
@@ -6103,7 +6141,7 @@
             "properties": [
               {
                 "name": "tool",
-                "type": 13,
+                "type": 18,
                 "optional": true
               },
               {
@@ -6113,7 +6151,7 @@
               },
               {
                 "name": "type",
-                "type": 14,
+                "type": 19,
                 "optional": false
               }
             ],
@@ -6137,7 +6175,7 @@
               },
               {
                 "name": "type",
-                "type": 16,
+                "type": 21,
                 "optional": false
               }
             ],
@@ -6146,6 +6184,47 @@
           {
             "kind": "literal",
             "value": "tool-removal"
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "attachment",
+                "type": 23,
+                "optional": false
+              },
+              {
+                "name": "type",
+                "type": 24,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "attachmentId",
+                "type": 3,
+                "optional": false
+              },
+              {
+                "name": "bytes",
+                "type": 5,
+                "optional": false
+              },
+              {
+                "name": "name",
+                "type": 3,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "literal",
+            "value": "file"
           },
           {
             "kind": "object",
@@ -6167,7 +6246,7 @@
               },
               {
                 "name": "type",
-                "type": 18,
+                "type": 26,
                 "optional": false
               }
             ],
@@ -6182,7 +6261,7 @@
             "properties": [
               {
                 "name": "attachment",
-                "type": 20,
+                "type": 28,
                 "optional": false
               },
               {
@@ -6192,7 +6271,7 @@
               },
               {
                 "name": "type",
-                "type": 27,
+                "type": 35,
                 "optional": false
               }
             ],
@@ -6218,7 +6297,7 @@
               },
               {
                 "name": "mediaType",
-                "type": 21,
+                "type": 29,
                 "optional": false
               },
               {
@@ -6228,7 +6307,7 @@
               },
               {
                 "name": "originalDimensions",
-                "type": 26,
+                "type": 34,
                 "optional": true
               },
               {
@@ -6242,10 +6321,10 @@
           {
             "kind": "union",
             "types": [
-              22,
-              23,
-              24,
-              25
+              30,
+              31,
+              32,
+              33
             ]
           },
           {
@@ -6283,47 +6362,6 @@
           {
             "kind": "literal",
             "value": "image"
-          },
-          {
-            "kind": "object",
-            "properties": [
-              {
-                "name": "attachment",
-                "type": 29,
-                "optional": false
-              },
-              {
-                "name": "type",
-                "type": 30,
-                "optional": false
-              }
-            ],
-            "indices": []
-          },
-          {
-            "kind": "object",
-            "properties": [
-              {
-                "name": "attachmentId",
-                "type": 3,
-                "optional": false
-              },
-              {
-                "name": "bytes",
-                "type": 5,
-                "optional": false
-              },
-              {
-                "name": "name",
-                "type": 3,
-                "optional": false
-              }
-            ],
-            "indices": []
-          },
-          {
-            "kind": "literal",
-            "value": "file"
           },
           {
             "kind": "object",
@@ -6400,23 +6438,28 @@
                 "optional": false
               },
               {
+                "name": "plugin:task-compaction-audit",
+                "type": 6,
+                "optional": true
+              },
+              {
                 "name": "provider",
                 "type": 3,
                 "optional": false
               },
               {
                 "name": "rawOutput",
-                "type": 6,
+                "type": 11,
                 "optional": true
               },
               {
                 "name": "shadowedRange",
-                "type": 31,
+                "type": 36,
                 "optional": false
               },
               {
                 "name": "shadowedSeqs",
-                "type": 32,
+                "type": 37,
                 "optional": false
               },
               {
@@ -6431,12 +6474,12 @@
               },
               {
                 "name": "summary",
-                "type": 6,
+                "type": 11,
                 "optional": false
               },
               {
                 "name": "usage",
-                "type": 33,
+                "type": 38,
                 "optional": true
               }
             ],
@@ -10823,6 +10866,1501 @@
           {
             "kind": "literal",
             "value": "plan/mode"
+          }
+        ]
+      }
+    },
+    {
+      "key": "event:plugin:codex/subscription-state",
+      "kind": "event",
+      "event": "plugin:codex/subscription-state",
+      "surface": false,
+      "digest": "49929f90c9abbd2863ff31c3a7239787785526a12b2e124379fb460d3c70af85",
+      "schema": {
+        "root": 0,
+        "nodes": [
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "data",
+                "type": 1,
+                "optional": false
+              },
+              {
+                "name": "ignorable",
+                "type": 33,
+                "optional": true
+              },
+              {
+                "name": "seq",
+                "type": 8,
+                "optional": false
+              },
+              {
+                "name": "time",
+                "type": 8,
+                "optional": false
+              },
+              {
+                "name": "type",
+                "type": 34,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "state",
+                "type": 2,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "activeThreadId",
+                "type": 3,
+                "optional": false
+              },
+              {
+                "name": "authGeneration",
+                "type": 3,
+                "optional": true
+              },
+              {
+                "name": "bootstrap",
+                "type": 6,
+                "optional": false
+              },
+              {
+                "name": "committedMessageId",
+                "type": 3,
+                "optional": false
+              },
+              {
+                "name": "cwd",
+                "type": 3,
+                "optional": false
+              },
+              {
+                "name": "dispatch",
+                "type": 10,
+                "optional": false
+              },
+              {
+                "name": "generation",
+                "type": 8,
+                "optional": false
+              },
+              {
+                "name": "lastAssistantSettlement",
+                "type": 16,
+                "optional": true
+              },
+              {
+                "name": "lastReconciliation",
+                "type": 18,
+                "optional": false
+              },
+              {
+                "name": "latestTurnId",
+                "type": 3,
+                "optional": false
+              },
+              {
+                "name": "pendingSync",
+                "type": 30,
+                "optional": false
+              },
+              {
+                "name": "retiredThreadIds",
+                "type": 32,
+                "optional": false
+              },
+              {
+                "name": "runtimeFingerprint",
+                "type": 3,
+                "optional": true
+              },
+              {
+                "name": "workspaceIdentity",
+                "type": 3,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "union",
+            "types": [
+              4,
+              5
+            ]
+          },
+          {
+            "kind": "primitive",
+            "type": "null"
+          },
+          {
+            "kind": "primitive",
+            "type": "string"
+          },
+          {
+            "kind": "union",
+            "types": [
+              4,
+              7
+            ]
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "fromMessageId",
+                "type": 3,
+                "optional": false
+              },
+              {
+                "name": "messageCount",
+                "type": 8,
+                "optional": false
+              },
+              {
+                "name": "toMessageId",
+                "type": 3,
+                "optional": false
+              },
+              {
+                "name": "truncated",
+                "type": 9,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "primitive",
+            "type": "number"
+          },
+          {
+            "kind": "primitive",
+            "type": "boolean"
+          },
+          {
+            "kind": "union",
+            "types": [
+              4,
+              11
+            ]
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "clientUserMessageId",
+                "type": 5,
+                "optional": true
+              },
+              {
+                "name": "cwd",
+                "type": 5,
+                "optional": false
+              },
+              {
+                "name": "dshStep",
+                "type": 8,
+                "optional": true
+              },
+              {
+                "name": "dshTurn",
+                "type": 8,
+                "optional": false
+              },
+              {
+                "name": "effort",
+                "type": 5,
+                "optional": false
+              },
+              {
+                "name": "inputHash",
+                "type": 5,
+                "optional": false
+              },
+              {
+                "name": "messageId",
+                "type": 5,
+                "optional": true
+              },
+              {
+                "name": "model",
+                "type": 5,
+                "optional": false
+              },
+              {
+                "name": "status",
+                "type": 12,
+                "optional": false
+              },
+              {
+                "name": "threadId",
+                "type": 5,
+                "optional": false
+              },
+              {
+                "name": "turnId",
+                "type": 3,
+                "optional": false
+              },
+              {
+                "name": "workspaceIdentity",
+                "type": 3,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "union",
+            "types": [
+              13,
+              14,
+              15
+            ]
+          },
+          {
+            "kind": "literal",
+            "value": "accepted"
+          },
+          {
+            "kind": "literal",
+            "value": "uncertain"
+          },
+          {
+            "kind": "literal",
+            "value": "intent"
+          },
+          {
+            "kind": "union",
+            "types": [
+              4,
+              17
+            ]
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "step",
+                "type": 8,
+                "optional": false
+              },
+              {
+                "name": "turn",
+                "type": 8,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "union",
+            "types": [
+              4,
+              19
+            ]
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "clientUserMessageId",
+                "type": 5,
+                "optional": false
+              },
+              {
+                "name": "cwd",
+                "type": 5,
+                "optional": false
+              },
+              {
+                "name": "dshStep",
+                "type": 8,
+                "optional": true
+              },
+              {
+                "name": "dshTurn",
+                "type": 8,
+                "optional": false
+              },
+              {
+                "name": "effort",
+                "type": 5,
+                "optional": false
+              },
+              {
+                "name": "inputHash",
+                "type": 5,
+                "optional": false
+              },
+              {
+                "name": "messageId",
+                "type": 5,
+                "optional": false
+              },
+              {
+                "name": "model",
+                "type": 5,
+                "optional": false
+              },
+              {
+                "name": "sideEffectCount",
+                "type": 8,
+                "optional": false
+              },
+              {
+                "name": "sideEffectKinds",
+                "type": 20,
+                "optional": false
+              },
+              {
+                "name": "status",
+                "type": 25,
+                "optional": false
+              },
+              {
+                "name": "threadId",
+                "type": 5,
+                "optional": false
+              },
+              {
+                "name": "turnId",
+                "type": 3,
+                "optional": false
+              },
+              {
+                "name": "workspaceIdentity",
+                "type": 3,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "array",
+            "element": 21
+          },
+          {
+            "kind": "union",
+            "types": [
+              22,
+              23,
+              24
+            ]
+          },
+          {
+            "kind": "literal",
+            "value": "commandExecution"
+          },
+          {
+            "kind": "literal",
+            "value": "fileChange"
+          },
+          {
+            "kind": "literal",
+            "value": "other"
+          },
+          {
+            "kind": "union",
+            "types": [
+              26,
+              27,
+              28,
+              29
+            ]
+          },
+          {
+            "kind": "literal",
+            "value": "completed"
+          },
+          {
+            "kind": "literal",
+            "value": "failed"
+          },
+          {
+            "kind": "literal",
+            "value": "interrupted"
+          },
+          {
+            "kind": "literal",
+            "value": "unknown"
+          },
+          {
+            "kind": "union",
+            "types": [
+              4,
+              31
+            ]
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "fromMessageId",
+                "type": 3,
+                "optional": false
+              },
+              {
+                "name": "hash",
+                "type": 5,
+                "optional": false
+              },
+              {
+                "name": "toMessageId",
+                "type": 5,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "array",
+            "element": 5
+          },
+          {
+            "kind": "literal",
+            "value": true
+          },
+          {
+            "kind": "literal",
+            "value": "plugin:codex/subscription-state"
+          }
+        ]
+      }
+    },
+    {
+      "key": "event:plugin:task/checkpoint",
+      "kind": "event",
+      "event": "plugin:task/checkpoint",
+      "surface": false,
+      "digest": "6badc6b9d384a1710c62c31555aba18021b26cdd1d68ff46e6d45e80ee1684f3",
+      "schema": {
+        "root": 0,
+        "nodes": [
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "data",
+                "type": 1,
+                "optional": false
+              },
+              {
+                "name": "ignorable",
+                "type": 66,
+                "optional": true
+              },
+              {
+                "name": "seq",
+                "type": 5,
+                "optional": false
+              },
+              {
+                "name": "time",
+                "type": 5,
+                "optional": false
+              },
+              {
+                "name": "type",
+                "type": 67,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "checkpoint",
+                "type": 2,
+                "optional": false
+              },
+              {
+                "name": "kind",
+                "type": 65,
+                "optional": false
+              },
+              {
+                "name": "version",
+                "type": 64,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "completedSteps",
+                "type": 3,
+                "optional": false
+              },
+              {
+                "name": "createdAt",
+                "type": 5,
+                "optional": false
+              },
+              {
+                "name": "currentStep",
+                "type": 14,
+                "optional": true
+              },
+              {
+                "name": "failureContext",
+                "type": 15,
+                "optional": true
+              },
+              {
+                "name": "lastActivityAt",
+                "type": 5,
+                "optional": false
+              },
+              {
+                "name": "lastSuccessAt",
+                "type": 5,
+                "optional": true
+              },
+              {
+                "name": "latestExecution",
+                "type": 47,
+                "optional": false
+              },
+              {
+                "name": "latestResume",
+                "type": 48,
+                "optional": true
+              },
+              {
+                "name": "latestRunId",
+                "type": 8,
+                "optional": false
+              },
+              {
+                "name": "modelRelation",
+                "type": 51,
+                "optional": false
+              },
+              {
+                "name": "originRunId",
+                "type": 8,
+                "optional": false
+              },
+              {
+                "name": "originalExecution",
+                "type": 47,
+                "optional": false
+              },
+              {
+                "name": "outputs",
+                "type": 50,
+                "optional": false
+              },
+              {
+                "name": "pendingSteps",
+                "type": 54,
+                "optional": false
+              },
+              {
+                "name": "resumeContext",
+                "type": 55,
+                "optional": false
+              },
+              {
+                "name": "revision",
+                "type": 5,
+                "optional": false
+              },
+              {
+                "name": "sessionId",
+                "type": 8,
+                "optional": false
+              },
+              {
+                "name": "status",
+                "type": 56,
+                "optional": false
+              },
+              {
+                "name": "taskId",
+                "type": 8,
+                "optional": false
+              },
+              {
+                "name": "taskType",
+                "type": 8,
+                "optional": false
+              },
+              {
+                "name": "version",
+                "type": 64,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "array",
+            "element": 4
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "completedAt",
+                "type": 5,
+                "optional": false
+              },
+              {
+                "name": "evidence",
+                "type": 6,
+                "optional": false
+              },
+              {
+                "name": "id",
+                "type": 8,
+                "optional": false
+              },
+              {
+                "name": "title",
+                "type": 8,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "primitive",
+            "type": "number"
+          },
+          {
+            "kind": "union",
+            "types": [
+              7,
+              10,
+              12
+            ]
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "callId",
+                "type": 8,
+                "optional": false
+              },
+              {
+                "name": "eventSeq",
+                "type": 5,
+                "optional": false
+              },
+              {
+                "name": "kind",
+                "type": 9,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "primitive",
+            "type": "string"
+          },
+          {
+            "kind": "literal",
+            "value": "tool-result"
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "kind",
+                "type": 11,
+                "optional": false
+              },
+              {
+                "name": "manifestRevision",
+                "type": 5,
+                "optional": false
+              },
+              {
+                "name": "outputId",
+                "type": 8,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "literal",
+            "value": "result-validation"
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "kind",
+                "type": 13,
+                "optional": false
+              },
+              {
+                "name": "reference",
+                "type": 8,
+                "optional": false
+              },
+              {
+                "name": "validator",
+                "type": 8,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "literal",
+            "value": "runtime-validation"
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "id",
+                "type": 8,
+                "optional": false
+              },
+              {
+                "name": "title",
+                "type": 8,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "currentStepId",
+                "type": 8,
+                "optional": true
+              },
+              {
+                "name": "failedAt",
+                "type": 5,
+                "optional": false
+              },
+              {
+                "name": "failedAttemptId",
+                "type": 8,
+                "optional": true
+              },
+              {
+                "name": "primaryError",
+                "type": 16,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "code",
+                "type": 17,
+                "optional": false
+              },
+              {
+                "name": "message",
+                "type": 8,
+                "optional": false
+              },
+              {
+                "name": "origin",
+                "type": 37,
+                "optional": false
+              },
+              {
+                "name": "providerRequestId",
+                "type": 8,
+                "optional": true
+              },
+              {
+                "name": "severity",
+                "type": 44,
+                "optional": false
+              },
+              {
+                "name": "time",
+                "type": 5,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "union",
+            "types": [
+              18,
+              19,
+              20,
+              21,
+              22,
+              23,
+              24,
+              25,
+              26,
+              27,
+              28,
+              29,
+              30,
+              31,
+              32,
+              33,
+              34,
+              35,
+              36
+            ]
+          },
+          {
+            "kind": "literal",
+            "value": "TOOL_FAILED"
+          },
+          {
+            "kind": "literal",
+            "value": "TRANSPORT"
+          },
+          {
+            "kind": "literal",
+            "value": "UNKNOWN"
+          },
+          {
+            "kind": "literal",
+            "value": "WORKER_CRASH"
+          },
+          {
+            "kind": "literal",
+            "value": "BLOCKED"
+          },
+          {
+            "kind": "literal",
+            "value": "CLIENT_CANCELLED"
+          },
+          {
+            "kind": "literal",
+            "value": "BACKEND_RESTARTED"
+          },
+          {
+            "kind": "literal",
+            "value": "CONTEXT_OVERFLOW"
+          },
+          {
+            "kind": "literal",
+            "value": "PROVIDER_TIMEOUT"
+          },
+          {
+            "kind": "literal",
+            "value": "GENERATION_STALLED"
+          },
+          {
+            "kind": "literal",
+            "value": "PROVIDER_UNAVAILABLE"
+          },
+          {
+            "kind": "literal",
+            "value": "INVALID_MODEL_CONFIG"
+          },
+          {
+            "kind": "literal",
+            "value": "RESOURCE_LIMIT"
+          },
+          {
+            "kind": "literal",
+            "value": "INVALID_REASONING_PARAMETER"
+          },
+          {
+            "kind": "literal",
+            "value": "MAX_TOKENS"
+          },
+          {
+            "kind": "literal",
+            "value": "MODEL_LOAD_FAILED"
+          },
+          {
+            "kind": "literal",
+            "value": "RETRY_FAILED"
+          },
+          {
+            "kind": "literal",
+            "value": "SESSION_INTERRUPTED"
+          },
+          {
+            "kind": "literal",
+            "value": "STREAM_DISCONNECTED"
+          },
+          {
+            "kind": "union",
+            "types": [
+              38,
+              39,
+              40,
+              41,
+              42,
+              43
+            ]
+          },
+          {
+            "kind": "literal",
+            "value": "backend"
+          },
+          {
+            "kind": "literal",
+            "value": "client"
+          },
+          {
+            "kind": "literal",
+            "value": "provider"
+          },
+          {
+            "kind": "literal",
+            "value": "session"
+          },
+          {
+            "kind": "literal",
+            "value": "tool"
+          },
+          {
+            "kind": "literal",
+            "value": "transport"
+          },
+          {
+            "kind": "union",
+            "types": [
+              45,
+              46
+            ]
+          },
+          {
+            "kind": "literal",
+            "value": "degraded"
+          },
+          {
+            "kind": "literal",
+            "value": "fatal"
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "backend",
+                "type": 8,
+                "optional": true
+              },
+              {
+                "name": "model",
+                "type": 8,
+                "optional": false
+              },
+              {
+                "name": "provider",
+                "type": 8,
+                "optional": false
+              },
+              {
+                "name": "requestedReasoning",
+                "type": 8,
+                "optional": true
+              },
+              {
+                "name": "resolvedReasoning",
+                "type": 8,
+                "optional": true
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "context",
+                "type": 49,
+                "optional": false
+              },
+              {
+                "name": "executionPlan",
+                "type": 50,
+                "optional": false
+              },
+              {
+                "name": "requestedAt",
+                "type": 5,
+                "optional": false
+              },
+              {
+                "name": "runId",
+                "type": 8,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "estimatedTokens",
+                "type": 5,
+                "optional": false
+              },
+              {
+                "name": "includedSections",
+                "type": 50,
+                "optional": false
+              },
+              {
+                "name": "maxTokens",
+                "type": 5,
+                "optional": false
+              },
+              {
+                "name": "omittedSections",
+                "type": 50,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "array",
+            "element": 8
+          },
+          {
+            "kind": "union",
+            "types": [
+              52,
+              53
+            ]
+          },
+          {
+            "kind": "literal",
+            "value": "model-changed"
+          },
+          {
+            "kind": "literal",
+            "value": "same-model"
+          },
+          {
+            "kind": "array",
+            "element": 14
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "constraints",
+                "type": 50,
+                "optional": false
+              },
+              {
+                "name": "criticalContext",
+                "type": 50,
+                "optional": false
+              },
+              {
+                "name": "decisions",
+                "type": 50,
+                "optional": false
+              },
+              {
+                "name": "objective",
+                "type": 8,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "union",
+            "types": [
+              57,
+              58,
+              59,
+              60,
+              61,
+              62,
+              63
+            ]
+          },
+          {
+            "kind": "literal",
+            "value": "blocked"
+          },
+          {
+            "kind": "literal",
+            "value": "cancelled"
+          },
+          {
+            "kind": "literal",
+            "value": "completed"
+          },
+          {
+            "kind": "literal",
+            "value": "failed"
+          },
+          {
+            "kind": "literal",
+            "value": "partial"
+          },
+          {
+            "kind": "literal",
+            "value": "paused"
+          },
+          {
+            "kind": "literal",
+            "value": "running"
+          },
+          {
+            "kind": "literal",
+            "value": 1
+          },
+          {
+            "kind": "literal",
+            "value": "task/checkpoint"
+          },
+          {
+            "kind": "literal",
+            "value": true
+          },
+          {
+            "kind": "literal",
+            "value": "plugin:task/checkpoint"
+          }
+        ]
+      }
+    },
+    {
+      "key": "event:plugin:task/result-manifest",
+      "kind": "event",
+      "event": "plugin:task/result-manifest",
+      "surface": false,
+      "digest": "135ec978cb5fe4be9e932d0723701422d408e7759fa9ba2c26d271954262c433",
+      "schema": {
+        "root": 0,
+        "nodes": [
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "data",
+                "type": 1,
+                "optional": false
+              },
+              {
+                "name": "ignorable",
+                "type": 23,
+                "optional": true
+              },
+              {
+                "name": "seq",
+                "type": 7,
+                "optional": false
+              },
+              {
+                "name": "time",
+                "type": 7,
+                "optional": false
+              },
+              {
+                "name": "type",
+                "type": 24,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "kind",
+                "type": 2,
+                "optional": false
+              },
+              {
+                "name": "manifest",
+                "type": 3,
+                "optional": false
+              },
+              {
+                "name": "version",
+                "type": 22,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "literal",
+            "value": "task/result-manifest"
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "checksum",
+                "type": 4,
+                "optional": true
+              },
+              {
+                "name": "completedAt",
+                "type": 7,
+                "optional": true
+              },
+              {
+                "name": "createdAt",
+                "type": 7,
+                "optional": false
+              },
+              {
+                "name": "execution",
+                "type": 8,
+                "optional": false
+              },
+              {
+                "name": "outputId",
+                "type": 6,
+                "optional": false
+              },
+              {
+                "name": "path",
+                "type": 6,
+                "optional": false
+              },
+              {
+                "name": "revision",
+                "type": 7,
+                "optional": false
+              },
+              {
+                "name": "runId",
+                "type": 6,
+                "optional": false
+              },
+              {
+                "name": "size",
+                "type": 7,
+                "optional": true
+              },
+              {
+                "name": "status",
+                "type": 9,
+                "optional": false
+              },
+              {
+                "name": "taskId",
+                "type": 6,
+                "optional": false
+              },
+              {
+                "name": "updatedAt",
+                "type": 7,
+                "optional": false
+              },
+              {
+                "name": "validation",
+                "type": 15,
+                "optional": false
+              },
+              {
+                "name": "version",
+                "type": 22,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "algorithm",
+                "type": 5,
+                "optional": false
+              },
+              {
+                "name": "value",
+                "type": 6,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "literal",
+            "value": "sha256"
+          },
+          {
+            "kind": "primitive",
+            "type": "string"
+          },
+          {
+            "kind": "primitive",
+            "type": "number"
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "backend",
+                "type": 6,
+                "optional": true
+              },
+              {
+                "name": "model",
+                "type": 6,
+                "optional": false
+              },
+              {
+                "name": "provider",
+                "type": 6,
+                "optional": false
+              },
+              {
+                "name": "requestedReasoning",
+                "type": 6,
+                "optional": true
+              },
+              {
+                "name": "resolvedReasoning",
+                "type": 6,
+                "optional": true
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "union",
+            "types": [
+              10,
+              11,
+              12,
+              13,
+              14
+            ]
+          },
+          {
+            "kind": "literal",
+            "value": "cancelled"
+          },
+          {
+            "kind": "literal",
+            "value": "completed"
+          },
+          {
+            "kind": "literal",
+            "value": "failed"
+          },
+          {
+            "kind": "literal",
+            "value": "partial"
+          },
+          {
+            "kind": "literal",
+            "value": "running"
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "checks",
+                "type": 16,
+                "optional": false
+              },
+              {
+                "name": "status",
+                "type": 20,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "array",
+            "element": 17
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "id",
+                "type": 6,
+                "optional": false
+              },
+              {
+                "name": "message",
+                "type": 6,
+                "optional": true
+              },
+              {
+                "name": "status",
+                "type": 18,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "union",
+            "types": [
+              12,
+              19
+            ]
+          },
+          {
+            "kind": "literal",
+            "value": "passed"
+          },
+          {
+            "kind": "union",
+            "types": [
+              12,
+              19,
+              21
+            ]
+          },
+          {
+            "kind": "literal",
+            "value": "pending"
+          },
+          {
+            "kind": "literal",
+            "value": 1
+          },
+          {
+            "kind": "literal",
+            "value": true
+          },
+          {
+            "kind": "literal",
+            "value": "plugin:task/result-manifest"
           }
         ]
       }
@@ -21829,6 +23367,20 @@
       "sources": []
     },
     {
+      "digest": "0487d76463a45b2b79cc1f113d3e83579016fd170c1e4673b123d291d07e5556",
+      "names": [
+        "packages/session/task-checkpoint/src/types.ts#ResultValidationCheck"
+      ],
+      "sources": [
+        "packages/session/task-checkpoint/src/types.ts:208"
+      ]
+    },
+    {
+      "digest": "04ad35ffe9ae7f563dce1c19bf0071515937e2546fc7d89ffbf300045c402a75",
+      "names": [],
+      "sources": []
+    },
+    {
       "digest": "05a2796621b1ee6c03ef7abe560b25116bb4da4d592312117242a78415a32b04",
       "names": [],
       "sources": []
@@ -21871,6 +23423,15 @@
       "digest": "09655b34d7f3cf1e9005974de2357de2d4a60deea165d16dac1eadaa6ec539a8",
       "names": [],
       "sources": []
+    },
+    {
+      "digest": "09a4807cea7d2204dba85cecb8f15d9e52defc516426383fb6c65afb87b20d9a",
+      "names": [
+        "packages/session/task-checkpoint/src/types.ts#TaskExecutionMetadata"
+      ],
+      "sources": [
+        "packages/session/task-checkpoint/src/types.ts:40"
+      ]
     },
     {
       "digest": "09f3f8dc417f278257202714132f98ba7b52957d7b558c4a04456603890eb363",
@@ -21922,6 +23483,11 @@
       ]
     },
     {
+      "digest": "0b79e25c0bace482a93798011e8646d339d42d0685a58807bcd23b685e9b792b",
+      "names": [],
+      "sources": []
+    },
+    {
       "digest": "0bcfaf5566d271028429ac7b562cb59053c9d78b8ae14708c35fac835108d1b1",
       "names": [],
       "sources": [
@@ -21944,6 +23510,11 @@
           }
         ]
       },
+      "names": [],
+      "sources": []
+    },
+    {
+      "digest": "0cf8b305bb456f0e6e4496002b843c9b1070027671197a073e08c5217e59948a",
       "names": [],
       "sources": []
     },
@@ -22058,6 +23629,11 @@
       ]
     },
     {
+      "digest": "135ec978cb5fe4be9e932d0723701422d408e7759fa9ba2c26d271954262c433",
+      "names": [],
+      "sources": []
+    },
+    {
       "digest": "1379f0b72275994d20f1ddca2d60a96ab16ec80397ca9f1af21bdc67ba5c269c",
       "names": [],
       "sources": []
@@ -22112,6 +23688,20 @@
       "sources": []
     },
     {
+      "digest": "161739d9d5195c68db1902a141ab98997c2c46e9278fa3d5f1af408b97aced36",
+      "names": [],
+      "sources": []
+    },
+    {
+      "digest": "167d764c0cfa5259d1cd5edd03c521022fe97a6da46e8ed423bcb833c9d9d7d7",
+      "names": [
+        "packages/session/task-checkpoint/src/types.ts#ResultValidation"
+      ],
+      "sources": [
+        "packages/session/task-checkpoint/src/types.ts:215"
+      ]
+    },
+    {
       "digest": "16d0507cb94b4cfc84a87446b1ba7652d6ec1d65ee1684789e747e30d542800e",
       "names": [],
       "sources": []
@@ -22126,6 +23716,29 @@
       "names": [],
       "sources": [
         "packages/core/session/src/types.ts:427"
+      ]
+    },
+    {
+      "digest": "182c443f17e9b064447d546cdeab903c9dfab871ac4176d30ad5f74a794b5b25",
+      "names": [],
+      "sources": []
+    },
+    {
+      "digest": "18367a22ff0e24f132a92a422584190396606199ca3daaff8ec2cd606167153c",
+      "names": [
+        "packages/core/agent-codex/src/types.ts#CodexSessionMappingEvent"
+      ],
+      "sources": [
+        "packages/core/agent-codex/src/types.ts:125"
+      ]
+    },
+    {
+      "digest": "1836a235a5d00c1e41109944a34333dafe022c954af50ccda740647a535d10c3",
+      "names": [
+        "packages/session/task-checkpoint/src/types.ts#RunErrorOrigin"
+      ],
+      "sources": [
+        "packages/session/task-checkpoint/src/types.ts:128"
       ]
     },
     {
@@ -22304,6 +23917,11 @@
       "sources": []
     },
     {
+      "digest": "1f2ef0dac8481048048adc3fb9a0e48089a269511de871bf9a09c79e29411098",
+      "names": [],
+      "sources": []
+    },
+    {
       "digest": "1f8c126cfab3df812cd115cfc23e3256f0fa2383400f4ce91ecad313577e59b0",
       "names": [
         "packages/core/session/src/types.ts#TurnEndCancelCause"
@@ -22337,6 +23955,11 @@
       "sources": [
         "packages/experimental/agent-team/src/types.ts:137"
       ]
+    },
+    {
+      "digest": "21efffbc276b0b1e4d91a48b9e963a51e44e96bf73e0f368b9594e292318eb12",
+      "names": [],
+      "sources": []
     },
     {
       "digest": "21fb6a90d5068f6a0003b7ab316ed2f56342477146a65c00db0f13c4d8df667d",
@@ -22534,6 +24157,11 @@
       ]
     },
     {
+      "digest": "307e057a3dcf74369bf953cf4fe5e911c42f0a71c680b19c7a66e354127d96ae",
+      "names": [],
+      "sources": []
+    },
+    {
       "digest": "30d5a537b296685770b1241c4b4bbde19d5a31ff81aa23df73fab5e90b8fc65f",
       "names": [
         "packages/session/session-title/src/types.ts#SessionTitleSource"
@@ -22585,8 +24213,13 @@
         "packages/core/session/src/types.ts#SurfaceOp"
       ],
       "sources": [
-        "packages/core/session/src/types.ts:462"
+        "packages/core/session/src/types.ts:468"
       ]
+    },
+    {
+      "digest": "3469e94a825d0dfab11f65e37a13a4a51e8269f34de8b7297ad2676ce31b6570",
+      "names": [],
+      "sources": []
     },
     {
       "digest": "34d1ab5c5df378186d6054b1a1beea9a41e41965d6f336f0bc0025c441a82e66",
@@ -22672,6 +24305,15 @@
       "sources": []
     },
     {
+      "digest": "3bc61db712117a60d632e6b1b07d199570b9e4c522c0c514499039b660a1c1ab",
+      "names": [
+        "packages/session/task-checkpoint/src/types.ts#ResultChecksum"
+      ],
+      "sources": [
+        "packages/session/task-checkpoint/src/types.ts:221"
+      ]
+    },
+    {
       "digest": "3bd652ebfa8726b3ce3937a4f1bd2759e02f86b3a08a20f9e41a8513656fbc5f",
       "names": [
         "packages/core/session/src/types.ts#OptionalSessionSeq"
@@ -22712,6 +24354,11 @@
       ]
     },
     {
+      "digest": "3d018379b192ccbe71478191b3e1230f0454f60918c6b4809b06b532e876c030",
+      "names": [],
+      "sources": []
+    },
+    {
       "digest": "3d7d07060a7be77984feb651ea2bf1925d3e0477911d9d3ed86330d1e8ca6182",
       "names": [
         "packages/feedback/message-feedback/src/types.ts#MessageFeedbackItem"
@@ -22721,12 +24368,24 @@
       ]
     },
     {
+      "digest": "3defe3a111b345f0df87563373811952a42c4348a748215e045ac87434e06e5f",
+      "names": [],
+      "sources": [
+        "packages/core/agent-codex/src/types.ts:132"
+      ]
+    },
+    {
       "digest": "3e0eff5946255ff05d88a10839c60305135801f97794ea48d409f8503303317e",
       "names": [],
       "sources": []
     },
     {
       "digest": "3e2ece4967cfebe95f450a93f45523dff99d6749f6269f2f60f84dfecfcf3693",
+      "names": [],
+      "sources": []
+    },
+    {
+      "digest": "3e3aec9fb7ad8bebaa8726f4ac3eeac043fa5c7e581b7ef8a279c22075bd82a1",
       "names": [],
       "sources": []
     },
@@ -22796,7 +24455,17 @@
       "sources": []
     },
     {
+      "digest": "44b95b53cf3b8da02d6cfc71015e5b9e79341491eedb48abba3de55b35255b2a",
+      "names": [],
+      "sources": []
+    },
+    {
       "digest": "44c8c77aa9aa100b0d74d2deee85474b29faa6eee0ac0f662f7abe9931ddd7f2",
+      "names": [],
+      "sources": []
+    },
+    {
+      "digest": "44d818dd3e1d47fbe7be882433002f6c0a9e11e97588e7421c8b9bb354d3222c",
       "names": [],
       "sources": []
     },
@@ -22811,6 +24480,11 @@
       "sources": [
         "packages/interaction/user-approval/src/types.ts:44"
       ]
+    },
+    {
+      "digest": "46da8e9d57fd5526420b53f5da29b089e6a9a932819fcf704cb9c7f5fe3b6597",
+      "names": [],
+      "sources": []
     },
     {
       "digest": "477614bca595a9e7adb5a1870be446b9a8684f3ba8950259d6289f2d3b74f028",
@@ -22852,6 +24526,11 @@
     },
     {
       "digest": "4991dfc415c9efebc36fa6969e1798c7d2e42396cc1e6e0ac7d7c89c5c5c4aea",
+      "names": [],
+      "sources": []
+    },
+    {
+      "digest": "49929f90c9abbd2863ff31c3a7239787785526a12b2e124379fb460d3c70af85",
       "names": [],
       "sources": []
     },
@@ -22931,6 +24610,11 @@
         "packages/schedule/schedule/src/types.ts#ScheduleId",
         "packages/session/session-title/src/index.ts#SessionTitleProviderId",
         "packages/session/session-title/src/types.ts#SessionTitleProviderId",
+        "packages/session/task-checkpoint/src/legacy-identity.ts#AttemptId",
+        "packages/session/task-checkpoint/src/legacy-identity.ts#RunId",
+        "packages/session/task-checkpoint/src/types.ts#TaskId",
+        "packages/session/task-checkpoint/src/types.ts#TaskOutputId",
+        "packages/session/task-checkpoint/src/types.ts#TaskStepId",
         "packages/webhook/webhook/src/brand.ts#WebhookDeliveryId",
         "packages/webhook/webhook/src/brand.ts#WebhookRuleId",
         "packages/webhook/webhook/src/brand.ts#WebhookSourceId",
@@ -22956,11 +24640,21 @@
         "packages/schedule/schedule/src/types.ts:14",
         "packages/session/session-title/src/index.ts:42",
         "packages/session/session-title/src/types.ts:17",
+        "packages/session/task-checkpoint/src/legacy-identity.ts:12",
+        "packages/session/task-checkpoint/src/legacy-identity.ts:15",
+        "packages/session/task-checkpoint/src/types.ts:22",
+        "packages/session/task-checkpoint/src/types.ts:25",
+        "packages/session/task-checkpoint/src/types.ts:28",
         "packages/webhook/webhook/src/brand.ts:12",
         "packages/webhook/webhook/src/brand.ts:6",
         "packages/webhook/webhook/src/brand.ts:9",
         "packages/workflow/workflow/src/types.ts:13"
       ]
+    },
+    {
+      "digest": "4d00c9456a6da238e77373d9351b7c73fc0513ac38d6ea862f3e82136529d3ca",
+      "names": [],
+      "sources": []
     },
     {
       "digest": "4e011753f8263f436efaabfbb3b4db53a98fc55342c5ded2daf7208b217be159",
@@ -23029,6 +24723,15 @@
       "sources": []
     },
     {
+      "digest": "517b58d98764cd311cacf11c5a9767d5afe35b4d04e1a266aade1b32d6042436",
+      "names": [
+        "packages/session/task-checkpoint/src/types.ts#RunErrorCode"
+      ],
+      "sources": [
+        "packages/session/task-checkpoint/src/types.ts:106"
+      ]
+    },
+    {
       "digest": "51edec100659da3a9bd9c3f6ba1180f5e64ec9a1585e5057080df45c180bd357",
       "names": [
         "packages/experimental/agent-team/src/types.ts#TeamTaskSnapshot"
@@ -23076,6 +24779,15 @@
       "sources": []
     },
     {
+      "digest": "53e23a1a9722adbfd1a9603de46ce49f0d8e0ba567aa0e9f0bb8229f90dbaf7c",
+      "names": [
+        "packages/session/task-checkpoint/src/types.ts#TaskCheckpoint"
+      ],
+      "sources": [
+        "packages/session/task-checkpoint/src/types.ts:152"
+      ]
+    },
+    {
       "digest": "54f9276a1617d7c12594722c89cfe864bcbe4517e9a6f9c98bab14f199a135e0",
       "names": [],
       "sources": [
@@ -23086,6 +24798,15 @@
       "digest": "557e148d30b79ee48645850832b30c717d7c3b64641deb5d6133b8b4e91ee0b8",
       "names": [],
       "sources": []
+    },
+    {
+      "digest": "559f07313a6598eb85705dd67d8e7afa6ee7b3d4cb1c40c55d31bbbf808424ff",
+      "names": [
+        "packages/session/task-checkpoint/src/types.ts#CompletedTaskStep"
+      ],
+      "sources": [
+        "packages/session/task-checkpoint/src/types.ts:76"
+      ]
     },
     {
       "digest": "5654685d7557ec747e74887237065e626a5bdfa426ca43f7fbb0b6fee9b0916c",
@@ -23105,7 +24826,7 @@
       "sources": []
     },
     {
-      "digest": "576a2de8355eb09850963ff5953420b172e274d9283666eb7d889097db120796",
+      "digest": "57642d49abd6ad289a01ec31be22d07082e99b527df4b3956cd659da98023391",
       "names": [],
       "sources": []
     },
@@ -23155,6 +24876,11 @@
     },
     {
       "digest": "5abab3a27fd2736660ecddd94b28d6bbf114986dd894880153bd1be3ccacb563",
+      "names": [],
+      "sources": []
+    },
+    {
+      "digest": "5ac756dd2acfb191728776e725f2588bfb5f8d75e0c85b326e8011eb61212e10",
       "names": [],
       "sources": []
     },
@@ -23216,10 +24942,22 @@
       "sources": []
     },
     {
+      "digest": "5d8286ff7cbfbc640cc82bd0d05f21fc5e5277e51cbe5be6e5c4226c3b23206d",
+      "names": [],
+      "sources": []
+    },
+    {
       "digest": "5dd766ccd1702a1142ad8b4bd44f2242f8e8a6752669ad3de0a5d224329b1438",
       "names": [],
       "sources": [
-        "packages/compaction/compaction/src/types.ts:82"
+        "packages/compaction/compaction/src/types.ts:84"
+      ]
+    },
+    {
+      "digest": "5e6ac684ae4fc195741d9c0f222f1242d920ff951605245af65ae7dd3bda26f8",
+      "names": [],
+      "sources": [
+        "packages/core/agent-codex/src/types.ts:38"
       ]
     },
     {
@@ -23261,7 +24999,21 @@
       "sources": []
     },
     {
+      "digest": "60eb66a1297316bd6ea1a632868032f85901a17c93ee8dfcc5598f9c3b750d36",
+      "names": [
+        "packages/session/task-checkpoint/src/types.ts#TaskStatus"
+      ],
+      "sources": [
+        "packages/session/task-checkpoint/src/types.ts:37"
+      ]
+    },
+    {
       "digest": "611cae9a3539733aa0c42f66035a7d90f19dcbbdfb5d9e3b628b13705253942d",
+      "names": [],
+      "sources": []
+    },
+    {
+      "digest": "613b6fa56286680d14c6572beda69e5c0dddf2b1347f5745102749b5cb14d84b",
       "names": [],
       "sources": []
     },
@@ -23272,6 +25024,11 @@
     },
     {
       "digest": "6178f1edcb23f361f2a6cb2c859b1c2187220d5695ece4a3400e0d92845a7178",
+      "names": [],
+      "sources": []
+    },
+    {
+      "digest": "628813059763a83092e93fab39a799226cdc45f4a275563af2543d38f946b4ac",
       "names": [],
       "sources": []
     },
@@ -23289,6 +25046,13 @@
       "digest": "62ecb62dc0fe1b5e70217f8a80c39256a40ee3a1917be14e5ca899d20c35f7fd",
       "names": [],
       "sources": []
+    },
+    {
+      "digest": "635503442aec85772d4b39753f484a6268f52d1633382ed4efa005871cb48ce6",
+      "names": [],
+      "sources": [
+        "packages/core/agent-codex/src/types.ts:20"
+      ]
     },
     {
       "digest": "6487b10ba7542f3c447b1e41a1c6a590b7bfafe0b9b66b49f34028da85bb970f",
@@ -23350,6 +25114,11 @@
       "sources": []
     },
     {
+      "digest": "686831008b4e0931328cf6fc59211ed6a890670cc0c76a8a7900b7688ad92760",
+      "names": [],
+      "sources": []
+    },
+    {
       "digest": "688e853dc149f0d30b31765c12ec7e3be74169bdf1a4c6463a10b945d50cc1b8",
       "names": [],
       "sources": []
@@ -23377,6 +25146,11 @@
       "sources": []
     },
     {
+      "digest": "6a4e95c56a13583849abcd4a88a6c2616d70c36384b937dcd0dd6332d1aad405",
+      "names": [],
+      "sources": []
+    },
+    {
       "digest": "6a4f72e2e179e17b922f2a9392c0e1c8f8c707f32494372454850a3eb184a6e7",
       "names": [],
       "sources": [
@@ -23390,6 +25164,11 @@
     },
     {
       "digest": "6b23ed9ce1b397e602788dbe033693bf97642a69e23fcab1cc45bf6f13b6d619",
+      "names": [],
+      "sources": []
+    },
+    {
+      "digest": "6badc6b9d384a1710c62c31555aba18021b26cdd1d68ff46e6d45e80ee1684f3",
       "names": [],
       "sources": []
     },
@@ -23410,10 +25189,28 @@
       ]
     },
     {
+      "digest": "6bd4d6c17ff6add6cce0d9a95865703bf0cae82442ffb8ca22a2d76c7ee3084b",
+      "names": [
+        "packages/session/task-checkpoint/src/types.ts#TaskResumeRecord"
+      ],
+      "sources": [
+        "packages/session/task-checkpoint/src/types.ts:98"
+      ]
+    },
+    {
       "digest": "6c03546143cdf6ae88f1745ac98c5139efa1588d1415249bbc5f3104d32ab800",
       "names": [],
       "sources": [
         "packages/core/session/src/types.ts:191"
+      ]
+    },
+    {
+      "digest": "6c19a5813ee809690dc0d9077352adebcf621b108b90e238f65f23ce0457f5f8",
+      "names": [
+        "packages/session/task-checkpoint/src/domain.ts#TaskCheckpointEventData"
+      ],
+      "sources": [
+        "packages/session/task-checkpoint/src/domain.ts:11"
       ]
     },
     {
@@ -23457,6 +25254,11 @@
     },
     {
       "digest": "6f091fe32ab24407236090ca9d710bbaf59bb57466e9f3b8f1f6e4862bc863c6",
+      "names": [],
+      "sources": []
+    },
+    {
+      "digest": "6f0badcfe6917cda69ec0c0f1ab46ee4611daad946a825b062038ed79240fa63",
       "names": [],
       "sources": []
     },
@@ -23520,6 +25322,11 @@
       ]
     },
     {
+      "digest": "72b5d4eccb55ed22989b24719e0dd5443115df3928d744d6a97ae9e53061b56a",
+      "names": [],
+      "sources": []
+    },
+    {
       "digest": "72ec79127a9c0d0241b1106a74cc2b24c81ce467170f1c3c93f7b71a9496d227",
       "names": [],
       "sources": []
@@ -23536,6 +25343,11 @@
     },
     {
       "digest": "756b5e23a5cb2c7f486f366a828f7461c88902af21125bd6810881f4ccbff6cc",
+      "names": [],
+      "sources": []
+    },
+    {
+      "digest": "761ee9e278671bdc2173afcc953eed01544672e5aa1bfa85bfab9fc1f2fd6543",
       "names": [],
       "sources": []
     },
@@ -23567,6 +25379,20 @@
       ]
     },
     {
+      "digest": "799231ac91869a6695666505343003905638e1b4d11349bff953d4dbfe3191ba",
+      "names": [],
+      "sources": []
+    },
+    {
+      "digest": "79c30a29651335548498a53a8c2523d2002786979061f9dbcb8595d60fa0794d",
+      "names": [
+        "packages/session/task-checkpoint/src/types.ts#TaskResumeContext"
+      ],
+      "sources": [
+        "packages/session/task-checkpoint/src/types.ts:82"
+      ]
+    },
+    {
       "digest": "79ddc907312f97cf9553d4841e8b3fc937097bd8d97900a790efad3c05255e99",
       "names": [],
       "sources": [
@@ -23580,6 +25406,20 @@
     },
     {
       "digest": "7af85bf70d4eafce63e739adae38ea85501e68df3a0e22f97f3a0be90fd9e4cb",
+      "names": [],
+      "sources": []
+    },
+    {
+      "digest": "7b32f77e4f15b2b2d2dc419561a9c86e8beed7b9e6be94741505e8dc0257f2c7",
+      "names": [
+        "packages/session/task-checkpoint/src/types.ts#ResultManifestStatus"
+      ],
+      "sources": [
+        "packages/session/task-checkpoint/src/types.ts:205"
+      ]
+    },
+    {
+      "digest": "7b52f81924a917332046e8af931b6ca8b932057a4974d0b1768a7f130c7a8b1f",
       "names": [],
       "sources": []
     },
@@ -23663,6 +25503,13 @@
       ]
     },
     {
+      "digest": "7ff9a98855cb1593667af97db38ebac7db34dd4430e46cee667a2c6f955d53c3",
+      "names": [],
+      "sources": [
+        "packages/session/task-checkpoint/src/types.ts:64"
+      ]
+    },
+    {
       "digest": "8064c03c87c357fd1575cb9395ce86e6dcbe2d275bf7717864a02cddf01827d5",
       "names": [
         "packages/llm/llm/src/types.ts#ContentBlock"
@@ -23719,6 +25566,11 @@
     },
     {
       "digest": "8338ee303e2bd448e9e6144069942f63e3cfd5868962bddc9347d7009e8919d6",
+      "names": [],
+      "sources": []
+    },
+    {
+      "digest": "8373d27425808f8b5eaa2cdc700015fe89da2af8927cd87644639d2b912ea4fd",
       "names": [],
       "sources": []
     },
@@ -23825,6 +25677,11 @@
       ]
     },
     {
+      "digest": "896a53799f852752e8439bd21d17306f49d11421e60b0e9e2e4aa85102a55c72",
+      "names": [],
+      "sources": []
+    },
+    {
       "digest": "8a046b52331959aa3394680d6acbe09b8a5447c6b61375f263445bfcef19b7f1",
       "names": [],
       "sources": []
@@ -23906,6 +25763,11 @@
       ]
     },
     {
+      "digest": "8ed86955a379bd8c5c9af815e14cded028ab02637b6a802a65494ad0ccc3df1e",
+      "names": [],
+      "sources": []
+    },
+    {
       "digest": "8f324cea3916c0517261e88167def8efb3a9994c1135e23d40ed9fd48f8c7bd4",
       "names": [],
       "sources": []
@@ -23928,6 +25790,11 @@
       "sources": []
     },
     {
+      "digest": "9191771d5f5523af363ba114f09ddddf19bc5fd1744608f0adc587727abae835",
+      "names": [],
+      "sources": []
+    },
+    {
       "digest": "930a6567a10bb62ddd157bd8abdf4b182810c8c3b49d91309b3b009a5fed9731",
       "names": [],
       "sources": [
@@ -23945,6 +25812,11 @@
     },
     {
       "digest": "935c8d486292b13c87b57ca280eb8c58b5b2f5239be86fcd4334c33fdeb87682",
+      "names": [],
+      "sources": []
+    },
+    {
+      "digest": "9377b8a9b2aaa261d9daae8325faaa6b4abe49e606bed19998740016975c99fd",
       "names": [],
       "sources": []
     },
@@ -24007,6 +25879,11 @@
       ]
     },
     {
+      "digest": "97c28174a2636af2655da40af8853222a4153b39d4f6b59a00c7d7dbcdbf485a",
+      "names": [],
+      "sources": []
+    },
+    {
       "digest": "9890113e97dd3541787bfe6704f2b223d3a890b5325ca0acae2b0398909b413e",
       "names": [],
       "sources": [
@@ -24019,12 +25896,12 @@
       "sources": []
     },
     {
-      "digest": "9947aa5938fe19a895298da412917acbf9ffb5093a73ab8baa257e6ae9e63a07",
+      "digest": "998f22585a5d73ec005365e203f07fc3b3a029e82323fdda3fd7f13b0a9639d0",
       "names": [],
       "sources": []
     },
     {
-      "digest": "998f22585a5d73ec005365e203f07fc3b3a029e82323fdda3fd7f13b0a9639d0",
+      "digest": "99accc4c5b6b8951697d38d79f6012b5b5b325a4b82faa077ae57785ddb55a76",
       "names": [],
       "sources": []
     },
@@ -24037,6 +25914,13 @@
       "digest": "99f0e98184709ad10f27bfdeaafb4457d9d2b413f402331764798cdb7d3cbe4d",
       "names": [],
       "sources": []
+    },
+    {
+      "digest": "99fe5d1027e0998606ea3eafa5a8db02227419906503893710b8d3a49dcb165d",
+      "names": [],
+      "sources": [
+        "packages/core/agent-codex/src/types.ts:59"
+      ]
     },
     {
       "digest": "9a2a9029f8d7ede05336980d8342737557f487b913bfd28853d0ab5214600ab5",
@@ -24079,6 +25963,11 @@
       "sources": []
     },
     {
+      "digest": "9c47c7ffe5dcfdc01dbbc7306ae73ca9acfc14db128a7da501b92caf3673d155",
+      "names": [],
+      "sources": []
+    },
+    {
       "digest": "9d80129e13edfb6feb03ed327e6085c6ef60b97ad074244b2f5fd4667424a6a4",
       "names": [],
       "sources": []
@@ -24098,7 +25987,7 @@
       "names": [],
       "sources": [
         "packages/compaction/compaction/src/types.ts:38",
-        "packages/compaction/compaction/src/types.ts:84"
+        "packages/compaction/compaction/src/types.ts:86"
       ]
     },
     {
@@ -24193,6 +26082,11 @@
       ]
     },
     {
+      "digest": "a42d04a8d2e024f02eaec433e68752d8d7fe579371091e1df18b686f457083c7",
+      "names": [],
+      "sources": []
+    },
+    {
       "digest": "a5d80b5a2f3a6bbaf8f0334126632b78f94d8346122c68e8122ea89906d63d26",
       "names": [],
       "sources": [
@@ -24248,6 +26142,11 @@
       ]
     },
     {
+      "digest": "a87ab45ffc753b89b04b651519a0722b909f0b2cba6b8ec982d8c0d0a3223eaa",
+      "names": [],
+      "sources": []
+    },
+    {
       "digest": "a8a2b9011fc067862df7ce40748868467e5778283d7ac193c13f77684a914c57",
       "names": [],
       "sources": []
@@ -24265,11 +26164,6 @@
       "sources": [
         "packages/schedule/schedule/src/types.ts:173"
       ]
-    },
-    {
-      "digest": "a99ec0993c62c058e50af9f68922202a3b54f5e259bc2abf1915a73381d2316d",
-      "names": [],
-      "sources": []
     },
     {
       "digest": "a99f76fd149051c363f960bfeeb5b9509587ecaf7591a42797e4bfe810d8987a",
@@ -24300,9 +26194,23 @@
       ]
     },
     {
+      "digest": "aa806c7621072879c0f154869f5fad8207dfe2fd3d69c6dadc9547567b8fdc10",
+      "names": [],
+      "sources": []
+    },
+    {
       "digest": "aa93010d0e521ad7c42273f58d5c9b8bf1dfc94edf1b805a3971b364a35c1877",
       "names": [],
       "sources": []
+    },
+    {
+      "digest": "aabbdecaa3d2878a31da50d921877873e21dd4fe15b76604ea41b724fd9fbae3",
+      "names": [
+        "packages/session/task-checkpoint/src/domain.ts#ResultManifestEventData"
+      ],
+      "sources": [
+        "packages/session/task-checkpoint/src/domain.ts:18"
+      ]
     },
     {
       "digest": "aacda84a69739238aa782eea902d3073017d9d74b9808de2bf5a83c9738cbdc6",
@@ -24383,6 +26291,11 @@
       "sources": []
     },
     {
+      "digest": "aefd643d5ec229e931c09abf14d1c2c8a09d187fbe5b9e82913f40e554b3ff30",
+      "names": [],
+      "sources": []
+    },
+    {
       "digest": "af0750d32d97d47b12b7361a587db41894b17e04c9a805fe212f0114aa2248c7",
       "names": [],
       "sources": []
@@ -24458,6 +26371,13 @@
       "sources": []
     },
     {
+      "digest": "b2a87173bdd0a1c09a2b9b8c39b4d696299c26d0113026a248bfd339a51ae729",
+      "names": [],
+      "sources": [
+        "packages/session/task-checkpoint/src/types.ts:59"
+      ]
+    },
+    {
       "digest": "b2d2a01e51341a3bfec809198952c8c830a7899f4cb6ecd3c1dc0b5d9a2af943",
       "names": [
         "packages/experimental/agent-team/src/types.ts#TeamTaskStatus"
@@ -24478,6 +26398,11 @@
     },
     {
       "digest": "b4ec0af39fd52ed971990e42f04e5be3204882e555c409eb330f8238eec21569",
+      "names": [],
+      "sources": []
+    },
+    {
+      "digest": "b4f3f79ad6de6c5518c7bdd1ab89553ee875af8fc7ab301b7bcd85b489c2f75c",
       "names": [],
       "sources": []
     },
@@ -24550,6 +26475,13 @@
       "digest": "b765ee31033cea463863faf3fc6a0a1b85c47c6a2f13fe1ce833abe56105114b",
       "names": [],
       "sources": []
+    },
+    {
+      "digest": "b7892f7abbc464976e0739d5763903fd378614e3ec1518f51e388e505009a6bb",
+      "names": [],
+      "sources": [
+        "packages/session/task-checkpoint/src/types.ts:69"
+      ]
     },
     {
       "digest": "b79641a9d25e756636dc0c706fdf3c4583ccb7d4920e009e6e86c0759cf4de4c",
@@ -24650,7 +26582,7 @@
       "digest": "bcf0caf62d964b2fcf5404bd5c909cfa9a21c3f3c96e6b7e36d9e33565223825",
       "names": [],
       "sources": [
-        "packages/core/session/src/types.ts:464"
+        "packages/core/session/src/types.ts:470"
       ]
     },
     {
@@ -24659,7 +26591,22 @@
       "sources": []
     },
     {
+      "digest": "be1bf0647deeec78a74dc010825f20b4060c5dc4b17d8d0cbce1fab3850d15e9",
+      "names": [],
+      "sources": []
+    },
+    {
+      "digest": "bec10a920b94070a76cb3b2f555bd88cc57f45b6e865badb98cd3c38d2d55b52",
+      "names": [],
+      "sources": []
+    },
+    {
       "digest": "bf16d2e98a7f13894ded2cffe5ce857bf473954a0e3c0ed9bc7739e2e1c7b78a",
+      "names": [],
+      "sources": []
+    },
+    {
+      "digest": "c03faab102a624950b4f0eb65fe26f4ce5372945e291a8855e987b04131f0127",
       "names": [],
       "sources": []
     },
@@ -24697,6 +26644,11 @@
     },
     {
       "digest": "c219efbdfd53b836786202ab4532913d555798f0a8615a4e9629736e3799fb70",
+      "names": [],
+      "sources": []
+    },
+    {
+      "digest": "c225c8f4152f358ab2fa0c120655aa3513b33b6139b50359c7e710b6d3881b10",
       "names": [],
       "sources": []
     },
@@ -24746,7 +26698,26 @@
       ]
     },
     {
+      "digest": "c6e4fa548c431804f6adebfaed3e343205c813699d2a191f990a7b1133e8c5ba",
+      "names": [],
+      "sources": []
+    },
+    {
+      "digest": "c6f48bedc81bd115c76c5edab192d92e80b5a858c297c090575812e6bea41e35",
+      "names": [
+        "packages/session/task-checkpoint/src/types.ts#TaskStep"
+      ],
+      "sources": [
+        "packages/session/task-checkpoint/src/types.ts:52"
+      ]
+    },
+    {
       "digest": "c748fb42c80a120038a8c587af80ec39924803c401364db11c8974d5bf6d0262",
+      "names": [],
+      "sources": []
+    },
+    {
+      "digest": "c7b823b0cc5285d87bf4d4b156995d715fd2fe4734217b4714ba9c21bbff9ded",
       "names": [],
       "sources": []
     },
@@ -24769,8 +26740,22 @@
       "digest": "ca59530d1a4f3e191b4032bc4a20eded0d827db8b5a7efb27b3af9e9b456c6f2",
       "names": [],
       "sources": [
-        "packages/compaction/compaction/src/types.ts:72"
+        "packages/compaction/compaction/src/types.ts:74"
       ]
+    },
+    {
+      "digest": "caa4e154cdbf350f67bde214bd56d23c335a45f9bec137a03a53c511680bf1cb",
+      "names": [
+        "packages/session/task-checkpoint/src/types.ts#TaskResumeContextBudget"
+      ],
+      "sources": [
+        "packages/session/task-checkpoint/src/types.ts:90"
+      ]
+    },
+    {
+      "digest": "cafc40bd39a51dc2ab8d150c1da824d48dd8c3bb78cc8bc9806fc93926caa8f5",
+      "names": [],
+      "sources": []
     },
     {
       "digest": "cb1c8959e1726f82f9a3d2ef2bc90bf8c451a98fd56175e956022124c770c818",
@@ -24842,7 +26827,17 @@
       "sources": []
     },
     {
+      "digest": "d1b524d018e5d505491bd0b7bdebc0b89b938b9329d7d2c13da69174a79c2f7a",
+      "names": [],
+      "sources": []
+    },
+    {
       "digest": "d28765f87d6b6ab408e0b2f3e7e297791b004b806d8e302c49903ebae815feb2",
+      "names": [],
+      "sources": []
+    },
+    {
+      "digest": "d3a2e34fcfd4682e19d37cbf72da4788dba6817dc6169022919e7419c3c7bdd0",
       "names": [],
       "sources": []
     },
@@ -24859,12 +26854,22 @@
       "sources": []
     },
     {
+      "digest": "d5252d2b19d2b956074415606b9dd0309317dceb57aa6981ea8e8adddcce799b",
+      "names": [],
+      "sources": []
+    },
+    {
       "digest": "d595ec73b32b016a6055333c67a5d646032b22e672da1d4a09c5b1ae398a093a",
       "names": [],
       "sources": []
     },
     {
       "digest": "d63b8b8ffad9c02fd80c43a17df4f240c1fe8118ecca9de34f9d5871838ab5b9",
+      "names": [],
+      "sources": []
+    },
+    {
+      "digest": "d69b5fcc36de1dbe6274622137f5ae2ebb9beb9747bf73576c0cddf0bcaac988",
       "names": [],
       "sources": []
     },
@@ -24896,6 +26901,15 @@
       "digest": "d9edf1862e4471d6ad8a106a3f4160e0643874368707d50ecd8e27e5ee7a2567",
       "names": [],
       "sources": []
+    },
+    {
+      "digest": "da2744a5f23869cf7d13fadf47bcba259116900f564103fb9f29ba0a23d7be84",
+      "names": [
+        "packages/session/task-checkpoint/src/types.ts#TaskModelRelation"
+      ],
+      "sources": [
+        "packages/session/task-checkpoint/src/types.ts:49"
+      ]
     },
     {
       "digest": "dacf3d5f3e4ff619c1320e64a48dec5e7ecd7870bece65fbd449a0e63adfa521",
@@ -24955,6 +26969,11 @@
       "sources": []
     },
     {
+      "digest": "de8bdf6ff490e360b2362f7ee924cecfab4bfb03727c9c3d5c5d047bf9884b13",
+      "names": [],
+      "sources": []
+    },
+    {
       "digest": "deaae5cd30987d4f49398e8f9d994c125907e7f928300745fb1dbf15f145d0e7",
       "names": [],
       "sources": []
@@ -24979,7 +26998,38 @@
       ]
     },
     {
+      "digest": "dfee98e89d46784598fb59f3ae50a1ccef5dda53145fc0bb887dbc874834c9f0",
+      "names": [
+        "packages/session/task-checkpoint/src/types.ts#TaskFailureContext"
+      ],
+      "sources": [
+        "packages/session/task-checkpoint/src/types.ts:141"
+      ]
+    },
+    {
       "digest": "e0a787e6ec76c7c94fecbc501b489164ab0293db05bc947914077ad01e674f05",
+      "names": [],
+      "sources": []
+    },
+    {
+      "digest": "e2439afcb5533ee220b04ddc17fbaf80c64da2855fac2949435a847df5d43e89",
+      "names": [],
+      "sources": [
+        "packages/core/agent-codex/src/types.ts:15"
+      ]
+    },
+    {
+      "digest": "e24819e460f57c9c658fcd3269cb5888dbc4788447846dbcf0b33793d96c2d99",
+      "names": [],
+      "sources": []
+    },
+    {
+      "digest": "e2a3508382493cf2c9b19f80d2950396e6684034eae969115b1df75e4168d722",
+      "names": [],
+      "sources": []
+    },
+    {
+      "digest": "e2abde1e1f0e37588e851cec9ff949080b0c9902b250b090499b5a0efdaf9c2a",
       "names": [],
       "sources": []
     },
@@ -24994,11 +27044,6 @@
       "sources": []
     },
     {
-      "digest": "e2f9a41e0989f54ed8cee80f8db2bcf9d60a5c810dc9d45b83fa050b9dce7602",
-      "names": [],
-      "sources": []
-    },
-    {
       "digest": "e308ccf867a5398e316e0af8cb6ce238a8d33a63b9b384c8250a686786285f72",
       "names": [],
       "sources": []
@@ -25007,6 +27052,15 @@
       "digest": "e31572180d6b28b73f073ad30ae19d5d82982d3daf984723984e23da1e7c459a",
       "names": [],
       "sources": []
+    },
+    {
+      "digest": "e3ab599c78bf09c2dacf1bd27eceb6a5de160580c2e4dc785b6d8abf8b4b3698",
+      "names": [
+        "packages/session/task-checkpoint/src/types.ts#ClassifiedRunError"
+      ],
+      "sources": [
+        "packages/session/task-checkpoint/src/types.ts:131"
+      ]
     },
     {
       "digest": "e3e77b26f0148755a505f5b8ea843a3be117827d4703bb5754d9dc8ddbef521f",
@@ -25029,11 +27083,21 @@
       "sources": []
     },
     {
+      "digest": "e479de5bf00c4f95dbe18327f509d054e41906f3f208c460d7687d2472c52e11",
+      "names": [],
+      "sources": []
+    },
+    {
       "digest": "e481c46af3813e0010558e93f578b2986acd658404cec2d1679e3ac2a6c48654",
       "names": [],
       "sources": [
         "packages/core/session/src/types.ts:297"
       ]
+    },
+    {
+      "digest": "e4b9d3f8fc0680f015f12322ac3cacc61a9813c1686293f9d005e1f46a4d3c45",
+      "names": [],
+      "sources": []
     },
     {
       "digest": "e4c18e294232c3ba6c9f1999f168263cc55956147cfe4121720899be8e52edd1",
@@ -25044,6 +27108,11 @@
     },
     {
       "digest": "e4cac694f8b6e1d52e48c699464f1c4c26111ef87e558f7931040d00fdc8d486",
+      "names": [],
+      "sources": []
+    },
+    {
+      "digest": "e5244812c495a80c2e78ba2c2690dca5f6b58ea8d3fe5531ff94a6f9ac5e5d66",
       "names": [],
       "sources": []
     },
@@ -25060,6 +27129,11 @@
       "sources": [
         "packages/schedule/schedule/src/types.ts:244"
       ]
+    },
+    {
+      "digest": "e610e3d1e8ab798766839d895ff3d727d6ae1bca2d569bd88f49c6f7977a6830",
+      "names": [],
+      "sources": []
     },
     {
       "digest": "e6411b09c1d982f789bf741ca74e2bea69df56029847f86a6148e722039ee732",
@@ -25118,6 +27192,11 @@
       ]
     },
     {
+      "digest": "eba4ef3dc75c03d28ca3dfec5737f46c295e740175d98d359249fcc91bcf8f15",
+      "names": [],
+      "sources": []
+    },
+    {
       "digest": "ebb768d85ec87fb68e42fc14fd7d8535b5ac11791b14d04c6770180f0a719bf8",
       "names": [],
       "sources": []
@@ -25133,6 +27212,11 @@
       "sources": [
         "packages/core/session/src/types.ts:228"
       ]
+    },
+    {
+      "digest": "ed4fe34b0b5616baebedfaba34e7494280e91024df89640a7f05e481439e89c8",
+      "names": [],
+      "sources": []
     },
     {
       "digest": "edbbfff1128099fda7b792c56330d2cb04debc9790988e66d1c3f4026e813e0e",
@@ -25162,6 +27246,7 @@
       "digest": "ef11a3b7fa2033ae4279545ff8a8a2ee4e301b9b73e5b91654c48e6d08283545",
       "names": [],
       "sources": [
+        "packages/core/agent-codex/src/types.ts:55",
         "packages/core/session/src/types.ts:299",
         "packages/core/session/src/types.ts:301"
       ]
@@ -25224,6 +27309,15 @@
       "digest": "f29d63336e8266d80dd7baeab219436db86341304f6be1cd0edb36f5134c4a47",
       "names": [],
       "sources": []
+    },
+    {
+      "digest": "f2c11764875bcfb18d483bed6b14a795c94261758e96fdde7f2df3300565a722",
+      "names": [
+        "packages/session/task-checkpoint/src/types.ts#ResultManifest"
+      ],
+      "sources": [
+        "packages/session/task-checkpoint/src/types.ts:227"
+      ]
     },
     {
       "digest": "f2da0f27c1e6add59982c37b15e4a4912c5b33466859cce3b13d503600e24aef",
@@ -25298,6 +27392,11 @@
       "sources": []
     },
     {
+      "digest": "f7e08b538ae2a8063678f1c928299cb52ffa14f915d1875deb13c6e09ac1e4a4",
+      "names": [],
+      "sources": []
+    },
+    {
       "digest": "f88f1b7b6bb733f685f5fb6a8744a5db9199fa53c90463ea1a33bad51153671d",
       "names": [],
       "sources": []
@@ -25319,6 +27418,15 @@
       "digest": "f9cfc89e8fe085b4fcc9cd32b74b6f103608c54d7d8cd97b47c01de34f252ba3",
       "names": [],
       "sources": []
+    },
+    {
+      "digest": "fa3760763588d07e697200464c2355f7675a50fc91bb31342e82fe6d7d449b11",
+      "names": [
+        "packages/session/task-checkpoint/src/types.ts#TaskStepCompletionEvidence"
+      ],
+      "sources": [
+        "packages/session/task-checkpoint/src/types.ts:58"
+      ]
     },
     {
       "digest": "fa87537f4a9c1e25602990a8bf686b383e9e00352ec8946e16ae24ba7c1625be",
@@ -25366,6 +27474,11 @@
       "sources": [
         "packages/skill/tool-skill/src/index.ts:34"
       ]
+    },
+    {
+      "digest": "fc868ab72ec9f38e6bb3f5b6b3e4bc9a2a4063aec21a76d3602aa73d8fb93ae8",
+      "names": [],
+      "sources": []
     },
     {
       "digest": "fcf427290c6213c2a7feb57492d832ce324f5b9737a759f424dab69e6bd101a0",

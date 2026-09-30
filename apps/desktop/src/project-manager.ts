@@ -13,7 +13,7 @@ import {
   writeFileSync,
   writeSync,
 } from 'node:fs'
-import { join } from 'node:path'
+import { basename, join } from 'node:path'
 import {
   DESKTOP_HOST_PACKAGE,
   desktopCorePackageOverrides,
@@ -74,7 +74,7 @@ export class DesktopProjectManager {
    * @returns Backup path after the locked profile write, or undefined if the patch was absent.
    */
   async disableAllPlugins(): Promise<string | undefined> {
-    return this.withLock(() => sanitizeProfile('dsh', this.paths.profile, WEB_PROFILE.bundles))
+    return this.withLock(() => sanitizeProfile('dsh', this.paths.profile, profileBundles(this.paths.profile)))
   }
 
   /**
@@ -172,5 +172,13 @@ export function createDevelopmentProjectMetadata(projectDir: string, release: De
 
 /** Create the first external plugin profile without running a package manager. */
 export function createPluginProfile(projectDir: string): void {
-  initProfile(projectDir, WEB_PROFILE.bundles)
+  initProfile(projectDir, profileBundles(projectDir))
+}
+
+/** Resolve the reserved profile's bundle layer without changing official composition.
+ * @param profileDir Explicit profile directory.
+ * @returns Ordered bundles from the canonical Web profile plus the Custom layer when selected.
+ */
+export function profileBundles(profileDir: string): readonly string[] {
+  return basename(profileDir) === 'desktop-custom' ? [...WEB_PROFILE.bundles, '@deepseek-ai/dsh-desktop-custom'] : WEB_PROFILE.bundles
 }

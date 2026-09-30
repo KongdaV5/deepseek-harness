@@ -1,0 +1,21 @@
+{
+  "official": {
+    "productName": "DeepSeek Harness",
+    "appId": { "mode": "release-environment" },
+    "profileName": "desktop",
+    "userData": { "mode": "electron-default" },
+    "updates": { "mode": "official" },
+    "artifactPrefix": "deepseek-harness"
+  },
+  "ds-harness": {
+    "productName": "DS Harness",
+    "appId": { "mode": "fixed", "value": "dev.dsh.desktop.custom" },
+    "profileName": "desktop-custom",
+    "userData": {
+      "mode": "isolated",
+      "pathSegments": ["@deepseek-ai", "dsh-harness-custom", "electron"]
+    },
+    "updates": { "mode": "disabled" },
+    "artifactPrefix": "ds-harness"
+  }
+}

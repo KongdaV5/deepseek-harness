@@ -484,6 +484,8 @@ node apps/desktop/node_modules/pnpm/bin/pnpm.mjs --dir apps/desktop run test:upd
 
 账号提供者的 `embeddedPageDist` 配置为内嵌用量和充值页面 URL 添加 `dist` 查询参数。默认值为空；私有前端分支选择值应写在本地 profile patch 中。此配置不改变 API 地址或凭证传递方式。
 
+Custom 产品元数据在单实例检查前选定专用 bundle identity、`desktop-custom` profile 及独立的 Harness/Electron 根目录。显式 rehearsal 根目录隔离验收。Host 在加载此组合前初始化 canonical Custom Config。运行时及最终 UI 集成仍不属于[基础迁移边界](../../docs/custom-foundation.zh.md)。
+
 ## 开发备注
 
 上线前 CDN 与容量决策见[桌面更新提案](../../.agents/notes/proposed/feature/2026-09-08-desktop-update-policy-and-installation.zh.md#cdn-and-capacity-qualification)。

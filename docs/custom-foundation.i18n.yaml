@@ -1,0 +1,25 @@
+# Bilingual-pair consistency record for custom-foundation.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write docs/custom-foundation.md
+/custom-foundation-migration-ledger:
+  en: 90509b0d8d5c02f5
+  zh: 42a0c5e9b99f7438
+/custom-foundation-migration-ledger/foundation-and-validation-scope:
+  en: 5b7ee3f84586b3ac
+  zh: 2f42e49c34721029
+/custom-foundation-migration-ledger/continuous-ownership-ledger:
+  en: 72c9a44077fdd34d
+  zh: 9d046083f97009e4
+/custom-foundation-migration-ledger/persisted-custom-event-inventory:
+  en: 15c710bb69ec7454
+  zh: 29408897d554c495
+/custom-foundation-migration-ledger/failure-and-no-replay-obligations:
+  en: 2c1c43bfe12cc24b
+  zh: 858cb436336f9061
+/custom-foundation-migration-ledger/composition-and-deferred-integration:
+  en: 1ed39915e2528a2a
+  zh: 1ddb8688378b58d2
+/custom-foundation-migration-ledger/focused-qualification:
+  en: c23bf06e8fa34685
+  zh: 3ecdd6680d2a05dc

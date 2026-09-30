@@ -430,6 +430,12 @@ export interface SessionEventMap {
 /** The appendable event-type keys of {@link SessionEventMap}, plugin-merged extensions included. */
 export type SessionEventType = keyof SessionEventMap
 
+/** Plugin-owned metadata safe for readers without its optional domain. */
+export interface IgnorableSessionEventMap {}
+
+/** Declared optional types accepted by the Session single writer. */
+export type IgnorableSessionEventType = Extract<SessionEventType, keyof IgnorableSessionEventMap>
+
 /**
  * The subset of {@link SessionEventType} values whose events produce LLM
  * messages and are eligible to appear on the ordered surface. Only these

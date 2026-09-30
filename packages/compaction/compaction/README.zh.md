@@ -119,6 +119,8 @@ kind: "package-reference"
 
 -----
 
+迁移后的 Custom V3 `policyAudit` 保存在 `plugin:task-compaction-audit` 中，并带有 `sessionFormatVersion: 3`。捕获内容仍是历史证据；当前任务权限由 V4 checkpoint 投影重建。
+
 <a id="further-exploration"></a>
 ## 进一步探索
 

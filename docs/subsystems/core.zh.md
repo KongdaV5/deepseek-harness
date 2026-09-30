@@ -761,6 +761,27 @@ roots(): Agent[]
 
 Source: [`packages/core/agent/src/index.ts`](../../packages/core/agent/src/index.ts)
 
+<a id="ctxcodexfoundation--codexfoundation"></a>
+
+### `ctx.codexFoundation` — `CodexFoundation`
+
+M1 owner of Codex Config and Session projection, without a process or dispatch capability.
+
+```ts cordis-catalog
+/** Read non-secret persisted facts without starting auth or creating a generation.
+ * @returns Detached configuration for the M2 runtime owner.
+ */
+snapshot(): { preference: CodexRuntimePreference; authGeneration?: string; authTransition?: AuthTransitionRecord | null }
+
+/** Save a runtime preference through the profile editor, preserving lifecycle facts.
+ * @param preference Explicit runtime selection.
+ * @returns Fulfillment after the profile patch is reconciled.
+ */
+async savePreference(preference: CodexRuntimePreference): Promise<void>
+```
+
+Source: [`packages/core/agent-codex/src/index.ts`](../../packages/core/agent-codex/src/index.ts)
+
 <a id="agent-events"></a>
 
 ### `agent/*` events

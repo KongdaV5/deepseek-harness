@@ -35,6 +35,39 @@ export interface AcpConfig {
 ```
 <!-- END GENERATED config-catalog:@deepseek-ai/dsh-acp -->
 
+<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-agent-codex -->
+<a id="deepseek-aidsh-agent-codex"></a>
+
+## `@deepseek-ai/dsh-agent-codex`
+
+- `inject`: `sessionProjections` · `configEditor`
+- `refs`: `Volatile` (`@deepseek-ai/cordis`)
+- `source`: [`packages/core/agent-codex/src/index.ts:18`](../packages/core/agent-codex/src/index.ts)
+
+```ts config-catalog
+/** Plugin-owned preference and non-secret lifecycle facts. */
+export interface Config {
+  /** Runtime selection preference; edits retain authentication authority. */
+  preference: Volatile<CodexRuntimePreference>
+  /** Non-secret account/thread binding; only the auth transaction owner may advance it. */
+  authGeneration: Volatile<string | undefined>
+  /** Pending auth transaction marker; Config migration never completes it. */
+  authTransition: Volatile<AuthTransitionRecord | null | undefined>
+}
+
+/** User preference for choosing one fixed App Server binary at connection start. */
+export type CodexRuntimePreference = 'auto' | 'system' | 'bundled'
+
+/** Persisted non-secret authentication transaction; configuration edits never advance it. */
+export interface AuthTransitionRecord {
+  /** Stable pending transaction identity. */
+  readonly id: string
+  /** Explicit lifecycle operation whose completion belongs to the runtime. */
+  readonly kind: 'login' | 'logout' | 'invalidated'
+}
+```
+<!-- END GENERATED config-catalog:@deepseek-ai/dsh-agent-codex -->
+
 <!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-agent-default-model -->
 <a id="deepseek-aidsh-agent-default-model"></a>
 
@@ -783,6 +816,43 @@ export interface Config {
 }
 ```
 <!-- END GENERATED config-catalog:@deepseek-ai/dsh-credentials-local -->
+
+<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-custom-foundation -->
+<a id="deepseek-aidsh-custom-foundation"></a>
+
+## `@deepseek-ai/dsh-custom-foundation`
+
+- `refs`: `Volatile` (`@deepseek-ai/cordis`)
+- `source`: [`packages/boot/custom-foundation/src/index.ts:19`](../packages/boot/custom-foundation/src/index.ts)
+
+```ts config-catalog
+/** Custom-owned configuration; model-provider credentials and routing remain owned by llm-pi-ai. */
+export interface Config {
+  /** Persisted manager inventory; live health is owned by the runtime. */
+  localProfiles: Volatile<LocalProfile[]>
+  /** Selected manager profile; model routing is separately owned by agent-default-model. */
+  selectedLocalProfile: Volatile<string>
+  /** User intent to expose Local controls; it does not start a process. */
+  localModelRuntime: Volatile<boolean>
+  /** User intent to expose Codex controls; it does not authenticate. */
+  codexSubscription: Volatile<boolean>
+  /** Completed import identity retained for interruption recovery. */
+  legacyImportDigest?: string
+}
+
+/** Local manager inventory persisted independently of live runtime observations. */
+export interface LocalProfile {
+  /** Stable manager profile identity. */
+  id: string
+  /** User-facing model name. */
+  name: string
+  /** Model modality, without runtime availability inference. */
+  modality: 'text' | 'image'
+  /** Exact provider model identity. */
+  modelId: string
+}
+```
+<!-- END GENERATED config-catalog:@deepseek-ai/dsh-custom-foundation -->
 
 <!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-deepseek-account-platform -->
 <a id="deepseek-aidsh-deepseek-account-platform"></a>
@@ -4462,7 +4532,9 @@ export interface Config {
 <!-- BEGIN GENERATED config-catalog:library -->
 | `package` | `inject` | `source` |
 | --- | --- | --- |
+| `@deepseek-ai/dsh-agent-lifecycle-facts` | — | [`packages/runtime-diagnostics/agent-lifecycle-facts/src/index.ts`](../packages/runtime-diagnostics/agent-lifecycle-facts/src/index.ts) |
 | `@deepseek-ai/dsh-agent-loop-testkit` | — | [`packages/test-support/agent-loop-testkit/src/index.ts`](../packages/test-support/agent-loop-testkit/src/index.ts) |
+| `@deepseek-ai/dsh-agent-run-state` | — | [`packages/runtime-diagnostics/agent-run-state/src/index.ts`](../packages/runtime-diagnostics/agent-run-state/src/index.ts) |
 | `@deepseek-ai/dsh-anonymous-user-id` | — | [`packages/identity/anonymous-user-id/src/index.ts`](../packages/identity/anonymous-user-id/src/index.ts) |
 | `@deepseek-ai/dsh-app-boot` | — | [`packages/boot/app-boot/src/index.ts`](../packages/boot/app-boot/src/index.ts) |
 | `@deepseek-ai/dsh-atomic-write` | — | [`packages/util/atomic-write/src/index.ts`](../packages/util/atomic-write/src/index.ts) |
@@ -4477,6 +4549,7 @@ export interface Config {
 | `@deepseek-ai/dsh-client-web` | — | [`packages/client/web/src/index.ts`](../packages/client/web/src/index.ts) |
 | `@deepseek-ai/dsh-cmdline` | — | [`packages/boot/cmdline/src/index.ts`](../packages/boot/cmdline/src/index.ts) |
 | `@deepseek-ai/dsh-deque` | — | [`packages/util/deque/src/index.ts`](../packages/util/deque/src/index.ts) |
+| `@deepseek-ai/dsh-desktop-custom` | — | [`packages/bundle/desktop-custom/src/index.ts`](../packages/bundle/desktop-custom/src/index.ts) |
 | `@deepseek-ai/dsh-experimental-agent-team-profile` | — | [`packages/experimental/agent-team-profile/src/index.ts`](../packages/experimental/agent-team-profile/src/index.ts) |
 | `@deepseek-ai/dsh-experimental-browser-use-runtime` | — | [`packages/experimental/browser-use-runtime/src/index.ts`](../packages/experimental/browser-use-runtime/src/index.ts) |
 | `@deepseek-ai/dsh-experimental-schedule-bundle` | — | [`packages/experimental/schedule-bundle/src/index.ts`](../packages/experimental/schedule-bundle/src/index.ts) |
@@ -4510,6 +4583,7 @@ export interface Config {
 | `@deepseek-ai/dsh-session-telemetry` | — | [`packages/session/session-telemetry/src/index.ts`](../packages/session/session-telemetry/src/index.ts) |
 | `@deepseek-ai/dsh-session-title-llm` | — | [`packages/session/session-title-llm/src/index.ts`](../packages/session/session-title-llm/src/index.ts) |
 | `@deepseek-ai/dsh-subagent-in-process-driver` | — | [`packages/subagent/subagent-in-process-driver/src/index.ts`](../packages/subagent/subagent-in-process-driver/src/index.ts) |
+| `@deepseek-ai/dsh-task-checkpoint` | — | [`packages/session/task-checkpoint/src/index.ts`](../packages/session/task-checkpoint/src/index.ts) |
 | `@deepseek-ai/dsh-timeout` | — | [`packages/util/timeout/src/index.ts`](../packages/util/timeout/src/index.ts) |
 | `@deepseek-ai/dsh-typert-generator` | — | [`packages/typert/generator/src/index.ts`](../packages/typert/generator/src/index.ts) |
 | `@deepseek-ai/dsh-typert-protocol` | — | [`packages/typert/protocol/src/index.ts`](../packages/typert/protocol/src/index.ts) |

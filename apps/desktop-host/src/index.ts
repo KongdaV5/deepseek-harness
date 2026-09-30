@@ -1,6 +1,8 @@
 /** Launch the Desktop profile through the Web application and report its URL to Electron. */
 
-import { delimiter, join } from 'node:path'
+import { delimiter, join, basename, dirname } from 'node:path'
+import { homedir } from 'node:os'
+import { initializeCustomProfile } from '@deepseek-ai/dsh-custom-foundation'
 import { inspect } from 'node:util'
 import { loadLayeredEnv, loadProfileDirectory, reportSkippedBundles } from '@deepseek-ai/dsh-app-boot'
 import { runProfile } from '@deepseek-ai/dsh/profile-boot'
@@ -20,11 +22,17 @@ async function main(): Promise<void> {
   const projectDir = process.argv[3] as string
   installOfficeEngineResolution(runtimeDir)
   const installAnchor = join(runtimeDir, 'node_modules', '@deepseek-ai', 'dsh', 'package.json')
+  const profileName = process.env.DSH_DESKTOP_PROFILE ?? 'desktop'
+  if (profileName !== 'desktop' && profileName !== 'desktop-custom') throw new Error('Unsupported Desktop profile')
+  if (profileName === 'desktop-custom') {
+    if (basename(projectDir) !== profileName) throw new Error('Custom profile directory disagrees with Host selection')
+    await initializeCustomProfile(dirname(dirname(projectDir)), homedir())
+  }
   const profile = loadProfileDirectory('dsh', projectDir, installAnchor)
   reportSkippedBundles('dsh', profile)
   const application = runProfile({
     environment: loadLayeredEnv('dsh'),
-    profile: 'desktop',
+    profile: profileName,
     resolvedProfile: { profile, installAnchor },
     patchFiles: [],
     args: ['--no-open', '--port', '19387'],

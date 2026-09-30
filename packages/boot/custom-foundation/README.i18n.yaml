@@ -1,0 +1,46 @@
+# Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write packages/boot/custom-foundation/README.md
+/:
+  en: 5a7f1f23ebedce91
+  zh: 9828abc34506bfed
+/deepseek-ai-dsh-custom-foundation:
+  en: 88181697cf3b87d5
+  zh: 8eb34232a0bdbbde
+/deepseek-ai-dsh-custom-foundation/summary:
+  en: b30a00445db02e3f
+  zh: 0243fca35c35efe8
+/deepseek-ai-dsh-custom-foundation/table-of-contents:
+  en: d152484eb41ac6b4
+  zh: f0420ffe0b1d1a61
+/deepseek-ai-dsh-custom-foundation/use-this-package:
+  en: 740c744b0a99146c
+  zh: a5a5ec5e9062dfd1
+/deepseek-ai-dsh-custom-foundation/understand-the-implementation:
+  en: 074e9f2bdb360d75
+  zh: 398d4603182e5633
+/deepseek-ai-dsh-custom-foundation/further-exploration:
+  en: b30fed0c7693f960
+  zh: fe6a7749dda00f24
+/deepseek-ai-dsh-custom-foundation/model-experience:
+  en: 215e7ba838619b7b
+  zh: a311da3843709f90
+/deepseek-ai-dsh-custom-foundation/model-experience/persistence-foundation:
+  en: 91e856b0bcf2e7b5
+  zh: a48e96d075c3bf9b
+/deepseek-ai-dsh-custom-foundation/model-experience/persistence-foundation/what-the-model-sees:
+  en: de5d8f88323e79c2
+  zh: 3ee3f58baa00768a
+/deepseek-ai-dsh-custom-foundation/model-experience/persistence-foundation/token-effect:
+  en: f7d1eb359afe1932
+  zh: 70ec0006556eb29f
+/deepseek-ai-dsh-custom-foundation/model-experience/persistence-foundation/kv-cache-effect:
+  en: 27d5520dd8af9e74
+  zh: 1874591cdf46c35a
+/deepseek-ai-dsh-custom-foundation/known-limitations-and-deferred-work:
+  en: 6664ee72ace8b006
+  zh: f675939c34440d24
+/deepseek-ai-dsh-custom-foundation/known-limitations-and-deferred-work/dev-note:
+  en: b0499e81e3e75bf5
+  zh: 68528e3e481844eb

@@ -15,7 +15,7 @@ import type { Scoped } from '@deepseek-ai/dsh-scope'
 import type { Message } from '@deepseek-ai/dsh-llm'
 import { SESSION_FORMAT_VERSION, SessionLogOffset, SessionSeq } from './types.ts'
 import type { TypertLookup } from '@deepseek-ai/dsh-typert-protocol'
-import type { CreateSessionOptions, EpochHeader, PrepareSessionOptions, RequestContext, SessionEvent, SessionEventMap, SessionEventType, SessionHeader, SessionId, SessionSeedEventState, SurfaceIntent, SurfaceEventType } from './types.ts'
+import type { CreateSessionOptions, EpochHeader, PrepareSessionOptions, RequestContext, SessionEvent, SessionEventMap, IgnorableSessionEventType, SessionEventType, SessionHeader, SessionId, SessionSeedEventState, SurfaceIntent, SurfaceEventType } from './types.ts'
 import { SurfaceManager, validateSessionEventData, validateSurfaceMetadata } from './surface.ts'
 import type { SessionSurface, SessionMessageProjection } from './surface.ts'
 import { foldRequestHeader } from './request-header.ts'
@@ -724,7 +724,21 @@ export class Session {
     data: SessionEventMap[T],
     ...opts: T extends SurfaceEventType ? [opts: SurfaceIntent<T>] : []
   ): SessionEvent<T> {
-    const surfaceOpts: SurfaceIntent | undefined = opts[0]
+    return this.commitEvent(type, data, opts[0])
+  }
+
+  /** Append optional Custom metadata through the same validated Session writer.
+   * @param type Registered optional event identity.
+   * @param data JSON payload admitted by the owning domain.
+   * @returns Frozen committed event with its optional-reader marker.
+   */
+  appendIgnorable<T extends IgnorableSessionEventType>(type: T, data: SessionEventMap[T]): SessionEvent<T> {
+    return this.commitEvent(type, data, undefined, true)
+  }
+
+  private commitEvent<T extends SessionEventType>(
+    type: T, data: SessionEventMap[T], surfaceOpts?: SurfaceIntent, ignorable?: true,
+  ): SessionEvent<T> {
     const surfaceMetadata = {
       ...surfaceOpts?.sourceEventSeqs === undefined ? {} : { sourceEventSeqs: surfaceOpts.sourceEventSeqs },
       ...surfaceOpts?.surfaceOp === undefined ? {} : { surfaceOp: surfaceOpts.surfaceOp },
@@ -746,8 +760,9 @@ export class Session {
       seq: SessionSeq(this.log.length),
       time: Date.now(),
       data: dataSnapshot,
+      ...ignorable === undefined ? {} : { ignorable },
       ...(surfaceMetadataSnapshot as { surfaceOp?: unknown; sourceEventSeqs?: unknown }),
-    } as unknown as SessionEvent<T>)
+    } as SessionEvent<T>)
     validateSessionEventData(event, `session event "${type}" at seq ${event.seq}`)
     this.surfaceManager.validateNext(event as SessionEvent)
 

@@ -123,6 +123,8 @@ The loop logs a full canonical `request/header` snapshot (call config, adapter d
 
 -----
 
+`appendIgnorable()` commits registered plugin metadata through the same writer, marks it optional for readers without the plugin, and forbids surface authority. The [Custom foundation ledger](../../../docs/custom-foundation.md) records the installed V4 identities.
+
 <a id="further-exploration"></a>
 ## Further Exploration
 

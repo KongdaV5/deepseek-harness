@@ -37,6 +37,8 @@ declare module '@deepseek-ai/dsh-session/types' {
       summary: ContentBlock[]
       shadowedRange: { start: SessionSeq; end: SessionSeq }
       shadowedSeqs: SessionSeq[]
+      /** Historical Custom audit references the retained source generation, including its original digest. */
+      'plugin:task-compaction-audit'?: import('@deepseek-ai/dsh-util-values').JsonValue
       shadowedTokenCount: number
       /** The provider route that wrote the summary. */
       provider: string

@@ -23,6 +23,8 @@ import {
   type MenuItemConstructorOptions,
 } from 'electron'
 import { resolveDesktopPaths } from './paths.ts'
+import { readDesktopApplicationManifest, resolveDesktopRuntimeProductFlavor, applyDesktopProductIdentity } from './product-flavor.ts'
+import { resolveDesktopDataBoundary, desktopHostEnvironment, readDesktopQualificationRootArgument } from './data-boundary.ts'
 import { DesktopProjectManager } from './project-manager.ts'
 import { DesktopHostFatalError, DesktopHostProcess, DesktopHostUncleanExitError } from './host-process.ts'
 import { DesktopPlatformView, PLATFORM_IPC, platformBounds } from './platform-view.ts'
@@ -77,6 +79,10 @@ let windowsLanguage: string | undefined
 let backendReady = false
 /** Error-level console output of the primary window, attached to crash reports. */
 const rendererConsole = new RendererConsoleTail()
+const productFlavor = resolveDesktopRuntimeProductFlavor(app.isPackaged, readDesktopApplicationManifest(app.getAppPath()))
+const dataBoundary = resolveDesktopDataBoundary(productFlavor, process.env, app.getPath('appData'), readDesktopQualificationRootArgument(process.argv))
+applyDesktopProductIdentity(app, productFlavor, dataBoundary.electronUserData.mode === 'explicit' ? dataBoundary.electronUserData.path : undefined)
+const productPaths = () => resolveDesktopPaths(dataBoundary.dshHome, productFlavor.profileName)
 
 // Platform-conventional logs directory (macOS ~/Library/Logs/<name>, otherwise under userData);
 // set before ready so the first fatal report already resolves under it.
@@ -95,7 +101,7 @@ const recovery = new DesktopFatalRecovery({
   show: options => dialog.showMessageBox(options),
   stop: () => { shuttingDown = true; return stopForRecovery() },
   disablePlugins: async () => {
-    const manager = new DesktopProjectManager(resolveDesktopPaths(), runtimeResources())
+    const manager = new DesktopProjectManager(productPaths(), runtimeResources())
     const backupPath = await manager.disableAllPlugins()
     console.info('Desktop profile recovery completed:', { profilePatchBackup: backupPath ?? null, homePatch: 'unchanged' })
   },
@@ -317,7 +323,7 @@ async function main(): Promise<void> {
   const journalDirectory = process.env.DSH_DESKTOP_UPDATE_JOURNAL_DIR
   const updateJournal = journalDirectory === undefined ? undefined : new DesktopUpdateJournal(journalDirectory, app.getVersion())
   const resources = runtimeResources()
-  const paths = resolveDesktopPaths()
+  const paths = productPaths()
   const development = !app.isPackaged
   const primaryRuntime = development
     ? developmentPrimaryRuntime()
@@ -442,7 +448,10 @@ async function main(): Promise<void> {
   const backend = new DesktopBackendController((onFailure) => {
     const hostInspectPort = developmentHostInspectPort(development)
     const host = new DesktopHostProcess(resources.node, resources.dsh, activeProject,
-      hostInspectPort, { ...hostEnvironment, DSH_CLIENT_VERSION: desktopClientVersion() }, onFailure,
+      hostInspectPort, {
+        ...desktopHostEnvironment(dataBoundary, hostEnvironment),
+        DSH_DESKTOP_PROFILE: productFlavor.profileName, DSH_CLIENT_VERSION: desktopClientVersion(),
+      }, onFailure,
       primaryRuntime,
       resources, (next) => { platformView.setSession(next) })
     return {

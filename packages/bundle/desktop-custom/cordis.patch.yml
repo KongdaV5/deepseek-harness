@@ -1,0 +1,34 @@
+# Custom foundation adds configuration and projections, with no runtime executor.
+- insert:
+    - id: custom-foundation
+      name: '@deepseek-ai/dsh-custom-foundation'
+    - id: agent-codex
+      name: '@deepseek-ai/dsh-agent-codex'
+    - id: task-checkpoint
+      name: '@deepseek-ai/dsh-task-checkpoint'
+
+# Boot prepares the exact Huihui model path; an uninitialized profile refuses cloud routing.
+- id: agent-default-model
+  config:
+    provider: dsh-local-unconfigured
+    model: select-local-huihui
+- id: deepseek-account
+  disabled: true
+- id: llm-deepseek
+  disabled: true
+- id: web-search-deepseek
+  disabled: true
+- id: timer
+  disabled: true
+- id: hmr
+  disabled: true
+- id: session-title-llm
+  disabled: true
+- id: web
+  config:
+    fetchProvider: http
+- id: tool-web
+  config:
+    search: false
+    fetch: true
+    searchTimeoutMs: 60000

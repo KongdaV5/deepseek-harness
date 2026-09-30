@@ -53,6 +53,21 @@ async edit( entry: Entry, change: (current: Record<string, unknown>, inherited: 
 
 Source: [`packages/boot/config-editor/src/index.ts`](../../packages/boot/config-editor/src/index.ts)
 
+<a id="ctxcustomfoundation--customfoundation"></a>
+
+### `ctx.customFoundation` — `CustomFoundation`
+
+Read-only foundation used by M2 Local and Desktop consumers.
+
+```ts cordis-catalog
+/** Read persistent Local profile intent without inspecting user files or starting runtime work.
+ * @returns Detached inventory and user preferences.
+ */
+snapshot(): { profiles: readonly LocalProfile[]; selectedProfile: string; localModelRuntime: boolean; codexSubscription: boolean }
+```
+
+Source: [`packages/boot/custom-foundation/src/index.ts`](../../packages/boot/custom-foundation/src/index.ts)
+
 <a id="ctxhmr--hmr"></a>
 
 ### `ctx.hmr` — `Hmr`
