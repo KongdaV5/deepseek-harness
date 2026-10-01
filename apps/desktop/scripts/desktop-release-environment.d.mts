@@ -10,6 +10,22 @@ export const MACOS_TEAM_ID_ENV: 'DSH_DESKTOP_MACOS_TEAM_ID'
 /** Environment variable that selects the npm registry used for the bundled runtime install. */
 export const NPM_REGISTRY_ENV: 'DSH_DESKTOP_NPM_REGISTRY'
 
+/** Shared product definition used to compose Desktop artifacts. */
+export interface DesktopBuildProduct {
+  readonly id: string
+  readonly productName: string
+  readonly artifactPrefix: string
+  readonly appId: { readonly mode: string; readonly value?: string }
+  readonly updates: { readonly mode: string }
+}
+
+/**
+ * Resolve the shared product definition for artifact composition.
+ * @param env - Explicit build product selector.
+ * @returns Shared product definition.
+ */
+export function resolveDesktopBuildProduct(env: NodeJS.ProcessEnv): DesktopBuildProduct
+
 /** Public identity expected on a macOS release. */
 export interface MacOSSigningEnvironment {
   readonly signingIdentity: string

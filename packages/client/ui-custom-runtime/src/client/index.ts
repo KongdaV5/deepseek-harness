@@ -17,14 +17,16 @@ async function readResult<T>(operation: Promise<RemoteResult<T>>): Promise<T> {
 }
 
 /** Remote namespaces required by the mounted Custom composition. */
-export const inject = ['slots', 'locale', 'remote.localModels', 'remote.codexSubscription']
+export const inject = ['slots', 'locale', 'remote', 'remote.localModels', 'remote.codexSubscription']
 /** Register one read-only status join and bind explicit user control verbs.
  * @param ctx - Client plugin lifecycle and Remote capabilities.
  */
 export function apply(ctx: Context): void {
   const model = new RuntimeSettingsModel({
     localStatus: () => readResult(ctx.remote.localModels.status()), codexStatus: () => readResult(ctx.remote.codexSubscription.status()),
-    start: profile => readResult(ctx.remote.localModels.start(profile)), stop: () => readResult(ctx.remote.localModels.stop()),
+    start: profile => readResult(ctx.remote.localModels.start(profile)),
+    restart: profile => readResult(ctx.remote.localModels.restart(profile)),
+    stop: () => readResult(ctx.remote.localModels.stop()),
     select: preference => readResult(ctx.remote.codexSubscription.selectRuntime(preference)),
     reconnect: () => readResult(ctx.remote.codexSubscription.reconnect()),
     connect: () => readResult(ctx.remote.codexSubscription.connect()),

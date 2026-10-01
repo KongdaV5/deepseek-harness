@@ -3704,6 +3704,9 @@ importers:
       '@deepseek-ai/dsh-client-locale':
         specifier: workspace:*
         version: link:../locale
+      '@deepseek-ai/dsh-client-test-runtime':
+        specifier: workspace:*
+        version: link:../../test-support/client-runtime
       '@deepseek-ai/dsh-client-ui-primitives':
         specifier: workspace:*
         version: link:../ui-primitives
@@ -3719,6 +3722,9 @@ importers:
       '@deepseek-ai/dsh-custom-foundation':
         specifier: workspace:*
         version: link:../../boot/custom-foundation
+      '@deepseek-ai/dsh-typert-protocol':
+        specifier: workspace:*
+        version: link:../../typert/protocol
       '@types/react':
         specifier: ~18.3.1
         version: 18.3.31
@@ -11211,9 +11217,6 @@ importers:
 
   packages/session/session-format-catalog:
     dependencies:
-      '@deepseek-ai/dsh-agent-codex':
-        specifier: workspace:*
-        version: link:../../core/agent-codex
       '@deepseek-ai/dsh-compaction-image-offload':
         specifier: workspace:*
         version: link:../../compaction/compaction-image-offload
@@ -11232,16 +11235,19 @@ importers:
       '@deepseek-ai/dsh-session-format-v3-to-v4':
         specifier: workspace:*
         version: link:../session-format-v3-to-v4
-      '@deepseek-ai/dsh-task-checkpoint':
-        specifier: workspace:*
-        version: link:../task-checkpoint
     devDependencies:
       '@deepseek-ai/cordis':
         specifier: workspace:~
         version: link:../../../vendor/cordis
+      '@deepseek-ai/dsh-agent-codex':
+        specifier: workspace:*
+        version: link:../../core/agent-codex
       '@deepseek-ai/dsh-session':
         specifier: workspace:*
         version: link:../../core/session
+      '@deepseek-ai/dsh-task-checkpoint':
+        specifier: workspace:*
+        version: link:../task-checkpoint
 
   packages/session/session-format-v0-to-v1:
     dependencies:

@@ -29,7 +29,7 @@ function magic(path: string): string {
  * @returns Number of signed native files.
  */
 export async function signMacOSRuntime(
-  root: string, appId: string, expected: MacOSSigningEnvironment, arch: 'arm64' | 'x64', cacheDirectory?: string,
+  root: string, appId: string, expected: MacOSSigningEnvironment | 'ad-hoc', arch: 'arm64' | 'x64', cacheDirectory?: string,
 ): Promise<number> {
   const files = inventoryDesktopRuntime(root).map(file => file.path).filter(path => MACH_O_MAGICS.has(magic(join(root, path))))
   const policy = cacheDirectory === undefined ? undefined : macOSCachePolicy(process.env.DSH_DESKTOP_MACOS_SIGNING_PROBE ?? '')
@@ -49,7 +49,7 @@ export async function signMacOSRuntime(
       const entitlements = needsJit ? join(import.meta.dirname, entitlementsFile) : undefined
       const file = join(root, path)
       const thin = ['cefaedfe', 'cffaedfe', 'feedface', 'feedfacf'].includes(magic(file))
-      if (cacheDirectory !== undefined && policy !== undefined && thin) {
+      if (expected !== 'ad-hoc' && cacheDirectory !== undefined && policy !== undefined && thin) {
         if (await cachedMacOSSignature(file, cacheDirectory, policy(identifier, expected, entitlements))) hits++
         else misses++
       } else {

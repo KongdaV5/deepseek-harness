@@ -8,6 +8,7 @@ export interface RuntimeOperations {
   localStatus(this: void): Promise<LocalModelRuntimeSnapshot>
   codexStatus(this: void): Promise<CodexSubscriptionStatus>
   start(this: void, profile: LocalModelProfileId): Promise<unknown>
+  restart(this: void, profile: LocalModelProfileId): Promise<unknown>
   stop(this: void): Promise<unknown>
   select(this: void, preference: CodexRuntimePreference): Promise<unknown>
   reconnect(this: void): Promise<unknown>

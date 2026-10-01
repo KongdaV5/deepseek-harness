@@ -25,6 +25,13 @@ it('signs Mach-O files in their final locations and verifies each signature', as
   expect(signMacOSRuntimeCode).toHaveBeenCalledWith(join(path, 'addon.node'), expect.stringMatching(/^com\.example\.app\.runtime\.[a-f0-9]{64}$/u), identity, undefined)
   expect(verifyMacOSRuntimeCode).toHaveBeenCalledWith(join(path, 'addon.node'), identity)
 })
+it('keeps local candidate signing explicit and verifies every native file', async () => {
+  const path = root()
+  writeFileSync(join(path, 'addon.node'), Buffer.from('cffaedfe00000000', 'hex'))
+  await expect(signMacOSRuntime(path, 'dev.dsh.desktop.custom', 'ad-hoc', 'arm64')).resolves.toBe(1)
+  expect(signMacOSRuntimeCode).toHaveBeenCalledWith(join(path, 'addon.node'), expect.any(String), 'ad-hoc', undefined)
+  expect(verifyMacOSRuntimeCode).toHaveBeenCalledWith(join(path, 'addon.node'), 'ad-hoc')
+})
 it('awaits other signers before rejecting and permitting output cleanup', async () => {
   const path = root()
   for (const name of ['a.node', 'b.node']) writeFileSync(join(path, name), Buffer.from('cffaedfe00000000', 'hex'))

@@ -346,6 +346,43 @@ describe('ModelSelect reasoning effort', () => {
     }
   })
 
+  it('keeps right-edge alignment and clamps a growing submenu through the shared position observer', () => {
+    let height = 100
+    let resize = () => {}
+    const disconnect = vi.fn()
+    vi.stubGlobal('ResizeObserver', class {
+      constructor(callback: () => void) { resize = callback }
+      observe() {}
+      disconnect = disconnect
+    })
+    const widthSpy = vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(200)
+    const heightSpy = vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(() => height)
+    const rectSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+      x: 700, y: 600, left: 700, right: 900, top: 600, bottom: 640, width: 200, height: 40, toJSON: () => ({}),
+    })
+    try {
+      render(<ModelSelect locked={false} available directory={createSnapshotStore(state())}
+        load={vi.fn()} select={vi.fn()} t={t} />)
+      fireEvent.click(screen.getByRole('button', { name: /选择模型/u }))
+      const menu = screen.getByRole('menu')
+      expect(menu.style.left).toBe('700px')
+      expect(menu.style.top).toBe('492px')
+      fireEvent.click(screen.getByRole('menuitem', { name: /^模型/u }))
+      height = 650
+      act(() => { resize() })
+      expect(menu.style.left).toBe('700px')
+      expect(menu.style.top).toBe('12px')
+      fireEvent.click(screen.getByRole('button', { name: '返回模型与推理等级' }))
+      height = 100
+      act(() => { resize() })
+      expect(menu.style.top).toBe('492px')
+      fireEvent.mouseDown(document.body)
+      expect(disconnect).toHaveBeenCalledOnce()
+    } finally {
+      widthSpy.mockRestore(); heightSpy.mockRestore(); rectSpy.mockRestore(); vi.unstubAllGlobals()
+    }
+  })
+
   it('renders no Agent-bound control for an addressed subagent session', () => {
     const load = vi.fn()
     render(<ModelSelect
@@ -544,6 +581,16 @@ describe('ModelSelect keyboard walk', () => {
     fireEvent.keyDown(screen.getAllByRole('menuitemradio')[0]!, { key: 'Escape' })
     const cells = screen.getAllByRole('menuitem')
     expect(document.activeElement).toBe(cells[0])
+  })
+
+  it.each(['模型', '推理等级'])('returns from %s with a visible pointer action and restores the parent focus', (label) => {
+    mountOpen()
+    const parent = screen.getByRole('menuitem', { name: new RegExp(`^${label}`) })
+    fireEvent.click(parent)
+    fireEvent.click(screen.getByRole('button', { name: '返回模型与推理等级' }))
+    const restored = screen.getByRole('menuitem', { name: new RegExp(`^${label}`) })
+    expect(document.activeElement).toBe(restored)
+    expect(screen.queryByRole('button', { name: '返回模型与推理等级' })).toBeNull()
   })
 
   it('focuses the first row when no model is checked in a small catalog', () => {

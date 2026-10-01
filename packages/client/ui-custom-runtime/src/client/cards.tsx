@@ -26,12 +26,21 @@ export function RuntimeCards({ useRuntime, model, t }: InjectFace<RuntimeCardsIn
       <p className={css.hint}>{t('localHint')}</p>
       <p>{state.local === undefined ? t('unknown') : t(state.local.state)} · {state.local?.endpoint ?? ''}</p>
       {state.local?.error === undefined ? null : <p role="alert">{state.local.error}</p>}
-      {state.local?.profiles.filter(profile => profile.manageable).map(profile => <Button key={profile.id} disabled={!state.local?.enabled || !profile.available} onClick={() => { action(() => model.operations.start(profile.id)) }}>{t('start')} {profile.name}{profile.available ? '' : ` · ${t('unavailable')}`}</Button>)}
+      {state.local?.profiles.map(profile => <div key={profile.id} className={css.profile}>
+        <span>{profile.name} · {t(profile.modality)}{state.local?.profile === profile.id ? ` · ${t('current')}` : ''}</span>
+        {profile.available ? null : <span>{profile.unavailableReason ?? t('unavailable')}</span>}
+        <Button disabled={!state.local?.enabled || !profile.available || !profile.manageable}
+          onClick={() => { action(() => model.operations.start(profile.id)) }}>{t('start')} {profile.name}</Button>
+        {state.local?.profile === profile.id && state.local.canStop && profile.manageable && <Button
+          onClick={() => { action(() => model.operations.restart(profile.id)) }}>{t('restart')} {profile.name}</Button>}
+      </div>)}
       <Button disabled={!state.local?.canStop} onClick={() => { action(() => model.operations.stop()) }}>{t('stop')}</Button>
     </fieldset>
     <fieldset className={css.card} disabled={state.loading || state.codex?.enabled !== true}><legend>{t('codex')}</legend>
       <p className={css.hint}>{t('codexHint')}</p>
-      <p>{state.codex === undefined ? t('unknown') : t(state.codex.account)} · {state.codex?.runtimeVersion ?? ''}</p>
+      <p role="status">{state.codex === undefined ? t('unknown') : <>
+        {t(state.codex.runtime)} · {t(state.codex.login === 'signing-in' ? 'signing-in' : state.codex.account)}
+      </>}</p>
       {state.codex?.error === undefined ? null : <p role="alert">{state.codex.error}</p>}
       <SegmentedControl id="custom-codex-runtime" label={t('runtime')} value={state.codex?.runtimePreference ?? 'auto'}
         options={[{ value: 'auto', label: t('auto') }, { value: 'system', label: t('system'), disabled: !state.codex?.systemRuntimeAvailable }, { value: 'bundled', label: t('bundled') }]}
@@ -39,7 +48,20 @@ export function RuntimeCards({ useRuntime, model, t }: InjectFace<RuntimeCardsIn
       <div role="tabpanel" id={`custom-codex-runtime-${state.codex?.runtimePreference ?? 'auto'}-panel`} aria-labelledby={`custom-codex-runtime-${state.codex?.runtimePreference ?? 'auto'}`}>
         {t('source')}: {state.codex?.runtimeSource === undefined ? t('unknown') : t(state.codex.runtimeSource)} · {state.codex?.runtimeVersion ?? t('unknown')}
       </div>
-      <p>{state.codex?.usage.state === 'available' && state.codex.usage.primary !== undefined ? `${t('usage')}: ${state.codex.usage.primary.usedPercent}%` : t('unavailableUsage')}</p>
+      {state.codex?.runtimeSelectionNote === undefined ? null : <p role="status">{state.codex.runtimeSelectionNote}</p>}
+      {state.codex?.account !== 'connected' ? null : <p>{t('modelsAvailable')}: {state.codex.modelCount}</p>}
+      {state.codex?.usage.state === 'available' && (state.codex.usage.primary !== undefined || state.codex.usage.secondary !== undefined)
+        ? (['primary', 'secondary'] as const).map((kind) => {
+          const window = state.codex?.usage[kind]
+          if (window === undefined) return null
+          const reset = window.resetsAt === undefined ? undefined : new Date(window.resetsAt * 1000)
+          return <p key={kind}>
+            {t(kind === 'primary' ? 'primaryUsage' : 'secondaryUsage')}: {window.usedPercent}%
+            {window.windowDurationMins === undefined ? null : ` · ${window.windowDurationMins} ${t('minutes')}`}
+            {reset === undefined ? null : <> · {t('resets')}: <time dateTime={reset.toISOString()}>{reset.toLocaleString()}</time></>}
+          </p>
+        })
+        : <p>{t('unavailableUsage')}</p>}
       <Button onClick={() => { action(() => model.operations.reconnect()) }}>{t('reconnect')}</Button>
       <Button disabled={state.codex?.account === 'connected' || state.codex?.login === 'signing-in'} onClick={() => { action(() => model.operations.connect()) }}>{t('connect')}</Button>
       <Button disabled={state.codex?.login !== 'signing-in'} onClick={() => { action(() => model.operations.cancelLogin()) }}>{t('cancelLogin')}</Button>

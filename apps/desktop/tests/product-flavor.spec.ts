@@ -8,6 +8,7 @@ import {
 } from '../src/product-flavor.ts'
 import { resolveDesktopPaths } from '../src/paths.ts'
 import { claimDesktopSingleInstance } from '../src/single-instance.ts'
+import { createElectronBuilderConfig } from '../scripts/electron-builder-config.mjs'
 
 const roots: string[] = []
 
@@ -40,6 +41,18 @@ afterEach(() => {
 })
 
 describe('desktop product flavor', () => {
+  it('packages the shared Custom identity without official updater or release credentials for a candidate', () => {
+    const config = createElectronBuilderConfig({ DSH_DESKTOP_PRODUCT_FLAVOR: 'ds-harness', DSH_DESKTOP_CANDIDATE: '1' }, 'darwin', 'arm64')
+    expect(config).toMatchObject({ appId: 'dev.dsh.desktop.custom', productName: 'DS Harness',
+      extraMetadata: { dshDesktopProductFlavor: 'ds-harness', dshDesktopCandidate: true }, publish: null,
+      mac: { identity: '-', notarize: false } })
+    expect(config.directories.output).toContain('candidate-artifacts')
+    expect(resolveDesktopRuntimeProductFlavor(true, config.extraMetadata).profileName).toBe('desktop-custom')
+    expect(() => createElectronBuilderConfig({ DSH_DESKTOP_CANDIDATE: '1', DSH_DESKTOP_APP_ID: 'dev.test.official' }, 'darwin', 'arm64'))
+      .toThrow('Custom macOS')
+    expect(() => createElectronBuilderConfig({ DSH_DESKTOP_PRODUCT_FLAVOR: 'ds-harness', DSH_DESKTOP_APP_ID: 'dev.test.wrong' }, 'darwin', 'arm64'))
+      .toThrow('bundle ID disagrees')
+  })
   it('preserves the official product as the default without changing Electron paths', () => {
     const root = temporaryRoot()
     const flavor = resolveDesktopRuntimeProductFlavor(true, { dshDesktopAppId: 'dev.dsh.desktop' })

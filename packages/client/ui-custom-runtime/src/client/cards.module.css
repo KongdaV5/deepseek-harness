@@ -3,4 +3,5 @@
 .card legend { padding: 0 6px; font-weight: 500; }
 .card p { flex-basis: 100%; margin: 0; overflow-wrap: anywhere; }
 .hint { color: var(--dsw-alias-label-tertiary); font-size: 13px; line-height: 20px; }
+.profile { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; flex-basis: 100%; }
 .card [role="alert"] { color: var(--dsw-alias-state-warn-label); }

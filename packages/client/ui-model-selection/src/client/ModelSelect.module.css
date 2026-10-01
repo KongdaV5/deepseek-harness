@@ -139,6 +139,13 @@
   line-height: 16px;
 }
 
+.cell.back {
+  flex-shrink: 0;
+  justify-content: flex-start;
+  gap: 8px;
+  border-bottom: 1px solid var(--dsw-alias-border-l1);
+}
+
 .warning {
   background: var(--dsw-alias-bg-module-platform);
   color: var(--dsw-alias-state-warn-label);

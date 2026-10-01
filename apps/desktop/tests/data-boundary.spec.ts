@@ -83,7 +83,7 @@ describe('desktop data boundary', () => {
     })
     expect(desktopHostEnvironment(boundary, {})).toMatchObject({
       DSH_HOME: root,
-      [DESKTOP_CODEX_HOME_ALLOWED_ROOT_ENV]: root,
+      [DESKTOP_CODEX_HOME_ALLOWED_ROOT_ENV]: boundary.dshHome,
     })
   })
 
@@ -135,7 +135,7 @@ describe('desktop data boundary', () => {
       HOME: join(root, 'home'),
       TMPDIR: join(root, 'tmp'),
       DSH_HOME: join(root, 'dsh-home'),
-      [DESKTOP_CODEX_HOME_ALLOWED_ROOT_ENV]: root,
+      [DESKTOP_CODEX_HOME_ALLOWED_ROOT_ENV]: boundary.dshHome,
       DSH_DESKTOP_PROFILE_PATH: boundary.profile,
       DSH_DESKTOP_SESSION_ROOT: boundary.sessions,
       DSH_DESKTOP_ELECTRON_USER_DATA: join(root, 'electron', 'ds-harness'),
@@ -224,5 +224,16 @@ describe('desktop data boundary', () => {
     })).toThrow('must be an absolute path')
     expect(() => resolveDesktopDataBoundary(official, { [DESKTOP_DATA_MODE_ENV]: 'live' }))
       .toThrow(`unsupported ${DESKTOP_DATA_MODE_ENV}`)
+  })
+
+  it('reuses an explicitly isolated DSH home while rejecting roots outside rehearsal ownership', () => {
+    const environment = { ...rehearsal('/synthetic'), DSH_DESKTOP_REHEARSAL_DSH_HOME: '/synthetic/allowed-candidate/profile' }
+    const boundary = resolveDesktopDataBoundary(custom, environment)
+    expect(boundary.dshHome).toBe('/synthetic/allowed-candidate/profile')
+    expect(desktopHostEnvironment(boundary, {}).DSH_HOME).toBe('/synthetic/allowed-candidate/profile')
+    expect(desktopHostEnvironment(boundary, {})[DESKTOP_CODEX_HOME_ALLOWED_ROOT_ENV]).toBe(boundary.dshHome)
+    for (const invalid of ['/synthetic/allowed-candidate', '/production/profile', 'relative']) {
+      expect(() => resolveDesktopDataBoundary(custom, { ...environment, DSH_DESKTOP_REHEARSAL_DSH_HOME: invalid })).toThrow('rehearsal DSH home')
+    }
   })
 })

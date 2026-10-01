@@ -25,7 +25,9 @@ kind: package-reference
 <a id="use-this-package"></a>
 ## 使用本包
 
-使用 Custom composition，将本 Client contribution 挂载到官方 Models footer。选择可用的确切 text profile；不可用 profile 与未验证 System runtime 选项保持禁用。改变 runtime preference 不改变 account ownership。认证控件始终要求显式用户操作。
+使用 Custom composition，将本 Client contribution 挂载到官方 Models footer。选择可用的确切 text profile；不可用 profile 与未验证 System runtime 选项保持禁用。改变 runtime preference 不改变 account ownership。认证控件始终要求显式用户操作。 Local card 标识 Host 提供的当前 profile 与 modality。启动／切换、停止与显式重启均调用已有 Host controller；只有 Host 确认可安全停止时才提供该 profile 的重启入口。
+
+Codex card 展示 Host 提供的 runtime 与 account state、所选 runtime source/version、runtime selection note 和动态 model count。两个可用的 usage window 均包含已用百分比、时长与重置时间。缺少 quota information 时保持不可用；不会改变 routing 或推断连接健康状态。
 
 -----
 

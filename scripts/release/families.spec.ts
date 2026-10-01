@@ -42,6 +42,11 @@ afterEach(() => {
 })
 
 describe('release families', () => {
+  it('orders the current Custom Session catalog and runtime package graph', () => {
+    const family = releaseFamily('dsh')
+    const members = family.members(resolve(import.meta.dirname, '../..'))
+    expect(() => family.publishOrder(members)).not.toThrow()
+  })
   it('publishes all current experimental packages', () => {
     const members = releaseFamily('dsh').members(resolve(import.meta.dirname, '../..'))
 

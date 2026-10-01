@@ -63,7 +63,7 @@ Production 历史读取使用 `{ recovery: 'recoverable', validation: 'transform
 
 -----
 
-入站 V3 边明确转换已安装的 Custom Codex 映射和任务权限载荷。原生 V4 只识别它们带插件限定的标识。领域引用的归属和带代次限定的压缩捕获见 [Custom 基础迁移账本](../../../docs/custom-foundation.zh.md)。
+入站 V3 边明确转换已安装的 Custom Codex 映射和任务权限载荷。Custom schema 由普通 bundler 从所属包嵌入，仅作为构建输入；catalog 不安装运行时插件或引入运行时依赖循环。原生 V4 只识别它们带插件限定的标识。领域引用的归属和带代次限定的压缩捕获见 [Custom 基础迁移账本](../../../docs/custom-foundation.zh.md)。
 
 <a id="further-exploration"></a>
 ## 进一步探索

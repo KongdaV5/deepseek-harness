@@ -22,6 +22,8 @@ Desktop microphone access is restricted to audio requests from the primary `dsh-
 
 Press F12 (Fn+F12 on media-key keyboards), Command+Option+I on macOS, or Ctrl+Shift+I on Windows to toggle DevTools for the focused application page, including in packaged builds. These native shortcuts use hidden application-menu items. Update overlays and packaged embedded browser guests disable DevTools.
 
+Custom builds select `DSH_DESKTOP_PRODUCT_FLAVOR=ds-harness` in the target dotenv and reuse the shared product definition for the bundle ID, name, profile and disabled updater. A local macOS candidate uses `pnpm --dir apps/desktop run package:mac:arm64:dir --candidate`; it follows ordinary runtime preparation and payload checks, writes only `candidate-artifacts`, uses an ad-hoc signature, and never notarizes or publishes a release. The candidate refuses startup without an explicit `--dsh-qualification-root=<absolute-root>`. Electron logs, crash dumps and state stay under that verified root. `DSH_DESKTOP_REHEARSAL_DSH_HOME` may select an existing isolated DSH home strictly inside the root, preserving official Codex login without moving credentials; all directory components must be real directories.
+
 ## Terminal command
 
 The application menu's **Manage dsh Command…** entry, immediately below **Check for Updates…**, shows the current command and offers Install, Repair, and Remove. The command uses Desktop's installed runtime and the ordinary [dsh CLI](../cli/README.md), including when the Desktop application is closed. Open a new terminal after installation and run `dsh --version`.

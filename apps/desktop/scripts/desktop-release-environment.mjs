@@ -1,4 +1,18 @@
 /** Resolve public release identifiers supplied by the packaging environment. */
+import { readFileSync } from 'node:fs'
+
+const productDefinitions = JSON.parse(readFileSync(new URL('../src/product-flavors.json', import.meta.url), 'utf8'))
+
+/**
+ * Resolve the shared product definition for artifact composition.
+ * @param {NodeJS.ProcessEnv} env Explicit build product selector.
+ * @returns {{ id: string, productName: string, artifactPrefix: string, appId: { mode: string, value?: string }, updates: { mode: string } }} Shared product definition.
+ */
+export function resolveDesktopBuildProduct(env) {
+  const id = env.DSH_DESKTOP_PRODUCT_FLAVOR ?? 'official'
+  if (!Object.hasOwn(productDefinitions, id)) throw new Error('desktop package: unsupported product flavor')
+  return { id, ...productDefinitions[id] }
+}
 
 /** Environment variable that supplies the Electron application identifier. */
 export const DESKTOP_APP_ID_ENV = 'DSH_DESKTOP_APP_ID'
@@ -61,7 +75,11 @@ export function resolveNpmRegistry(env) {
  * @returns {string} Reverse-DNS application identifier.
  */
 export function resolveDesktopAppId(env) {
-  const appId = requireEnvironmentValue(env, DESKTOP_APP_ID_ENV)
+  const product = resolveDesktopBuildProduct(env)
+  const appId = product.appId.mode === 'fixed' ? product.appId.value : requireEnvironmentValue(env, DESKTOP_APP_ID_ENV)
+  if (product.appId.mode === 'fixed' && env[DESKTOP_APP_ID_ENV] !== undefined && env[DESKTOP_APP_ID_ENV].trim() !== appId) {
+    throw new Error('desktop package: Custom bundle ID disagrees with product definition')
+  }
   if (!/^[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+$/u.test(appId)) {
     throw new Error(`desktop release environment: ${DESKTOP_APP_ID_ENV} must be a reverse-DNS identifier`)
   }

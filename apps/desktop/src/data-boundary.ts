@@ -128,7 +128,12 @@ function rehearsalBoundary(
   explicitRoot?: string,
 ): DesktopDataBoundary {
   const root = requiredRehearsalRoot(environment, explicitRoot)
-  const dshHome = join(root, 'dsh-home')
+  const configuredHome = environment.DSH_DESKTOP_REHEARSAL_DSH_HOME
+  if (configuredHome !== undefined && (!isAbsolute(configuredHome) || configuredHome.trim() === '')) {
+    throw new Error('desktop data: rehearsal DSH home must be absolute')
+  }
+  const dshHome = configuredHome === undefined ? join(root, 'dsh-home') : normalizeKnownDesktopPath(resolve(configuredHome))
+  if (dshHome === root || !isWithin(root, dshHome)) throw new Error('desktop data: rehearsal DSH home must remain inside its root')
   const profiles = join(dshHome, 'profiles')
   const electronUserData = join(root, 'electron', flavor.id)
   const resolved: DesktopDataBoundary = {
@@ -328,10 +333,10 @@ export function desktopHostEnvironment(
   boundary: DesktopDataBoundary,
   environment: NodeJS.ProcessEnv,
 ): NodeJS.ProcessEnv {
-  const trustedRoot = boundary.mode === 'candidate-rehearsal'
-    ? boundary.approvedRoots[0]
-    : boundary.approvedRoots[0] ?? boundary.dshHome
-  if (trustedRoot === undefined || !isAbsolute(trustedRoot)) {
+  // Codex's dedicated home and maintenance evidence belong to this DSH home,
+  // not to the broader directory that also owns Electron rehearsal state.
+  const trustedRoot = boundary.dshHome
+  if (!isAbsolute(trustedRoot)) {
     throw new Error('desktop data: trusted Codex home root is missing or not absolute')
   }
   if (boundary.mode === 'candidate-rehearsal') {

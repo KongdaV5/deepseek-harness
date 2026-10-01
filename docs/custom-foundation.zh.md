@@ -101,4 +101,14 @@ M2 affected set 使用既有 upstream maintenance contract/evidence planner 的 
 
 相对刻意不含 runtime 的 M1 foundation，Custom surface 增加，因为必要 execution 与 UI owner 现在已存在。相对旧 Custom product，复用了 native turn settlement、compaction publication、selector/popup 和 Desktop lifecycle。每个新增 runtime 或 projection package 拥有独立 capability 或 read boundary。兼容输入只包括单向 legacy Config import、官方 V3 conversion，以及精确 M1 单模型 Local catalog upgrade；在各自支持的历史输入退役后移除。没有永久双 event identity 或 old/new Settings adapter。
 
-M3 首先需要真实 Native writer dependency 和安全认证的隔离 Codex context，然后证明真实持久化 Local/Codex/Local turn 与 restart continuity。剩余范围是一次 fresh candidate payload、integrity/signature、single-instance、隔离 profile migration rehearsal、installed Local manager/runtime、无 replay 或 auth rotation 的真实 App Server recovery、close/background/quit、selector 与 Run Details interaction、formal install、installed smoke、rollback boundary 和最终 trusted branch integration decision。M2 不授权这些 packaging/install 操作，也不启动 M3。
+后续 Runtime Readiness closeout 在 67831f71 闭合了上述历史 Native writer 与隔离认证 blocker。上述源码阶段记录保留为历史证据。当前 M2 Desktop Candidate Gate 在 M3 前增加一次隔离 packaged Local/Codex/Local conversation 与 restart 流程。M3 负责最终 release qualification、formal promotion、installed smoke、rollback 和 trusted branch integration decision；尚未启动。
+
+## Desktop candidate ownership
+
+Packaging 与 runtime identity 读取同一个 product definition。Custom candidate 使用官方 package pipeline 和显式本地 ad-hoc signing，不使用公司 signing cache，不 notarize 或 publish。Manifest 要求在 profile 访问前提供 qualification root。已有 rehearsal path owner 隔离 Electron state、logs 与 crashes，并可复用严格位于该 root 内的已认证 fixture DSH home。正式产品数据位于此边界之外。
+
+Session catalog 将 canonical owner 的纯 Custom event schema 作为 build input 内嵌，移除 catalog graph 对 Codex 与 task execution package 的 runtime dependency。Runtime card 通过官方 Models footer 贡献，并声明 Remote carrier 与 Local/Codex namespace。Activation regression 将 Remote 挂载于独立 plugin fiber，避免 root-context fixture 掩盖缺少 service declaration。Host 向 Codex containment 与 maintenance 传递准确的 DSH home，区别于更大的 Electron rehearsal root。官方 selector 在模型与推理等级面板增加可见的返回操作；search、provider grouping、focus restoration 与 portal positioning 保留既有 owner。没有新增 lifecycle manager、runtime authority、persistence store 或 compatibility shim。 Local 设置通过已有 Host Remote 保留当前 profile 标识与显式重启。弹框定位采用上游公共 anchor hook，移除 selector 内重复实现；ResizeObserver 处理菜单高度变化。
+
+隔离 packaged candidate 通过关键产品能力检查：主导航、Local/Codex 分组、可搜索的模型选择、子菜单鼠标与键盘返回、受支持的推理等级选择、Local 控制、Codex 状态/模型数量/用量/重置时间，以及 Run Details。最终受影响 UI 集合的 62 个不同用例通过；复用此前 focused source、目录边界和 runtime 证据。Canonical build、packaged runtime smoke 与严格签名验证通过。
+
+一个 Native conversation 依次完成 Local Huihui、使用 low effort 的 Codex gpt-6.1-sol、一次正常 App/Host 重启，再切回 Local Huihui。重启恢复同一可见 Session、两个历史回答和所选模型。Canonical V4 检查找到顺序正确的三个唯一用户消息、三个唯一助手回答、三个 completed turn，以及一次 Codex dispatch；auth generation 未变，mapping 已绑定，dispatch 与 pendingSync 为空，recovery 为 settled。没有 reconciliation history 的 settled mapping 属于合法状态；validator 不制造 reconciliation，也不将 reasoning/replay 表示误算为额外可见回答。Candidate 及其拥有的 Host/Local 进程正常退出。这些证据完成 M2 candidate gate，不构成最终 release qualification；正式 App 字节和数据未变，Schedule 与 Computer Use 保持关闭。

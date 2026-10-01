@@ -9,7 +9,7 @@ const codex: CodexSubscriptionStatus = { enabled: true, runtime: 'stopped', runt
   usage: { state: 'unavailable' } }
 function operations(): RuntimeOperations {
   const done = async () => undefined
-  return { localStatus: async () => local, codexStatus: async () => codex, start: done, stop: done, select: done,
+  return { localStatus: async () => local, codexStatus: async () => codex, start: done, restart: done, stop: done, select: done,
     reconnect: done, connect: done, disconnect: done, cancelLogin: done }
 }
 it('replaces previous healthy observations with absence when the next read fails', async () => {

@@ -25,7 +25,7 @@ import {
 } from 'electron'
 import { resolveDesktopPaths } from './paths.ts'
 import { readDesktopApplicationManifest, resolveDesktopRuntimeProductFlavor, applyDesktopProductIdentity } from './product-flavor.ts'
-import { resolveDesktopDataBoundary, desktopHostEnvironment, readDesktopQualificationRootArgument } from './data-boundary.ts'
+import { resolveDesktopDataBoundary, desktopHostEnvironment, readDesktopQualificationRootArgument, prepareDesktopRehearsalPaths } from './data-boundary.ts'
 import { DesktopProjectManager } from './project-manager.ts'
 import { DesktopHostFatalError, DesktopHostProcess, DesktopHostUncleanExitError } from './host-process.ts'
 import { DesktopPlatformView, PLATFORM_IPC, platformBounds } from './platform-view.ts'
@@ -80,15 +80,24 @@ let windowsLanguage: string | undefined
 let backendReady = false
 /** Error-level console output of the primary window, attached to crash reports. */
 const rendererConsole = new RendererConsoleTail()
-const productFlavor = resolveDesktopRuntimeProductFlavor(app.isPackaged, readDesktopApplicationManifest(app.getAppPath()))
+const applicationManifest = readDesktopApplicationManifest(app.getAppPath())
+const productFlavor = resolveDesktopRuntimeProductFlavor(app.isPackaged, applicationManifest)
 const accountOnboarding = productFlavor.id === 'official'
 const dataBoundary = resolveDesktopDataBoundary(productFlavor, process.env, app.getPath('appData'), readDesktopQualificationRootArgument(process.argv))
+if (applicationManifest.dshDesktopCandidate === true && dataBoundary.mode !== 'candidate-rehearsal') {
+  throw new Error('desktop candidate requires an explicit qualification root')
+}
+const rehearsalPaths = prepareDesktopRehearsalPaths(dataBoundary)
+if (rehearsalPaths !== undefined) {
+  app.setPath('appData', rehearsalPaths.appData)
+  app.setPath('crashDumps', rehearsalPaths.crashDumps)
+}
 applyDesktopProductIdentity(app, productFlavor, dataBoundary.electronUserData.mode === 'explicit' ? dataBoundary.electronUserData.path : undefined)
 const productPaths = () => resolveDesktopPaths(dataBoundary.dshHome, productFlavor.profileName)
 
 // Platform-conventional logs directory (macOS ~/Library/Logs/<name>, otherwise under userData);
 // set before ready so the first fatal report already resolves under it.
-app.setAppLogsPath()
+app.setAppLogsPath(rehearsalPaths?.logs)
 
 function currentDesktopLocale(): ReturnType<typeof resolveDesktopLocale> {
   return resolveDesktopLocale(windowsLanguage ?? app.getLocale())
