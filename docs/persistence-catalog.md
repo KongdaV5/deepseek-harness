@@ -3481,13 +3481,13 @@ Sources: [`packages/session/task-checkpoint/src/types.ts:131`](../packages/sessi
 
 <a id="persistence-type-codexsessionmappingevent"></a>
 
-<a id="persistence-type-packagescoreagent-codexsrctypestscodexsessionmappingevent"></a>
+<a id="persistence-type-packagescoreagent-codexlibtypestypesdtscodexsessionmappingevent"></a>
 
 ### `CodexSessionMappingEvent`
 
 SHA-256: `18367a22ff0e24f132a92a422584190396606199ca3daaff8ec2cd606167153c`
 
-Sources: [`packages/core/agent-codex/src/types.ts:125`](../packages/core/agent-codex/src/types.ts)
+Sources: [`packages/core/agent-codex/lib/types/types.d.ts:115`](../packages/core/agent-codex/lib/types/types.d.ts)
 
 | Property | Presence | Type |
 |---|---|---|
@@ -6747,7 +6747,7 @@ SHA-256: `b6896938660a1dfe4ddd100fb3164d9f8fa57feeabfe37441a80106c9942697a`
 
 SHA-256: `5e6ac684ae4fc195741d9c0f222f1242d920ff951605245af65ae7dd3bda26f8`
 
-Sources: [`packages/core/agent-codex/src/types.ts:38`](../packages/core/agent-codex/src/types.ts)
+Sources: [`packages/core/agent-codex/lib/types/types.d.ts:38`](../packages/core/agent-codex/lib/types/types.d.ts)
 
 | Property | Presence | Type |
 |---|---|---|
@@ -6772,7 +6772,7 @@ Sources: [`packages/core/agent-codex/src/types.ts:38`](../packages/core/agent-co
 
 SHA-256: `635503442aec85772d4b39753f484a6268f52d1633382ed4efa005871cb48ce6`
 
-Sources: [`packages/core/agent-codex/src/types.ts:20`](../packages/core/agent-codex/src/types.ts)
+Sources: [`packages/core/agent-codex/lib/types/types.d.ts:20`](../packages/core/agent-codex/lib/types/types.d.ts)
 
 | Property | Presence | Type |
 |---|---|---|
@@ -7074,7 +7074,7 @@ Sources: [`packages/llm/llm/src/types.ts:161`](../packages/llm/llm/src/types.ts)
 
 SHA-256: `e2439afcb5533ee220b04ddc17fbaf80c64da2855fac2949435a847df5d43e89`
 
-Sources: [`packages/core/agent-codex/src/types.ts:15`](../packages/core/agent-codex/src/types.ts)
+Sources: [`packages/core/agent-codex/lib/types/types.d.ts:15`](../packages/core/agent-codex/lib/types/types.d.ts)
 
 | Property | Presence | Type |
 |---|---|---|
@@ -7088,7 +7088,7 @@ Sources: [`packages/core/agent-codex/src/types.ts:15`](../packages/core/agent-co
 
 SHA-256: `99fe5d1027e0998606ea3eafa5a8db02227419906503893710b8d3a49dcb165d`
 
-Sources: [`packages/core/agent-codex/src/types.ts:59`](../packages/core/agent-codex/src/types.ts)
+Sources: [`packages/core/agent-codex/lib/types/types.d.ts:59`](../packages/core/agent-codex/lib/types/types.d.ts)
 
 | Property | Presence | Type |
 |---|---|---|
@@ -8719,7 +8719,7 @@ Sources: [`packages/compaction/compaction/src/types.ts:84`](../packages/compacti
 
 SHA-256: `3defe3a111b345f0df87563373811952a42c4348a748215e045ac87434e06e5f`
 
-Sources: [`packages/core/agent-codex/src/types.ts:132`](../packages/core/agent-codex/src/types.ts)
+Sources: [`packages/core/agent-codex/lib/types/types.d.ts:121`](../packages/core/agent-codex/lib/types/types.d.ts)
 
 | Property | Presence | Type |
 |---|---|---|
@@ -8745,7 +8745,7 @@ Sources: [`packages/core/session/src/types.ts:355`](../packages/core/session/src
 
 SHA-256: `ef11a3b7fa2033ae4279545ff8a8a2ee4e301b9b73e5b91654c48e6d08283545`
 
-Sources: [`packages/core/agent-codex/src/types.ts:55`](../packages/core/agent-codex/src/types.ts) · [`packages/core/session/src/types.ts:299`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:301`](../packages/core/session/src/types.ts)
+Sources: [`packages/core/agent-codex/lib/types/types.d.ts:55`](../packages/core/agent-codex/lib/types/types.d.ts) · [`packages/core/session/src/types.ts:299`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:301`](../packages/core/session/src/types.ts)
 
 | Property | Presence | Type |
 |---|---|---|

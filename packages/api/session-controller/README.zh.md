@@ -126,6 +126,8 @@ GUI 模型选择要求确切提供方／模型对出现在可用目录中；不�
 
 无。
 
+Custom external directory 向同一原生 catalog 提供权威模型。模型消失后历史 selection 仍可读取，但下次 turn admission 拒绝该确切不可用 selection。按需启用的 Session follow 传递完整有界 external activity baseline 和单调 replacement；这些脱敏 transient observation 不成为 Local tool call 或 durable history。
+
 </details>
 
 **运行时不变式：** 不发布伴生入口。每个分页与帧都会对照其指向的持久 Session 校验。

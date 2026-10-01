@@ -1,0 +1,70 @@
+# Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write packages/compaction/compaction-task-aware-policy/README.md
+/:
+  en: 9e854fe78cfadaad
+  zh: 6475329293823005
+/deepseek-ai-dsh-compaction-task-aware-policy:
+  en: b303510331afc6c7
+  zh: 249c06717da84b96
+/deepseek-ai-dsh-compaction-task-aware-policy/summary:
+  en: de8d92bd613b2c57
+  zh: 346ab4ca822a7eb5
+/deepseek-ai-dsh-compaction-task-aware-policy/table-of-contents:
+  en: cd2a60a905c978d6
+  zh: cc71d387d0cbd442
+/deepseek-ai-dsh-compaction-task-aware-policy/use-this-package:
+  en: f32680f51be7b8d2
+  zh: af40c1322b22b28e
+/deepseek-ai-dsh-compaction-task-aware-policy/use-this-package/fail-open-when-the-session-tracks-no-task:
+  en: b8a84f8943698067
+  zh: bf338d1199ee31a4
+/deepseek-ai-dsh-compaction-task-aware-policy/use-this-package/authority-is-captured-hashed-and-republished-verbatim:
+  en: a1b729576d16d9ff
+  zh: e9b3e1515ac697d0
+/deepseek-ai-dsh-compaction-task-aware-policy/use-this-package/publication-is-gated-on-live-authority-synchronously:
+  en: a32bfc562340ff34
+  zh: 20510a43533aff35
+/deepseek-ai-dsh-compaction-task-aware-policy/use-this-package/the-auxiliary-ladder-is-bounded-and-truthful:
+  en: 073c97100e54ddc4
+  zh: 4ccd08dabe26f5f3
+/deepseek-ai-dsh-compaction-task-aware-policy/use-this-package/nothing-here-becomes-authority:
+  en: 892425e556e0306a
+  zh: b825e9b9cfcf9eb4
+/deepseek-ai-dsh-compaction-task-aware-policy/api:
+  en: f8ab4e3bf84f1c38
+  zh: e78c3ed274336f3d
+/deepseek-ai-dsh-compaction-task-aware-policy/model-experience:
+  en: 215e7ba838619b7b
+  zh: a311da3843709f90
+/deepseek-ai-dsh-compaction-task-aware-policy/model-experience/auxiliary-compaction-request:
+  en: abd70fc17ff0e7e8
+  zh: 93aca18d12af179b
+/deepseek-ai-dsh-compaction-task-aware-policy/model-experience/auxiliary-compaction-request/what-the-model-sees:
+  en: 54b17ec5c40bf611
+  zh: 3b25a561f64fea62
+/deepseek-ai-dsh-compaction-task-aware-policy/model-experience/auxiliary-compaction-request/token-effect:
+  en: 176d04f1b7e4527b
+  zh: 6cf7e4b357c98c68
+/deepseek-ai-dsh-compaction-task-aware-policy/model-experience/auxiliary-compaction-request/kv-cache-effect:
+  en: 02460cb727861f34
+  zh: ff8bfba0ae0ba52c
+/deepseek-ai-dsh-compaction-task-aware-policy/model-experience/published-replacement:
+  en: 500fa954e6c2ca08
+  zh: d550851a1db931a0
+/deepseek-ai-dsh-compaction-task-aware-policy/model-experience/published-replacement/what-the-model-sees:
+  en: 9ab8a94bf4e95af8
+  zh: 9afe54a4e29427de
+/deepseek-ai-dsh-compaction-task-aware-policy/model-experience/published-replacement/token-effect:
+  en: 0ebec71559991e68
+  zh: 612f1218c808a644
+/deepseek-ai-dsh-compaction-task-aware-policy/model-experience/published-replacement/kv-cache-effect:
+  en: c536c188a20dce46
+  zh: 138717a86a257ae8
+/deepseek-ai-dsh-compaction-task-aware-policy/known-limitations-and-deferred-work:
+  en: ee6d30d84ff6fb99
+  zh: 0aa4eabb1cb4cc34
+/deepseek-ai-dsh-compaction-task-aware-policy/known-limitations-and-deferred-work/dev-note:
+  en: 17a74d58305655e3
+  zh: c55297c967a0ae01

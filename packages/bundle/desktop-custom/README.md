@@ -32,7 +32,7 @@ Use through the Custom profile bundle composition; this package owns no addition
 <a id="understand-the-implementation"></a>
 ## Understand the implementation
 
-The layer adds custom-foundation, agent-codex and task-checkpoint. It disables deepseek-account, llm-deepseek, hosted search, timer, HMR and model-generated titles. Bootstrap sets provider configuration and the default model in the official profile patch; an uninitialized composition keeps an unregistered sentinel and fails closed. Optional Schedule and Computer Use bundles are never installed by this layer.
+The layer mounts Local/Codex runtime owners, task/checkpoint and compaction policy, diagnostic transport, Models controls and Run Details. It disables DeepSeek account/controller/UI onboarding, hosted DeepSeek/search, timer, HMR and model-generated titles; native credential onboarding is disabled through its existing Config seam. Bootstrap sets provider configuration and the default model in the official profile patch; an uninitialized composition keeps an unregistered sentinel and fails closed. Optional Schedule and Computer Use bundles are never installed by this layer.
 
 No runtime invariant companion is published because persistence writes use the existing Session or ConfigEditor validation and this package owns no independently diverging state copy.
 

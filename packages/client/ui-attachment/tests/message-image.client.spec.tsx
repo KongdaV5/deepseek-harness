@@ -322,6 +322,7 @@ describe('ImageGallery', () => {
       useSessionStatus,
       useWorkspaces,
       useProjection: () => undefined,
+      useExternalActivities: select => select([]),
       useConversation,
       useChat,
       useTrajectory,

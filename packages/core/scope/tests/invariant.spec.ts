@@ -45,6 +45,8 @@ describe('scoped-dispatch invariants', () => {
       source: { kind: 'user' },
     })
     const agentRows = {
+      'agent/resolve-external-turn': [{ agent, selection: { provider: 'p', model: 'm' }, signal }, () => Promise.resolve(undefined)],
+      'agent/external-turn-event': [{ agent, turn: 1, step: 1, event: { kind: 'turn', id: 'operation', status: 'completed', identity: { activityId: 'operation', eventId: 'event', sessionId: 'session' as never, dshTurn: 1, dshStep: 1, provider: 'p', runtimeSource: 'test', runtimeVersion: '1', threadId: 'thread', turnId: 'turn', itemId: 'item', eventKind: 'turn/completed', terminalState: 'completed' } } }],
       'agent/created': [{ agent, source: 'startup' }],
       'agent/disposed': [{ agent }],
       'agent/status': [{ agent, status: 'idle' }],

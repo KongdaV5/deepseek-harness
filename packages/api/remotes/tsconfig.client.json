@@ -11,7 +11,9 @@
     "src/types.ts"
   ],
   "references": [
-    { "path": "../../client/product-analytics/tsconfig.client.json" },
+    {
+      "path": "../../client/product-analytics/tsconfig.client.json"
+    },
     {
       "path": "../../../vendor/cordis"
     },
@@ -107,6 +109,12 @@
     },
     {
       "path": "../../credentials/deepseek-account"
+    },
+    {
+      "path": "../../core/agent-codex/tsconfig.state.json"
+    },
+    {
+      "path": "../../boot/custom-foundation"
     }
   ]
 }

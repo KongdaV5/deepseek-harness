@@ -20,7 +20,7 @@ import SessionStore from '@deepseek-ai/dsh-session'
 import type { SessionId } from '@deepseek-ai/dsh-session'
 import type { SessionPromptRequest, SessionRequestId } from '../src/types.ts'
 import { ApiSessionAgentController } from '../src/agent.ts'
-import { buildModelCatalog, hasProviderApiKey } from '../src/catalog.ts'
+import { buildModelCatalog, modelAvailable, hasProviderApiKey } from '../src/catalog.ts'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import { RemoteError } from '@deepseek-ai/dsh-typert-protocol'
 import { createSessionTestController, createSessionTestRemote } from './test-remote.ts'
@@ -906,4 +906,19 @@ it.each([new Error('catalog disconnected'), 'catalog disconnected'])('reports ca
     await expect(modelAvailable(ctx, { provider: 'deepseek-official', model: 'deepseek-chat' }))
       .rejects.toMatchObject({ code: 'session/model-unavailable', message: 'catalog disconnected' })
   } finally { read.mockRestore(); await ctx.fiber.dispose() }
+})
+
+
+it('joins the live external model/list directory and removes unavailable exact selections without substitution', async () => {
+  const ctx = new Context(); onTestFinished(() => ctx.fiber.dispose()); await ctx.plugin(LlmRuntime)
+  let models = [{ id: 'dynamic-fixture', name: 'Dynamic fixture', reasoning: { efforts: [{ id: ReasoningEffortId('high'), name: 'High' }] } }]
+  ctx.provide('externalModelProviders', { listProviders: () => [{ id: 'codex', name: 'Codex subscription',
+    listModels: async () => models, resolveSelection: async selected => selected }] })
+  const initial = await buildModelCatalog(ctx, { provider: 'local', model: 'huihui' })
+  expect(initial.default).toEqual({ provider: 'local', model: 'huihui' })
+  expect(initial.groups[0]?.models[0]).toMatchObject({ id: 'dynamic-fixture', reasoning: { efforts: [{ id: 'high' }] } })
+  expect(await modelAvailable(ctx, { provider: 'codex', model: 'dynamic-fixture' })).toBe(true)
+  models = []
+  expect(await modelAvailable(ctx, { provider: 'codex', model: 'dynamic-fixture' })).toBe(false)
+  expect((await buildModelCatalog(ctx, initial.default)).groups).toEqual([])
 })

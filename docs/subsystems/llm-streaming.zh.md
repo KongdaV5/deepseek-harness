@@ -1084,6 +1084,48 @@ Types: [FileAttachmentRef](attachment.zh.md)
 
 Source: [`packages/llm/llm/src/index.ts`](../../packages/llm/llm/src/index.ts)
 
+<a id="ctxlocalmodelruntimecontroller--localmodelruntimecontroller"></a>
+
+### `ctx.localModelRuntimeController` — `LocalModelRuntimeController`
+
+One controller and its one-child operation queue. Start/restart always wait for the known LaunchAgent and port to be down before selecting another profile; an unmanaged listener is never stopped.
+
+```ts cordis-catalog
+/**
+ * Return a fresh LaunchAgent and health observation; no in-memory green cache is trusted.
+ * @returns the current manager, endpoint, and installed-profile state.
+ * @throws RemoteError when the local profile inventory or Host probe fails unexpectedly.
+ */
+@Remote async status(): Promise<LocalModelRuntimeSnapshot>
+
+/**
+ * Start one allowlisted local profile after releasing the shared port.
+ * @param profile - local-model manager profile to activate.
+ * @returns the profile state after its loopback health check succeeds.
+ * @throws RemoteError when disabled, unavailable, unsafe, or not healthy after start.
+ */
+@Remote start(profile: LocalModelProfileId): Promise<LocalModelRuntimeSnapshot>
+
+/**
+ * Stop only the verified manager LaunchAgent, and confirm port release.
+ * @returns the stopped state after the manager and shared port are confirmed down.
+ * @throws RemoteError when the manager is unavailable, ownership is ambiguous, or shutdown fails.
+ */
+@Remote stop(): Promise<LocalModelRuntimeSnapshot>
+
+/**
+ * Stop, verify release, then start the requested profile in the same queue.
+ * @param profile - local-model manager profile to activate after shutdown.
+ * @returns the profile state after its loopback health check succeeds.
+ * @throws RemoteError when shutdown cannot be verified or the new profile is not healthy.
+ */
+@Remote restart(profile: LocalModelProfileId): Promise<LocalModelRuntimeSnapshot>
+```
+
+Types: [LocalModelProfileId](../custom-foundation.zh.md) · [LocalModelRuntimeSnapshot](../custom-foundation.zh.md)
+
+Source: [`packages/boot/custom-foundation/src/local-runtime.ts`](../../packages/boot/custom-foundation/src/local-runtime.ts)
+
 <a id="llm-events"></a>
 
 ### `llm/*` events

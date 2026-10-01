@@ -1,0 +1,6 @@
+.section { display: flex; flex-direction: column; gap: 12px; max-width: 720px; color: var(--dsw-alias-label-primary); }
+.card { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0; padding: 16px; border: 0.5px solid var(--dsw-alias-settings-card-stroke); border-radius: 12px; background: var(--dsw-alias-settings-card-fill); }
+.card legend { padding: 0 6px; font-weight: 500; }
+.card p { flex-basis: 100%; margin: 0; overflow-wrap: anywhere; }
+.hint { color: var(--dsw-alias-label-tertiary); font-size: 13px; line-height: 20px; }
+.card [role="alert"] { color: var(--dsw-alias-state-warn-label); }

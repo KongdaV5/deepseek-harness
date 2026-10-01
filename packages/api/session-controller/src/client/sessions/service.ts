@@ -1,3 +1,4 @@
+import type { SessionExternalActivitySource } from '../contract/events.ts'
 /** Client catalog and source-labelled ownership of exact Session generations. */
 import type { Context, Fiber } from '@deepseek-ai/cordis'
 import type { SubagentAddress } from '@deepseek-ai/dsh-subagent/client'
@@ -100,6 +101,8 @@ export interface SessionBinding {
   /** The outward session face only — feature code never sees the concrete class. */
   readonly session: SessionFace
   /** Contiguous event window reserved for Conversation assembly. */
+  /** Read-only external activity beside durable history. */
+  readonly externalActivities?: SessionExternalActivitySource
   readonly eventSource: SessionEventSource
   readonly ctx: AgentContext
 }

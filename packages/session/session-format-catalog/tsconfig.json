@@ -36,7 +36,7 @@
       "path": "../../compaction/compaction-image-offload"
     },
     {
-      "path": "../../core/agent-codex"
+      "path": "../../core/agent-codex/tsconfig.state.json"
     },
     {
       "path": "../task-checkpoint"

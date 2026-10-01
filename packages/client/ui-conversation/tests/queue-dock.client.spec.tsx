@@ -84,6 +84,7 @@ function liveSession(initial: TestSnapshot) {
   )) as UseProjection
   return {
     useSession,
+    useExternalActivities: (): never => { throw new Error('Fixture does not consume external activity') },
     useProjection,
     push(next: TestSnapshot): void {
       snapshot = next
@@ -109,6 +110,7 @@ function kitFor(snapshot: SessionSnapshot, injected: Partial<QueueDockInjected> 
       createSnapshotStore<SessionStatusSnapshot>(new Map()),
     ),
     useWorkspaces: (() => { throw new Error('unused') }) as never,
+    useExternalActivities: (): never => { throw new Error('Fixture does not consume external activity') },
     useProjection: (() => undefined) as never,
     useConversation: bindSnapshotSelector(createSnapshotStore(conversationSnapshot())),
     useChat: (() => { throw new Error('unused') }) as QueueDockProps['useChat'],

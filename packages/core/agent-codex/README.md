@@ -1,5 +1,5 @@
 ---
-description: "Read and edit the saved Codex runtime preference without connecting an account or starting an App Server. Restore thread mappings from canonical plugin-qualified Session events. Pending dispatch and synchronization facts remain reconciliation obligations."
+description: "Run explicitly selected Codex models through the official App Server subscription path. Discover available models from the active runtime and keep DSH conversation history canonical. Restore private thread mappings without repeating uncertain dispatches. Runtime preference changes preserve authentication generation and refuse active-turn replacement."
 kind: package-reference
 ---
 
@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-Read and edit the saved Codex runtime preference without connecting an account or starting an App Server. Restore thread mappings from canonical plugin-qualified Session events. Pending dispatch and synchronization facts remain reconciliation obligations.
+Run explicitly selected Codex models through the official App Server subscription path. Discover available models from the active runtime and keep DSH conversation history canonical. Restore private thread mappings without repeating uncertain dispatches. Runtime preference changes preserve authentication generation and refuse active-turn replacement.
 
 ## Table of Contents
 
@@ -25,16 +25,19 @@ Read and edit the saved Codex runtime preference without connecting an account o
 <a id="use-this-package"></a>
 ## Use this package
 
-Use through the Custom profile bundle composition; this package owns no additional application launcher.
+Use the Custom profile composition and the Models subscription controls. Verified System discovery and the pinned Bundled runtime supply the explicit auto/system/bundled choices. No API-key substitute or hosted fallback is admitted. An unavailable account or selected model fails visibly; reconnect does not imply login or authorize replay.
 
 -----
 
 <a id="understand-the-implementation"></a>
 ## Understand the implementation
 
-Config owns preference, authGeneration and authTransition as live references. Preference edits use ConfigEditor and preserve the authentication fields exactly. The projection validates whole mapping snapshots; codexMappingRecovery only classifies obligations and never permits dispatch. No runtime, auth-state epoch, CODEX_HOME, transaction or account binding is initialized by this package.
+<details>
+<summary>Implementation internals — click to expand</summary>
 
-No runtime invariant companion is published because persistence writes use the existing Session or ConfigEditor validation and this package owns no independently diverging state copy.
+Codex Config owns runtime preference, authGeneration and the pending auth transition marker. The transaction owner alone updates lifecycle fields through ConfigEditor; generic Settings exposes only preference. CodexSubscriptionRuntime owns the child, process-local epoch, leases, account transactions and private thread protocol. Canonical plugin-qualified Session snapshots preserve thread binding and reconciliation obligations; native assistant settlement proves answer delivery. The external AgentLoop seam keeps DSH turn/cancellation/history ownership with the native driver. The state leaf face gives format catalogs pure projection types without importing Host Context into Client contracts.
+
+</details>
 
 -----
 
@@ -42,35 +45,45 @@ No runtime invariant companion is published because persistence writes use the e
 ## Further Exploration
 
 - [Custom foundation ledger](../../../docs/custom-foundation.md)
+- [AgentLoop](../agent-loop/README.md)
+- [Session foundation](../session/README.md)
 
 -----
 
 <a id="model-experience"></a>
 ## Model Experience
 
-### Persistence foundation
+### Runtime integration
 
 #### What the model sees
 
-The `plugin:codex/subscription-state` metadata never enters conversation history. The execution owner decides how to synchronize public messages.
+The external runtime receives the current user request and bounded canonical public history when a private thread needs bootstrap. `plugin:codex/subscription-state` mapping metadata and redacted activity are not conversation messages. Local prompt and tool assembly is skipped for the admitted external route.
 
 #### Token effect
 
-Zero direct tokens.
+Bounded public-history bootstrap consumes context tokens when a private thread is created. The App Server reports actual turn usage; mapping and diagnostic metadata add none.
 
 #### KV Cache effect
 
-No direct effect; this layer executes no model request.
+This package keeps no model KV cache; the selected provider owns cache behavior.
 
 ## Known Limitations and Deferred Work
 
 <a id="known-limitations-and-deferred-work"></a>
 
-- App Server execution, auth lifecycle, external turns and catalog discovery belong to M2. Hidden non-secret auth Config fields remain writable only for the future transaction owner by convention; preference consumers call savePreference.
+- An unresolved remote outcome blocks replay until authoritative thread/turn reconciliation succeeds.
+- Real inference requires an already authenticated dedicated Codex home; source fixtures never inspect or copy credentials.
+- Native packaged discovery, persistence restart and installed lifecycle remain M3 evidence obligations.
+- No runtime invariant companion is published; canonical Session validation and transaction-owner tests check the lifecycle without a second mutable observer.
 
 -----
 
 <a id="dev-note"></a>
 ### Dev Note
 
-Maintainers validate Config, persistence and disposal through the owning isolated tests.
+<details>
+<summary>Working context for maintainers — click to expand</summary>
+
+Source tests use isolated runtime owners and explicit Remote operations. The migration ledger records real-smoke limits separately from fixture evidence.
+
+</details>

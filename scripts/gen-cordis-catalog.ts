@@ -50,6 +50,9 @@ export { REGION_BEGIN, REGION_END }
  * errors, so the partition can never silently drift from the service API.
  */
 export const SERVICE_PAGE: Record<string, string> = {
+  compactionCandidatePolicy: 'compaction.md',
+  localModelRuntimeController: 'llm-streaming.md',
+  runtimeDiagnostics: 'session.md',
   speechToText: 'voice-input.md',
   speechController: 'voice-input.md',
   otel: 'otel.md',
@@ -166,6 +169,9 @@ export const SERVICE_PAGE: Record<string, string> = {
  * to a model as `cordis_runtime_inspect what:"client"`).
  */
 export const SERVICE_WALK_EXEMPTIONS: Record<string, string> = {
+  runtimeDiagnosticsTopics: 'Client-only topic registry — packages/api/runtime-diagnostics-controller/README.md owns the observation contract',
+  externalModelProviders: 'Optional route capability directory — packages/core/agent/README.md owns the selection contract',
+  agentModelSelection: 'Session-scoped live selection ref — packages/core/agent/README.md owns the turn-boundary contract',
   invocation: 'not a service: per-call accessor (RemoteInvocation | undefined) the Gateway derives for each Remote call — packages/api/gateway/README.md owns the contract',
   webTerminals: 'client-side terminal view models — packages/api/terminal-controller/README.md owns the API',
   appReady: 'not a service: launcher-provided successful-startup signal — packages/boot/cmdline/README.md owns the launcher contract',
@@ -279,6 +285,16 @@ export const EVENT_WALK_EXEMPTIONS: Record<string, string> = {
  * appear on more than one page.
  */
 export const LINK_MAP: Readonly<Record<string, string>> = {
+  RuntimeDiagnosticsProvider: '../custom-foundation.md',
+  RuntimeDiagnosticsFollowRequest: '../custom-foundation.md',
+  RuntimeDiagnosticsFrame: '../custom-foundation.md',
+  CompactionAssessInput: '../custom-foundation.md',
+  CompactionPolicyAdmission: '../custom-foundation.md',
+  CompactionBeginInput: '../custom-foundation.md',
+  CompactionPolicyTransaction: '../custom-foundation.md',
+  LocalModelRuntimeSnapshot: '../custom-foundation.md',
+  LocalModelProfileId: '../custom-foundation.md',
+
   EventLogOptions: 'otel.md',
   EventLogReporter: 'otel.md',
   SessionLogOptions: 'otel.md',
@@ -312,6 +328,9 @@ export const LINK_MAP: Readonly<Record<string, string>> = {
   OfficeToPdfPriority: 'office-to-pdf.md',
   OfficeToPdfGeneration: 'office-to-pdf.md',
   Agent: 'core.md',
+  ExternalTurnEvent: '../custom-foundation.md',
+  ExternalTurnExecutor: '../custom-foundation.md',
+  ExternalTurnSelection: '../custom-foundation.md',
   AgentCancelCause: 'core.md',
   AgentFactory: 'core.md',
   AgentHandle: 'core.md',

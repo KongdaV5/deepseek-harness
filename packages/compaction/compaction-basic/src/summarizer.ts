@@ -10,6 +10,7 @@ import { deepFreeze } from '@deepseek-ai/dsh-util-values'
 import type {
   ContentBlock, FinishReason, GenerateOptions, Message, RequestMessage, TokenUsage, ToolSchema,
 } from '@deepseek-ai/dsh-llm'
+import type { CompactionRequestDecoration } from '@deepseek-ai/dsh-compaction'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 
 interface SummaryConfig {
@@ -81,11 +82,15 @@ export interface SummarizationInput {
   readonly tools?: readonly ToolSchema[]
   /** The derived system head, when present, followed by the shadowed region in surface order. */
   readonly messages: readonly Message[]
+  /** Transaction-scoped candidate decoration; never main-run configuration. */
+  readonly decoration?: CompactionRequestDecoration
 }
 
 /** Safe summary content plus the exact auxiliary call envelope recorded with it. */
 export type SummaryResult = {
   summary: ContentBlock[]
+  /** Incomplete candidate is judged by the installed policy rather than published. */
+  truncated?: boolean
   provider: string
   model: string
   maxTokens?: number
@@ -144,6 +149,7 @@ export async function summarizeWithLlm(
   const assembler = new BlockAssembler()
   const messages: RequestMessage[] = [
     ...input.messages,
+    ...input.decoration?.supplementalMessages ?? [],
     deepFreeze({
       role: 'user',
       content: [{ type: 'text', text: COMPACTION_INSTRUCTION }],
@@ -158,11 +164,12 @@ export async function summarizeWithLlm(
     maxTokens: config.maxTokens,
     sessionId: agent.session.id,
     purpose: 'compaction',
+    ...input.decoration?.reasoningEffort === undefined ? {} : { reasoningEffort: input.decoration.reasoningEffort },
     ...signal === undefined ? {} : { signal },
   }
   for await (const chunk of ctx.llm.stream(options)) assembler.push(chunk)
   const error = finishError(assembler.finish)
-  if (error !== undefined) throw error
+  if (error !== undefined && !(input.decoration !== undefined && assembler.finish.kind === 'max-tokens')) throw error
 
   const rawOutput = assembler.blocks()
   const summary = summaryText(rawOutput)
@@ -171,6 +178,7 @@ export async function summarizeWithLlm(
   }
   return {
     summary,
+    ...assembler.finish.kind === 'max-tokens' ? { truncated: true } : {},
     rawOutput,
     llmStreamCall: true,
     provider: options.provider,

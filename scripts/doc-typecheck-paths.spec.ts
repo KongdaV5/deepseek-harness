@@ -10,6 +10,13 @@ describe('builtDeclarationPath', () => {
       .toBe('./packages/core/session/lib/types/invariant.d.ts')
   })
 
+  it('preserves the generated Remote and Host declarations already selected by workspace aliases', () => {
+    for (const face of ['remote-client', 'host']) {
+      const path = `./packages/core/agent-codex/lib/typert.${face}.d.ts`
+      expect(builtDeclarationPath(path)).toBe(path)
+    }
+  })
+
   it('rejects aliases without a supported source target', () => {
     expect(() => builtDeclarationPath('./packages/runtime-diagnostics/invariants/source/index.ts'))
       .toThrow('cannot map workspace source path')

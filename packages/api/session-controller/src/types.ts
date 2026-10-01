@@ -485,6 +485,8 @@ export interface SessionPageRequest {
 
 /** One live event request for a durable Session address. */
 export interface SessionFollowRequest extends Pick<SessionPageRequest, 'maxMessages' | 'turnWindow'> {
+  /** Opt into bounded sanitized external activity, separate from durable history. */
+  readonly externalActivities?: true
   readonly address: SessionAddress
   /** Include process-local assistant presentation frames for the Web client. */
   readonly assistantStream?: true
@@ -542,6 +544,47 @@ export type SessionAssistantStreamFrame =
       | { readonly kind: 'abandoned' }
   }
 
+/** Sanitized, process-local activity from an external runtime turn. */
+export interface SessionExternalActivity {
+  /** Stable operation identity; lifecycle updates replace the same row. */
+  readonly id: string
+  readonly sessionId: SessionId
+  readonly dshTurn: number
+  readonly dshStep: number
+  readonly provider: string
+  readonly runtimeSource: string
+  readonly runtimeVersion: string
+  readonly codexThreadId: string
+  readonly codexTurnId: string
+  readonly codexItemId: string
+  readonly codexRequestId?: string
+  readonly eventId: string
+  readonly eventKind: string
+  readonly terminalState: string
+  readonly kind: 'command' | 'file-change' | 'approval' | 'turn'
+  readonly status:
+    | 'started' | 'completed' | 'failed' | 'interrupted'
+    | 'created' | 'modified' | 'deleted'
+    | 'requested' | 'allowed' | 'rejected'
+  /** Bounded, redacted command/approval/turn summary; never raw process output. */
+  readonly label?: string
+  /** Workspace-relative path only. */
+  readonly path?: string
+  readonly time: number
+}
+
+/** Opening baseline for the bounded process-local external activity window. */
+export interface SessionExternalActivityBaseline {
+  readonly revision: number
+  readonly activities: readonly SessionExternalActivity[]
+}
+
+/** One revisioned cursorless external activity update. */
+export interface SessionExternalActivityFrame {
+  readonly revision: number
+  readonly activity: SessionExternalActivity
+}
+
 /** One contiguous backwards page of a Session log. */
 export interface SessionPage {
   readonly records: readonly SessionHistoryRecord[]
@@ -558,9 +601,11 @@ export type SessionFollowFrame =
     readonly hasMore: boolean
     readonly projections: SessionProjectionBaseline
     readonly assistantStream?: SessionAssistantStreamBaseline
+    readonly externalActivities?: SessionExternalActivityBaseline
   }
   | SessionEventEntry
   | { readonly type: 'assistant-stream'; readonly frame: SessionAssistantStreamFrame }
+  | { readonly type: 'external-activity'; readonly frame: SessionExternalActivityFrame }
 
 /** Complete live control baseline emitted once per control stream generation. */
 export interface SessionControlBaseline {

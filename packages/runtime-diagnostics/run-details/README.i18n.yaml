@@ -1,0 +1,43 @@
+# Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write packages/runtime-diagnostics/run-details/README.md
+/:
+  en: 9fdfa4683f87abb7
+  zh: 22483e2f38779e48
+/deepseek-ai-dsh-run-details:
+  en: 06a31d089b0c0fdd
+  zh: 989ad39e76793fca
+/deepseek-ai-dsh-run-details/summary:
+  en: dcf5c9467757c1d4
+  zh: 2f1e07436b26cb66
+/deepseek-ai-dsh-run-details/table-of-contents:
+  en: cd2a60a905c978d6
+  zh: cc71d387d0cbd442
+/deepseek-ai-dsh-run-details/use-this-package:
+  en: 93d845d75ba47f36
+  zh: 2faaef2c36c063fb
+/deepseek-ai-dsh-run-details/use-this-package/every-field-comes-from-somewhere-else:
+  en: 6f3efd12cc31c5c7
+  zh: f0fd2520bff3a6f1
+/deepseek-ai-dsh-run-details/use-this-package/idle-is-an-absence-not-a-null-run:
+  en: 9d4b7f439f998f69
+  zh: 587c9a1fb9340e6b
+/deepseek-ai-dsh-run-details/use-this-package/main-run-reasoning-and-auxiliary-reasoning-stay-apart:
+  en: 1e0817714b7f91bf
+  zh: e05d0b23885704d9
+/deepseek-ai-dsh-run-details/api:
+  en: d1a5b8968a69e63a
+  zh: ebb3b8d773f2b537
+/deepseek-ai-dsh-run-details/model-experience:
+  en: 7f8133cad6471459
+  zh: d0434f871d213682
+/deepseek-ai-dsh-run-details/model-experience/kv-cache-effect:
+  en: b1eeea67350ba37c
+  zh: 1226e1a172bc65f4
+/deepseek-ai-dsh-run-details/known-limitations-and-deferred-work:
+  en: 81a6b40cf16f9801
+  zh: 5365df4779cee05b
+/deepseek-ai-dsh-run-details/known-limitations-and-deferred-work/dev-note:
+  en: fa3c441870168850
+  zh: cfd24c5b27067a44

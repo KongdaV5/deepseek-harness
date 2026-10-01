@@ -16,7 +16,7 @@ export function customLocalPatches(userHome: string): PatchOptions[] {
   const model = join(userHome, 'Models', 'Huihui-Qwen3.8-27B-abliterated-GGUF', 'Huihui-Qwen3.8-27B-abliterated-GSQ-RCO-IQ3_S.gguf')
   return [
     { id: 'agent-default-model', config: { provider: 'dsh-local-huihui', model } },
-    { id: 'llm-pi-ai', config: { providers: { 'dsh-local-huihui': { displayName: 'Local Huihui Qwen', api: 'openai-completions', baseURL: 'http://127.0.0.1:8080/v1', models: [{ id: model, name: 'Huihui Qwen3.8 27B', contextWindow: 32768, maxTokens: 8192 }] } } } },
+    { id: 'llm-pi-ai', config: { providers: { 'dsh-local-huihui': { displayName: 'Local Huihui Qwen', api: 'openai-completions', baseURL: 'http://127.0.0.1:8080/v1', models: [{ id: model, name: 'Huihui Qwen3.8 27B', contextWindow: 32768, maxTokens: 8192 }, { id: join(userHome, 'Models', 'Qwen3.8-27B-GSQ-RCO-GGUF', 'Qwen3.8-27B-GSQ-RCO-IQ3_S.gguf'), name: 'Original Qwen3.8 27B', contextWindow: 32768, maxTokens: 8192 }] } } } },
     { id: 'custom-foundation', config: { localProfiles: [{ id: 'huihui', name: 'Huihui Qwen3.8 27B', modality: 'text', modelId: model }, { id: 'img21', name: 'Qwen Image 2.1', modality: 'image', modelId: join(userHome, 'Models', 'Qwen-Image-2.1-mflux-8bit') }, { id: '38', name: 'Original Qwen3.8 27B', modality: 'text', modelId: join(userHome, 'Models', 'Qwen3.8-27B-GSQ-RCO-GGUF', 'Qwen3.8-27B-GSQ-RCO-IQ3_S.gguf') }], selectedLocalProfile: 'huihui', localModelRuntime: true, codexSubscription: true } },
   ]
 }
@@ -46,10 +46,23 @@ export async function initializeCustomProfile(home: string, userHome: string): P
         const current = existing.config ?? {}
         existing.config = { ...defaults, ...current }
         if (row.id === 'llm-pi-ai') {
-          existing.config['providers'] = {
-            ...z.record(z.string(), z.unknown()).parse(defaults['providers']),
-            ...z.record(z.string(), z.unknown()).parse(current['providers'] ?? {}),
+          const providerDefaults = z.record(z.string(), z.unknown()).parse(defaults['providers'])
+          const providers = {
+            ...providerDefaults, ...z.record(z.string(), z.unknown()).parse(current['providers'] ?? {}),
           }
+          const local = providers['dsh-local-huihui']
+          const standard = providerDefaults['dsh-local-huihui']
+          const routeSchema = z.object({
+            api: z.string(), baseURL: z.string(), models: z.array(z.object({ id: z.string() }).loose()),
+          }).loose()
+          const old = routeSchema.safeParse(local)
+          const target = routeSchema.parse(standard)
+          // Upgrade only the exact one-model M1 Custom route. Modified routes and inventories keep their owner values.
+          if (old.success && old.data.api === target.api && old.data.baseURL === target.baseURL
+            && old.data.models.length === 1 && old.data.models[0]?.id === target.models[0]?.id) {
+            providers['dsh-local-huihui'] = { ...old.data, models: [...old.data.models, ...target.models.slice(1)] }
+          }
+          existing.config['providers'] = providers
         }
       }
     }

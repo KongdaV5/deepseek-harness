@@ -90,6 +90,7 @@ function props(
     useSessionRetainInfo: unused,
     useWorkspaces: unused,
     useResource: unused,
+    useExternalActivities: (): never => { throw new Error('Fixture does not consume external activity') },
     useProjection: unused,
     useConversation: unused,
     useInput: unused,

@@ -93,6 +93,8 @@ Host 与 Client 是两个独立的 TypeScript 程序。直接项目引用确定�
 
 根导出包含本仓库 Cordis 目录使用的模型驱动提取逻辑、完整性检查与确定性文本渲染器。它们接受 `CordisCatalogPolicy`；由仓库持有的类型链接、基础类型／豁免分类与继承的 Cordis 条目仍位于 `scripts/gen-cordis-catalog.ts`，由调用方显式传入，因此本包只包含投影机制，不会隐式复制仓库的文档分类体系。
 
+大型 workspace selection 在同一 emitter 运行前复用有界 FaceModel batch analyzer。Batch 保留声明 ownership 与生成 codec 等价性，避免单个 analysis program 同时持有完整 Host graph。
+
 </details>
 
 -----

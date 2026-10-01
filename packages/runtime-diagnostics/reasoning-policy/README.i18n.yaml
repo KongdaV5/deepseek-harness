@@ -1,0 +1,43 @@
+# Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write packages/runtime-diagnostics/reasoning-policy/README.md
+/:
+  en: a3fece8fa50ae52c
+  zh: 52f7d0695a47dcbb
+/deepseek-ai-dsh-reasoning-policy:
+  en: 51b6dc7b8c63ce38
+  zh: d5c2efcd9a29c7d0
+/deepseek-ai-dsh-reasoning-policy/summary:
+  en: c390501a9d6442eb
+  zh: 2df9b79d9a6e00ee
+/deepseek-ai-dsh-reasoning-policy/table-of-contents:
+  en: cd2a60a905c978d6
+  zh: cc71d387d0cbd442
+/deepseek-ai-dsh-reasoning-policy/use-this-package:
+  en: 07981194162c8634
+  zh: 78ed1537e49af634
+/deepseek-ai-dsh-reasoning-policy/use-this-package/requested-is-not-resolved:
+  en: b44c4bf48bf577c9
+  zh: 13498aef37c12baa
+/deepseek-ai-dsh-reasoning-policy/use-this-package/an-unsupported-request-is-terminal-not-recoverable:
+  en: 56d7cea772670fc3
+  zh: 6f9b8b21c9f8d3ea
+/deepseek-ai-dsh-reasoning-policy/use-this-package/the-capability-is-validated-not-trusted:
+  en: ca7c274962d405fc
+  zh: 323a63330b1ea586
+/deepseek-ai-dsh-reasoning-policy/api:
+  en: c38148d0dd36d036
+  zh: 189a583bed76b336
+/deepseek-ai-dsh-reasoning-policy/model-experience:
+  en: 32bcf4b7348aad6c
+  zh: a6408b3b004bf9f3
+/deepseek-ai-dsh-reasoning-policy/model-experience/kv-cache-effect:
+  en: 2b10651d62802c85
+  zh: e93c5747c8e2478e
+/deepseek-ai-dsh-reasoning-policy/known-limitations-and-deferred-work:
+  en: 08817164d69810ca
+  zh: 86c852cd3472afb7
+/deepseek-ai-dsh-reasoning-policy/known-limitations-and-deferred-work/dev-note:
+  en: 72f4b155f27fd846
+  zh: 0580093334fe2266

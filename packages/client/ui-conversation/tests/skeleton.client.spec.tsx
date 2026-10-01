@@ -222,6 +222,7 @@ function mount(
           useSessionStatus={useSessionStatus}
           useSessionRetainInfo={() => undefined}
           useWorkspaces={props.useWorkspaces}
+          useExternalActivities={select => select([])}
           useProjection={(() => undefined)}
           useInput={useInput}
           inputActions={inputActions}
@@ -251,6 +252,7 @@ function mount(
           useSessionStatus={useSessionStatus}
           useSessionRetainInfo={() => undefined}
           useWorkspaces={props.useWorkspaces}
+          useExternalActivities={select => select([])}
           useProjection={(() => undefined)}
           useInput={useInput}
           inputActions={inputActions}
@@ -278,6 +280,7 @@ function mount(
           useSessionStatus={useSessionStatus}
           useSessionRetainInfo={() => undefined}
           useWorkspaces={props.useWorkspaces}
+          useExternalActivities={select => select([])}
           useProjection={(() => undefined)}
           useInput={useInput}
           inputActions={inputActions}
@@ -336,6 +339,7 @@ function mount(
       useSessionStatus,
       useSessionRetainInfo: () => undefined,
       useWorkspaces: bindSnapshotSelector(workspaces),
+      useExternalActivities: select => select([]),
       useProjection: (() => undefined),
       useComposerBlock: select => select(options.composerBlock),
       useInput,
@@ -366,6 +370,7 @@ function mount(
     useSessionRetainInfo: () => undefined,
     useResource,
     useWorkspaces: bindSnapshotSelector(workspaces),
+    useExternalActivities: select => select([]),
     useProjection: (() => undefined),
     useInput,
     inputActions,

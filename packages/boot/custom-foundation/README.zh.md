@@ -66,7 +66,7 @@ CustomFoundation 拥有 Local manager inventory 和能力偏好；agent-default-
 
 <a id="known-limitations-and-deferred-work"></a>
 
-- 旧配置导入是单向兼容模块，不是第二套 Settings store。仅在受支持的 Custom V3 profiles 与 settings 归档退役后移除。Local runtime 执行、inventory 探测和 UI 操作留给 M2。
+- 旧配置导入是单向兼容模块，不是第二套 Settings store。仅在受支持的 Custom V3 profiles 与 settings 归档退役后移除。Local runtime controller 串行处理 start/stop/switch，只持久化实际成功服务的精确 profile 意图，并拒绝外来或过时的健康状态。LaunchAgent driver 不拥有外部服务生命周期；可选 owned-process driver 仅在官方 subprocess 范围退出后释放句柄。
 
 -----
 

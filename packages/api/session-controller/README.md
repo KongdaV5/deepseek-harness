@@ -126,6 +126,8 @@ No direct effect; model requests remain owned by the Agent and LLM packages.
 
 None.
 
+The Custom external directory contributes authoritative models to the same native catalog. Historical selections remain readable when a model disappears, but next-turn admission refuses that exact unavailable selection. Opted-in Session follow carries a complete bounded external-activity baseline and monotonic replacements; these sanitized transient observations never become Local tool calls or durable history.
+
 </details>
 
 **Runtime invariant:** No companion is published. Every page and frame is checked against the addressed durable Session.

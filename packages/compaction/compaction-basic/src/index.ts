@@ -1,3 +1,4 @@
+import { CompactionPolicyRejectionError } from '@deepseek-ai/dsh-compaction'
 /**
  * Basic replay-aware compaction backend.
  *
@@ -292,13 +293,14 @@ export class BasicCompactionEngine extends CompactionEngine {
     const prune = this.ctx.get('toolResultPruner')
 
     if (trigger === 'context-overflow') {
+      await this.assessPolicy(agent, trigger, measurement.totalTokens, signal)
       if (prune !== undefined) {
         prune.pruneSession(agent.session)
         measurement = meter.measure(agent.session)
       }
       const range = selectCompactableRange(agent.session, measurement, 0)
       if (range === null) return null
-      return this.compactRegion(range.start, range.end, agent, signal)
+      return this.compactRegion(range.start, range.end, agent, signal, trigger)
     }
 
     const info = await this.ctx.llm.resolveModelInfo(target.provider, target.model, signal)
@@ -318,6 +320,7 @@ export class BasicCompactionEngine extends CompactionEngine {
     )
     if (measurement.totalTokens < spec.thresholdTokens) return null
 
+    await this.assessPolicy(agent, trigger, measurement.totalTokens, signal)
     // Once pressure qualifies, land the model-free pass before choosing a
     // summary range, then remeasure through the singleton replay fold.
     if (prune !== undefined) {
@@ -335,7 +338,7 @@ export class BasicCompactionEngine extends CompactionEngine {
         /* v8 ignore next -- paired with the defensive post-success branch above. */
         break
       }
-      result = await this.compactRegion(range.start, range.end, agent, signal)
+      result = await this.compactRegion(range.start, range.end, agent, signal, trigger)
       measurement = meter.measure(agent.session)
       if (measurement.totalTokens < spec.thresholdTokens) return result
     }
@@ -353,6 +356,7 @@ export class BasicCompactionEngine extends CompactionEngine {
    * @param end - inclusive last surface-node seq.
    * @param agent - owner of the target session, used by the summarizer.
    * @param signal - optional summarization cancellation signal.
+   * @param trigger - explicit policy admission cause, defaulting to a manual request.
    * @returns the successful durable compaction result.
    */
   override async compactRegion(
@@ -360,9 +364,13 @@ export class BasicCompactionEngine extends CompactionEngine {
     end: SessionSeq,
     agent: Agent,
     signal?: AbortSignal,
+    trigger: import('@deepseek-ai/dsh-compaction').CompactionPolicyTrigger = 'manual',
   ): Promise<CompactionResult> {
+    if (this.ctx.get('compactionCandidatePolicy') !== undefined) {
+      await this.assessPolicy(agent, trigger, this.ctx.tokenMeter.measure(agent.session).totalTokens, signal)
+    }
     return compactSurfaceRegion(
-      this.regionDependencies(),
+      this.regionDependencies(agent, trigger),
       agent.session,
       start,
       end,
@@ -391,6 +399,7 @@ export class BasicCompactionEngine extends CompactionEngine {
         const operationSignal = AbortSignal.any([agentSignal, signal])
         try {
           operationSignal.throwIfAborted()
+          await this.assessPolicy(agent, 'manual', this.ctx.tokenMeter.measure(agent.session).totalTokens, operationSignal)
           const range = selectCompactableRange(
             agent.session,
             this.ctx.tokenMeter.measure(agent.session),
@@ -398,7 +407,7 @@ export class BasicCompactionEngine extends CompactionEngine {
           )
           if (range === null) return null
           return await compactSurfaceRegion(
-            this.regionDependencies(),
+            this.regionDependencies(agent, 'manual'),
             agent.session,
             range.start,
             range.end,
@@ -434,10 +443,29 @@ export class BasicCompactionEngine extends CompactionEngine {
     }
   }
 
+  private async assessPolicy(agent: Agent, trigger: import('@deepseek-ai/dsh-compaction').CompactionPolicyTrigger,
+    beforeTokens: number, signal?: AbortSignal): Promise<void> {
+    const policy = this.ctx.get('compactionCandidatePolicy')
+    if (policy === undefined) return
+    const result = await policy.assess({ session: agent.session, trigger, beforeTokens, maxTokens: this.config.maxTokens,
+      ...signal === undefined ? {} : { signal } })
+    if (!result.admitted) throw new CompactionPolicyRejectionError(policy.id, result.block)
+  }
+
   /** Bind the effective token meter and dynamically dispatched summarizer hook. */
-  private regionDependencies(): Parameters<typeof compactSurfaceRegion>[0] {
+  private regionDependencies(agent: Agent,
+    trigger: import('@deepseek-ai/dsh-compaction').CompactionPolicyTrigger): Parameters<typeof compactSurfaceRegion>[0] {
     return {
       meter: this.ctx.tokenMeter,
+      ...this.ctx.get('compactionCandidatePolicy') === undefined ? {} : { policy: this.ctx.compactionCandidatePolicy },
+      trigger, maxTokens: this.config.maxTokens,
+      target: () => {
+        const header = agent.session.requestHeader()?.config
+        const provider = this.config.summarizationProvider || header?.provider || agent.options.provider
+        const model = this.config.summarizationModel || header?.model || agent.options.model
+        if (!provider || !model) throw new Error('compaction has no explicit summarization route')
+        return { provider, model }
+      },
       summarize: (input, owner, abort) => this.summarize(input, owner, abort),
       recover: (error, agent, sourceEventSeqs, signal) => this.ctx.waterfall('compaction/summary-error', {
         session: agent.session,

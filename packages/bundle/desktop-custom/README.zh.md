@@ -32,7 +32,7 @@ kind: package-bundle
 <a id="understand-the-implementation"></a>
 ## 理解实现
 
-此层添加 custom-foundation、agent-codex 与 task-checkpoint。它禁用 deepseek-account、llm-deepseek、hosted search、timer、HMR 和模型生成标题。Bootstrap 在官方 profile patch 中设置 provider 配置与默认模型；未初始化的组合保留未注册 sentinel，拒绝隐式执行。此层不安装可选 Schedule 或 Computer Use bundles。
+此层挂载 Local/Codex runtime owner、task/checkpoint 与 compaction policy、diagnostic transport、Models 控件及 Run Details。它禁用 DeepSeek account/controller/UI onboarding、hosted DeepSeek/search、timer、HMR 和模型生成标题；通过既有 Config seam 禁用 native credential onboarding。Bootstrap 在官方 profile patch 中设置 provider 配置与默认模型；未初始化的组合保留未注册 sentinel，拒绝隐式执行。此层不安装可选 Schedule 或 Computer Use bundles。
 
 未发布 runtime invariant companion，因为所有持久写入经过既有 Session 或 ConfigEditor 校验，且本包没有可独立分歧的状态副本。
 

@@ -6,6 +6,8 @@
 
 import type {
   Agent,
+  ExternalTurnExecutor,
+  ExternalTurnSelection,
   AgentCancelCause,
   AgentEventDispatch,
   AgentOptions,
@@ -57,7 +59,7 @@ type PreparedStep =
     kind: 'enter'
     messages: UserMessage[]
     startsRequestSeries?: true
-    assembly: PromptAssembly
+    assembly?: PromptAssembly
   }
 
 /** Remove adapter-derived values before plugins propose the next request config. */
@@ -264,15 +266,23 @@ export class ReactLoopAgent implements Agent {
     }
   }
 
-  private async preStep(target: InboxTarget, position: { turn: number; step: number }): Promise<PreparedStep> {
+  private async preStep(
+    target: InboxTarget,
+    position: { turn: number; step: number },
+    assembleLocalContext = true,
+  ): Promise<PreparedStep> {
     /* v8 ignore next -- private callers establish the running phase before proposing a step */
     if (this.phase.kind !== 'running') throw new Error(`agent "${this.id}": pre-step outside running phase`)
     const signal = this.phase.abort.signal
     const claimed = this.inbox.claim(target, position.turn)
-    const assembly = await this.loopCtx.systemPrompt.assemble(assembleContextFor(this, signal))
-    signal.throwIfAborted()
-    const sections = renderContextSections(assembly)
-    const context = this.runtimeContext.project(joinContextSections(sections), sections)
+    let assembly: PromptAssembly | undefined
+    let context: UserMessage | undefined
+    if (assembleLocalContext) {
+      assembly = await this.loopCtx.systemPrompt.assemble(assembleContextFor(this, signal))
+      signal.throwIfAborted()
+      const sections = renderContextSections(assembly)
+      context = this.runtimeContext.project(joinContextSections(sections), sections)
+    }
     const decision = await this.dispatch.waterfall(
       'agent/pre-step', { messages: claimed, ...position, signal },
       (): Promise<PreStepDecision> => Promise.resolve<PreStepDecision>({
@@ -282,7 +292,7 @@ export class ReactLoopAgent implements Agent {
     )
     signal.throwIfAborted()
     if (decision.kind === 'reject') return decision
-    return { ...decision, assembly }
+    return { ...decision, ...(assembly === undefined ? {} : { assembly }) }
   }
 
   /** Whether the assembled tool schemas differ from the logged request header's. */
@@ -310,10 +320,35 @@ export class ReactLoopAgent implements Agent {
     let turnEnds: TurnEndReason | null = null
     let target: InboxTarget = 'next-turn'
     try {
+      const selectionRef = this.ctx.get('agentModelSelection')
+      const selected = selectionRef?.current ?? {
+        provider: this.options.provider ?? '',
+        model: this.options.model ?? '',
+        ...(this.options.reasoningEffort === undefined ? {} : { reasoningEffort: this.options.reasoningEffort }),
+      }
+      const selection: ExternalTurnSelection = Object.freeze({
+        provider: selected.provider,
+        model: selected.model,
+        ...(selected.reasoningEffort === undefined ? {} : { reasoningEffort: selected.reasoningEffort }),
+      })
+      if (selectionRef !== undefined) selectionRef.assembled = selection
+      const hasExternalRoute = this.loopCtx.get('externalModelProviders')?.listProviders()
+        .some(provider => provider.id === selection.provider) === true
+      const executor = hasExternalRoute
+        ? await this.dispatch.waterfall(
+          'agent/resolve-external-turn',
+          { selection, signal },
+          () => Promise.resolve<ExternalTurnExecutor | undefined>(undefined),
+        )
+        : undefined
+      signal.throwIfAborted()
+      if (hasExternalRoute && executor === undefined) {
+        throw new Error(`external provider "${selection.provider}" has no turn executor`)
+      }
       while (true) {
         signal.throwIfAborted()
         const step = phase.step + 1
-        const decision = await this.preStep(target, { turn, step })
+        const decision = await this.preStep(target, { turn, step }, executor === undefined)
         if (decision.kind === 'reject') {
           turnEnds = { kind: 'blocked' }
           return false
@@ -335,7 +370,9 @@ export class ReactLoopAgent implements Agent {
         try {
           // max-tokens is sticky: once any step hits the ceiling, later steps
           // that complete normally must not downgrade the turn outcome.
-          const stepEnd = await this.step(decision)
+          const stepEnd = executor === undefined
+            ? await this.step(decision)
+            : await this.externalStep(decision, executor, selection, turn, step, signal)
           // max-tokens stays sticky: a later completed step must not
           // downgrade the turn outcome.
           if (turnEnds === null || turnEnds.kind !== 'max-tokens') turnEnds = stepEnd
@@ -402,6 +439,7 @@ export class ReactLoopAgent implements Agent {
     signal.throwIfAborted()
 
     const { assembly } = decision
+    if (assembly === undefined) throw new Error('Local execution requires a prompt assembly')
     const renderedPrompt = renderPrompt(assembly)
     let firstAttempt = true
     while (true) {
@@ -540,6 +578,157 @@ export class ReactLoopAgent implements Agent {
         if (!live.ended) live.abandon()
         throw error
       }
+    }
+  }
+
+  /**
+   * Execute one external-provider step without assembling DSH's local prompt or
+   * tool schemas. The loop still owns every DSH boundary and durable assistant
+   * settlement; the runtime owns only its private provider thread and tools.
+   */
+  private async externalStep(
+    decision: Extract<PreparedStep, { kind: 'enter' }>,
+    executor: ExternalTurnExecutor,
+    selection: ExternalTurnSelection,
+    turn: number,
+    step: number,
+    signal: AbortSignal,
+  ): Promise<StepEndReason> {
+    if (executor.providerId !== selection.provider) {
+      throw new Error(`external turn executor for "${executor.providerId}" cannot serve "${selection.provider}"`)
+    }
+    const cwd = this.session.header.cwd
+    if (cwd === undefined || cwd.length === 0) {
+      throw new Error(`external provider "${selection.provider}" requires a verified local workspace`)
+    }
+    signal.throwIfAborted()
+    const workspace = await executor.resolveWorkspace(this.session, cwd, signal)
+    signal.throwIfAborted()
+    if (workspace.identity.length === 0 || workspace.cwd.length === 0) {
+      throw new Error(`external provider "${selection.provider}" did not resolve a stable DSH workspace`)
+    }
+    const config: LlmCallConfig = {
+      provider: selection.provider,
+      model: selection.model,
+      ...(selection.reasoningEffort === undefined ? {} : { reasoningEffort: selection.reasoningEffort }),
+    }
+    const header = canonicalHeader({ config })
+    const baseline = this.session.requestHeader()
+    if (!this.requestHeaderLogged) {
+      this.session.append('request/header', {
+        header,
+        reason: baseline === undefined ? 'initial' : 'resume',
+      })
+      this.requestHeaderLogged = true
+    } else if (baseline === undefined || !headerEquals(baseline, header)) {
+      const startsSeries = baseline === undefined
+        || baseline.config.provider !== config.provider
+        || baseline.config.model !== config.model
+      this.session.append('request/header', {
+        header,
+        reason: 'change',
+        ...(startsSeries ? { startsSeries: true } : {}),
+      })
+    }
+    const requestContext = { provider: config.provider, model: config.model }
+    const previousContext = this.session.requestContext()
+    if (previousContext?.provider !== requestContext.provider || previousContext.model !== requestContext.model) {
+      this.session.append('request/context', requestContext)
+    }
+    this.requestSurfaceGeneration = this.session.surface.contentGeneration
+
+    for (const message of decision.messages) {
+      this.session.append('user/message', message, { surfaceOp: 'append' })
+    }
+    const live = new AssistantStreamAttempt(
+      this.session.id,
+      ++this.assistantAttemptCounter,
+      () => ++this.assistantStreamRevision,
+      turn,
+      step,
+      (frame) => { this.dispatch.emit('agent/assistant-stream', { frame }) },
+    )
+    let emittedText = ''
+    const appendText = (text: string): void => {
+      if (text.length === 0) return
+      if (emittedText.length === 0) {
+        live.push({ type: 'block-start', index: 0, blockType: 'text' })
+      }
+      live.push({ type: 'text-delta', index: 0, text })
+      emittedText += text
+    }
+    live.start()
+    try {
+      const result = await executor.executeTurn({
+        agent: this,
+        session: this.session,
+        turn,
+        step,
+        selection,
+        messages: decision.messages,
+        workspaceIdentity: workspace.identity,
+        cwd: workspace.cwd,
+        signal,
+        publish: {
+          textDelta: appendText,
+          event: (event) => { this.dispatch.emit('agent/external-turn-event', { turn, step, event }) },
+        },
+      })
+      signal.throwIfAborted()
+      if (emittedText.length > 0 && emittedText !== result.text) {
+        throw new Error('external turn stream and final public answer did not agree')
+      }
+      if (emittedText.length === 0) appendText(result.text)
+      if (emittedText.length === 0) throw new Error('external provider completed without a public final answer')
+      live.push({ type: 'block-end', index: 0, block: { type: 'text', text: emittedText } })
+      if (result.usage !== undefined) live.push({ type: 'usage', usage: result.usage })
+      live.push({ type: 'finish', reason: { kind: result.reason === 'max-tokens' ? 'max-tokens' : 'stop' } })
+      const message = createAssistantMessage({
+        content: live.blocks(),
+        source: { provider: selection.provider, model: selection.model },
+      })
+      live.settle('assistant/message', () => this.session.append('assistant/message', {
+        turn,
+        step,
+        message,
+        ...(live.usage === undefined ? {} : { usage: live.usage }),
+        stream: live.stream,
+      }, { surfaceOp: 'append' }).seq)
+      return result.reason === 'max-tokens' ? { kind: 'max-tokens' } : { kind: 'completed' }
+    } catch (error: unknown) {
+      try {
+        if (signal.aborted) {
+          const content = live.interruptedBlocks()
+          if (content.length > 0) {
+            live.settle('assistant/message', () => this.session.append('assistant/message', {
+              turn,
+              step,
+              message: createAssistantMessage({
+                content,
+                source: { provider: selection.provider, model: selection.model },
+              }),
+              interrupted: true,
+              ...(live.usage === undefined ? {} : { usage: live.usage }),
+              stream: live.stream,
+            }, { surfaceOp: 'append' }).seq)
+          } else {
+            live.settle('assistant/attempt', () => this.session.append('assistant/attempt', {
+              turn, step, stream: live.stream,
+            }).seq)
+          }
+        } else {
+          live.settle('assistant/attempt', () => this.session.append('assistant/attempt', {
+            turn, step, stream: live.stream,
+          }).seq)
+        }
+      } catch (settlementError: unknown) {
+        throw new AggregateError(
+          [error, settlementError],
+          'External turn failed and its durable settlement was rejected',
+          { cause: error },
+        )
+      }
+      throw error
     }
   }
 

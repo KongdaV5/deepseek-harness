@@ -616,6 +616,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: 'Detached configuration for the M2 runtime owner.',
       },
       {
+        signature: 'async writeLifecycle(patch: { preference?: CodexRuntimePreference authGeneration?: string authTransition?: AuthTransitionRecord | null }): Promise<void>',
+        description: 'Persist auth transaction facts through the same canonical profile owner.',
+        parameters: [{ name: 'patch', description: 'Non-secret lifecycle values whose transaction is owned by the runtime.' }],
+        returns: 'Fulfillment after atomic profile publication and live reconciliation.',
+      },
+      {
         signature: 'async savePreference(preference: CodexRuntimePreference): Promise<void>',
         description: 'Save a runtime preference through the profile editor, preserving lifecycle facts.',
         parameters: [{ name: 'preference', description: 'Explicit runtime selection.' }],
@@ -684,6 +690,36 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         parameters: [{ name: 'start', description: 'first surface seq, inclusive.' }, { name: 'end', description: 'last surface seq, inclusive.' }, { name: 'agent', description: 'context whose session is mutated and whose routing options guide summarization.' }, { name: 'signal', description: 'optional cancellation; model-backed implementations must forward it.' }],
         returns: 'the appended event seqs, summary, replaced range, and token accounting.',
         throws: ['when compaction is active or the range is missing, reversed, or unbalanced.'],
+      },
+    ],
+  },
+  {
+    key: 'compactionCandidatePolicy',
+    summary: 'An optional, task-agnostic policy a compaction backend may consult.',
+    description: 'An optional, task-agnostic policy a compaction backend may consult.\n\nA backend that finds no registered policy behaves exactly as it did before this seam existed. A backend that finds one still owns selection, pricing, summarization, stability validation, and publication; the policy only advises and gates.',
+    methods: [
+      {
+        signature: 'readonly id: string',
+        description: 'Stable policy identity recorded in the audit.',
+        parameters: [],
+      },
+      {
+        signature: 'readonly version: string',
+        description: 'Policy contract version recorded in the audit.',
+        parameters: [],
+      },
+      {
+        signature: 'assess(input: CompactionAssessInput): CompactionPolicyAdmission | Promise<CompactionPolicyAdmission>',
+        description: 'Decide whether this operation may proceed, before anything destructive.\n\nRuns before any tool-result pruning or truncation, so a refusal never leaves the surface already narrowed for an operation that then declined.',
+        parameters: [{ name: 'input', description: 'the session, the entry, and already-priced read-only facts.' }],
+        returns: 'the admission decision.',
+      },
+      {
+        signature: 'begin(input: CompactionBeginInput): CompactionPolicyTransaction | Promise<CompactionPolicyTransaction>',
+        description: 'Open the policy transaction for an admitted operation.\n\nRuns after the backend\'s durable bracket exists and before the first summarization request, so the policy can capture exactly the authority it will later re-check at publication.',
+        parameters: [{ name: 'input', description: 'the admitted operation and its selected span.' }],
+        returns: 'the live transaction.',
+        throws: ['when the authority the policy would protect cannot be read, which fails the compaction closed before any model call.'],
       },
     ],
   },
@@ -866,6 +902,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     summary: 'Read-only foundation used by M2 Local and Desktop consumers.',
     description: 'Read-only foundation used by M2 Local and Desktop consumers.',
     methods: [
+      {
+        signature: 'async saveSelectedProfile(profile: string): Promise<void>',
+        description: 'Persist only an explicitly selected, healthy manager profile through the canonical editor.',
+        parameters: [{ name: 'profile', description: 'The exact inventory identity confirmed by the runtime.' }],
+        returns: 'Atomic profile publication and live reconciliation completion.',
+      },
       {
         signature: 'snapshot(): { profiles: readonly LocalProfile[]; selectedProfile: string; localModelRuntime: boolean; codexSubscription: boolean }',
         description: 'Read persistent Local profile intent without inspecting user files or starting runtime work.',
@@ -1492,6 +1534,41 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
+    key: 'localModelRuntimeController',
+    summary: 'One controller and its one-child operation queue.',
+    description: 'One controller and its one-child operation queue. Start/restart always wait for the known LaunchAgent and port to be down before selecting another profile; an unmanaged listener is never stopped.',
+    methods: [
+      {
+        signature: '@Remote async status(): Promise<LocalModelRuntimeSnapshot>',
+        description: 'Return a fresh LaunchAgent and health observation; no in-memory green cache is trusted.',
+        parameters: [],
+        returns: 'the current manager, endpoint, and installed-profile state.',
+        throws: ['RemoteError when the local profile inventory or Host probe fails unexpectedly.'],
+      },
+      {
+        signature: '@Remote start(profile: LocalModelProfileId): Promise<LocalModelRuntimeSnapshot>',
+        description: 'Start one allowlisted local profile after releasing the shared port.',
+        parameters: [{ name: 'profile', description: 'local-model manager profile to activate.' }],
+        returns: 'the profile state after its loopback health check succeeds.',
+        throws: ['RemoteError when disabled, unavailable, unsafe, or not healthy after start.'],
+      },
+      {
+        signature: '@Remote stop(): Promise<LocalModelRuntimeSnapshot>',
+        description: 'Stop only the verified manager LaunchAgent, and confirm port release.',
+        parameters: [],
+        returns: 'the stopped state after the manager and shared port are confirmed down.',
+        throws: ['RemoteError when the manager is unavailable, ownership is ambiguous, or shutdown fails.'],
+      },
+      {
+        signature: '@Remote restart(profile: LocalModelProfileId): Promise<LocalModelRuntimeSnapshot>',
+        description: 'Stop, verify release, then start the requested profile in the same queue.',
+        parameters: [{ name: 'profile', description: 'local-model manager profile to activate after shutdown.' }],
+        returns: 'the profile state after its loopback health check succeeds.',
+        throws: ['RemoteError when shutdown cannot be verified or the new profile is not healthy.'],
+      },
+    ],
+  },
+  {
     key: 'lsp',
     summary: 'The LSP capability seam (`ctx.lsp`).',
     description: 'The LSP capability seam (`ctx.lsp`). Owns provider registration/selection and normalized query execution; exposes exactly the four operations and no protocol escape hatch.',
@@ -1845,6 +1922,26 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         description: 'Execute resolved inputs; program outcomes resolve as result fields.',
         parameters: [{ name: 'spec', description: 'directory, deadline, program, bindings, cancellation and supported policy.' }],
         returns: 'Captured output and the execution outcome.',
+      },
+    ],
+  },
+  {
+    key: 'runtimeDiagnostics',
+    summary: 'Host service backing the generated `ctx.remote.runtimeDiagnostics` namespace.',
+    description: 'Host service backing the generated `ctx.remote.runtimeDiagnostics` namespace.\n\nA deployment that mounts no provider registers the namespace but serves no topic, so a follow for any topic fails as provider-unavailable rather than opening a stream that can never carry anything.',
+    methods: [
+      {
+        signature: 'registerProvider(provider: RuntimeDiagnosticsProvider): () => void',
+        description: 'Register the one provider that serves a topic.\n\nA second provider for the same topic is a wiring error rather than a precedence question, so it fails fast instead of silently shadowing the first.',
+        parameters: [{ name: 'provider', description: 'the topic\'s read-only observation face.' }],
+        returns: 'an idempotent disposer that also ends the provider\'s live streams.',
+        throws: ['Error when the topic already has a provider.'],
+      },
+      {
+        signature: '@Remote({ mode: \'stream\' }) follow( request: RuntimeDiagnosticsFollowRequest, signal: AbortSignal, ): AsyncIterable<RuntimeDiagnosticsFrame>',
+        description: 'Open one generation of a topic\'s observations for one Session.',
+        parameters: [{ name: 'request', description: 'the topic and Session to follow.' }, { name: 'signal', description: 'generation cancellation, supplied by the Remote carrier.' }],
+        returns: 'the opening snapshot followed by ordered complete replacements.',
       },
     ],
   },
@@ -3900,6 +3997,14 @@ export const EVENT_API: readonly EventApiEntry[] = [
     parameters: [{ name: 'payload', description: '.error - the failure, verbatim. Scope-filtered dispatch (`@deepseek-ai/dsh-scope`): agent-scoped listeners receive only that agent.' }],
   },
   {
+    name: 'agent/external-turn-event',
+    mode: 'emit',
+    signature: '\'agent/external-turn-event\'(this: Scoped<Agent>, payload: { agent: Agent turn: number step: number event: ExternalTurnEvent }): void',
+    summary: 'Public external-runtime activity.',
+    description: 'Public external-runtime activity. This is not a local tool/call event.',
+    parameters: [{ name: 'payload', description: '.event - sanitized public activity. Scope-filtered dispatch (`@deepseek-ai/dsh-scope`): agent-scoped listeners receive only that agent.' }],
+  },
+  {
     name: 'agent/inbox/claimed',
     mode: 'emit',
     signature: '\'agent/inbox/claimed\'(this: Scoped<Agent>, payload: { agent: Agent; message: UserMessage; turn: number }): void',
@@ -3946,6 +4051,14 @@ export const EVENT_API: readonly EventApiEntry[] = [
     summary: 'Handle one failed model-request attempt before the loop retries or closes its step.',
     description: 'Handle one failed model-request attempt before the loop retries or closes its step. A listener returns `{ kind: \'retry\' }` without calling `next()` when it owns recovery, or calls `next()` to delegate. The default `undefined` leaves the failure terminal.',
     parameters: [{ name: 'payload', description: '.signal - the turn abort signal. Scope-filtered dispatch (`@deepseek-ai/dsh-scope`): agent-scoped listeners receive only that agent.' }],
+  },
+  {
+    name: 'agent/resolve-external-turn',
+    mode: 'waterfall',
+    signature: '\'agent/resolve-external-turn\'(this: Scoped<Agent>, payload: { agent: Agent selection: ExternalTurnSelection signal: AbortSignal }, next: () => Promise<ExternalTurnExecutor | undefined>): Promise<ExternalTurnExecutor | undefined>',
+    summary: 'Resolve an optional provider-owned turn executor before local prompt or tool assembly.',
+    description: 'Resolve an optional provider-owned turn executor before local prompt or tool assembly. The default is the existing local AgentLoop path.',
+    parameters: [{ name: 'payload', description: '.signal - cancellation signal for the admitted turn. Scope-filtered dispatch (`@deepseek-ai/dsh-scope`): agent-scoped listeners receive only that agent.' }],
   },
   {
     name: 'agent/status',
@@ -4828,10 +4941,6 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface ClientArtifactBaseline {\n    readonly path: string;\n    readonly mtimeMs: number;\n    readonly ctimeMs: number;\n    readonly size: number;\n}',
   },
   {
-    name: 'CodexRuntimePreference',
-    declaration: 'export type CodexRuntimePreference = \'auto\' | \'system\' | \'bundled\';',
-  },
-  {
     name: 'CollectedOutput',
     declaration: 'export interface CollectedOutput {\n    text: string;\n    truncated: boolean;\n    spillPath?: string;\n}',
   },
@@ -4880,8 +4989,56 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface CompactionAgentContext {\n    session: Session;\n    options: {\n        provider?: string;\n        model?: string;\n    };\n}',
   },
   {
+    name: 'CompactionAssessInput',
+    declaration: 'export interface CompactionAssessInput {\n    readonly session: Session;\n    readonly trigger: CompactionPolicyTrigger;\n    readonly beforeTokens: number;\n    readonly contextWindow?: number;\n    readonly maxTokens: number;\n    readonly signal?: AbortSignal;\n}',
+  },
+  {
+    name: 'CompactionBeginInput',
+    declaration: 'export interface CompactionBeginInput extends CompactionAssessInput {\n    readonly compactionId: CompactionId;\n    readonly start: SessionSeq;\n    readonly end: SessionSeq;\n    readonly shadowedSeqs: readonly SessionSeq[];\n    readonly shadowedTokenCount: number;\n    readonly summarizationTarget: {\n        readonly provider: string;\n        readonly model: string;\n    };\n}',
+  },
+  {
+    name: 'CompactionCandidateView',
+    declaration: 'export interface CompactionCandidateView {\n    readonly summary: readonly ContentBlock[];\n    readonly rawOutput: readonly ContentBlock[];\n    readonly truncated: boolean;\n    readonly checkpointContent: readonly ContentBlock[];\n    readonly framedTokenCount: number;\n    readonly shadowedRouteTokenCount: number;\n    readonly candidateAttempt: number;\n}',
+  },
+  {
     name: 'CompactionId',
     declaration: 'export type CompactionId = Branded<\'CompactionId\'>;',
+  },
+  {
+    name: 'CompactionOwnedRecoveryCause',
+    declaration: 'export type CompactionOwnedRecoveryCause = \'summary-error-recovery\';',
+  },
+  {
+    name: 'CompactionPolicyAdmission',
+    declaration: 'export type CompactionPolicyAdmission = {\n    readonly admitted: true;\n} | {\n    readonly admitted: false;\n    readonly block: CompactionPolicyBlock;\n};',
+  },
+  {
+    name: 'CompactionPolicyAudit',
+    declaration: 'export interface CompactionPolicyAudit {\n    readonly policyId: string;\n    readonly policyVersion: string;\n    readonly trigger: CompactionPolicyTrigger;\n    readonly candidateAttempts: number;\n    readonly authorityAsOfSeq?: number;\n    readonly protectionHash?: string;\n    readonly auxiliaryReasoning?: {\n        readonly requested?: string;\n        readonly resolved?: string;\n        readonly source?: string;\n    };\n    readonly supplementalMessages?: readonly RequestUserInput[];\n}',
+  },
+  {
+    name: 'CompactionPolicyBlock',
+    declaration: 'export interface CompactionPolicyBlock {\n    readonly code: string;\n    readonly reason?: string | undefined;\n    readonly detail: string;\n}',
+  },
+  {
+    name: 'CompactionPolicyTransaction',
+    declaration: 'export interface CompactionPolicyTransaction {\n    decorateRequest(draft: CompactionRequestDraft): CompactionRequestDecoration;\n    validateCandidate(candidate: CompactionCandidateView): CompactionPolicyVerdict;\n    rebaseAfterOwnedRecovery(cause: CompactionOwnedRecoveryCause): void;\n    assertPublishable(): void;\n    audit(): CompactionPolicyAudit;\n}',
+  },
+  {
+    name: 'CompactionPolicyTrigger',
+    declaration: 'export type CompactionPolicyTrigger = CompactionTrigger | \'manual\';',
+  },
+  {
+    name: 'CompactionPolicyVerdict',
+    declaration: 'export type CompactionPolicyVerdict = {\n    readonly kind: \'accept\';\n} | {\n    readonly kind: \'retry\';\n    readonly reason: string;\n} | {\n    readonly kind: \'reject\';\n    readonly block: CompactionPolicyBlock;\n};',
+  },
+  {
+    name: 'CompactionRequestDecoration',
+    declaration: 'export interface CompactionRequestDecoration {\n    readonly reasoningEffort?: ReasoningEffortId;\n    readonly supplementalMessages?: readonly RequestUserInput[];\n    readonly replacementContent?: readonly ContentBlock[];\n}',
+  },
+  {
+    name: 'CompactionRequestDraft',
+    declaration: 'export interface CompactionRequestDraft {\n    readonly provider: string;\n    readonly model: string;\n    readonly messages: readonly Message[];\n    readonly tools?: readonly ToolSchema[];\n    readonly maxTokens: number;\n    readonly sessionId: string;\n    readonly candidateAttempt: number;\n}',
   },
   {
     name: 'CompactionResult',
@@ -5286,6 +5443,38 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'EveryScheduleRecord',
     declaration: 'export interface EveryScheduleRecord {\n    readonly id: ScheduleId;\n    readonly kind: \'every\';\n    readonly title: string;\n    readonly prompt: string;\n    readonly everySeconds: number;\n    readonly scheduledAt: string;\n}',
+  },
+  {
+    name: 'ExternalTurnActivityIdentity',
+    declaration: 'export interface ExternalTurnActivityIdentity {\n    readonly activityId: string;\n    readonly eventId: string;\n    readonly sessionId: SessionId;\n    readonly dshTurn: number;\n    readonly dshStep: number;\n    readonly provider: string;\n    readonly runtimeSource: string;\n    readonly runtimeVersion: string;\n    readonly threadId: string;\n    readonly turnId: string;\n    readonly itemId: string;\n    readonly requestId?: string | undefined;\n    readonly eventKind: string;\n    readonly terminalState: string;\n}',
+  },
+  {
+    name: 'ExternalTurnEvent',
+    declaration: 'export type ExternalTurnEvent = {\n    readonly kind: \'command\';\n    readonly id: string;\n    readonly command: string;\n    readonly status: \'started\' | \'completed\' | \'failed\' | \'interrupted\';\n    readonly identity: ExternalTurnActivityIdentity;\n} | {\n    readonly kind: \'file-change\';\n    readonly id: string;\n    readonly path: string;\n    readonly status: \'created\' | \'modified\' | \'deleted\';\n    readonly identity: ExternalTurnActivityIdentity;\n} | {\n    readonly kind: \'approval\';\n    readonly id: string;\n    readonly title: string;\n    readonly status: \'requested\' | \'allowed\' | \'rejected\';\n    readonly identity: ExternalTurnActivityIdentity;\n} | {\n    readonly kind: \'turn\';\n    readonly id: string;\n    readonly status: \'completed\' | \'interrupted\' | \'failed\';\n    readonly identity: ExternalTurnActivityIdentity;\n};',
+  },
+  {
+    name: 'ExternalTurnExecutor',
+    declaration: 'export interface ExternalTurnExecutor {\n    readonly providerId: string;\n    resolveWorkspace(session: Session, cwd: string, signal: AbortSignal): Promise<ExternalTurnWorkspace>;\n    executeTurn(request: ExternalTurnRequest): Promise<ExternalTurnResult>;\n}',
+  },
+  {
+    name: 'ExternalTurnPublisher',
+    declaration: 'export interface ExternalTurnPublisher {\n    textDelta(text: string): void;\n    event(event: ExternalTurnEvent): void;\n}',
+  },
+  {
+    name: 'ExternalTurnRequest',
+    declaration: 'export interface ExternalTurnRequest {\n    readonly agent: Agent;\n    readonly session: Session;\n    readonly turn: number;\n    readonly step: number;\n    readonly selection: ExternalTurnSelection;\n    readonly messages: readonly UserMessage[];\n    readonly workspaceIdentity: string;\n    readonly cwd: string;\n    readonly signal: AbortSignal;\n    readonly publish: ExternalTurnPublisher;\n}',
+  },
+  {
+    name: 'ExternalTurnResult',
+    declaration: 'export interface ExternalTurnResult {\n    readonly text: string;\n    readonly usage?: TokenUsage;\n    readonly reason?: \'completed\' | \'max-tokens\';\n}',
+  },
+  {
+    name: 'ExternalTurnSelection',
+    declaration: 'export interface ExternalTurnSelection {\n    readonly provider: string;\n    readonly model: string;\n    readonly reasoningEffort?: ReasoningEffortId;\n}',
+  },
+  {
+    name: 'ExternalTurnWorkspace',
+    declaration: 'export interface ExternalTurnWorkspace {\n    readonly identity: string;\n    readonly cwd: string;\n}',
   },
   {
     name: 'FeedbackCategory',
@@ -5786,6 +5975,26 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'LocalizedText',
     declaration: 'export type LocalizedText = string | {\n    readonly en: string;\n    readonly [locale: string]: string;\n};',
+  },
+  {
+    name: 'LocalModelModality',
+    declaration: 'export type LocalModelModality = \'text\' | \'image\';',
+  },
+  {
+    name: 'LocalModelProfileId',
+    declaration: 'export type LocalModelProfileId = \'huihui\' | \'img21\' | \'38\';',
+  },
+  {
+    name: 'LocalModelRuntimeProfile',
+    declaration: 'export interface LocalModelRuntimeProfile {\n    readonly id: LocalModelProfileId;\n    readonly name: string;\n    readonly modality: LocalModelModality;\n    readonly manageable: boolean;\n    readonly available?: boolean;\n    readonly unavailableReason?: string;\n}',
+  },
+  {
+    name: 'LocalModelRuntimeSnapshot',
+    declaration: 'export interface LocalModelRuntimeSnapshot {\n    readonly enabled: boolean;\n    readonly available: boolean;\n    readonly state: LocalModelRuntimeState;\n    readonly canStop: boolean;\n    readonly profile: LocalModelProfileId | null;\n    readonly endpoint: string;\n    readonly profiles: readonly LocalModelRuntimeProfile[];\n    readonly error?: string;\n}',
+  },
+  {
+    name: 'LocalModelRuntimeState',
+    declaration: 'export type LocalModelRuntimeState = \'stopped\' | \'starting\' | \'running\' | \'stopping\' | \'error\';',
   },
   {
     name: 'LocalProfile',
@@ -6432,6 +6641,34 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface RunnerFailureRule {\n    allowedExitCodes?: readonly number[];\n    fatalSignatures: readonly string[];\n    informationalLines?: readonly string[];\n}',
   },
   {
+    name: 'RuntimeDiagnosticsFollowRequest',
+    declaration: 'export interface RuntimeDiagnosticsFollowRequest {\n    readonly topic: string;\n    readonly sessionId: string;\n}',
+  },
+  {
+    name: 'RuntimeDiagnosticsFrame',
+    declaration: 'export interface RuntimeDiagnosticsFrame {\n    readonly type: \'snapshot\' | \'change\';\n    readonly topic: string;\n    readonly sessionId: string;\n    readonly schemaId: string;\n    readonly schemaVersion: number;\n    readonly observation: RuntimeDiagnosticsObservation;\n}',
+  },
+  {
+    name: 'RuntimeDiagnosticsObservation',
+    declaration: 'export type RuntimeDiagnosticsObservation = {\n    readonly present: false;\n} | {\n    readonly present: true;\n    readonly value: RuntimeDiagnosticsValue;\n};',
+  },
+  {
+    name: 'RuntimeDiagnosticsProvider',
+    declaration: 'export interface RuntimeDiagnosticsProvider extends RuntimeDiagnosticsTopicDeclaration {\n    read(sessionId: string): RuntimeDiagnosticsProviderObservation | undefined;\n    subscribe(sessionId: string, listener: (observation: RuntimeDiagnosticsProviderObservation | undefined) => void): () => void;\n}',
+  },
+  {
+    name: 'RuntimeDiagnosticsProviderObservation',
+    declaration: 'export type RuntimeDiagnosticsProviderObservation = {\n    readonly present: false;\n} | {\n    readonly present: true;\n    readonly value: object;\n};',
+  },
+  {
+    name: 'RuntimeDiagnosticsTopicDeclaration',
+    declaration: 'export interface RuntimeDiagnosticsTopicDeclaration {\n    readonly topic: string;\n    readonly schemaId: string;\n    readonly schemaVersion: number;\n}',
+  },
+  {
+    name: 'RuntimeDiagnosticsValue',
+    declaration: 'export type RuntimeDiagnosticsValue = null | boolean | number | string | readonly RuntimeDiagnosticsValue[] | {\n    readonly [key: string]: RuntimeDiagnosticsValue;\n};',
+  },
+  {
     name: 'SandboxEnforcement',
     declaration: 'export type SandboxEnforcement = \'full\' | \'partial\';',
   },
@@ -6732,6 +6969,18 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface SessionEventWindow {\n    session: SessionHeader;\n    inheritedEventCount: SessionLogOffset;\n    target: SessionEvent;\n    events: SessionEvent[];\n    startSeq: SessionSeq;\n    endSeq: SessionSeq;\n}',
   },
   {
+    name: 'SessionExternalActivity',
+    declaration: 'export interface SessionExternalActivity {\n    readonly id: string;\n    readonly sessionId: SessionId;\n    readonly dshTurn: number;\n    readonly dshStep: number;\n    readonly provider: string;\n    readonly runtimeSource: string;\n    readonly runtimeVersion: string;\n    readonly codexThreadId: string;\n    readonly codexTurnId: string;\n    readonly codexItemId: string;\n    readonly codexRequestId?: string;\n    readonly eventId: string;\n    readonly eventKind: string;\n    readonly terminalState: string;\n    readonly kind: \'command\' | \'file-change\' | \'approval\' | \'turn\';\n    readonly status: \'started\' | \'completed\' | \'failed\' | \'interrupted\' | \'created\' | \'modified\' | \'deleted\' | \'requested\' | \'allowed\' | \'rejected\';\n    readonly label?: string;\n    readonly path?: string;\n    readonly time: number;\n}',
+  },
+  {
+    name: 'SessionExternalActivityBaseline',
+    declaration: 'export interface SessionExternalActivityBaseline {\n    readonly revision: number;\n    readonly activities: readonly SessionExternalActivity[];\n}',
+  },
+  {
+    name: 'SessionExternalActivityFrame',
+    declaration: 'export interface SessionExternalActivityFrame {\n    readonly revision: number;\n    readonly activity: SessionExternalActivity;\n}',
+  },
+  {
     name: 'SessionFeedbackRecordRequest',
     declaration: 'export interface SessionFeedbackRecordRequest {\n    readonly sessionId: SessionId;\n    readonly text?: string;\n    readonly category?: FeedbackCategory;\n}',
   },
@@ -6749,11 +6998,11 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'SessionFollowFrame',
-    declaration: 'export type SessionFollowFrame = {\n    readonly type: \'snapshot\';\n    readonly header: SessionWireHeader;\n    readonly cursor: number;\n    readonly records: readonly SessionHistoryRecord[];\n    readonly hasMore: boolean;\n    readonly projections: SessionProjectionBaseline;\n    readonly assistantStream?: SessionAssistantStreamBaseline;\n} | SessionEventEntry | {\n    readonly type: \'assistant-stream\';\n    readonly frame: SessionAssistantStreamFrame;\n};',
+    declaration: 'export type SessionFollowFrame = {\n    readonly type: \'snapshot\';\n    readonly header: SessionWireHeader;\n    readonly cursor: number;\n    readonly records: readonly SessionHistoryRecord[];\n    readonly hasMore: boolean;\n    readonly projections: SessionProjectionBaseline;\n    readonly assistantStream?: SessionAssistantStreamBaseline;\n    readonly externalActivities?: SessionExternalActivityBaseline;\n} | SessionEventEntry | {\n    readonly type: \'assistant-stream\';\n    readonly frame: SessionAssistantStreamFrame;\n} | {\n    readonly type: \'external-activity\';\n    readonly frame: SessionExternalActivityFrame;\n};',
   },
   {
     name: 'SessionFollowRequest',
-    declaration: 'export interface SessionFollowRequest extends Pick<SessionPageRequest, \'maxMessages\' | \'turnWindow\'> {\n    readonly address: SessionAddress;\n    readonly assistantStream?: true;\n}',
+    declaration: 'export interface SessionFollowRequest extends Pick<SessionPageRequest, \'maxMessages\' | \'turnWindow\'> {\n    readonly externalActivities?: true;\n    readonly address: SessionAddress;\n    readonly assistantStream?: true;\n}',
   },
   {
     name: 'SessionForkRequest',

@@ -1,7 +1,7 @@
 /** Custom V3 payload conversion; native V4 readers recognize only plugin-qualified identities. */
 import { SessionFormatError, isSessionFormatJsonObject, sessionFormatCount } from '@deepseek-ai/dsh-session-format'
 import type { SessionFormatEvent, SessionFormatJsonObject, SessionFormatJsonValue } from '@deepseek-ai/dsh-session-format'
-import { mappingSchema } from '@deepseek-ai/dsh-agent-codex'
+import { mappingSchema } from '@deepseek-ai/dsh-agent-codex/state'
 import { taskCheckpointEventDataSchema, resultManifestEventDataSchema } from '@deepseek-ai/dsh-task-checkpoint'
 
 /** Required historical Custom events admitted only by the incoming V3 conversion. */

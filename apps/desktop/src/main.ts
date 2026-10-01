@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs'
 import type { ProductEventMap, ProductEvent } from '@deepseek-ai/dsh-client-product-analytics/types'
 import { WINDOWS_TITLEBAR_HEIGHT } from './windows-layout.ts'
 /** Electron shell: desktop project ownership, custom protocol, windows, and lifecycle. */
@@ -80,6 +81,7 @@ let backendReady = false
 /** Error-level console output of the primary window, attached to crash reports. */
 const rendererConsole = new RendererConsoleTail()
 const productFlavor = resolveDesktopRuntimeProductFlavor(app.isPackaged, readDesktopApplicationManifest(app.getAppPath()))
+const accountOnboarding = productFlavor.id === 'official'
 const dataBoundary = resolveDesktopDataBoundary(productFlavor, process.env, app.getPath('appData'), readDesktopQualificationRootArgument(process.argv))
 applyDesktopProductIdentity(app, productFlavor, dataBoundary.electronUserData.mode === 'explicit' ? dataBoundary.electronUserData.path : undefined)
 const productPaths = () => resolveDesktopPaths(dataBoundary.dshHome, productFlavor.profileName)
@@ -465,6 +467,7 @@ async function main(): Promise<void> {
         analyticsEnabled = await welcomeBackend.analyticsEnabled().catch(() => false)
         if (!reportedLaunch) { reportedLaunch = true; void track('desktop_app_launch', {}) }
         stopAccount?.()
+        if (!accountOnboarding) { stopAccount = undefined; return }
         const accountBackend = welcomeBackend.account
         stopAccount = accountBackend.watch((state) => {
           if (quitting) return
@@ -641,7 +644,7 @@ async function main(): Promise<void> {
       }
       return true
     },
-    undefined, undefined, undefined,
+    undefined, () => productFlavor.updateBehavior === 'official' && app.isPackaged && existsSync(join(process.resourcesPath, 'app-update.yml')), undefined,
     (success, reason) => { void track('desktop_upgrade_download_result', { is_success: success, ...reason === undefined ? {} : { error_reason: reason } }) },
 
   )
@@ -783,7 +786,7 @@ async function main(): Promise<void> {
   })
   ipcMain.handle(DESKTOP_IPC.onboardingApiKey, async (event) => {
     assertProductSender(event)
-    return (await readWelcomeState()).hasApiKey
+    return accountOnboarding && (await readWelcomeState()).hasApiKey
   })
   ipcMain.on(DESKTOP_IPC.onboardingActive, (event, active: unknown) => {
     const window = mainWindow
@@ -1205,12 +1208,13 @@ async function main(): Promise<void> {
   }
   const openInitialWindow = async (): Promise<void> => {
     if (quitting || recovery.active) return
-    const state = await readWelcomeState()
+    const state = accountOnboarding ? await readWelcomeState() : undefined
+    const preference = state === undefined ? await welcomeBackend?.readLocalePreference() : state.localePreference
     if (isQuitting() || backend.state.phase !== 'ready') return
-    locale = resolveDesktopStartupLocale(state.localePreference, systemLanguages)
+    locale = resolveDesktopStartupLocale(preference ?? null, systemLanguages)
     windowsLanguage = locale.id
     refreshApplicationMenu()
-    if (!enteredWorkspace && needsWelcome({ loggedIn: state.loggedIn, hasApiKey: state.hasApiKey })) {
+    if (!enteredWorkspace && state !== undefined && needsWelcome({ loggedIn: state.loggedIn, hasApiKey: state.hasApiKey })) {
       // A later login must retain its own activation policy instead of replaying startup focus.
       raiseAfterUpdate = false
       await showWelcome()

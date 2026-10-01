@@ -49,6 +49,7 @@ const harness = await vi.hoisted(async () => {
   let quitCompleted = deferred()
   let policyBlocked = deferred()
   let embeddedPolicy: unknown
+  let updateEnabled: (() => boolean) | undefined
   let closeWindowsOnQuit = false
   let updateState: DesktopUpdateState = { phase: 'idle' }
   let platformDisposeDeferred: ReturnType<typeof deferred> | undefined
@@ -159,6 +160,8 @@ const harness = await vi.hoisted(async () => {
     getVersion: () => '1.0.0',
     getAppPath: (): string => 'desktop-test-app',
     setAppLogsPath: vi.fn(),
+    setName: vi.fn(),
+    setPath: vi.fn(),
     getPath: vi.fn<(name: string) => string>(),
     setAboutPanelOptions: vi.fn<(options: Electron.AboutPanelOptionsOptions) => void>(),
     requestSingleInstanceLock: () => true,
@@ -227,6 +230,8 @@ const harness = await vi.hoisted(async () => {
     get hostStarted() { return hostStarted }, get navigated() { return navigated },
     get dialogShown() { return dialogShown }, get quitCompleted() { return quitCompleted },
     get policyBlocked() { return policyBlocked },
+    get updateEnabled() { return updateEnabled },
+    set updateEnabled(value: (() => boolean) | undefined) { updateEnabled = value },
     get embeddedPolicy() { return embeddedPolicy },
     set embeddedPolicy(value: unknown) { embeddedPolicy = value },
     nextNavigation() { navigated = deferred(); return navigated.promise },
@@ -303,6 +308,18 @@ vi.mock('../src/background-notice.ts', () => ({ DesktopBackgroundNotice: class {
   readonly close = harness.backgroundNotice.close
   readonly dispose = harness.backgroundNotice.dispose
 } }))
+vi.mock('node:fs', async (importOriginal) => {
+  const original = await importOriginal<typeof import('node:fs')>()
+  return { ...original, readFileSync: (...args: Parameters<typeof original.readFileSync>) => {
+    if (args[0] === join(import.meta.dirname, '..', 'package.json')) {
+      return JSON.stringify({ ...JSON.parse(original.readFileSync(args[0], 'utf8')), dshDesktopAppId: 'com.deepseek.dsh' })
+    }
+    if (args[0] === join('desktop-test-app', 'package.json')) {
+      return JSON.stringify({ dshDesktopAppId: 'com.deepseek.dsh', dshMandatoryUpdatePolicy: harness.embeddedPolicy })
+    }
+    return original.readFileSync(...args)
+  } }
+})
 vi.mock('node:fs/promises', async (importOriginal) => {
   const original = await importOriginal<typeof import('node:fs/promises')>()
   return { ...original, readFile: vi.fn((path: Parameters<typeof original.readFile>[0], encoding?: 'utf8') => {
@@ -339,7 +356,9 @@ vi.mock('../src/update-dialog.ts', () => ({ DesktopUpdateDialog: class {
   dispose() {}
 } }))
 vi.mock('../src/update-coordinator.ts', () => ({ DesktopUpdateCoordinator: class {
-  constructor(publish: (state: DesktopUpdateState) => DesktopUpdateState, beforeRestart: () => Promise<boolean>) {
+  constructor(publish: (state: DesktopUpdateState) => DesktopUpdateState, beforeRestart: () => Promise<boolean>,
+    _option?: unknown, enabled?: () => boolean) {
+    harness.updateEnabled = enabled
     harness.prepareUpdate = beforeRestart
     harness.publishUpdate = publish
   }
@@ -2239,4 +2258,27 @@ it('disables native product events for a disabled Desktop launch', async () => {
   await harness.navigated.promise
   expect(harness.analytics).not.toHaveBeenCalled()
   harness.analyticsEnabled = true
+
+
+})
+
+it('opens the Custom Local-first workspace without DeepSeek account onboarding or the official updater', async () => {
+  const root = harness.app.getPath('userData')
+  harness.app.getPath.mockImplementation(name => join(root, name))
+  const product = await import('../src/product-flavor.ts')
+  vi.spyOn(product, 'readDesktopApplicationManifest').mockReturnValue({
+    dshDesktopProductFlavor: 'ds-harness', dshDesktopAppId: 'dev.dsh.desktop.custom',
+  })
+  const watchAccount = vi.spyOn(harness, 'watchAccount')
+  await import('../src/main.ts')
+  await harness.preparing.promise
+  harness.prepared.resolve()
+  await harness.hostStarted.promise
+  harness.hosts[0]!.ready.resolve()
+  await harness.navigated.promise
+  expect(watchAccount).not.toHaveBeenCalled()
+  expect(harness.hosts[0]?.fetch).not.toHaveBeenCalled()
+  expect(harness.app.setName).toHaveBeenCalledWith('DS Harness')
+  expect(await invoke(DESKTOP_IPC.onboardingApiKey, 'app')).toBe(false)
+  expect(harness.updateEnabled?.()).toBe(false)
 })

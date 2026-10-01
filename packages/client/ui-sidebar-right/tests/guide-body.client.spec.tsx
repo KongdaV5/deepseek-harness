@@ -27,7 +27,7 @@ afterEach(cleanup)
 const SESSION = 's-guide' as SessionId
 const unused = (): never => { throw new Error('This isolated component does not consume framework hooks') }
 const standard: GlobalStandardProps & SessionStandardProps = {
-  sessionId: SESSION, useSession: unused, useProjection: unused, useConversation: unused,
+  sessionId: SESSION, useSession: unused, useProjection: unused, useExternalActivities: unused, useConversation: unused,
   useInput: unused, useChat: unused, useTrajectory: unused,
   usePanelInfo: unused, useSessions: unused, useSessionStatus: unused,
   useSessionRetainInfo: unused, useResource: unused, useWorkspaces: unused,

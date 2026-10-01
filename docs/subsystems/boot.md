@@ -60,6 +60,12 @@ Source: [`packages/boot/config-editor/src/index.ts`](../../packages/boot/config-
 Read-only foundation used by M2 Local and Desktop consumers.
 
 ```ts cordis-catalog
+/** Persist only an explicitly selected, healthy manager profile through the canonical editor.
+ * @param profile The exact inventory identity confirmed by the runtime.
+ * @returns Atomic profile publication and live reconciliation completion.
+ */
+async saveSelectedProfile(profile: string): Promise<void>
+
 /** Read persistent Local profile intent without inspecting user files or starting runtime work.
  * @returns Detached inventory and user preferences.
  */

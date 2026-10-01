@@ -10,3 +10,5 @@
  */
 
 export type * from './types.ts'
+
+export type { GuardedResumeDecisionClass, GuardedResumeReason } from './resume.ts'

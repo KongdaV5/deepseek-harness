@@ -35,6 +35,7 @@ function plainSchema(schema: z): z {
  * @returns A plain form schema, or undefined when no field is live.
  */
 export function volatileForm(schema: z): z | undefined {
+  if (schema.meta.role === 'internal') return undefined
   if (schema.meta.volatile) return plainSchema(schema)
   if (schema.type === 'object') {
     const dict = Object.fromEntries(Object.entries(schema.dict ?? {}).flatMap(([key, child]) => {
@@ -72,6 +73,7 @@ export function projectForm(schema: z, value: unknown): unknown {
  * @returns Whether the path can be edited live.
  */
 export function isVolatilePath(schema: z, path: readonly string[]): boolean {
+  if (schema.meta.role === 'internal') return false
   if (schema.meta.volatile) return true
   const [key, ...rest] = path
   const child = key === undefined ? undefined : schema.dict?.[key]

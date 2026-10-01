@@ -2,7 +2,7 @@
 
 import { describe, expect, it, onTestFinished, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
-import AgentRegistry, { type Agent, type AssistantStreamFrame } from '@deepseek-ai/dsh-agent'
+import AgentRegistry, { type Agent, type ExternalTurnEvent, type AssistantStreamFrame } from '@deepseek-ai/dsh-agent'
 import SessionStore from '@deepseek-ai/dsh-session'
 import { LlmAttemptId, ToolCallId, createMessage, createToolResultMessage, createUserMessage } from '@deepseek-ai/dsh-llm'
 import type { MessageSource } from '@deepseek-ai/dsh-llm'
@@ -995,4 +995,45 @@ describe('Session history raw journal', () => {
       await ctx.fiber.dispose()
     }
   })
+})
+
+
+it('bounds and sanitizes external activity independently of the durable journal and preserves a live revision across Agent disposal', async () => {
+  const { ctx } = await harness()
+  const session = ctx.sessions.create(undefined, { meta: { cwd: '/workspace' } })
+  const agent = { id: session.id, session, status: 'running', ctx } as Agent
+  const history = new SessionHistoryController(ctx, (observation) => { observation[Symbol.dispose]() })
+  const event = (index: number): ExternalTurnEvent => ({ kind: 'command', id: `item-${index}`, status: 'completed', command: '/private/bin/node --secret=never-display',
+    identity: { activityId: `activity-${index}`, eventId: `event-${index}`, sessionId: session.id, dshTurn: 1, dshStep: 1,
+      provider: 'codex', runtimeSource: 'system', runtimeVersion: 'fixture', threadId: 'thread', turnId: 'turn', itemId: `item-${index}`, eventKind: 'item/completed', terminalState: 'completed' } })
+  for (let index = 0; index < 40; index++) ctx.emit('agent/external-turn-event', { agent, turn: 1, step: 1, event: event(index) })
+  const abort = new AbortController()
+  const iterator = history.follow({ address: { kind: 'session', sessionId: session.id }, externalActivities: true }, abort.signal)[Symbol.asyncIterator]()
+  const first = await iterator.next()
+  if (first.done || first.value.type !== 'snapshot') throw new Error('snapshot required')
+  expect(first.value.externalActivities?.revision).toBe(40)
+  expect(first.value.externalActivities?.activities).toHaveLength(32)
+  expect(first.value.externalActivities?.activities.every(item => item.label === 'node')).toBe(true)
+  expect(JSON.stringify(first.value)).not.toContain('never-display')
+  ctx.emit('agent/disposed', { agent })
+  const next = iterator.next()
+  ctx.emit('agent/external-turn-event', { agent, turn: 1, step: 1, event: event(40) })
+  await expect(next).resolves.toMatchObject({ value: { type: 'external-activity', frame: { revision: 41, activity: { id: 'activity-40' } } } })
+  expect(session.snapshotEvents()).toHaveLength(0)
+  abort.abort(); await iterator.next(); await ctx.fiber.dispose()
+})
+
+it('rejects absolute, traversal and control-character file labels before publishing external activity', async () => {
+  const { ctx } = await harness()
+  const session = ctx.sessions.create(undefined, { meta: { cwd: '/workspace' } })
+  const agent = { id: session.id, session, status: 'running', ctx } as Agent
+  const history = new SessionHistoryController(ctx, (observation) => { observation[Symbol.dispose]() })
+  for (const path of ['/secret.txt', 'C:\\secret.txt', '../secret.txt', 'bad\u0000.txt', 'src/safe.ts']) {
+    ctx.emit('agent/external-turn-event', { agent, turn: 1, step: 1, event: { kind: 'file-change', id: path, status: 'modified', path,
+      identity: { activityId: path, eventId: path, sessionId: session.id, dshTurn: 1, dshStep: 1, provider: 'codex', runtimeSource: 'system', runtimeVersion: 'fixture', threadId: 'thread', turnId: 'turn', itemId: path, eventKind: 'item/completed', terminalState: 'completed' } } })
+  }
+  const abort = new AbortController()
+  const iterator = history.follow({ address: { kind: 'session', sessionId: session.id }, externalActivities: true }, abort.signal)[Symbol.asyncIterator]()
+  await expect(iterator.next()).resolves.toMatchObject({ value: { type: 'snapshot', externalActivities: { revision: 1, activities: [{ path: 'src/safe.ts' }] } } })
+  abort.abort(); await iterator.next(); await ctx.fiber.dispose()
 })

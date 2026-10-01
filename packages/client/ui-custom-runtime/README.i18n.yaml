@@ -1,0 +1,46 @@
+# Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write packages/client/ui-custom-runtime/README.md
+/:
+  en: e66ab0e6157e4d5a
+  zh: 7037cfe58922887e
+/deepseek-ai-dsh-client-ui-custom-runtime:
+  en: cf7c8b224db85526
+  zh: 857b33593bac628b
+/deepseek-ai-dsh-client-ui-custom-runtime/summary:
+  en: 3af4536c1d20ebe3
+  zh: 63fdb84fa4816c42
+/deepseek-ai-dsh-client-ui-custom-runtime/table-of-contents:
+  en: d152484eb41ac6b4
+  zh: 1db86285abf6c499
+/deepseek-ai-dsh-client-ui-custom-runtime/use-this-package:
+  en: 9326f366d29c1ca3
+  zh: 1ff486aa542202b9
+/deepseek-ai-dsh-client-ui-custom-runtime/understand-the-implementation:
+  en: 80ceae63d3094d3c
+  zh: 6c96b35a4ad82cd5
+/deepseek-ai-dsh-client-ui-custom-runtime/further-exploration:
+  en: 33d204b9af8ed13e
+  zh: 839014660814fbe9
+/deepseek-ai-dsh-client-ui-custom-runtime/model-experience:
+  en: 215e7ba838619b7b
+  zh: a311da3843709f90
+/deepseek-ai-dsh-client-ui-custom-runtime/model-experience/runtime-integration:
+  en: db9a1add82d49892
+  zh: 0ed2c7c2a4dfdafd
+/deepseek-ai-dsh-client-ui-custom-runtime/model-experience/runtime-integration/what-the-model-sees:
+  en: 7f9334f19f303373
+  zh: fdbd0bf5e4272333
+/deepseek-ai-dsh-client-ui-custom-runtime/model-experience/runtime-integration/token-effect:
+  en: bb0e7e5a7b3ad242
+  zh: a4d7850274b43b8e
+/deepseek-ai-dsh-client-ui-custom-runtime/model-experience/runtime-integration/kv-cache-effect:
+  en: 58125e56cc405f59
+  zh: 1eac0aa94410c398
+/deepseek-ai-dsh-client-ui-custom-runtime/known-limitations-and-deferred-work:
+  en: 0b707288813b6538
+  zh: 9e551ab65cbe04a4
+/deepseek-ai-dsh-client-ui-custom-runtime/known-limitations-and-deferred-work/dev-note:
+  en: a132d1db245d6b39
+  zh: 333426a7c6708ed7

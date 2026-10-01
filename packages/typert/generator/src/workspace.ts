@@ -65,13 +65,16 @@ export class WorkspaceTypertGenerator {
    */
   generate(packages?: readonly string[], faces?: readonly TypertFace[]): WorkspaceEmitResult[] {
     const selected = packages ?? this.discover(faces).map(candidate => candidate.package)
-    const workspace = new WorkspaceAnalyzer({
+    const analyzer = new WorkspaceAnalyzer({
       root: this.root,
       packages: selected,
       caches: this.caches,
       ...(faces === undefined ? {} : { faces }),
       ...(this.options.checkDiagnostics === undefined ? {} : { checkDiagnostics: this.options.checkDiagnostics }),
-    }).analyze()
+    })
+    // Reuse the canonical bounded analyzer when composition adds contributors.
+    // Its stable graph identities preserve the same emitter model without retaining one huge compiler program.
+    const workspace = selected.length > 8 ? analyzer.analyzeInBatches(8) : analyzer.analyze()
     const artifacts: WorkspaceEmitResult[] = []
     for (const face of workspace.faces) {
       const emitter = new FaceModelEmitter(face)

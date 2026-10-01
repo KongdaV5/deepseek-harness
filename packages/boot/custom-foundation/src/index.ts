@@ -1,6 +1,7 @@
 /** Custom profile configuration; no runtime driver, scheduler, authentication or inference. */
 import { Service, type Context, type Volatile } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
+import type {} from '@deepseek-ai/dsh-config-editor'
 export { importLegacyCustomSettings, translateLegacyCustomSettings } from './legacy.ts'
 export { customLocalPatches, initializeCustomProfile } from './profile.ts'
 
@@ -30,6 +31,7 @@ export interface Config {
 }
 /** Read-only foundation used by M2 Local and Desktop consumers. */
 export class CustomFoundation extends Service {
+  static inject = ['configEditor']
   static Config = z.object({
     localProfiles: z.array(z.object({ id: z.string().required(), name: z.string().required(), modality: z.union(['text', 'image']).required(), modelId: z.string().required() })).default([]).volatile(),
     selectedLocalProfile: z.string().default('huihui').volatile(),
@@ -38,10 +40,20 @@ export class CustomFoundation extends Service {
     legacyImportDigest: z.string(),
   })
   /** Mount the sole reader of Custom product configuration.
-   * @param ctx Plugin lifetime context.
+   * @param ownerContext Plugin lifetime context.
    * @param config Live canonical Config fields.
    */
-  constructor(ctx: Context, private readonly config: Config) { super(ctx, 'customFoundation') }
+  constructor(private readonly ownerContext: Context, private readonly config: Config) { super(ownerContext, 'customFoundation') }
+  /** Persist only an explicitly selected, healthy manager profile through the canonical editor.
+   * @param profile The exact inventory identity confirmed by the runtime.
+   * @returns Atomic profile publication and live reconciliation completion.
+   */
+  async saveSelectedProfile(profile: string): Promise<void> {
+    if (!this.snapshot().profiles.some(row => row.id === profile)) throw new Error('Unknown Local profile')
+    const entry = this.ownerContext.fiber.entry
+    if (entry === undefined) throw new Error('Local intent requires a profile-owned entry')
+    await this.ownerContext.configEditor.edit(entry, current => ({ ...current, selectedLocalProfile: profile }))
+  }
   /** Read persistent Local profile intent without inspecting user files or starting runtime work.
    * @returns Detached inventory and user preferences.
    */
@@ -60,3 +72,5 @@ declare module '@deepseek-ai/cordis' {
     customFoundation: CustomFoundation
   }
 }
+
+export { LocalModelRuntimeController } from './local-runtime.ts'

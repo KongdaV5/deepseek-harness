@@ -17,7 +17,7 @@
  */
 
 import { runIdFor } from '@deepseek-ai/dsh-agent-run-state'
-import type { SessionId } from '@deepseek-ai/dsh-session'
+import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type {
   ResultManifest,
   RunId,

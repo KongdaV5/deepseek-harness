@@ -5,16 +5,19 @@
  * @module @deepseek-ai/dsh-compaction-basic/region
  */
 
+import { z } from 'zod'
 import { randomUUID } from 'node:crypto'
 import { isDeepStrictEqual } from 'node:util'
 import {
+  CompactionPolicyRejectionError,
   CompactionId,
   ManualCompactionError,
   compactCheckpointSource,
   toolPairingBalancedAfter,
   toolPairingBalancedBefore,
 } from '@deepseek-ai/dsh-compaction'
-import type { CompactionResult } from '@deepseek-ai/dsh-compaction'
+import type { CompactionCandidatePolicy, CompactionPolicyTransaction, CompactionPolicyTrigger, CompactionRequestDecoration,
+  CompactionResult } from '@deepseek-ai/dsh-compaction'
 import type { CommandId } from '@deepseek-ai/dsh-commands/brand'
 import { createUserMessage, errorChain } from '@deepseek-ai/dsh-llm'
 import type { Message, UserMessage } from '@deepseek-ai/dsh-llm'
@@ -25,6 +28,10 @@ import { frameSummary } from './summarizer.ts'
 import type { SummarizationInput, SummaryResult } from './summarizer.ts'
 interface RegionDependencies {
   readonly meter: TokenMeter
+  readonly policy?: CompactionCandidatePolicy
+  readonly maxTokens?: number
+  readonly trigger?: CompactionPolicyTrigger
+  target?(agent: Agent): { provider: string; model: string }
   summarize(input: SummarizationInput, agent: Agent, signal?: AbortSignal): Promise<SummaryResult>
   recover(error: unknown, agent: Agent, sourceEventSeqs: readonly SessionSeq[], signal?: AbortSignal): boolean
 }
@@ -50,6 +57,8 @@ interface PreparedCompaction extends SurfaceSelection {
 
 type SummarizedCompaction = PreparedCompaction & SummaryResult & {
   readonly checkpointMessage: UserMessage
+  readonly policyTransaction?: CompactionPolicyTransaction
+  readonly decoration?: CompactionRequestDecoration
 }
 
 interface CompactionTransactionOptions {
@@ -231,6 +240,7 @@ export async function compactSurfaceRegion(
     )
     if (options.owner === null) signal?.throwIfAborted()
     assertStable(dependencies, session, summarized)
+    summarized.policyTransaction?.assertPublishable()
     stage = 'commit'
     const pending = commitCompactionBody(session, startEvent, summarized)
     closing = true
@@ -394,21 +404,46 @@ async function summarizeCompaction(
   signal?: AbortSignal,
 ): Promise<SummarizedCompaction> {
   let summaryResult: SummaryResult
+  const target = dependencies.policy === undefined ? undefined : dependencies.target?.(agent)
+  const transaction = dependencies.policy === undefined || target === undefined ? undefined
+    : await dependencies.policy.begin({ session: agent.session, trigger: dependencies.trigger ?? 'manual',
+      compactionId, start: prepared.start, end: prepared.end, shadowedSeqs: prepared.shadowedSeqs,
+      shadowedTokenCount: prepared.shadowedRouteTokenCount, beforeTokens: prepared.measurement.totalTokens,
+      maxTokens: dependencies.maxTokens ?? 4096, summarizationTarget: target,
+      ...signal === undefined ? {} : { signal } })
+  let candidateAttempt = 0
+  let decoration: CompactionRequestDecoration | undefined
   for (;;) {
     signal?.throwIfAborted()
     try {
-      summaryResult = await dependencies.summarize(prepared.input, agent, signal)
+      decoration = transaction === undefined || target === undefined ? undefined : transaction.decorateRequest({
+        ...target, messages: prepared.input.messages, ...prepared.input.tools === undefined ? {} : { tools: prepared.input.tools },
+        maxTokens: dependencies.maxTokens ?? 4096, sessionId: agent.session.id, candidateAttempt })
+      summaryResult = await dependencies.summarize({ ...prepared.input, ...decoration === undefined ? {} : { decoration } }, agent, signal)
+      const checkpointContent = [...frameSummary(summaryResult.summary), ...decoration?.replacementContent ?? []]
+      const verdict = transaction?.validateCandidate({ summary: summaryResult.summary,
+        rawOutput: summaryResult.rawOutput ?? summaryResult.summary, truncated: summaryResult.truncated ?? false, checkpointContent,
+        framedTokenCount: dependencies.meter.estimateMessage(createUserMessage({ content: checkpointContent,
+          source: compactCheckpointSource(compactionId, sourceCommandId) })),
+        shadowedRouteTokenCount: prepared.shadowedRouteTokenCount, candidateAttempt })
+      if (verdict?.kind === 'reject') throw new CompactionPolicyRejectionError(dependencies.policy?.id ?? 'unknown', verdict.block)
+      if (verdict?.kind === 'retry') {
+        if (candidateAttempt >= 1) throw new Error('compaction policy exceeded the two-candidate limit')
+        candidateAttempt += 1
+        continue
+      }
       break
     } catch (error: unknown) {
       if (signal?.aborted === true) throw error
       assertStable(dependencies, agent.session, prepared)
       if (!dependencies.recover(error, agent, prepared.shadowedSeqs, signal)) throw error
+      transaction?.rebaseAfterOwnedRecovery('summary-error-recovery')
       prepared = prepareCompaction(dependencies, agent.session,
         validateSurfaceRegion(agent.session, prepared.start, prepared.end))
     }
   }
   const checkpointMessage = createUserMessage({
-    content: frameSummary(summaryResult.summary),
+    content: [...frameSummary(summaryResult.summary), ...decoration?.replacementContent ?? []],
     source: compactCheckpointSource(compactionId, sourceCommandId),
   })
   // The checkpoint is text-only, so its fixed-heuristic price IS its route
@@ -423,6 +458,8 @@ async function summarizeCompaction(
   return {
     ...prepared,
     ...summaryResult,
+    ...transaction === undefined ? {} : { policyTransaction: transaction },
+    ...decoration === undefined ? {} : { decoration },
     checkpointMessage,
   }
 }
@@ -494,6 +531,12 @@ function commitCompactionBody(
       ? {}
       : { sourceCommandId: startEvent.data.sourceCommandId },
     summary,
+    ...summarized.policyTransaction === undefined ? {} : { 'plugin:task-compaction-audit': z.json().parse({
+      sessionFormatVersion: 4, audit: { ...summarized.policyTransaction.audit(),
+        ...summarized.decoration?.supplementalMessages === undefined ? {} : {
+          supplementalMessages: summarized.decoration.supplementalMessages,
+        } },
+    }) },
     ...callRecord,
     shadowedRange: { start, end },
     shadowedSeqs: [...shadowedSeqs],

@@ -6,7 +6,7 @@
 
 P-UPSTREAM-0.2-M1 在 `migration/upstream-0.2-rc2` 分支上从官方 `dsh-v0.2.0-rc.2` 的精确 tag 开始。可信 `feature/codex-subscription` 分支保持不变。Custom 原始祖先是 `dsh-v0.1.6-alpha.2`。本工作包的官方 target 固定。
 
-Candidate 采用官方 Config、ConfigEditor、profile composition、agent-preset 架构、Session V4 codec 和 immutable generation publisher。Custom 状态限于产品身份、Local inventory、非秘密 Codex 配置与 mapping，以及 task authority。本基础不保留旧 Settings store、settings-file 包或完整 Custom runtime。
+Candidate 采用官方 Config、ConfigEditor、profile composition、agent-preset 架构、Session V4 codec 和 immutable generation publisher。Custom 状态限于产品身份、Local inventory、非秘密 Codex 配置与 mapping，以及 task authority。旧 Settings store 和 settings-file 包仍不存在；以下 M1 ledger 记录初始基础，M2 runtime ownership 在后文记录。
 
 ## 连续 ownership ledger
 
@@ -60,3 +60,45 @@ M2 负责 Local start/stop/switch 与 inference；Codex App Server 生命周期�
 集中检查覆盖 40 个选定测试文件和 1,011 个不同测试。首轮通过 1,004 项，发现一个中文 README 结构问题；修正后的文档通过全部 22 项所属测试。Typed lint 修正后，三个受影响测试文件通过全部 73 项测试。最终恢复边界检查在五个受影响文件中通过全部 129 项测试，包含六个新增生命周期和回答交付用例。官方 Host contract 构建后，Host 与 Client typecheck 通过。最终修改范围 lint 覆盖 63 个文件；生成产物、文档、持久类型变更记录、空白与工作区卫生检查通过。
 
 不可变 successor 发布通过官方 prepare/publish/verify API 和实际读取提供者重启验证。本工作包不构建 Native bindings，因此没有验证 Native 写锁入口。此边界不引入替代发布器或锁适配器。所有持久化与 Config fixture 使用临时根目录；没有打开正式 Custom profile 或认证材料。
+
+## M2 runtime 与 Desktop ownership
+
+M2 扩展 M1 基础，不改变固定官方 base 或 trusted branch。源码 composition 现在挂载真实 runtime owner 和 Client 控件。下表记录旧 Custom 语义、承载语义的 RC.2 seam、最终 ownership 与剩余 qualification 边界。
+
+| Area | Old implementation / decision | RC.2 seam | Final owner and lifecycle | Shim | Source evidence / M3 boundary |
+|---|---|---|---|---|---|
+| Local runtime | ADAPTED; retain exact profiles and serialization | Official subprocess handle, ConfigEditor and pre-step admission | One Local controller; LaunchAgent remains the qualified external service owner, or one explicitly configured owned child; handle release requires whole process-range exit | none | Real isolated Huihui start, READY inference and stop; managed-range timeout/crash fixtures; M3 proves installed manager/environment |
+| Codex auth and runtime | ADAPTED; preserve Q1 and runtime-maintenance state machines | Official subprocess and JSON-RPC transport; plugin Config and ConfigEditor | CodexSubscriptionRuntime owns child, leases, auth epoch/transaction and dedicated CODEX_HOME; Codex Config owns generation/marker; preference edits cannot edit lifecycle fields | none | Focused owner, restart, no-replay and catalog fixtures; System 0.159.2 real handshake/model list; authenticated inference remains unproved |
+| External turn | REPLACED old loop interception | Scoped resolver before assembly, native AssistantStreamAttempt and turn/step settlement | AgentLoop owns DSH conversation/cancellation; Codex owns private thread and dispatch reconciliation | none | One Session Local→Codex→Local fixture, external cancellation and Desktop active-task observation; M3 repeats real cross-provider turns |
+| Mapping and recovery | KEPT semantics, ADAPTED V4 writes | Canonical Session events/projection and native settlement | Session is persistence authority; stored uncertain/completed-undelivered facts are obligations, never permission to repeat effects | V3 conversion only | Restart and delivery fixtures; M3 proves real persisted restart |
+| Catalog and admission | REPLACED old Settings/model-picker plumbing | Native Session catalog and model selection plus optional external provider directory | Local Config owns exact inventory; App Server model/list owns Codex IDs; disappeared model blocks dispatch without substitution | Exact M1 single-model Local catalog upgrade only | Dynamic removal fixture and live discovery of gpt-6.1-sol; M3 checks actual selector with both runtimes |
+| Task compaction | ADAPTED policy; REMOVED old executor plumbing | Native BasicCompaction transaction, RequestUserInput supplements and V4 references | Native backend alone publishes/recovers/brackets; policy protects task/checkpoint/manifest authority and rechecks immediately before publish | Historical V3 audit is read-only evidence | Actual backend fixtures prove low→medium auxiliary ladder, stable main reasoning and refusal on authority drift; M3 proves installed compaction/restart |
+| Diagnostics and UI | ADAPTED pure projections; REPLACED bespoke selector/popup | Session projection/follow, generic resource transport, Models footer and native selector/positioner | Runtime owners publish redacted observations; Client stores retire stale generations; UI has explicit verbs and no Host Context | none | Render/control and stale-generation tests; bounded external activity remains separate from Local tools; M3 validates Native layout/interactions |
+| Desktop Host | REPLACED old Host fork | Official profile bootstrap, launcher environment, task inspector, window/tray/quit owners | Custom flavor owns profile/data root and disables official updater; upstream lifecycle owns close/background/quit | none | Real source Host and Client RPC plus lifecycle fixtures; M3 proves packaged single-instance, close/background/quit and install |
+| Build and contracts | ADAPTED graph; REMOVED Host types from Client imports | Official project references, Typert FaceModel emitter, catalogs and normal library build | Mapping state has a leaf face; Custom UI imports pure types; large Typert selections use existing bounded batch analyzer with emitter-equivalence proof | none | Normal Host/Client builds and generated checks; M3 builds fresh payload/signature once |
+
+External turn resolver 在组装 Local prompt 或工具之前冻结选定 route。External failure 不会调用 Local adapter。ToolCallRecovery 仍拥有原生 Local tool outcome；Codex reconciliation 处理远端 thread/turn outcome，其 command 从不被表示为 Local tool call。它们是在同一 DSH turn 生命周期下的不同执行资源，没有竞争性的 recovery owner。
+
+Compaction supplement 使用仅用于请求的 RequestUserInput，没有 Session identity 或新的 MessageSource kind。V4 audit 是既有 native summary event 上的 `plugin:task-compaction-audit`，sessionFormatVersion 为 4。Policy 只在 native compaction/end 报告成功后记录 applied。V3 audit 仍是历史证据，不能授权 continuation。不引入新的持久化格式或平行 task store。
+
+Generic Settings 只暴露 Codex preference；内部根字段 authGeneration 和 authTransition 被排除在 form 与通用 mutation 之外。Canonical Codex transaction owner 通过 ConfigEditor 写入这些字段。Runtime 变化不轮换 generation，pending auth marker 仍 fail closed。集成不读取或复制 auth 文件与凭据。
+
+Custom Desktop 跳过官方 account watch 和首次 account onboarding，同时保留 native locale read 与 window/quit owner。Product flavor startup fixture 证明直接进入工作区和禁用官方 updater；官方 startup suite 仍通过。
+
+## M2 源码集成证据与限制
+
+全部 smoke root 都是可丢弃的私有临时目录。正式 Custom profile 和已安装应用保持不变。Custom composition 的 Schedule、Automation、Computer Use 与 DeepSeek account/hosted fallback 仍禁用。Image inventory 保留为独立且不支持推理的 modality，不能成为 Local text default。
+
+真实 owned Huihui llama-server 在临时 loopback port 返回 HTTP 200 和 READY，随后由官方 subprocess range owner 停止。真实 System Codex 0.159.2 在新隔离 CODEX_HOME 下通过 verified discovery 和初始化；model/list 返回八个模型，包含 gpt-6.1-sol。该 home 未认证。本轮不尝试真实 Codex turn、login/logout、auth generation transition 或凭据复制。
+
+实际源码 profile 启动 Host。原生 Client unary RPC carrier 与生成 Remote codec 连接该 Host，读取仅含 Local 的 catalog/status，启动确切 Local model，并创建默认为 Huihui 的 Session。完整 Session turn 在官方 writer lock 处停止，因为 candidate 缺失 native/system/packages/darwin-arm64/bin/system.node。M2 不构建该 Native 产物。因此直接真实 Local inference 通过，完整持久化源码 turn 与已认证 Codex turn 保留为明确集成 blocker；mock 不为其 qualification。Client library build 与 Models/Run Details render 证据属于源码检查，不是 GUI release qualification。
+
+M2 affected set 使用既有 upstream maintenance contract/evidence planner 的 RC.2 结果，映射到新 package owner，并按实际变化的 seam 扩展。它排除完整 Q1、Full runtime compatibility probe、package 与全项目 suite。最终集中验证中，63 个核心受影响文件的 1,440 项测试全部通过，另有 17 个 Client 消费端与公开边界文件的 582 项测试通过：合计 80 个文件、2,022 项独立测试。官方 generator 的分批等价性证明也通过所选用例。初次验证还尝试了 33 项依赖 Native 的 resume/shutdown 测试；缺失真实 system.node binding 时它们无法通过，这些失败仍未取得资格，不计入源码测试通过数。Host/Client 构建与类型检查、变更文件 lint、生成目录、修改范围双语文档和工作区卫生分别检查。真实持久化源码会话与已认证 Codex 会话仍受上述阻塞影响。
+
+## M2 整合与 M3 交接
+
+保留的 Custom package 为 custom-foundation、agent-codex、task-checkpoint、reasoning-policy、compaction-task-aware-policy、run-details、runtime-diagnostics-controller、ui-custom-runtime、ui-run-details 和 desktop-custom composition。Mixed 变化限于 external turn selection/settlement、Session catalog/activity transport、compaction policy consultation、generic internal Config protection、Desktop updater product exclusion、Client read hook 与官方 bounded contract generation。旧 Settings store、复制的 AgentLoop executor、Custom popup positioner、tool-call impersonation 和平行 thread mapping persistence 均不存在。
+
+相对刻意不含 runtime 的 M1 foundation，Custom surface 增加，因为必要 execution 与 UI owner 现在已存在。相对旧 Custom product，复用了 native turn settlement、compaction publication、selector/popup 和 Desktop lifecycle。每个新增 runtime 或 projection package 拥有独立 capability 或 read boundary。兼容输入只包括单向 legacy Config import、官方 V3 conversion，以及精确 M1 单模型 Local catalog upgrade；在各自支持的历史输入退役后移除。没有永久双 event identity 或 old/new Settings adapter。
+
+M3 首先需要真实 Native writer dependency 和安全认证的隔离 Codex context，然后证明真实持久化 Local/Codex/Local turn 与 restart continuity。剩余范围是一次 fresh candidate payload、integrity/signature、single-instance、隔离 profile migration rehearsal、installed Local manager/runtime、无 replay 或 auth rotation 的真实 App Server recovery、close/background/quit、selector 与 Run Details interaction、formal install、installed smoke、rollback boundary 和最终 trusted branch integration decision。M2 不授权这些 packaging/install 操作，也不启动 M3。

@@ -15,16 +15,31 @@
       "path": "../../../vendor/cosmokit"
     },
     {
+      "path": "../../../vendor/include"
+    },
+    {
       "path": "../../../vendor/schemastery"
     },
     {
-      "path": "../app-boot"
+      "path": "../../core/agent"
+    },
+    {
+      "path": "../../llm/llm-pi-ai"
+    },
+    {
+      "path": "../../subprocess/subprocess"
+    },
+    {
+      "path": "../../typert/protocol"
     },
     {
       "path": "../../util/atomic-write"
     },
     {
-      "path": "../../llm/llm-pi-ai"
+      "path": "../app-boot"
+    },
+    {
+      "path": "../config-editor"
     }
   ]
 }

@@ -21,12 +21,17 @@ export async function buildModelCatalog(
   ctx: Context,
   defaultSelection: ModelSelection = ctx.agentDefaultModel.currentSelection(),
 ): Promise<ModelCatalog> {
-  const providers = ctx.llm.listProviders()
+  const external = ctx.get('externalModelProviders')?.listProviders() ?? []
+  const providers = [...ctx.llm.listProviders(), ...external]
   const catalog = await Promise.all(providers.map(async (provider) => {
     try {
-      const models = await ctx.llm.listModels(provider.id)
+      const owner = external.find(entry => entry.id === provider.id)
+      const externalModels = owner === undefined ? undefined : await owner.listModels()
+      const models = externalModels ?? await ctx.llm.listModels(provider.id)
       const entries = await Promise.all(models.map(async (model) => {
-        const resolved = await ctx.llm.resolveModelInfo(provider.id, model.id)
+        const resolved = externalModels === undefined
+          ? await ctx.llm.resolveModelInfo(provider.id, model.id)
+          : { reasoning: externalModels.find(entry => entry.id === model.id)?.reasoning }
         const reasoning: ModelReasoning | undefined = resolved.reasoning === undefined
           ? undefined
           : {
@@ -78,6 +83,8 @@ export async function buildModelCatalog(
  * @returns whether the exact model is currently advertised as available.
  */
 export async function modelAvailable(ctx: Context, selection: ModelSelection): Promise<boolean> {
+  const external = ctx.get('externalModelProviders')?.listProviders().find(provider => provider.id === selection.provider)
+  if (external !== undefined) return (await external.listModels()).some(model => model.id === selection.model)
   if (!ctx.llm.listProviders().some(provider => provider.id === selection.provider)) return false
   let models: readonly LlmModelInfo[]
   try { models = await ctx.llm.listModels(selection.provider) }

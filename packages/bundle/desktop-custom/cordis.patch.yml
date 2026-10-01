@@ -1,9 +1,23 @@
-# Custom foundation adds configuration and projections, with no runtime executor.
+# Custom runtime composition over the canonical RC.2 application.
 - insert:
     - id: custom-foundation
       name: '@deepseek-ai/dsh-custom-foundation'
+    - id: local-model-runtime
+      name: '@deepseek-ai/dsh-custom-foundation/local-runtime'
     - id: agent-codex
       name: '@deepseek-ai/dsh-agent-codex'
+    - id: run-details
+      name: '@deepseek-ai/dsh-run-details'
+    - id: runtime-diagnostics
+      name: '@deepseek-ai/dsh-api-runtime-diagnostics-controller'
+    - id: task-aware-diagnostics
+      name: '@deepseek-ai/dsh-compaction-task-aware-policy/diagnostics-transport'
+    - id: ui-custom-runtime
+      name: '@deepseek-ai/dsh-client-ui-custom-runtime'
+    - id: ui-run-details
+      name: '@deepseek-ai/dsh-client-ui-run-details'
+    - id: task-aware-compaction
+      name: '@deepseek-ai/dsh-compaction-task-aware-policy'
     - id: task-checkpoint
       name: '@deepseek-ai/dsh-task-checkpoint'
 
@@ -13,6 +27,8 @@
     provider: dsh-local-unconfigured
     model: select-local-huihui
 - id: deepseek-account
+  disabled: true
+- id: account-controller
   disabled: true
 - id: llm-deepseek
   disabled: true
@@ -32,3 +48,9 @@
     search: false
     fetch: true
     searchTimeoutMs: 60000
+
+- id: ui-settings-account
+  disabled: true
+- id: ui-settings-models
+  config:
+    credentialOnboarding: false

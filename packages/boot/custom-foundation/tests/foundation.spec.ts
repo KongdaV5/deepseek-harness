@@ -9,7 +9,7 @@ import { boot, initProfile, readProfilePatches, composeEntries, loadOptionalPatc
 import ConfigEditor from '@deepseek-ai/dsh-config-editor'
 import Settings from '@deepseek-ai/dsh-settings'
 import Projections from '@deepseek-ai/dsh-session-projection'
-import Codex from '@deepseek-ai/dsh-agent-codex'
+import { CodexFoundation as Codex } from '@deepseek-ai/dsh-agent-codex'
 import Custom, { customLocalPatches, initializeCustomProfile, importLegacyCustomSettings, translateLegacyCustomSettings } from '../src/index.ts'
 
 async function fixture() {
@@ -167,4 +167,50 @@ it('composes actual official bundle layers with Schedule, Computer Use and hoste
   expect(enabled.map(entry => entry.name).some(name => /schedule|automation|computer-use|cua-driver/i.test(name ?? ''))).toBe(false)
   expect(enabled.find(entry => entry.id === 'agent-default-model')?.config).toMatchObject({ provider: 'dsh-local-huihui' })
   for (const id of ['custom-foundation', 'agent-codex', 'task-checkpoint', 'config-editor']) expect(enabled.some(entry => entry.id === id)).toBe(true)
+})
+
+
+it('excludes lifecycle facts from generic Settings edits and retains them across replacement', async () => {
+  const f = await fixture(); const ctx = await f.start()
+  const before = ctx.codexFoundation.snapshot()
+  const form = ctx.settings.describe().find(row => row.ns === 'agent-codex')!
+  expect(form.value).toEqual({ preference: 'auto' })
+  await expect(ctx.settings.update('agent-codex', { authGeneration: 'forged' })).rejects.toThrow('not volatile')
+  await expect(ctx.settings.mutate('agent-codex', [{ op: 'set', path: ['authTransition'], value: null }])).rejects.toThrow('not volatile')
+  await ctx.settings.replace('agent-codex', { preference: 'bundled' })
+  expect(ctx.codexFoundation.snapshot()).toEqual({ ...before, preference: 'bundled' })
+  await ctx.codexFoundation.writeLifecycle({ authTransition: null })
+  expect(ctx.codexFoundation.snapshot()).toEqual({ ...before, preference: 'bundled', authTransition: null })
+  await ctx.fiber.dispose()
+  const restarted = await f.start()
+  expect(restarted.codexFoundation.snapshot()).toEqual({ ...before, preference: 'bundled', authTransition: null })
+})
+
+it('persists healthy Local selection through the same live owner and restart', async () => {
+  const f = await fixture(); const ctx = await f.start()
+  await ctx.settings.update('custom-foundation', { localProfiles: [{ id: '38', name: 'Original', modality: 'text', modelId: '/fixture/original' }] })
+  const owner = ctx.customFoundation
+  await owner.saveSelectedProfile('38')
+  expect(ctx.customFoundation.snapshot()).toEqual(owner.snapshot())
+  expect(owner.snapshot().selectedProfile).toBe('38')
+  await expect(owner.saveSelectedProfile('unknown')).rejects.toThrow('Unknown Local profile')
+  await ctx.fiber.dispose()
+  const restarted = await f.start()
+  expect(restarted.customFoundation.snapshot().selectedProfile).toBe('38')
+})
+
+
+it('upgrades only the exact M1 text catalog while preserving Local-first routing and custom provider values', async () => {
+  const f = await fixture()
+  const rows = customLocalPatches(f.home)
+  const llm = rows.find(row => row.id === 'llm-pi-ai')!.config as { providers: Record<string, { models: unknown[] }> }
+  llm.providers['dsh-local-huihui']!.models = llm.providers['dsh-local-huihui']!.models.slice(0, 1)
+  await writeFile(f.patch, stringify(rows))
+  await initializeCustomProfile(f.home, f.home)
+  const output = parse(await readFile(f.patch, 'utf8')) as typeof rows
+  const actual = output.find(row => row.id === 'llm-pi-ai')?.config as typeof llm
+  expect(actual.providers['dsh-local-huihui']?.models).toHaveLength(2)
+  expect(output.find(row => row.id === 'agent-default-model')?.config).toEqual(rows[0]?.config)
+  const before = await readFile(f.patch, 'utf8'); await initializeCustomProfile(f.home, f.home)
+  expect(await readFile(f.patch, 'utf8')).toBe(before)
 })

@@ -66,7 +66,7 @@ No direct effect; this layer executes no model request.
 
 <a id="known-limitations-and-deferred-work"></a>
 
-- Legacy import is a one-way compatibility module, not a second Settings store. Remove it only after supported Custom V3 profiles and settings archives are retired. Local runtime execution, inventory probing and UI actions belong to M2.
+- Legacy import is a one-way compatibility module, not a second Settings store. Remove it only after supported Custom V3 profiles and settings archives are retired. The Local runtime controller serializes start/stop/switch, persists only exact successfully served profile intent and refuses foreign or stale health. The LaunchAgent driver owns no external service lifetime; the optional owned-process driver releases its handle only after the official subprocess range exits.
 
 -----
 

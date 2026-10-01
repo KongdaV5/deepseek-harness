@@ -3483,13 +3483,13 @@ SHA-256: `e3ab599c78bf09c2dacf1bd27eceb6a5de160580c2e4dc785b6d8abf8b4b3698`
 
 <a id="persistence-type-codexsessionmappingevent"></a>
 
-<a id="persistence-type-packagescoreagent-codexsrctypestscodexsessionmappingevent"></a>
+<a id="persistence-type-packagescoreagent-codexlibtypestypesdtscodexsessionmappingevent"></a>
 
 ### `CodexSessionMappingEvent`
 
 SHA-256: `18367a22ff0e24f132a92a422584190396606199ca3daaff8ec2cd606167153c`
 
-来源：[`packages/core/agent-codex/src/types.ts:125`](../packages/core/agent-codex/src/types.ts)
+来源：[`packages/core/agent-codex/lib/types/types.d.ts:115`](../packages/core/agent-codex/lib/types/types.d.ts)
 
 | 属性 | 存在性 | 类型 |
 |---|---|---|
@@ -6749,7 +6749,7 @@ SHA-256: `b6896938660a1dfe4ddd100fb3164d9f8fa57feeabfe37441a80106c9942697a`
 
 SHA-256: `5e6ac684ae4fc195741d9c0f222f1242d920ff951605245af65ae7dd3bda26f8`
 
-来源：[`packages/core/agent-codex/src/types.ts:38`](../packages/core/agent-codex/src/types.ts)
+来源：[`packages/core/agent-codex/lib/types/types.d.ts:38`](../packages/core/agent-codex/lib/types/types.d.ts)
 
 | 属性 | 存在性 | 类型 |
 |---|---|---|
@@ -6774,7 +6774,7 @@ SHA-256: `5e6ac684ae4fc195741d9c0f222f1242d920ff951605245af65ae7dd3bda26f8`
 
 SHA-256: `635503442aec85772d4b39753f484a6268f52d1633382ed4efa005871cb48ce6`
 
-来源：[`packages/core/agent-codex/src/types.ts:20`](../packages/core/agent-codex/src/types.ts)
+来源：[`packages/core/agent-codex/lib/types/types.d.ts:20`](../packages/core/agent-codex/lib/types/types.d.ts)
 
 | 属性 | 存在性 | 类型 |
 |---|---|---|
@@ -7076,7 +7076,7 @@ SHA-256: `693f4952fb5565da96c06bace8924b098ac2fbc915fde0ff8019701183abc057`
 
 SHA-256: `e2439afcb5533ee220b04ddc17fbaf80c64da2855fac2949435a847df5d43e89`
 
-来源：[`packages/core/agent-codex/src/types.ts:15`](../packages/core/agent-codex/src/types.ts)
+来源：[`packages/core/agent-codex/lib/types/types.d.ts:15`](../packages/core/agent-codex/lib/types/types.d.ts)
 
 | 属性 | 存在性 | 类型 |
 |---|---|---|
@@ -7090,7 +7090,7 @@ SHA-256: `e2439afcb5533ee220b04ddc17fbaf80c64da2855fac2949435a847df5d43e89`
 
 SHA-256: `99fe5d1027e0998606ea3eafa5a8db02227419906503893710b8d3a49dcb165d`
 
-来源：[`packages/core/agent-codex/src/types.ts:59`](../packages/core/agent-codex/src/types.ts)
+来源：[`packages/core/agent-codex/lib/types/types.d.ts:59`](../packages/core/agent-codex/lib/types/types.d.ts)
 
 | 属性 | 存在性 | 类型 |
 |---|---|---|
@@ -8721,7 +8721,7 @@ SHA-256: `5dd766ccd1702a1142ad8b4bd44f2242f8e8a6752669ad3de0a5d224329b1438`
 
 SHA-256: `3defe3a111b345f0df87563373811952a42c4348a748215e045ac87434e06e5f`
 
-来源：[`packages/core/agent-codex/src/types.ts:132`](../packages/core/agent-codex/src/types.ts)
+来源：[`packages/core/agent-codex/lib/types/types.d.ts:121`](../packages/core/agent-codex/lib/types/types.d.ts)
 
 | 属性 | 存在性 | 类型 |
 |---|---|---|
@@ -8747,7 +8747,7 @@ SHA-256: `54f9276a1617d7c12594722c89cfe864bcbe4517e9a6f9c98bab14f199a135e0`
 
 SHA-256: `ef11a3b7fa2033ae4279545ff8a8a2ee4e301b9b73e5b91654c48e6d08283545`
 
-来源：[`packages/core/agent-codex/src/types.ts:55`](../packages/core/agent-codex/src/types.ts) · [`packages/core/session/src/types.ts:299`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:301`](../packages/core/session/src/types.ts)
+来源：[`packages/core/agent-codex/lib/types/types.d.ts:55`](../packages/core/agent-codex/lib/types/types.d.ts) · [`packages/core/session/src/types.ts:299`](../packages/core/session/src/types.ts) · [`packages/core/session/src/types.ts:301`](../packages/core/session/src/types.ts)
 
 | 属性 | 存在性 | 类型 |
 |---|---|---|
