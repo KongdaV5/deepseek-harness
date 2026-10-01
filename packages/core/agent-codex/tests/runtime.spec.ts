@@ -342,6 +342,29 @@ describe('canonical Config runtime integration', () => {
     expect(h.startCount()).toBe(2)
   })
 
+  it('starts through a Cordis service wrapper whose Config reference is rewrapped on access', async () => {
+    const h = await harness(undefined, { systemRuntime: { runtime: systemCodex } })
+    cleanups.push(h.cleanup)
+    const configOwner = Reflect.get(h.runtime, 'runtimeConfig') as CodexConfigOwner | undefined
+    expect(configOwner).toBeDefined()
+    if (configOwner === undefined) throw new Error('runtime Config owner was not attached')
+    Object.defineProperty(h.runtime, 'runtimeConfig', {
+      configurable: true,
+      get: () => new Proxy(configOwner, {}),
+    })
+
+    try {
+      expect(Reflect.get(h.runtime, 'runtimeConfig')).not.toBe(Reflect.get(h.runtime, 'runtimeConfig'))
+      await expect(h.runtime.status()).resolves.toMatchObject({
+        runtime: 'ready', runtimeSource: 'system', runtimeVersion: systemCodex.version,
+      })
+      expect(h.server.calls.map(call => call.method)).toContain('account/read')
+      expect(h.startCount()).toBe(1)
+    } finally {
+      Object.defineProperty(h.runtime, 'runtimeConfig', { configurable: true, writable: true, value: configOwner })
+    }
+  })
+
   it('prefers the verified system runtime and discovers its catalog dynamically', async () => {
     const h = await harness(undefined, { systemRuntime: { runtime: systemCodex } })
     cleanups.push(h.cleanup)

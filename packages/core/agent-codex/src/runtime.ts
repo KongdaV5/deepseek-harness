@@ -67,7 +67,6 @@ interface ActiveCodexTurn {
 interface AuthBoundOperationLease {
   readonly authGeneration: string
   readonly authStateEpoch: number
-  readonly settings: CodexConfigOwner
   readonly configOwner: object
   client?: CodexAppServerConnection
   clientOwner?: object
@@ -91,7 +90,6 @@ interface PendingLoginAttempt {
 
 interface AuthStateSnapshot {
   readonly epoch: number
-  readonly settings: CodexConfigOwner | undefined
   readonly configOwner: object
   readonly client: CodexAppServerConnection | undefined
   readonly clientOwner: object | undefined
@@ -145,7 +143,9 @@ export class CodexSubscriptionRuntime extends Service implements ExternalModelPr
   private clientOwner: object | undefined
   private startupPromise: Promise<CodexAppServerConnection> | undefined
   private activeRuntime: CodexRuntimeDescriptor | undefined
+  /** A Cordis Service may be wrapped on access; `configOwner` is the stable lifetime identity. */
   private runtimeConfig: CodexConfigOwner | undefined
+  private configAttached = false
   private configOwner: object = {}
   private authStateEpoch = 0
   private pendingAuthTransition: AuthTransitionRecord | undefined
@@ -220,7 +220,8 @@ export class CodexSubscriptionRuntime extends Service implements ExternalModelPr
    * @param scope - the canonical Config service that owns runtime preference and non-secret authentication facts.
    */
   attachConfig(scope: CodexConfigOwner): void {
-    if (this.runtimeConfig === scope && this.authGenerationInitialization !== undefined) return
+    if (this.configAttached) throw new Error('Codex runtime Config owner is immutable after attachment.')
+    this.configAttached = true
     this.authStateEpoch++
     const owner = {}
     this.runtimeConfig = scope
@@ -244,7 +245,7 @@ export class CodexSubscriptionRuntime extends Service implements ExternalModelPr
     this.authGeneration = undefined
     this.authGenerationInitializationError = undefined
     this.authGenerationInitialization = this.updateAuthConfig(scope, owner, { authGeneration: initial }).then(() => {
-      if (this.runtimeConfig !== scope || this.configOwner !== owner) {
+      if (this.configOwner !== owner) {
         throw new StaleAuthStateResultError()
       }
       if (scope.snapshot().authGeneration !== initial) {
@@ -252,7 +253,7 @@ export class CodexSubscriptionRuntime extends Service implements ExternalModelPr
       }
       this.authGeneration = initial
     }).catch((error: unknown) => {
-      if (this.runtimeConfig === scope && this.configOwner === owner) {
+      if (this.configOwner === owner) {
         this.authGeneration = undefined
         this.authLifecycleBlocked = true
         this.authGenerationInitializationError = error instanceof Error
@@ -268,7 +269,7 @@ export class CodexSubscriptionRuntime extends Service implements ExternalModelPr
     patch: Partial<CodexRuntimeSettings>,
   ): Promise<void> {
     const update = this.authConfigWriteTail.catch(() => {}).then(async () => {
-      if (this.runtimeConfig !== scope || this.configOwner !== owner) throw new StaleAuthStateResultError()
+      if (this.configOwner !== owner) throw new StaleAuthStateResultError()
       await scope.writeLifecycle(patch)
     })
     this.authConfigWriteTail = update.catch(() => {})
@@ -281,7 +282,6 @@ export class CodexSubscriptionRuntime extends Service implements ExternalModelPr
   ): AuthStateSnapshot {
     return {
       epoch: this.authStateEpoch,
-      settings: this.runtimeConfig,
       configOwner: this.configOwner,
       client: this.client,
       clientOwner: this.clientOwner,
@@ -293,7 +293,6 @@ export class CodexSubscriptionRuntime extends Service implements ExternalModelPr
   private isCurrentAuthSnapshot(snapshot: AuthStateSnapshot): boolean {
     return !this.disposed
       && this.authStateEpoch === snapshot.epoch
-      && this.runtimeConfig === snapshot.settings
       && this.configOwner === snapshot.configOwner
       && this.client === snapshot.client
       && this.clientOwner === snapshot.clientOwner
@@ -378,7 +377,7 @@ export class CodexSubscriptionRuntime extends Service implements ExternalModelPr
     attempt?: PendingLoginAttempt,
   ): Promise<string> {
     await this.ensureAuthGeneration()
-    if (this.runtimeConfig !== scope || this.configOwner !== owner
+    if (this.configOwner !== owner
       || !this.isCurrentAuthTransition(transition)
       || (attempt !== undefined && (!this.isCurrentLoginAttempt(attempt)
         || attempt.phase !== 'completing' || attempt.epoch !== this.authStateEpoch
@@ -388,13 +387,13 @@ export class CodexSubscriptionRuntime extends Service implements ExternalModelPr
     const next = randomUUID()
     try {
       await this.updateAuthConfig(scope, owner, { authGeneration: next, authTransition: null })
-      if (this.runtimeConfig !== scope || this.configOwner !== owner
+      if (this.configOwner !== owner
         || scope.snapshot().authGeneration !== next
         || (this.isCurrentAuthTransition(transition) && scope.snapshot().authTransition != null)) {
         throw new Error('Codex authentication lifecycle update was not committed.')
       }
     } catch (error: unknown) {
-      if (this.runtimeConfig === scope && this.configOwner === owner
+      if (this.configOwner === owner
         && this.isCurrentAuthTransition(transition)) {
         this.authLifecycleBlocked = true
       }
@@ -416,7 +415,7 @@ export class CodexSubscriptionRuntime extends Service implements ExternalModelPr
     this.pendingAuthTransition = transition
     this.authLifecycleBlocked = true
     await this.updateAuthConfig(scope, owner, { authTransition: transition })
-    if (this.runtimeConfig !== scope || this.configOwner !== owner
+    if (this.configOwner !== owner
       || !this.isCurrentAuthTransition(transition)
       || scope.snapshot().authTransition?.id !== transition.id) {
       throw new StaleAuthStateResultError()
@@ -437,7 +436,7 @@ export class CodexSubscriptionRuntime extends Service implements ExternalModelPr
   private assertAuthLeaseBindings(lease: AuthBoundOperationLease): void {
     if (this.disposed || this.authLifecycleBlocked || this.pendingAuthTransition !== undefined
       || this.authStateEpoch !== lease.authStateEpoch
-      || this.runtimeConfig !== lease.settings || this.configOwner !== lease.configOwner
+      || this.configOwner !== lease.configOwner
       || (lease.client !== undefined && (this.client !== lease.client || this.clientOwner !== lease.clientOwner))) {
       throw new StaleAuthStateResultError()
     }
@@ -446,7 +445,7 @@ export class CodexSubscriptionRuntime extends Service implements ExternalModelPr
   private isAuthLeaseCurrent(lease: AuthBoundOperationLease): boolean {
     return !this.disposed && !this.authLifecycleBlocked && this.pendingAuthTransition === undefined
       && this.authStateEpoch === lease.authStateEpoch
-      && this.runtimeConfig === lease.settings && this.configOwner === lease.configOwner
+      && this.configOwner === lease.configOwner
       && (lease.client === undefined || (this.client === lease.client && this.clientOwner === lease.clientOwner))
   }
 
@@ -476,8 +475,7 @@ export class CodexSubscriptionRuntime extends Service implements ExternalModelPr
       throw new Error('A Codex account transition is in progress; retry after it completes.')
     }
     const authGeneration = this.authGeneration
-    const settings = this.runtimeConfig
-    if (authGeneration === undefined || settings === undefined || this.authGenerationInitializationError !== undefined) {
+    if (authGeneration === undefined || this.runtimeConfig === undefined || this.authGenerationInitializationError !== undefined) {
       throw new Error('Codex authentication lifecycle is unavailable.')
     }
     this.activeAuthOperations++
@@ -485,7 +483,6 @@ export class CodexSubscriptionRuntime extends Service implements ExternalModelPr
     return {
       authGeneration,
       authStateEpoch: this.authStateEpoch,
-      settings,
       configOwner: this.configOwner,
       release: () => {
         if (released) return
@@ -946,10 +943,9 @@ export class CodexSubscriptionRuntime extends Service implements ExternalModelPr
 
   private async startRuntimeSelection(): Promise<CodexAppServerConnection> {
     const startupEpoch = this.authStateEpoch
-    const settings = this.runtimeConfig
     const configOwner = this.configOwner
     const isCurrentStartup = (): boolean => !this.disposed && this.authStateEpoch === startupEpoch
-      && this.runtimeConfig === settings && this.configOwner === configOwner
+      && this.configOwner === configOwner
     const assertCurrentStartup = (): void => {
       if (!isCurrentStartup()) throw new StaleAuthStateResultError()
     }
@@ -1434,7 +1430,7 @@ export class CodexSubscriptionRuntime extends Service implements ExternalModelPr
     this.statusError = undefined
     if (scope !== undefined) {
       void this.beginAuthTransition(transition, scope, owner).catch((error: unknown) => {
-        if (this.runtimeConfig === scope && this.configOwner === owner
+        if (this.configOwner === owner
           && this.pendingAuthTransition?.id === transition.id) {
           this.runtimeState = 'error'
           this.statusError = safeError(error)
