@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { readFile } from 'node:fs/promises'
 import { withFileLock, writeFileAtomic } from '@deepseek-ai/dsh-atomic-write'
 import { z } from 'zod'
-import { initProfile } from '@deepseek-ai/dsh-app-boot'
+import { initProfile, PROFILE_TEMPLATES } from '@deepseek-ai/dsh-app-boot'
 import type { PatchOptions } from '@deepseek-ai/cordis-plugin-include'
 import { parse, stringify } from 'yaml'
 import { importLegacyCustomSettings } from './legacy.ts'
@@ -16,7 +16,7 @@ export function customLocalPatches(userHome: string): PatchOptions[] {
   const model = join(userHome, 'Models', 'Huihui-Qwen3.8-27B-abliterated-GGUF', 'Huihui-Qwen3.8-27B-abliterated-GSQ-RCO-IQ3_S.gguf')
   return [
     { id: 'agent-default-model', config: { provider: 'dsh-local-huihui', model } },
-    { id: 'llm-pi-ai', config: { providers: { 'dsh-local-huihui': { displayName: 'Local Huihui Qwen', api: 'openai-completions', baseURL: 'http://127.0.0.1:8080/v1', models: [{ id: model, name: 'Huihui Qwen3.8 27B', contextWindow: 32768, maxTokens: 8192 }, { id: join(userHome, 'Models', 'Qwen3.8-27B-GSQ-RCO-GGUF', 'Qwen3.8-27B-GSQ-RCO-IQ3_S.gguf'), name: 'Original Qwen3.8 27B', contextWindow: 32768, maxTokens: 8192 }] } } } },
+    { id: 'llm-pi-ai', config: { providers: { 'dsh-local-huihui': { displayName: 'Local Huihui Qwen', api: 'openai-completions', baseURL: 'http://127.0.0.1:8080/v1', headers: { Authorization: 'Bearer local' }, models: [{ id: model, name: 'Huihui Qwen3.8 27B', contextWindow: 32768, maxTokens: 8192 }, { id: join(userHome, 'Models', 'Qwen3.8-27B-GSQ-RCO-GGUF', 'Qwen3.8-27B-GSQ-RCO-IQ3_S.gguf'), name: 'Original Qwen3.8 27B', contextWindow: 32768, maxTokens: 8192 }] } } } },
     { id: 'custom-foundation', config: { localProfiles: [{ id: 'huihui', name: 'Huihui Qwen3.8 27B', modality: 'text', modelId: model }, { id: 'img21', name: 'Qwen Image 2.1', modality: 'image', modelId: join(userHome, 'Models', 'Qwen-Image-2.1-mflux-8bit') }, { id: '38', name: 'Original Qwen3.8 27B', modality: 'text', modelId: join(userHome, 'Models', 'Qwen3.8-27B-GSQ-RCO-GGUF', 'Qwen3.8-27B-GSQ-RCO-IQ3_S.gguf') }], selectedLocalProfile: 'huihui', localModelRuntime: true, codexSubscription: true } },
   ]
 }
@@ -28,7 +28,9 @@ export function customLocalPatches(userHome: string): PatchOptions[] {
  */
 export async function initializeCustomProfile(home: string, userHome: string): Promise<string> {
   const dir = join(home, 'profiles', 'desktop-custom')
-  initProfile(dir, ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app', '@deepseek-ai/dsh-desktop-custom'])
+  const template = PROFILE_TEMPLATES['desktop-custom']
+  if (template === undefined) throw new Error('Custom desktop profile template is missing')
+  initProfile(dir, template.bundles)
   await importLegacyCustomSettings(home, dir)
   await withFileLock(join(dir, 'package.json'), async () => {
     const path = join(dir, 'cordis.patch.yml')
@@ -53,14 +55,26 @@ export async function initializeCustomProfile(home: string, userHome: string): P
           const local = providers['dsh-local-huihui']
           const standard = providerDefaults['dsh-local-huihui']
           const routeSchema = z.object({
-            api: z.string(), baseURL: z.string(), models: z.array(z.object({ id: z.string() }).loose()),
+            api: z.string(),
+            baseURL: z.string(),
+            headers: z.record(z.string(), z.string()).optional(),
+            models: z.array(z.object({ id: z.string() }).loose()),
           }).loose()
           const old = routeSchema.safeParse(local)
           const target = routeSchema.parse(standard)
-          // Upgrade only the exact one-model M1 Custom route. Modified routes and inventories keep their owner values.
-          if (old.success && old.data.api === target.api && old.data.baseURL === target.baseURL
-            && old.data.models.length === 1 && old.data.models[0]?.id === target.models[0]?.id) {
-            providers['dsh-local-huihui'] = { ...old.data, models: [...old.data.models, ...target.models.slice(1)] }
+          // Normalize only the exact built-in Local route. Modified routes and inventories keep their owner values.
+          if (old.success && old.data.api === target.api && old.data.baseURL === target.baseURL) {
+            const isExactM1 = old.data.models.length === 1 && old.data.models[0]?.id === target.models[0]?.id
+            const isExactCurrent = old.data.models.length === target.models.length
+              && old.data.models.every((value, index) => value.id === target.models[index]?.id)
+            if (isExactM1 || isExactCurrent) {
+              providers['dsh-local-huihui'] = {
+                ...target,
+                ...old.data,
+                headers: old.data.headers ?? target.headers,
+                models: isExactM1 ? [...old.data.models, ...target.models.slice(1)] : old.data.models,
+              }
+            }
           }
           existing.config['providers'] = providers
         }

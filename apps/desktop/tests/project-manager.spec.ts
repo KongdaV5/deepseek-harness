@@ -36,7 +36,7 @@ function setup(): { root: string; manager: DesktopProjectManager } {
   const root = temporaryRoot()
   const dsh = join(root, 'resources', 'dsh')
   runtimeFixture(dsh)
-  return { root, manager: new DesktopProjectManager(resolveDesktopPaths(join(root, '.dsh')), { dsh }) }
+  return { root, manager: new DesktopProjectManager(resolveDesktopPaths(join(root, '.dsh'), 'desktop-custom'), { dsh }) }
 }
 afterEach(() => {
   for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true })
@@ -99,6 +99,26 @@ describe('desktop external plugin profile', () => {
     }).dsh.profile.bundles).not.toContain('plugin')
     expect(existsSync(join(manager.paths.profile, 'node_modules/plugin/package.json'))).toBe(true)
     await expect(manager.applyRelease()).resolves.toBeUndefined()
+  })
+
+  it('keeps the official Schedule bundle in the Custom product profile across plugin recovery', async () => {
+    const { manager } = setup()
+    await manager.applyRelease()
+    const manifestPath = join(manager.paths.profile, 'package.json')
+    const readBundles = () => (JSON.parse(readFileSync(manifestPath, 'utf8')) as {
+      dsh: { profile: { bundles: string[] } }
+    }).dsh.profile.bundles
+    expect(readBundles()).toEqual([
+      '@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app',
+      '@deepseek-ai/dsh-experimental-schedule-bundle', '@deepseek-ai/dsh-desktop-custom',
+    ])
+
+    await manager.disableAllPlugins()
+
+    expect(readBundles()).toEqual([
+      '@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app',
+      '@deepseek-ai/dsh-experimental-schedule-bundle', '@deepseek-ai/dsh-desktop-custom',
+    ])
   })
 
   it('disables plugins before runtime initialization and backs up the patch while preserving package files', async () => {

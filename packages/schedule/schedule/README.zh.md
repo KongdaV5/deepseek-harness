@@ -23,7 +23,7 @@ Schedule 将一次性、固定周期、按每日、按每周以及 cron 本地�
 <a id="use-this-package"></a>
 ## 使用此包
 
-随发行版交付的 Web 组合不含 `schedule` 行；在插件管理页的“官方”分组中启用可选实验性 bundle `@deepseek-ai/dsh-experimental-schedule-bundle`，或把它列进 profile 的 `dsh.profile.bundles`，即可插入此服务并将它与 storage-domain、Session controller 一起挂载。其 `Config` 声明 `deliveryHistoryDays`（默认 30）与 `deliveryHistoryRecords`（默认 200）。存储后端路由由 storage-domain 管理；会话模型与 preset 恢复由 Session controller 管理。Schedule 无法在 headless 或仅 SDK 的组合中单独挂载：投递需要 Host 的 Web Session controller 和 Session 持久化后端，因为只有在 Session 确认 `session/flush` 之后一次投递才会提交。
+随发行版交付的 Web 组合不含 `schedule` 行；在插件管理页的“官方”分组中启用可选实验性 bundle `@deepseek-ai/dsh-experimental-schedule-bundle`，或把它列进 profile 的 `dsh.profile.bundles`。Custom Desktop profile 默认包含这个官方 bundle，并将其与 storage-domain、Session controller 一起挂载。其 `Config` 声明 `deliveryHistoryDays`（默认 30）与 `deliveryHistoryRecords`（默认 200）。存储后端路由由 storage-domain 管理；会话模型与 preset 恢复由 Session controller 管理。Schedule 无法在 headless 或仅 SDK 的组合中单独挂载：投递需要 Host 的 Web Session controller 和 Session 持久化后端，因为只有在 Session 确认 `session/flush` 之后一次投递才会提交。
 
 Agent 获得 `schedule_create`、`schedule_list`、`schedule_delete` 和 `schedule_update`。更新原地替换一条提醒的名称、指令或时间，保留其 id 与已保存记录；相对的 `after` 延迟不支持更新。创建时需要非空提示文本、标题，且必须只提供以下六个选择器之一：
 
@@ -62,7 +62,7 @@ cron 输入携带 `expression` 和 `time_zone`。表达式是标准五字段 Vix
 
 `ScheduleService` 拥有一个版本 1 的 `schedule` domain、全局唯一的任务 id 和一个宿主定时器。每条任务同时存储会话绑定、记录及 `active` 或 `inactive` 状态；仅活动任务驱动定时器。已存储但缺少状态的记录规范化为 `active`，不会扫描或重建历史会话。管理写入与投递写入共用一个 FIFO。更新在队列内比较完整预期记录并采样 `Date.now()`；一次任务 put 修改规则、名称或指令，不替换绑定或发送历史。创建、删除和更新在排队结束、持久化开始前重新检查传入的取消信号；写入一旦开始，取消不会将其回滚。定时器重新读取实际时间，包括时钟回拨时在会话恢复后重新核对到期成员，并分段处理超过平台定时器上限的延迟。同一会话到期的 Every、Daily、Weekly 和 Cron 任务合并为一条消息；每条任务在投递判断后分别推进。即使批次中另一条任务持久化失败，已成功推进的任务仍参与宿主下一次定时计算。
 
-投递通过 `sessionController.resolveAgent` 解析原会话。插件来源的 `followup()` 同步将消息追加到会话收件箱；会话 flush 成功后确认持久投递。随后一次任务行 put 更新 `lastDelivery`，将实际回执与已发送提示文本快照追加到 `deliveryHistory.records`，并保存单次任务的 `inactive` 状态或周期任务的下一目标时间。回执包含发生时点 `scheduledAt`、确认时间 `deliveredAt` 和 `messageId`；它确认收件箱投递，不表示模型执行。flush 或任务 put 失败均不发布新的已保存记录。会话持久化与任务 put 是两次独立的持久写入；会话 flush 后崩溃或任务写入失败可能留下未记入发送记录的已投递消息，并再次投递相同提醒。
+投递通过 `sessionController.resolveAgent` 解析原会话。插件来源的 `followup()` 同步将消息追加到会话收件箱；会话 flush 成功后确认持久投递。随后一次任务行 put 更新 `lastDelivery`，将实际回执与已发送提示文本快照追加到 `deliveryHistory.records`，并保存单次任务的 `inactive` 状态或周期任务的下一目标时间。回执包含发生时点 `scheduledAt`、确认时间 `deliveredAt` 和 `messageId`；它确认收件箱投递，不表示模型执行。flush 或任务 put 失败均不发布新的已保存记录。会话持久化与任务 put 是两次独立写入。重启时，Schedule admission projection 从已持久化的 Session V4 inbox splice 重建任务/occurrence 身份和规范消息 id，因此可为已 flush 的 occurrence 补记回执，而不再次入队该 occurrence。若 Session 历史无法被无歧义地解释，Schedule 会 fail closed，而不重试投递。此恢复会防止已识别 occurrence 的收件箱 follow-up 重复；它不保证模型执行或外部副作用恰好发生一次。
 
 版本 1 的可选 `deliveryHistory` 保留在任务行中，其从旧到新排列的 `records` 和 `earlierRecordsUnavailable` 标志与状态及目标时间共同提交。新任务的记录为空，标志为 false。读取没有历史的任务时，仅呈现其已有的 `lastDelivery`（若存在），不含提示文本快照，标志为 true；读取不重写任务，也不从会话日志或当前提示文本重建缺失的投递或提示文本。后续追加保留 true 标志及已有回执。存储历史拒绝重复消息 id，以及与 `lastDelivery` 不一致的最新回执。
 
@@ -151,7 +151,7 @@ This is a scheduled message from the user
 <a id="known-limitations-and-deferred-work"></a>
 
 - 宿主必须运行才能投递提醒。恢复、入队或持久化失败时保留任务并记录警告，没有自动重试定时器。后续任务管理变更、其他计划唤醒或宿主重启可重试未完成投递。
-- 入队与任务写入不具有原子性，因此崩溃恢复不保证恰好投递一次。关闭宿主也会出于同一原因重复投递：同级的 fiber 并发拆卸，存储 facility 可能先于投递排空的确认写入而关闭。
+- Session 收件箱 flush 与 Schedule 任务行写入是两次独立提交。重启时会从 Session V4 重建已识别的准入，不会再次入队同一 occurrence；无法判断的准入会停止自动投递，并通过 Host warning 路径报告。这保护了回执写入失败时的收件箱消息身份，但不保证模型执行或外部副作用恰好发生一次。
 - 删除会移除任务行及其已保存的投递记录：后续投递停止，任务离开 `list` 与 `catalog`，`history` 也不再解析到它。
 - 旧会话日志提醒需要明确重新创建。此前已物理删除的任务不会被恢复或虚构。
 - 仅可修改活动任务的管理字段。不支持暂停、执行状态、原会话以外的投递或每次运行新建会话。名称、指令和时间更新可由模型通过 `schedule_update` 修改其自身 Session 内的提醒，也可在 Web 详情中对所选任务修改；不支持跨会话转交工作流，产品权限策略尚未确定，会话绑定校验不等于调用者鉴权。

@@ -192,11 +192,18 @@ export const PROFILE_TEMPLATES: Record<string, ProfileTemplate> = {
   'sdk-minimal': {
     bundles: ['@deepseek-ai/dsh-sdk-minimal'],
   },
+  'desktop-custom': {
+    bundles: [
+      '@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app',
+      '@deepseek-ai/dsh-experimental-schedule-bundle', '@deepseek-ai/dsh-desktop-custom',
+    ],
+  },
 }
 
 /** Installation-owned bundle tuples normalized to the shipped template. */
 const INSTALLATION_OWNED_PROFILE_TUPLES: Record<string, readonly string[]> = {
   headless: ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app', '@deepseek-ai/dsh-headless'],
+  'desktop-custom': ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app', '@deepseek-ai/dsh-desktop-custom'],
 }
 
 /** The bundle list a `dsh plugin` init uses for a name with no shipped template. */

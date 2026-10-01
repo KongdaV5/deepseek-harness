@@ -8,6 +8,7 @@ import type {} from '@deepseek-ai/dsh-api-session-controller'
 import type { SessionId } from '@deepseek-ai/dsh-session'
 import type { SessionActivity } from '@deepseek-ai/dsh-workspace'
 import { ScheduleRuntime } from './runtime.ts'
+import { scheduleAdmissionsProjection } from './admissions.ts'
 import { registerScheduleTools } from './tools.ts'
 import { scheduleDomain } from './storage.ts'
 import { deliveryHistoryPage } from './delivery-history.ts'
@@ -98,7 +99,7 @@ const DEFAULT_DELIVERY_HISTORY_RECORDS = 200
  * service is the plugin that registers that listener.
  */
 export class ScheduleService extends TypertRemoteService {
-  static inject = ['agents', 'sessions', 'tools', 'storageDomain', 'sessionController', 'sessionPersistence']
+  static inject = ['agents', 'sessions', 'tools', 'storageDomain', 'sessionController', 'sessionPersistence', 'sessionProjections']
 
   static Config: z<Config> = z.object({
     deliveryHistoryDays: z.number().step(1).min(1).max(3650).default(DEFAULT_DELIVERY_HISTORY_DAYS),
@@ -119,6 +120,7 @@ export class ScheduleService extends TypertRemoteService {
    */
   constructor(ctx: Context, config: Config) {
     super(ctx, 'schedule')
+    ctx.sessionProjections.register(scheduleAdmissionsProjection)
     this.retention = {
       days: config.deliveryHistoryDays ?? DEFAULT_DELIVERY_HISTORY_DAYS,
       records: config.deliveryHistoryRecords ?? DEFAULT_DELIVERY_HISTORY_RECORDS,

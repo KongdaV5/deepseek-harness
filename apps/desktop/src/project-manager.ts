@@ -30,6 +30,7 @@ const PROJECT_NAME = '@deepseek-ai/dsh-desktop-runtime'
 const DSH_PACKAGE = '@deepseek-ai/dsh'
 const CORE_BUILD_PACKAGE = '@deepseek-ai/dsh-subprocess-local'
 const WEB_PROFILE = PROFILE_TEMPLATES.web as ProfileTemplate
+const CUSTOM_PROFILE = PROFILE_TEMPLATES['desktop-custom'] as ProfileTemplate
 const WORKSPACE_SETTINGS = 'nodeLinker: hoisted\nautoInstallPeers: false\n'
 function writeJson(path: string, value: unknown): void {
   writeFileSync(path, `${JSON.stringify(value, undefined, 2)}\n`, { mode: 0o600 })
@@ -180,5 +181,5 @@ export function createPluginProfile(projectDir: string): void {
  * @returns Ordered bundles from the canonical Web profile plus the Custom layer when selected.
  */
 export function profileBundles(profileDir: string): readonly string[] {
-  return basename(profileDir) === 'desktop-custom' ? [...WEB_PROFILE.bundles, '@deepseek-ai/dsh-desktop-custom'] : WEB_PROFILE.bundles
+  return basename(profileDir) === 'desktop-custom' ? [...CUSTOM_PROFILE.bundles] : WEB_PROFILE.bundles
 }

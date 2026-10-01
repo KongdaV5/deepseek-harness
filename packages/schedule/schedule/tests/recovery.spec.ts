@@ -8,10 +8,13 @@ import { JsonStorageBackend } from '@deepseek-ai/dsh-storage-json'
 import { SessionId } from '@deepseek-ai/dsh-session'
 import { afterEach, beforeEach, expect, it, vi, type MockInstance } from 'vitest'
 import ScheduleService from '../src/index.ts'
-import { scheduleDomain } from '../src/storage.ts'
-import { ScheduleId } from '../src/domain.ts'
+import { scheduleDomain, type ScheduleTask } from '../src/storage.ts'
+import {
+  createAfterScheduleRecord, createEveryScheduleRecord, ScheduleId, renderRecurringReminderBatchFraming,
+} from '../src/domain.ts'
 import { ScheduleRuntime } from '../src/runtime.ts'
 import { agentFor, harness } from './harness.ts'
+import { MemoryMediaPool } from '../../../storage/storage-domain/tests/helpers/memory-backend.ts'
 
 const roots: string[] = []
 const contexts: Context[] = []
@@ -225,6 +228,133 @@ it('logs startup dispatch admission failure without rejecting initialized storag
   await test.ctx.fiber.dispose()
   expect(facility?.get('schedule')).toBeUndefined()
   expect(vi.getTimerCount()).toBe(0)
+})
+
+it('recovers a flushed inbox occurrence after its task receipt write fails, without enqueuing it again', async () => {
+  const pool = new MemoryMediaPool()
+  const record: ScheduleTask = {
+    sessionId: SessionId('original'), status: 'active',
+    record: createAfterScheduleRecord(ScheduleId('a-good'), 'Old due reminder', 60, Date.now() - 61_000, 'Old due reminder'),
+  }
+  let firstAgent: ReturnType<typeof agentFor> | undefined
+  const first = await harness({
+    pool,
+    onContext: ctx => contexts.push(ctx),
+    beforeService: async (ctx, facility) => {
+      const domain = await facility.open(scheduleDomain)
+      await domain.table('tasks').put(record.record.id, record)
+      await domain.close()
+      const agent = agentFor(ctx)
+      agent.followup = vi.fn((message) => {
+        agent.session.append('agent/inbox/spliced', { target: 'next-turn', start: 0, inserted: [message] })
+      })
+      firstAgent = agent
+      vi.spyOn(ctx.sessionController, 'resolveAgent').mockResolvedValue({ agent })
+      ctx.on('session/flush', () => { pool.failNextWrites = 1 })
+    },
+  })
+  await vi.advanceTimersByTimeAsync(0)
+  if (firstAgent === undefined) throw new Error('Initial Schedule Agent was not created')
+  expect(firstAgent.followup).toHaveBeenCalledTimes(1)
+  const admittedEvents = firstAgent.session.snapshotEvents().filter(event => event.type === 'agent/inbox/spliced')
+  const admittedMessages = admittedEvents.flatMap(event => event.data.inserted)
+    .filter(message => message.source.kind === 'schedule')
+  expect(admittedMessages).toHaveLength(1)
+  const admittedId = admittedMessages[0]!.id
+  expect(first.pool.media.get('schedule')?.tables.get('tasks')?.get('a-good')).toMatchObject({ status: 'active' })
+  await first.ctx.fiber.dispose()
+
+  let restoredAgent: ReturnType<typeof agentFor> | undefined
+  const restarted = await harness({
+    pool,
+    onContext: ctx => contexts.push(ctx),
+    beforeService: async (ctx) => {
+      const agent = agentFor(ctx, 'original', firstAgent!.session.snapshotEvents())
+      restoredAgent = agent
+      vi.spyOn(ctx.sessionController, 'resolveAgent').mockResolvedValue({ agent })
+    },
+  })
+  await vi.advanceTimersByTimeAsync(0)
+  if (restoredAgent === undefined) throw new Error('Restored Schedule Agent was not created')
+  expect(restoredAgent.followup).not.toHaveBeenCalled()
+  expect(restarted.flush).toHaveBeenCalledTimes(1)
+  const recovered = pool.media.get('schedule')?.tables.get('tasks')?.get('a-good')
+  expect(recovered).toMatchObject({
+    status: 'inactive',
+    lastDelivery: { messageId: admittedId },
+    deliveryHistory: { records: [{ messageId: admittedId }] },
+  })
+  const restoredMessages = restoredAgent.session.snapshotEvents().flatMap(event =>
+    event.type === 'agent/inbox/spliced' ? event.data.inserted : [])
+    .filter(message => message.source.kind === 'schedule')
+  expect(restoredMessages).toHaveLength(1)
+  expect(restoredMessages[0]?.id).toBe(admittedId)
+})
+
+it('recovers each occurrence from a flushed recurring batch without sending the batch again', async () => {
+  const pool = new MemoryMediaPool()
+  const firstRecord = createEveryScheduleRecord(ScheduleId('repeat-a'), 'Repeat A', 60, Date.now() - 60_000, 'Repeat A')
+  const secondRecord = createEveryScheduleRecord(ScheduleId('repeat-b'), 'Repeat B', 60, Date.now() - 60_000, 'Repeat B')
+  const firstTask: ScheduleTask = { sessionId: SessionId('original'), status: 'active', record: firstRecord }
+  const secondTask: ScheduleTask = { sessionId: SessionId('original'), status: 'active', record: secondRecord }
+  let firstAgent: ReturnType<typeof agentFor> | undefined
+  const first = await harness({
+    pool,
+    onContext: ctx => contexts.push(ctx),
+    beforeService: async (ctx, facility) => {
+      const domain = await facility.open(scheduleDomain)
+      await domain.table('tasks').put(firstRecord.id, firstTask)
+      await domain.table('tasks').put(secondRecord.id, secondTask)
+      await domain.close()
+      const agent = agentFor(ctx)
+      agent.followup = vi.fn((message) => {
+        agent.session.append('agent/inbox/spliced', { target: 'next-turn', start: 0, inserted: [message] })
+      })
+      firstAgent = agent
+      vi.spyOn(ctx.sessionController, 'resolveAgent').mockResolvedValue({ agent })
+      ctx.on('session/flush', () => { pool.failNextWrites = 1 })
+    },
+  })
+  await vi.advanceTimersByTimeAsync(0)
+  if (firstAgent === undefined) throw new Error('Initial recurring Schedule Agent was not created')
+  expect(firstAgent.followup).toHaveBeenCalledTimes(1)
+  const firstMessage = firstAgent.followup.mock.calls[0]![0]
+  const firstPayload = firstMessage.content.filter(block => block.type === 'text').map(block => block.text).join('\n')
+  expect(firstPayload).toBe(renderRecurringReminderBatchFraming([
+    { record: firstRecord, occurrenceAt: '2026-09-16T00:00:00.000Z' },
+    { record: secondRecord, occurrenceAt: '2026-09-16T00:00:00.000Z' },
+  ]))
+  expect(first.pool.media.get('schedule')?.tables.get('tasks')?.get(firstRecord.id)).toMatchObject({ status: 'active' })
+  expect(first.pool.media.get('schedule')?.tables.get('tasks')?.get(secondRecord.id)).toMatchObject({ status: 'active' })
+  await first.ctx.fiber.dispose()
+
+  const persistedEvents = firstAgent.session.snapshotEvents()
+  const restarted = await harness({
+    pool,
+    onContext: ctx => contexts.push(ctx),
+    beforeService: async (ctx) => {
+      const agent = agentFor(ctx, 'original', persistedEvents)
+      vi.spyOn(ctx.sessionController, 'resolveAgent').mockResolvedValue({ agent })
+    },
+  })
+  await vi.advanceTimersByTimeAsync(0)
+  expect(restarted.resolve).toHaveBeenCalledTimes(1)
+  expect(restarted.flush).toHaveBeenCalledTimes(1)
+  expect(pool.media.get('schedule')?.tables.get('tasks')?.get(firstRecord.id)).toMatchObject({
+    status: 'active', record: { scheduledAt: '2026-09-16T00:01:00.000Z' },
+    lastDelivery: { messageId: firstMessage.id },
+  })
+  expect(pool.media.get('schedule')?.tables.get('tasks')?.get(secondRecord.id)).toMatchObject({
+    status: 'active', record: { scheduledAt: '2026-09-16T00:01:00.000Z' },
+    lastDelivery: { messageId: firstMessage.id },
+  })
+  const restored = restarted.ctx.sessions.get(SessionId('original'))
+  if (restored === undefined) throw new Error('Recurring Session was not restored')
+  const scheduleMessages = restored.snapshotEvents().flatMap(event =>
+    event.type === 'agent/inbox/spliced' ? event.data.inserted : [])
+    .filter(message => message.source.kind === 'schedule')
+  expect(scheduleMessages).toHaveLength(1)
+  expect(scheduleMessages[0]?.id).toBe(firstMessage.id)
 })
 
 it('does not start dispatch when storage opens after its owner begins unloading', async () => {

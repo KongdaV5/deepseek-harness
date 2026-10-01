@@ -351,6 +351,12 @@ describe('loadProfile', () => {
     expect(PROFILE_TEMPLATES['sdk-minimal']).toEqual({
       bundles: ['@deepseek-ai/dsh-sdk-minimal'],
     })
+    expect(PROFILE_TEMPLATES['desktop-custom']).toEqual({
+      bundles: [
+        '@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app',
+        '@deepseek-ai/dsh-experimental-schedule-bundle', '@deepseek-ai/dsh-desktop-custom',
+      ],
+    })
     loadProfile('t', 'web', anchor, home)
     expect(readProfileManifest('t', resolveProfileDir('web', home)).dsh?.profile?.bundles)
       .toEqual([...PROFILE_TEMPLATES.web?.bundles ?? []])
@@ -383,6 +389,31 @@ describe('loadProfile', () => {
     loadProfile('t', 'headless', anchor, customHome)
     expect(readProfileManifest('t', custom).dsh?.profile?.bundles).toEqual([
       '@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app', '@deepseek-ai/dsh-headless', 'custom-bundle',
+    ])
+  })
+
+  it('normalizes only the exact prior Desktop Custom bundle tuple to include official Schedule', () => {
+    const anchor = stageInstallation({
+      '@deepseek-ai/dsh-base': { patch: '[]\n' },
+      '@deepseek-ai/dsh-web-app': { patch: '[]\n' },
+      '@deepseek-ai/dsh-experimental-schedule-bundle': { patch: '[]\n' },
+      '@deepseek-ai/dsh-desktop-custom': { patch: '[]\n' },
+      'custom-bundle': { patch: '[]\n' },
+    })
+    const home = tmp()
+    const stock = resolveProfileDir('desktop-custom', home)
+    initProfile(stock, ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app', '@deepseek-ai/dsh-desktop-custom'])
+    loadProfile('dsh', 'desktop-custom', anchor, home)
+    expect(readProfileManifest('dsh', stock).dsh?.profile?.bundles).toEqual(PROFILE_TEMPLATES['desktop-custom']?.bundles)
+
+    const customizedHome = tmp()
+    const customized = resolveProfileDir('desktop-custom', customizedHome)
+    initProfile(customized, [
+      '@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app', '@deepseek-ai/dsh-desktop-custom', 'custom-bundle',
+    ])
+    loadProfile('dsh', 'desktop-custom', anchor, customizedHome)
+    expect(readProfileManifest('dsh', customized).dsh?.profile?.bundles).toEqual([
+      '@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app', '@deepseek-ai/dsh-desktop-custom', 'custom-bundle',
     ])
   })
 

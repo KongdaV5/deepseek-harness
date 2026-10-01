@@ -159,12 +159,15 @@ it('retains imported providers while supplying the exact Local-first route and r
   expect(await readFile(f.patch, 'utf8')).toBe(before)
 })
 
-it('composes actual official bundle layers with Schedule, Computer Use and hosted defaults excluded', () => {
-  const layers = ['base', 'web-app', 'desktop-custom'].map(name => loadOptionalPatches('test', fileURLToPath(new URL(`../../../bundle/${name}/cordis.patch.yml`, import.meta.url))) ?? [])
+it('composes the explicit official Schedule bundle with Custom while keeping cloud defaults and Computer Use off', () => {
+  const layers = ['bundle/base', 'bundle/web-app', 'experimental/schedule-bundle', 'bundle/desktop-custom'].map(name => loadOptionalPatches('test', fileURLToPath(new URL(`../../../../packages/${name}/cordis.patch.yml`, import.meta.url))) ?? [])
   const entries = composeEntries([...layers, customLocalPatches('/fixture')])
   const enabled = entries.filter(entry => entry.disabled !== true)
   for (const id of ['deepseek-account', 'llm-deepseek', 'timer', 'session-title-llm']) expect(enabled.some(entry => entry.id === id)).toBe(false)
-  expect(enabled.map(entry => entry.name).some(name => /schedule|automation|computer-use|cua-driver/i.test(name ?? ''))).toBe(false)
+  for (const name of ['@deepseek-ai/dsh-time-context', '@deepseek-ai/dsh-schedule', '@deepseek-ai/dsh-client-ui-schedule']) {
+    expect(enabled.some(entry => entry.name === name)).toBe(true)
+  }
+  expect(enabled.map(entry => entry.name).some(name => /computer-use|cua-driver/i.test(name ?? ''))).toBe(false)
   expect(enabled.find(entry => entry.id === 'agent-default-model')?.config).toMatchObject({ provider: 'dsh-local-huihui' })
   for (const id of ['custom-foundation', 'agent-codex', 'task-checkpoint', 'config-editor']) expect(enabled.some(entry => entry.id === id)).toBe(true)
 })
@@ -203,13 +206,18 @@ it('persists healthy Local selection through the same live owner and restart', a
 it('upgrades only the exact M1 text catalog while preserving Local-first routing and custom provider values', async () => {
   const f = await fixture()
   const rows = customLocalPatches(f.home)
-  const llm = rows.find(row => row.id === 'llm-pi-ai')!.config as { providers: Record<string, { models: unknown[] }> }
+  const llm = rows.find(row => row.id === 'llm-pi-ai')!.config as {
+    providers: Record<string, { models: unknown[]; headers?: Record<string, string>; apiKeyEnv?: string }>
+  }
   llm.providers['dsh-local-huihui']!.models = llm.providers['dsh-local-huihui']!.models.slice(0, 1)
+  delete llm.providers['dsh-local-huihui']!.headers
   await writeFile(f.patch, stringify(rows))
   await initializeCustomProfile(f.home, f.home)
   const output = parse(await readFile(f.patch, 'utf8')) as typeof rows
   const actual = output.find(row => row.id === 'llm-pi-ai')?.config as typeof llm
   expect(actual.providers['dsh-local-huihui']?.models).toHaveLength(2)
+  expect(actual.providers['dsh-local-huihui']?.headers).toEqual({ Authorization: 'Bearer local' })
+  expect(actual.providers['dsh-local-huihui']?.apiKeyEnv).toBeUndefined()
   expect(output.find(row => row.id === 'agent-default-model')?.config).toEqual(rows[0]?.config)
   const before = await readFile(f.patch, 'utf8'); await initializeCustomProfile(f.home, f.home)
   expect(await readFile(f.patch, 'utf8')).toBe(before)

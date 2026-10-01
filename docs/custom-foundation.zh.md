@@ -101,7 +101,7 @@ M2 affected set 使用既有 upstream maintenance contract/evidence planner 的 
 
 相对刻意不含 runtime 的 M1 foundation，Custom surface 增加，因为必要 execution 与 UI owner 现在已存在。相对旧 Custom product，复用了 native turn settlement、compaction publication、selector/popup 和 Desktop lifecycle。每个新增 runtime 或 projection package 拥有独立 capability 或 read boundary。兼容输入只包括单向 legacy Config import、官方 V3 conversion，以及精确 M1 单模型 Local catalog upgrade；在各自支持的历史输入退役后移除。没有永久双 event identity 或 old/new Settings adapter。
 
-后续 Runtime Readiness closeout 在 67831f71 闭合了上述历史 Native writer 与隔离认证 blocker。上述源码阶段记录保留为历史证据。当前 M2 Desktop Candidate Gate 在 M3 前增加一次隔离 packaged Local/Codex/Local conversation 与 restart 流程。M3 负责最终 release qualification、formal promotion、installed smoke、rollback 和 trusted branch integration decision；尚未启动。
+后续 P-UPSTREAM-0.2-RUNTIME-READINESS-CLOSEOUT 闭合了上述历史 Native writer 与隔离认证 blocker。上述源码阶段记录保留为历史证据。当前 M2 Desktop Candidate Gate 在 M3 前增加一次隔离 packaged Local/Codex/Local conversation 与 restart 流程。M3 负责最终 release qualification、formal promotion、installed smoke、rollback 和 trusted branch integration decision；尚未启动。
 
 ## Desktop candidate ownership
 
@@ -112,3 +112,30 @@ Session catalog 将 canonical owner 的纯 Custom event schema 作为 build inpu
 隔离 packaged candidate 通过关键产品能力检查：主导航、Local/Codex 分组、可搜索的模型选择、子菜单鼠标与键盘返回、受支持的推理等级选择、Local 控制、Codex 状态/模型数量/用量/重置时间，以及 Run Details。最终受影响 UI 集合的 62 个不同用例通过；复用此前 focused source、目录边界和 runtime 证据。Canonical build、packaged runtime smoke 与严格签名验证通过。
 
 一个 Native conversation 依次完成 Local Huihui、使用 low effort 的 Codex gpt-6.1-sol、一次正常 App/Host 重启，再切回 Local Huihui。重启恢复同一可见 Session、两个历史回答和所选模型。Canonical V4 检查找到顺序正确的三个唯一用户消息、三个唯一助手回答、三个 completed turn，以及一次 Codex dispatch；auth generation 未变，mapping 已绑定，dispatch 与 pendingSync 为空，recovery 为 settled。没有 reconciliation history 的 settled mapping 属于合法状态；validator 不制造 reconciliation，也不将 reasoning/replay 表示误算为额外可见回答。Candidate 及其拥有的 Host/Local 进程正常退出。这些证据完成 M2 candidate gate，不构成最终 release qualification；正式 App 字节和数据未变，Schedule 与 Computer Use 保持关闭。
+
+## P-AUTOMATION-SCHEDULE-I1
+
+本节覆盖此前 M2 阶段记录的“Schedule 已禁用”状态。Custom Desktop profile 现在明确选择官方 `@deepseek-ai/dsh-experimental-schedule-bundle`，没有因此启用全部 experimental bundle。标准 Web profile 仍需显式启用；Computer Use 仍未加入。
+
+| 职责 | Canonical owner | 集成决策 |
+|---|---|---|
+| 当前时间与时区 | 官方 time-context | 直接复用，不增加 Custom 时钟或时区层 |
+| 任务规则与持久记录 | 官方 Schedule domain 与 Host storage | 复用任务创建、列表、更新、删除、重复规则、状态和 delivery history |
+| 定时器、到期 occurrence 与恢复 | 官方 Schedule runtime | 使用唯一 Host timer，不增加平行 scheduler 或 daemon |
+| Session 绑定与投递 | 官方 SessionController、Agent `followup()` 和 Session flush | receipt 只确认 inbox message 已持久化，不代表模型工作已完成 |
+| 模型执行 | canonical Session 当前选择的 Local 或 Codex route | 选择归 Session 所有；不会 fallback 或替换 route |
+| 任务界面 | 官方 `ui-schedule` contribution | Custom composition 激活现有任务页、标题栏入口和管理工具 |
+
+Schedule admission projection 是唯一新增的 Custom 恢复逻辑。如果 inbox splice 已持久化，但 Schedule receipt 写入失败，Host 重启后会将任务 occurrence 匹配到 canonical Session message id，flush 已存在的历史，并使用相同 receipt 记录结果，不会再次 followup。若历史冲突或无法明确解释，则 fail closed。该机制保护 occurrence 的 admission identity，不承诺模型执行或外部副作用 exactly-once。
+
+隔离环境中的真实 Local smoke 在 canonical Custom Session 创建一次性任务，在到期前停止 Host，再重启 Host。定时 Local turn 在同一 Session 生成一条 assistant 回答，Schedule history 指向已持久化的 inbox message，任务随后变为 inactive。848 项 Schedule focused tests 覆盖创建、更新、删除、计时与恢复行为，包括 receipt 中断边界；现有 composition 与 Desktop profile tests 覆盖 bundle 激活。只有 Host 运行时才能投递；重启时会检查已逾期 occurrence。
+
+此前隔离 Codex 尝试没有保留失败诊断，因此失败阶段仍无法确定。`P-AUTOMATION-SCHEDULE-CLOSEOUT` 在唯一一次重试前检查了 scheduled followup 路径：Schedule 使用 canonical Session selection 和 Agent external executor，Codex 要求该 Session 明确归属唯一已注册工作区。不需要修改 provider runtime 源码。诊断 runner 先注册隔离工作区、确认 Session 归属，再创建任务；只导出 event identity、receipt 与 mapping metadata、经过脱敏的 lifecycle state，以及 RPC method/result metadata，不导出认证 payload 或原始 Host 输出。
+
+本次唯一 occurrence 复用既有官方隔离登录。System Codex 0.159.2 动态列出支持 `low` effort 的 `gpt-6.1-sol`。证据覆盖 occurrence 到期、inbox admission 与 receipt 持久化、Agent 消费消息、canonical provider/model 解析、Codex mapping 创建、一次获得确认的 `turn/start`、external turn 完成、一条 Session V4 assistant 回答持久化，以及客户端 history 中的一条回答。receipt 与消费记录指向同一个 inbox message。等待执行静止后，dispatch 与 pendingSync 均为空；只读检查一次，mapping authGeneration 与已提交的 runtime owner 一致。没有 replay、provider substitution、DeepSeek fallback、API key、private endpoint、auth rotation 或 production data access。Host 正常退出。该证据关闭 Codex 定时执行 blocker，没有重复 Local smoke、Schedule suite、package 或 GUI qualification。
+
+Local-selected Agent 的 live registry 会收到官方 Schedule 管理工具定义；deterministic 工具注册与执行测试覆盖该 seam。Codex 可以执行定时 Session turn，但目前不能通过 external-turn model tool surface 创建、编辑或删除 Schedule task。未来若实现 DSH tool bridge，需要单独的 bounded architecture task。
+
+最终文档检查只要求修改范围正确；既有历史 persistence-format 与 reasoning-policy README metadata 债务不属于本轮集成。复用此前已通过的 Schedule、composition、Local execution、typecheck、lint 与 generated-catalog 证据。
+
+Schedule service 持有任务定义与 delivery history；admission projection 从 canonical Session V4 inbox event 派生。Desktop lifecycle 决定 Host 是否运行；Schedule runtime 管理唯一 timer；SessionController 和 AgentLoop 管理 canonical message admission；所选 provider 持有 inference。没有添加 Computer Use provider、权限提示或 Schedule 专用 lifecycle manager。Final release qualification 和 Computer Use 仍延期。

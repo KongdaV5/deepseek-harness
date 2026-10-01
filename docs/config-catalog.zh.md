@@ -2565,8 +2565,8 @@ export interface Config {
 
 ## `@deepseek-ai/dsh-schedule`
 
-- `inject`: `agents` · `sessions` · `tools` · `storageDomain` · `sessionController` · `sessionPersistence`
-- `source`: [`packages/schedule/schedule/src/index.ts:73`](../packages/schedule/schedule/src/index.ts)
+- `inject`: `agents` · `sessions` · `tools` · `storageDomain` · `sessionController` · `sessionPersistence` · `sessionProjections`
+- `source`: [`packages/schedule/schedule/src/index.ts:74`](../packages/schedule/schedule/src/index.ts)
 
 ```ts config-catalog
 /** Configuration for the Host Schedule domain. */

@@ -1,6 +1,7 @@
 /** Host timer over stored tasks; Session activation is a delivery operation. */
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import type { ContextFormed } from '@deepseek-ai/dsh-llm'
+import type { MessageId } from '@deepseek-ai/dsh-llm/brand'
 declare module '@deepseek-ai/dsh-llm' {
   interface MessageSourceMap {
     'schedule': { kind: 'schedule' } & ContextFormed
@@ -12,6 +13,7 @@ import { isRecurringScheduleRecord, renderReminderFraming, renderRecurringRemind
 import type { DeliveryRetentionBounds, RecurringScheduleRecord } from './types.ts'
 import type { ScheduleTask } from './storage.ts'
 import { appendDelivery } from './delivery-history.ts'
+import { scheduleAdmissionFor } from './admissions.ts'
 
 /** Largest delay Node timers represent without clamping. */
 export const MAX_TIMER_DELAY_MS = 2_147_483_647
@@ -111,34 +113,78 @@ export class ScheduleRuntime {
         const occurrences = recurring.map(member => ({
           task: member, occurrence: resolveRecurringOccurrence(member.record, now),
         }))
-        const text = isRecurringScheduleRecord(task.record)
-          ? renderRecurringReminderBatchFraming(occurrences.map(({ task: member, occurrence }) => ({
-            record: member.record, occurrenceAt: occurrence.occurrenceAt,
-          })))
-          : renderReminderFraming(task.record)
-        const message = createUserMessage({
-          content: [{ type: 'text', text }], source: { kind: 'schedule' },
-        })
-        // followup synchronously appends the inbox splice before flush observes the Session.
-        resolved.agent.followup(message)
-        const flushed = await this.ctx.sessions.flush(resolved.agent.session)
-        if (!flushed) throw new Error('Session persistence did not acknowledge the reminder')
-        const deliveredAt = new Date(Date.now()).toISOString()
+        const admissions = this.ctx.sessionProjections.stateOf(resolved.agent.session, 'scheduleAdmissions')
+        if (admissions === undefined) throw new Error('Schedule admission projection is unavailable')
+        const flushSession = async (): Promise<string> => {
+          const flushed = await this.ctx.sessions.flush(resolved.agent.session)
+          if (!flushed) throw new Error('Session persistence did not acknowledge the reminder')
+          return new Date(Date.now()).toISOString()
+        }
+        const enqueue = async (text: string): Promise<{ messageId: MessageId; deliveredAt: string }> => {
+          const message = createUserMessage({ content: [{ type: 'text', text }], source: { kind: 'schedule' } })
+          // followup synchronously appends the inbox splice before flush observes the Session.
+          resolved.agent.followup(message)
+          return { messageId: message.id, deliveredAt: await flushSession() }
+        }
         if (!isRecurringScheduleRecord(task.record)) {
+          const known = scheduleAdmissionFor(admissions, task.record.id, task.record.scheduledAt)
+          const delivery = known === undefined
+            ? await enqueue(renderReminderFraming(task.record))
+            : { messageId: known.messageId, deliveredAt: await flushSession() }
+          if (known !== undefined) {
+            this.ctx.logger.info(`schedule: recovered admitted occurrence ${JSON.stringify(task.record.id)} without a second Session followup`)
+          }
           await this.commit({
             ...task, status: 'inactive',
-            ...appendDelivery(task, { scheduledAt: task.record.scheduledAt, deliveredAt, messageId: message.id }, this.retention),
+            ...appendDelivery(task, {
+              scheduledAt: task.record.scheduledAt,
+              deliveredAt: delivery.deliveredAt,
+              messageId: delivery.messageId,
+            }, this.retention),
           })
           committed.add(task.record.id)
-        }
-        for (const { task: member, occurrence } of occurrences) {
-          await this.commit({
-            ...member,
-            record: { ...member.record, scheduledAt: occurrence.nextScheduledAt ?? occurrence.occurrenceAt },
-            status: occurrence.nextScheduledAt === undefined ? 'inactive' : 'active',
-            ...appendDelivery(member, { scheduledAt: occurrence.occurrenceAt, deliveredAt, messageId: message.id }, this.retention),
+        } else {
+          const known = occurrences.flatMap((entry) => {
+            const admission = scheduleAdmissionFor(admissions, entry.task.record.id, entry.occurrence.occurrenceAt)
+            return admission === undefined ? [] : [{ ...entry, admission }]
           })
-          committed.add(member.record.id)
+          const knownIds = new Set(known.map(({ task: member }) => member.record.id))
+          const pending = occurrences.filter(({ task: member }) => !knownIds.has(member.record.id))
+          if (known.length > 0) {
+            const deliveredAt = await flushSession()
+            for (const { task: member, occurrence, admission } of known) {
+              await this.commit({
+                ...member,
+                record: { ...member.record, scheduledAt: occurrence.nextScheduledAt ?? occurrence.occurrenceAt },
+                status: occurrence.nextScheduledAt === undefined ? 'inactive' : 'active',
+                ...appendDelivery(member, {
+                  scheduledAt: occurrence.occurrenceAt,
+                  deliveredAt,
+                  messageId: admission.messageId,
+                }, this.retention),
+              })
+              committed.add(member.record.id)
+              this.ctx.logger.info(`schedule: recovered admitted occurrence ${JSON.stringify(member.record.id)} without a second Session followup`)
+            }
+          }
+          if (pending.length > 0) {
+            const delivery = await enqueue(renderRecurringReminderBatchFraming(pending.map(({ task: member, occurrence }) => ({
+              record: member.record, occurrenceAt: occurrence.occurrenceAt,
+            }))))
+            for (const { task: member, occurrence } of pending) {
+              await this.commit({
+                ...member,
+                record: { ...member.record, scheduledAt: occurrence.nextScheduledAt ?? occurrence.occurrenceAt },
+                status: occurrence.nextScheduledAt === undefined ? 'inactive' : 'active',
+                ...appendDelivery(member, {
+                  scheduledAt: occurrence.occurrenceAt,
+                  deliveredAt: delivery.deliveredAt,
+                  messageId: delivery.messageId,
+                }, this.retention),
+              })
+              committed.add(member.record.id)
+            }
+          }
         }
       } catch (error: unknown) {
         // Successful commits and targets made future by clock rollback keep their timer obligation.

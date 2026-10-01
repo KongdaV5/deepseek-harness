@@ -3,23 +3,23 @@
 # After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write packages/bundle/desktop-custom/README.md
 /:
-  en: 5715763b8f7206f7
-  zh: c6b254b6c2b4847b
+  en: adbef2624b4e9cfb
+  zh: 899d6bcc19e36754
 /deepseek-ai-dsh-desktop-custom:
   en: 2f4013981a4360d3
   zh: 57f86bcbca6b7e6c
 /deepseek-ai-dsh-desktop-custom/summary:
-  en: 3891881687cf72ac
-  zh: d430de548e83dc0f
+  en: 71d9e703ca43d91f
+  zh: 11feaa815a8daa77
 /deepseek-ai-dsh-desktop-custom/table-of-contents:
   en: d152484eb41ac6b4
   zh: f0420ffe0b1d1a61
 /deepseek-ai-dsh-desktop-custom/use-this-package:
-  en: 740c744b0a99146c
-  zh: a5a5ec5e9062dfd1
+  en: 69cb9a511662098b
+  zh: 54e7486549cef955
 /deepseek-ai-dsh-desktop-custom/understand-the-implementation:
-  en: af614872ee672e45
-  zh: c12eaf5f02eebbfd
+  en: 88a54af69a9c14fd
+  zh: 694defe57b61d3f7
 /deepseek-ai-dsh-desktop-custom/further-exploration:
   en: b30fed0c7693f960
   zh: fe6a7749dda00f24
@@ -39,8 +39,8 @@
   en: 27d5520dd8af9e74
   zh: 1874591cdf46c35a
 /deepseek-ai-dsh-desktop-custom/known-limitations-and-deferred-work:
-  en: 065f25c6005ddb74
-  zh: 32268d173950d57c
+  en: 6ebc7e7ba4ecbc89
+  zh: 03776d4a6280fc86
 /deepseek-ai-dsh-desktop-custom/known-limitations-and-deferred-work/dev-note:
-  en: b0499e81e3e75bf5
-  zh: 68528e3e481844eb
+  en: 4e19b95a9dbcbb0f
+  zh: 94e987bbd1e9185e

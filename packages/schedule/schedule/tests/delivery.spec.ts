@@ -5,6 +5,7 @@ import type { SessionEvent } from '@deepseek-ai/dsh-session'
 import { expect, it, vi } from 'vitest'
 import { createAfterScheduleRecord, ScheduleId } from '../src/domain.ts'
 import { ScheduleRuntime } from '../src/runtime.ts'
+import { scheduleAdmissionsProjection } from '../src/admissions.ts'
 import type { ScheduleTask } from '../src/storage.ts'
 
 it('acknowledges the real synchronous inbox splice after flush without claiming model execution', async () => {
@@ -13,6 +14,7 @@ it('acknowledges the real synchronous inbox splice after flush without claiming 
   const ctx = new Context()
   try {
     await mountAgentLoopTestDependencies(ctx)
+    ctx.sessionProjections.register(scheduleAdmissionsProjection)
     const loop = await mountAgentLoopTestHarness(ctx)
     const agent = await loop.create(SessionId('delivery-owner'))
     // Maintenance holds model execution while the production followup still records inbox input.
