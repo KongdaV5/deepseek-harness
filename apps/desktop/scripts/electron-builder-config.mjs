@@ -54,6 +54,8 @@ export function createElectronBuilderConfig(
   const appId = resolveDesktopAppId(env)
   const product = resolveDesktopBuildProduct(env)
   const candidate = env.DSH_DESKTOP_CANDIDATE === '1'
+  const promotable = env.DSH_DESKTOP_CANDIDATE_PROMOTABLE === '1'
+  if (promotable && !candidate) throw new Error('desktop promotable package requires a Custom candidate')
   if (candidate && (product.id !== 'ds-harness' || hostPlatform !== 'darwin')) throw new Error('desktop candidate requires Custom macOS')
   const policy = product.updates.mode === 'official' ? resolveDesktopPolicyEnvironment(env) : undefined
   const targetPlatform = env.DSH_DESKTOP_TARGET_PLATFORM
@@ -108,7 +110,7 @@ export function createElectronBuilderConfig(
     extraMetadata: {
       dshDesktopAppId: appId,
       dshDesktopProductFlavor: product.id,
-      ...(candidate ? { dshDesktopCandidate: true } : {}),
+      ...(candidate && !promotable ? { dshDesktopCandidate: true } : {}),
       dshMandatoryUpdatePolicy: policy,
       ...buildVersion === productVersion ? {} : { version: buildVersion },
       ...packaged === undefined ? {} : { dshBuildCommit: packaged.commit, dshBuildDirty: packaged.dirty },

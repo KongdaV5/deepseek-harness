@@ -41,6 +41,21 @@ afterEach(() => {
 })
 
 describe('desktop product flavor', () => {
+  it('allows explicit Custom promotion without removing isolation from ordinary candidates', () => {
+    const env = { DSH_DESKTOP_PRODUCT_FLAVOR: 'ds-harness', DSH_DESKTOP_CANDIDATE: '1' }
+    const ordinary = createElectronBuilderConfig(env, 'darwin', 'arm64')
+    const promotable = createElectronBuilderConfig({ ...env, DSH_DESKTOP_CANDIDATE_PROMOTABLE: '1' }, 'darwin', 'arm64')
+    expect(ordinary.extraMetadata).toMatchObject({ dshDesktopCandidate: true })
+    expect(promotable.extraMetadata).not.toHaveProperty('dshDesktopCandidate')
+    expect(promotable).toMatchObject({ appId: 'dev.dsh.desktop.custom', publish: null,
+      mac: { identity: '-', notarize: false } })
+    expect(() => createElectronBuilderConfig({ DSH_DESKTOP_APP_ID: 'dev.test.official',
+      DSH_DESKTOP_CANDIDATE_PROMOTABLE: '1' }, 'darwin', 'arm64'))
+      .toThrow('promotable package requires')
+    expect(() => createElectronBuilderConfig({ DSH_DESKTOP_APP_ID: 'dev.test.official',
+      DSH_DESKTOP_CANDIDATE: '1', DSH_DESKTOP_CANDIDATE_PROMOTABLE: '1' }, 'darwin', 'arm64'))
+      .toThrow('Custom macOS')
+  })
   it('packages the shared Custom identity without official updater or release credentials for a candidate', () => {
     const config = createElectronBuilderConfig({ DSH_DESKTOP_PRODUCT_FLAVOR: 'ds-harness', DSH_DESKTOP_CANDIDATE: '1' }, 'darwin', 'arm64')
     expect(config).toMatchObject({ appId: 'dev.dsh.desktop.custom', productName: 'DS Harness',

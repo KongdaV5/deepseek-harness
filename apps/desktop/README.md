@@ -489,3 +489,5 @@ Custom flavor metadata selects its reserved bundle identity, `desktop-custom` pr
 ## Dev Note
 
 Pre-launch CDN and capacity decisions are tracked in the [Desktop update proposal](../../.agents/notes/proposed/feature/2026-09-08-desktop-update-policy-and-installation.md#cdn-and-capacity-qualification).
+
+Build a local Custom installation with `pnpm --filter @deepseek-ai/dsh-desktop run package:mac:arm64:dir --candidate --promotable`. Only this explicit option permits normal-profile startup; ordinary `--candidate` artifacts still require an isolated qualification root. Qualify the promotable package under that root before replacing the formal App. Both local modes use ad-hoc signing without notarization or publication; neither is a company-signed public distribution.

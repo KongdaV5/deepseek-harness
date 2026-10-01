@@ -491,3 +491,5 @@ Custom 产品元数据在单实例检查前选定专用 bundle identity、`deskt
 ## 开发备注
 
 上线前 CDN 与容量决策见[桌面更新提案](../../.agents/notes/proposed/feature/2026-09-08-desktop-update-policy-and-installation.zh.md#cdn-and-capacity-qualification)。
+
+本地 Custom 安装包使用 `pnpm --filter @deepseek-ai/dsh-desktop run package:mac:arm64:dir --candidate --promotable`。只有该显式选项允许候选包通过正常 profile 启动；普通 `--candidate` 仍要求隔离 qualification root。可晋升的包仍须先使用 qualification root 验收，全部通过后才能替换正式 App。两种本地模式都采用 ad-hoc 签名，不 notarize 或 publish；不构成公司签名的公开发行。

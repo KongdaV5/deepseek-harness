@@ -34,6 +34,10 @@ describe('desktop package target', () => {
   })
 
   it('parses installer and unpacked-directory invocations', () => {
+    expect(parseDesktopPackageInvocation(['mac-arm64', '--dir', '--candidate', '--promotable'], 'darwin', 'arm64'))
+      .toMatchObject({ candidate: true, promotable: true, directory: true })
+    expect(() => parseDesktopPackageInvocation(['mac-arm64', '--dir', '--promotable'], 'darwin', 'arm64'))
+      .toThrow('--promotable requires --candidate')
     expect(parseDesktopPackageInvocation(['mac-arm64', '--dir', '--candidate'], 'darwin', 'arm64')).toMatchObject({ candidate: true, directory: true })
     expect(() => parseDesktopPackageInvocation(['mac-arm64', '--candidate'], 'darwin', 'arm64')).toThrow('macOS --dir')
     expect(() => parseDesktopPackageInvocation(['win-x64', '--dir', '--candidate'], 'win32', 'x64')).toThrow('macOS --dir')

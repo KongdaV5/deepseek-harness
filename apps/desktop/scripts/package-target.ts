@@ -197,8 +197,10 @@ interface DesktopPackageInvocation {
   readonly prepareOnly: boolean
   readonly unsigned: boolean
   readonly check: boolean
-  /** Local Custom directory artifact; never a release or notarization request. */
+  /** Local Custom directory artifact; ad-hoc signed without upload or notarization. */
   readonly candidate?: boolean
+  /** Explicit local installation eligibility; otherwise candidate startup requires isolation. */
+  readonly promotable?: boolean
   /** Build identifier to publish under, when this build does not publish the product version. */
   readonly requestedBuildVersion: string | undefined
 }
@@ -232,6 +234,7 @@ export function parseDesktopPackageInvocation(
       unsigned: { type: 'boolean', default: false },
       check: { type: 'boolean', default: false },
       candidate: { type: 'boolean', default: false },
+      promotable: { type: 'boolean', default: false },
       'build-version': { type: 'string' },
     },
   })
@@ -239,6 +242,9 @@ export function parseDesktopPackageInvocation(
   const name = positionals[0] ?? hostTargetName(hostPlatform, hostArch)
   if (values.candidate && (!values.dir || !name.startsWith('mac-') || values.unsigned || values['prepare-only'])) {
     throw new Error('desktop package: --candidate requires a macOS --dir build')
+  }
+  if (values.promotable && !values.candidate) {
+    throw new Error('desktop package: --promotable requires --candidate')
   }
   if (values.unsigned && name !== 'win-x64') throw new Error('desktop package: --unsigned requires win-x64')
   if (values.unsigned && values['prepare-only']) throw new Error('desktop package: --unsigned cannot use --prepare-only')
@@ -253,6 +259,7 @@ export function parseDesktopPackageInvocation(
     unsigned: values.unsigned,
     check: values.check,
     ...(values.candidate ? { candidate: true } : {}),
+    ...(values.promotable ? { promotable: true } : {}),
     requestedBuildVersion,
   }
 }
@@ -342,6 +349,7 @@ async function main(): Promise<void> {
   const environment: NodeJS.ProcessEnv = invocation.candidate ? {
     ...Object.fromEntries(Object.entries(process.env).filter(([name]) => !/KEY|SECRET|TOKEN|PASSWORD|APPLE_|CSC_|DOWNLOAD_/iu.test(name))),
     DSH_DESKTOP_PRODUCT_FLAVOR: 'ds-harness', DSH_DESKTOP_CANDIDATE: '1',
+    DSH_DESKTOP_CANDIDATE_PROMOTABLE: invocation.promotable ? '1' : '0',
   } : loadDesktopPackageEnvironment(target.platform)
   const productVersion = packageVersion(join(APP_ROOT, 'package.json'), 'desktop package')
   // Release settings come from the target dotenv file alone, so the version this run publishes is an
