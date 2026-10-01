@@ -152,20 +152,28 @@ export class SessionCommandController {
     const agent = await this.resolveAgent(request.sessionId)
     return this.agents.serializeImageAdmission(agent, async () => {
       try {
-        await this.requireModel(request)
-        const resolved = await this.ctx.llm.resolveCallConfig({
+        const selection = {
           provider: request.provider,
           model: request.model,
           ...(request.reasoningEffort === undefined
             ? {}
             : { reasoningEffort: ReasoningEffortId(request.reasoningEffort) }),
-        })
-        const selected: AgentModelSelection = {
-          provider: resolved.provider,
-          model: resolved.model,
-          ...(resolved.reasoningEffort === undefined
-            ? {}
-            : { reasoningEffort: resolved.reasoningEffort }),
+        }
+        const externalProvider = this.ctx.get('externalModelProviders')?.listProviders()
+          .find(provider => provider.id === request.provider)
+        let selected: AgentModelSelection
+        if (externalProvider !== undefined) {
+          selected = await externalProvider.resolveSelection(selection)
+        } else {
+          await this.requireModel(request)
+          const resolved = await this.ctx.llm.resolveCallConfig(selection)
+          selected = {
+            provider: resolved.provider,
+            model: resolved.model,
+            ...(resolved.reasoningEffort === undefined
+              ? {}
+              : { reasoningEffort: resolved.reasoningEffort }),
+          }
         }
         this.agents.selectForNextRequest(agent, selected)
         void this.ctx.agentDefaultModel.saveSelection(selected).catch((error: unknown) => {

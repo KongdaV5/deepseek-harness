@@ -564,6 +564,55 @@ describe('Web session model selection', () => {
     await ctx.fiber.dispose()
   })
 
+  it('delegates external model selection to the owning runtime', async () => {
+    const { ctx, sessionId } = await harness()
+    onTestFinished(() => ctx.fiber.dispose())
+    const resolveSelection = vi.fn(async (selection: {
+      provider: string
+      model: string
+      reasoningEffort?: ReturnType<typeof ReasoningEffortId>
+    }) => ({
+      ...selection,
+      reasoningEffort: selection.reasoningEffort ?? ReasoningEffortId('high'),
+    }))
+    ctx.provide('externalModelProviders', {
+      listProviders: () => [{
+        id: 'openai-codex-subscription',
+        name: 'Codex subscription',
+        listModels: async () => [{
+          id: 'gpt-6.1-sol',
+          name: 'GPT-6.1 Sol',
+          reasoning: {
+            efforts: [{ id: ReasoningEffortId('high'), name: 'High' }],
+            defaultEffort: ReasoningEffortId('high'),
+          },
+        }],
+        resolveSelection,
+      }],
+    })
+    const remote = createSessionTestRemote(ctx, {
+      defaultModelSelection: () => ({ provider: 'deepseek-official', model: 'deepseek-chat' }),
+      cwd: '/tmp',
+    })
+
+    const selected = expectValue(await remote.selectModel(request({
+      sessionId,
+      provider: 'openai-codex-subscription',
+      model: 'gpt-6.1-sol',
+    })))
+
+    expect(resolveSelection).toHaveBeenCalledExactlyOnceWith({
+      provider: 'openai-codex-subscription',
+      model: 'gpt-6.1-sol',
+    })
+    expect(selected.selected).toEqual({
+      provider: 'openai-codex-subscription',
+      model: 'gpt-6.1-sol',
+      reasoningEffort: 'high',
+    })
+    expect(currentSelection(ctx, sessionId)).toEqual(selected.selected)
+  })
+
   it('reads the Agent default live for a session whose log names no selection', async () => {
     const { ctx, sessionId } = await harness()
     let stored = { provider: 'deepseek-official', model: 'deepseek-chat' }
