@@ -128,7 +128,7 @@ Final adapter selection, dispatch, and iteration failures arrive as terminal fin
 
 Before closing a failed step, the driver records an error result for each unanswered assistant tool call. A recorded `tool/call` without a committed result receives `TOOL_OUTCOME_UNKNOWN`; a request without a call record receives `TOOL_NOT_STARTED`. Committed results remain intact, started dispatches settle before recovery, and the turn retains the original failure. These results let later requests use paired tool history without automatically retrying uncertain operations ([decision](../../../.agents/notes/implemented/bug-fix/2026-09-19-failed-step-tool-results.md)).
 
-External providers resolve before Local prompt and tool assembly. The driver freezes one turn selection and workspace identity, then routes text, usage, cancellation and settlement through the existing DSH turn/step lifecycle. A declared external provider without an executor fails visibly; it cannot select a Local substitute. Native Local tool recovery stays with the existing recovery owner.
+External providers resolve before Local prompt and tool assembly. Each Agent context isolates its mutable `agentModelSelection` service through Cordis; creating or disposing another live Session cannot replace its route. The driver freezes one turn selection and workspace identity, then routes text, usage, cancellation and settlement through the existing DSH turn/step lifecycle. A declared external provider without an executor fails visibly; it cannot select a Local substitute. Native Local tool recovery stays with the existing recovery owner.
 
 </details>
 

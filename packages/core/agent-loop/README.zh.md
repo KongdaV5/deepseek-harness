@@ -128,7 +128,7 @@ const handle = await ctx.agents.create({
 
 关闭失败步骤之前，驱动器为每个尚无结果的 assistant 工具调用记录错误结果。已有 `tool/call` 记录但尚无已提交结果的调用获得 `TOOL_OUTCOME_UNKNOWN`；没有调用记录的请求获得 `TOOL_NOT_STARTED`。已提交的结果保持完整，已启动的派发先结算再恢复，轮次保留原始失败。这些结果让后续请求使用配对完整的工具历史，而不自动重试结果不明的操作（[决策](../../../.agents/notes/implemented/bug-fix/2026-09-19-failed-step-tool-results.zh.md)）。
 
-External provider 在 Local prompt 与工具组装前解析。Driver 冻结一次 turn selection 和 workspace identity，然后通过既有 DSH turn/step 生命周期处理文本、用量、取消和结算。声明的 external provider 缺少 executor 时明确失败，不选择 Local 替代。原生 Local tool recovery 保留给既有 recovery owner。
+External provider 在 Local prompt 与工具组装前解析。每个 Agent context 通过 Cordis 隔离可变的 `agentModelSelection` service；创建或拆除其他 live Session 不会替换它的 route。Driver 冻结一次 turn selection 和 workspace identity，然后通过既有 DSH turn/step 生命周期处理文本、用量、取消和结算。声明的 external provider 缺少 executor 时明确失败，不选择 Local 替代。原生 Local tool recovery 保留给既有 recovery owner。
 
 </details>
 
