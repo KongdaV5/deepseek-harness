@@ -159,3 +159,13 @@ M3 保持固定官方 RC.2 底座，复用此前 Config、Session migration、ru
 唯一记录在案的环境差异是 system Codex runtime 版本，从 qualification 时的 0.159.0 变为 0.159.2。晋升后的应用将其解析为 ready 并列出模型；此前缓存的 0.159.0 full-compatibility 条目作为历史证据保留、未重跑，runtime maintenance 仍为独立任务。
 
 因此 M3 已完成。晋升后的 0.2.0-rc.2 Custom 应用保持安装；Schedule 仅在 migration composition 和 candidate 中启用，Computer Use 仍禁用。Codex 可以执行 scheduled turn，但不能通过官方 external-turn tool surface 管理 DSH Schedule task。修改文档通过 focused checks，历史 persistence-format 与 reasoning-policy metadata 债务未变。不启动 Computer Use 或无关增强。
+
+## 启动入口闭合
+
+`P-UPSTREAM-0.2-M3-LAUNCH-CLOSEOUT` 闭合了剩余的启动入口问题。此前的 promotion 重试是直接执行 bundle 内部可执行文件完成的，因为 `open -a` 看起来什么都启动不了；而晋升后的 0.2 应用与 0.1.6 rollback 应用都是 ad-hoc 签名、未做公证，因此 `spctl` 对两者都返回 rejected。Gatekeeper 并非原因：两个 bundle 都没有 quarantine 属性，严格的 code-signature 校验都通过，LaunchServices 中也存在已安装 bundle 的正确注册记录。
+
+真正的原因是环境。`open` 会把调用方的环境变量传给被启动的应用，而 Electron 会把非空的 `ELECTRON_RUN_AS_NODE` 理解为“以纯 Node.js 运行”而不是启动应用。因此从一个导出 `ELECTRON_RUN_AS_NODE=1` 的环境发起 `open`，会让 bundle 的主可执行文件以 Node 方式启动、不产生任何应用输出，并在约 65 ms 内退出。LaunchServices 确实启动了进程，只是它在弹出窗口前就结束了，这也是该次尝试看起来像“启动失败”的原因。launchd 用户会话并未定义该变量，所以它来自调用进程而非系统；0.2 应用与 0.1.6 rollback 在该变量下的退化行为完全一致。
+
+在该变量不存在时，标准入口无需任何产品改动即可工作：`open -a` 可以启动应用，由 Finder 打开 bundle 等效。installed smoke 通过 LaunchServices 重跑并全部通过：窗口已呈现且可见，使用正式 Custom profile 与其 canonical patch，patch 未被改写；此前持久化的 Session 被列出并恢复了一条；模型选择器离开 loading 并 settle；Local 报告带端点的具体 stopped 状态；Codex 报告 ready 及 system runtime 与模型数量。没有改动任何源码，也没有为此入口加入假 timeout、UI 硬编码状态或第二套 catalog store。
+
+由于该变量只影响从已导出它的 shell 发起的启动（例如某 Electron 宿主应用的嵌入式终端），正常的 Finder 启动不受影响。这是启动环境说明，不是产品缺陷。
