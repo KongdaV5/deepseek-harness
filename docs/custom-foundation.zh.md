@@ -152,4 +152,10 @@ M3 保持固定官方 RC.2 底座，复用此前 Config、Session migration、ru
 
 随后 formal promotion 暴露尚未解决的 installed-profile blocker。既有 history 可以加载，但模型选择器持续 loading，Local/Codex 状态持续 unknown；没有提交 installed inference。同一 binary 在隔离 profile 中仍可解析模型和 runtime status。该比较只证明症状随 profile 不同，未定位原因。立即回滚 formal promotion，恢复旧 application bytes。将未变的已归档 legacy settings source 改名恢复，不读取其内容或覆盖文件；保留 canonical patch 与 immutable Session generations。不继续 production validation 或强制 migration。
 
-因此 M3 仍 blocked，candidate 证据通过并不构成最终发布成功。正式安装仍为旧版；Schedule 仅在 migration composition 和 candidate 中启用，Computer Use 仍禁用。Codex 可以执行 scheduled turn，但不能通过官方 external-turn tool surface 管理 DSH Schedule task。再次 promotion 前必须定位并验收 installed profile/catalog resolution。修改文档通过 focused checks，历史 persistence-format 与 reasoning-policy metadata 债务未变。不启动 Computer Use 或无关增强。
+随后 `P-UPSTREAM-0.2-M3-PROFILE-CLOSEOUT` 以分阶段、隔离优先的诊断闭合该 blocker，而不是通过改代码。第一轮只读的 host 层复现，在正式 home 的 clone（排除凭据、`auth.json` 与 Electron state）上重放启动链，结果各阶段均健康，包括 `localModels/status`、`codexSubscription/status` 与 `session/modelCatalog`。第二轮 UI 层复现，用同一 packaged candidate 针对同一 cloned home 启动真实 Desktop window，观察到 renderer 确实收到这三个 Remote 结果并发布了具体状态：选择器离开 loading 并落在该 Session 投影出的 Local 选择上，Local 渲染出具体 runtime 状态，Codex 渲染为 ready。启动后 clone 的 canonical patch 与正式 patch 逐字节一致，说明旧 profile 的 Config 形态被完整覆盖；只有依赖 `auth.json` 的账户分支无法表示。因为没有证明存在源码缺陷，所以没有改动源码，也没有加入假 timeout、UI 硬编码状态或第二套 catalog store。
+
+随后执行唯一一次授权的 promotion 重试。旧 application bytes 通过重命名以 rollback copy 形式先行保留（不删除），安装已验证的 candidate，并以真实正式 home 在 `custom-default` 模式下启动晋升后的应用。installed smoke 通过：既有 history 加载、选择器离开 loading 并 settle、Local 报告带端点的具体 stopped 状态、Codex 报告 ready 且使用 system runtime，Settings 与 Schedule 界面均存在。canonical patch、`package.json` 与 `authGeneration` 未变，legacy settings source 由正常单向 import 仅归档一次，Session 与 projection-cache 数量未变，没有 generation 被改写。预留的 rollback copy 未被使用。
+
+唯一记录在案的环境差异是 system Codex runtime 版本，从 qualification 时的 0.159.0 变为 0.159.2。晋升后的应用将其解析为 ready 并列出模型；此前缓存的 0.159.0 full-compatibility 条目作为历史证据保留、未重跑，runtime maintenance 仍为独立任务。
+
+因此 M3 已完成。晋升后的 0.2.0-rc.2 Custom 应用保持安装；Schedule 仅在 migration composition 和 candidate 中启用，Computer Use 仍禁用。Codex 可以执行 scheduled turn，但不能通过官方 external-turn tool surface 管理 DSH Schedule task。修改文档通过 focused checks，历史 persistence-format 与 reasoning-policy metadata 债务未变。不启动 Computer Use 或无关增强。
