@@ -20,6 +20,27 @@ const resourcesRuntime = process.argv[3] ?? join(dirname(root), 'runtime')
 const requireRuntime = createRequire(join(root, 'package.json'))
 const scratch = mkdtempSync(join(tmpdir(), 'dsh-runtime-payload-'))
 
+/** Verify the optional Custom Bundled Codex payload without authentication or an App Server. */
+async function checkCodex() {
+  let entry
+  try {
+    entry = requireRuntime.resolve('@deepseek-ai/dsh-agent-codex')
+  } catch (error) {
+    if (error.code === 'MODULE_NOT_FOUND') return false
+    throw error
+  }
+  const { codexServerArgv, codexRuntimePackageVersion } = await import(pathToFileURL(entry).href)
+  const [executable] = codexServerArgv()
+  const environment = Object.fromEntries(Object.entries(process.env).filter(([name]) => /^(?:path|systemroot|windir|comspec)$/iu.test(name)))
+  const output = execFileSync(executable, ['--version'], {
+    encoding: 'utf8', timeout: 15_000,
+    env: { ...environment, HOME: scratch, USERPROFILE: scratch, CODEX_HOME: join(scratch, 'codex'),
+      TMP: scratch, TEMP: scratch, TMPDIR: scratch },
+  })
+  assert.equal(output.trim(), `codex-cli ${codexRuntimePackageVersion()}`)
+  return true
+}
+
 /** Run a package script with only the shipped node launcher available on PATH. */
 function checkPnpm() {
   const bin = join(resourcesRuntime, 'bin')
@@ -154,7 +175,9 @@ function checkHtml() {
   assert.match(markdown, /\| x\s+\| 7\s+\|/u)
 }
 
+let codex = false
 try {
+  codex = await checkCodex()
   const builtin = requireRuntime('node-addon-require-builtin')
   assert.equal(typeof builtin.requireBuiltin('internal/modules/esm/loader').getOrInitializeCascadedLoader, 'function')
   checkPnpm()
@@ -171,5 +194,5 @@ try {
 // Natural event-loop drain includes node-pty's worker and console-list helper teardown.
 process.once('beforeExit', () => {
   console.log(JSON.stringify({ node: process.versions.node, platform: process.platform, arch: process.arch,
-    koffi: true, sharp: true, html: true, pty: true, pnpm: true, grep: true, glob: true }))
+    koffi: true, sharp: true, html: true, pty: true, pnpm: true, grep: true, glob: true, codex }))
 })
