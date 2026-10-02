@@ -1,0 +1,19 @@
+# Bilingual-pair consistency record for 2026-09-27-shared-dsh-mascot-motion.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write .agents/notes/implemented/feature/2026-09-27-shared-dsh-mascot-motion.md
+/agent-note-shared-dsh-mascot-motion:
+  en: 26e6078f42f6da56
+  zh: 4ca75386d607ccf7
+/agent-note-shared-dsh-mascot-motion/problem:
+  en: 384ec885edfc93b0
+  zh: 6ba7404f6ba7f5d9
+/agent-note-shared-dsh-mascot-motion/decision:
+  en: 4bd93a1af9ce5253
+  zh: a4e544a827a02d04
+/agent-note-shared-dsh-mascot-motion/alternatives-considered:
+  en: a20980baa85cc104
+  zh: 9fa494d7bac82f66
+/agent-note-shared-dsh-mascot-motion/consequences:
+  en: c2715383fe338954
+  zh: 5c536a2fdfce255f

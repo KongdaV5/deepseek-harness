@@ -23,6 +23,8 @@ afterEach(() => {
   delete document.documentElement.dataset.dsThemeSource
   document.body.removeAttribute(DARK_ATTRIBUTE)
   document.body.style.removeProperty('--dsh-content-font-size')
+  document.body.style.removeProperty('--dsh-ui-font-size')
+  document.body.style.removeProperty('--dsh-ui-font-scale')
 })
 
 describe('theme bootstrap row', () => {
@@ -75,11 +77,14 @@ describe('theme bootstrap row', () => {
     expect(document.body.hasAttribute(DARK_ATTRIBUTE)).toBe(false)
   })
 
-  it('writes the durable content font size and defaults it to 14px', () => {
+  it('writes the durable global interface size, its body scale, and pins the text ladder', () => {
     mockSystemDark(false)
     executeBootstrap('light', 22)
-    expect(document.body.style.getPropertyValue('--dsh-content-font-size')).toBe('22px')
-    executeBootstrap('light')
+    expect(document.body.style.getPropertyValue('--dsh-ui-font-size')).toBe('22px')
+    expect(document.body.style.getPropertyValue('--dsh-ui-font-scale')).toBe(String(22 / 14))
     expect(document.body.style.getPropertyValue('--dsh-content-font-size')).toBe('14px')
+    executeBootstrap('light')
+    expect(document.body.style.getPropertyValue('--dsh-ui-font-size')).toBe('14px')
+    expect(document.body.style.getPropertyValue('--dsh-ui-font-scale')).toBe('1')
   })
 })

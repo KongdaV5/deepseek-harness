@@ -24,6 +24,8 @@
 body {
   --dsw-alias-settings-card-fill: var(--dsw-alias-bg-layer-2);
   --dsw-alias-settings-card-stroke: var(--dsw-alias-border-l4);
+  /* Keep every interface surface in step with the persisted global text scale. */
+  zoom: var(--dsh-ui-font-scale, 1);
 }
 
 [data-dsh-automatic-focus]:focus,

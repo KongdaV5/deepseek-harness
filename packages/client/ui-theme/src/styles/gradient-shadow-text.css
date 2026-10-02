@@ -48,11 +48,11 @@ body[data-ds-dark-theme] {
 /* 由 @deepseek-figma-plugin/custom-variable-name 插件导出 */
 /* Markdown 阶梯整体按 0.875（正文 16 → 14）等比缩放，四舍五入到整数像素；
    重新从 Figma 导出时需要保留这一缩放。 */
-/* Bootstrap and ThemePresenter set the integer content size on body (10–22px,
-   default 14px). Headings and body variants share its pixel delta. Secondary
-   text uses size − 1 through 14px, then size − 2: 10→9, 14→13, 15→13, 22→20.
-   max(13px, ...) selects the delta, not a font-size floor. Small and code
-   typography keep their fixed sizes. */
+/* These Markdown/text tokens define the client's baseline type ladder — a 14px
+   body reference and a 13px secondary reference. The user's global interface
+   preference is applied separately through the `body` zoom in base.css, so
+   every page and control scales together instead of rewriting one token
+   family. Small and code typography keep their own dense sizes. */
 body {
   --dsh-content-font-delta: calc(var(--dsh-content-font-size, 14px) - 14px);
   --dsh-content-font-size-secondary: min(calc(var(--dsh-content-font-size, 14px) - 1px), max(13px, calc(var(--dsh-content-font-size, 14px) - 2px)));

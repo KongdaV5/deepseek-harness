@@ -697,7 +697,7 @@ export interface Config {
 export interface Config {
   /** Browser palette preference. */
   preference: Volatile<ThemePreference>
-  /** Browser font size in pixels. */
+  /** Browser global interface font-size reference in pixels. */
   fontSize: Volatile<number>
 }
 

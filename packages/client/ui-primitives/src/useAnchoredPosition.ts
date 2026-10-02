@@ -51,14 +51,20 @@ export function useAnchoredPosition(options: AnchoredPositionOptions): CSSProper
       const rect = anchorRef.current?.getBoundingClientRect()
       if (rect === undefined) return
       const panel = panelRef.current
-      const width = panel?.offsetWidth ?? 0
-      const height = panel?.offsetHeight ?? 0
+      const panelRect = panel?.getBoundingClientRect()
+      const width = panelRect?.width || panel?.offsetWidth || 0
+      const height = panelRect?.height || panel?.offsetHeight || 0
+      // Body-level portals participate in body CSS zoom. Anchor rectangles and
+      // viewport bounds are visual CSS pixels, while fixed left/top are
+      // interpreted before that zoom. Convert output back into the panel's
+      // containing coordinate space.
+      const zoom = panel === null ? 1 : effectiveZoom(panel)
       let left = align === 'end' ? rect.right - width : rect.left
       let top = side === 'top' ? rect.top - gap - height : rect.bottom + gap
       if (width > 0) left = Math.min(Math.max(left, margin), window.innerWidth - width - margin)
       if (height > 0) top = Math.min(Math.max(top, overlayTopMargin(margin)), window.innerHeight - height - margin)
       /* v8 ignore stop */
-      setPosition({ left, top })
+      setPosition({ left: left / zoom, top: top / zoom })
     }
     // The first run measures the panel in the same commit that opened it, so
     // the clamp uses real dimensions before anything paints.
@@ -83,4 +89,14 @@ export function useAnchoredPosition(options: AnchoredPositionOptions): CSSProper
     }
   }, [open, anchorRef, panelRef, side, align, gap, margin])
   return position
+}
+
+/** Product of CSS zoom factors from a portal panel through its ancestors. */
+function effectiveZoom(element: HTMLElement): number {
+  let zoom = 1
+  for (let ancestor: HTMLElement | null = element; ancestor !== null; ancestor = ancestor.parentElement) {
+    const value = Number.parseFloat(window.getComputedStyle(ancestor).zoom)
+    if (Number.isFinite(value) && value > 0) zoom *= value
+  }
+  return zoom
 }

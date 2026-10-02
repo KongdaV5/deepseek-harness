@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-/** FontSizeRow behavior: value display, arrow clicks drive setFontSize,
- * bound-value arrows disable, display follows the store mirror. */
+/** FontSizeRow behavior: editable value display, direct entry, arrow clicks
+ * drive setFontSize, display follows the store mirror. */
 import type { GlobalStandardProps } from '@deepseek-ai/dsh-client-ui-slots'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
@@ -19,8 +19,9 @@ const usePanelInfo: GlobalStandardProps['usePanelInfo'] = selector => selector({
 afterEach(cleanup)
 
 const COPY: Record<string, string> = {
-  'fontSize.title': 'Font size',
-  'fontSize.description': 'Only affects conversation content',
+  'fontSize.title': 'Global interface size',
+  'fontSize.description': 'Scales text and layout throughout the client; enter any value greater than 0',
+  'fontSize.inputLabel': 'Global interface size in pixels',
   'fontSize.increase': 'Increase font size',
   'fontSize.decrease': 'Decrease font size',
 }
@@ -64,12 +65,14 @@ function mount(fontSize = 14) {
 const arrow = (name: string): HTMLButtonElement =>
   screen.getByRole('button', { name }) as HTMLButtonElement
 
+const sizeInput = (): HTMLInputElement => screen.getByLabelText('Global interface size in pixels') as HTMLInputElement
+
 describe('FontSizeRow', () => {
-  it('renders the title and the current size with both arrows enabled mid-range', () => {
+  it('renders the title, the description, and the current size with both arrows enabled', () => {
     mount(14)
-    expect(screen.getByText('Font size')).toBeDefined()
-    expect(screen.getByText('Only affects conversation content')).toBeDefined()
-    expect(screen.getByText('14')).toBeDefined()
+    expect(screen.getByText('Global interface size')).toBeDefined()
+    expect(screen.getByText('Scales text and layout throughout the client; enter any value greater than 0')).toBeDefined()
+    expect(sizeInput().value).toBe('14')
     expect(arrow('Increase font size').disabled).toBe(false)
     expect(arrow('Decrease font size').disabled).toBe(false)
   })
@@ -79,28 +82,47 @@ describe('FontSizeRow', () => {
     fireEvent.click(arrow('Increase font size'))
     expect(b.setFontSize).toHaveBeenCalledWith(15)
     // No store write yet: the display is unchanged.
-    expect(screen.getByText('14')).toBeDefined()
+    expect(sizeInput().value).toBe('14')
     act(() => { b.store.actions.sync(15, 1) })
-    expect(screen.getByText('15')).toBeDefined()
+    expect(sizeInput().value).toBe('15')
     fireEvent.click(arrow('Decrease font size'))
     expect(b.setFontSize).toHaveBeenCalledWith(14)
   })
 
-  it('disables the outward arrow at each bound', () => {
-    const b = mount(21)
-    fireEvent.click(arrow('Increase font size'))
-    expect(b.setFontSize).toHaveBeenCalledWith(22)
-    act(() => { b.store.actions.sync(22, 1) })
-    expect(screen.getByText('22')).toBeDefined()
-    expect(arrow('Increase font size').disabled).toBe(true)
-    expect(arrow('Decrease font size').disabled).toBe(false)
-    cleanup()
-    const c = mount(11)
+  it('keeps stepping below 1px by halving instead of imposing a floor', () => {
+    const b = mount(0.5)
     fireEvent.click(arrow('Decrease font size'))
-    expect(c.setFontSize).toHaveBeenCalledWith(10)
-    act(() => { c.store.actions.sync(10, 1) })
-    expect(screen.getByText('10')).toBeDefined()
-    expect(arrow('Increase font size').disabled).toBe(false)
-    expect(arrow('Decrease font size').disabled).toBe(true)
+    expect(b.setFontSize).toHaveBeenCalledWith(0.25)
+    fireEvent.click(arrow('Increase font size'))
+    expect(b.setFontSize).toHaveBeenCalledWith(1)
+    expect(arrow('Decrease font size').disabled).toBe(false)
+  })
+
+  it('commits a typed positive value on blur and discards junk', () => {
+    const b = mount(14)
+    const input = sizeInput()
+    fireEvent.focus(input)
+    fireEvent.change(input, { target: { value: '18.5' } })
+    expect(input.value).toBe('18.5')
+    fireEvent.blur(input)
+    expect(b.setFontSize).toHaveBeenCalledWith(18.5)
+
+    fireEvent.focus(input)
+    fireEvent.change(input, { target: { value: '0' } })
+    fireEvent.blur(input)
+    expect(b.setFontSize).toHaveBeenCalledTimes(1)
+    expect(input.value).toBe('14')
+  })
+
+  it('commits a typed value on Enter without waiting for blur', () => {
+    const b = mount(14)
+    const input = sizeInput()
+    // Real focus rather than a synthetic event: Enter commits by blurring the
+    // field, and jsdom only dispatches the `focusout` React listens for when
+    // the element actually holds focus.
+    act(() => { input.focus() })
+    fireEvent.change(input, { target: { value: '20' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    expect(b.setFontSize).toHaveBeenCalledWith(20)
   })
 })

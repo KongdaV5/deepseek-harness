@@ -27,22 +27,23 @@ describe('ThemeRuntime', () => {
     const snapshot = theme.getTheme()
     expect(snapshot.preference).toBe('system')
     expect(snapshot.fontSize).toBe(14)
+    expect(snapshot.fontScale).toBe(1)
     // jsdom matchMedia is absent; system resolves to light.
     expect(snapshot.active.id).toBe('light')
     expect(snapshot.active.colorScheme).toBe('light')
     expect(snapshot.themes.map(t => t.id)).toEqual(['light', 'dark'])
   })
 
-  it('seeds the initial font size from the boot-script body variable, ignoring junk', () => {
+  it('seeds the initial interface size from the boot-script body variable, ignoring junk', () => {
     // The Host boot script writes the durable size on body before any plugin
     // runs; the first snapshot must match it so activation never flashes 14.
-    document.body.style.setProperty('--dsh-content-font-size', '22px')
+    document.body.style.setProperty('--dsh-ui-font-size', '22px')
     try {
       expect(make().theme.getTheme().fontSize).toBe(22)
-      document.body.style.setProperty('--dsh-content-font-size', '23px')
+      document.body.style.setProperty('--dsh-ui-font-size', '0px')
       expect(make().theme.getTheme().fontSize).toBe(14)
     } finally {
-      document.body.style.removeProperty('--dsh-content-font-size')
+      document.body.style.removeProperty('--dsh-ui-font-size')
     }
   })
 
@@ -57,13 +58,19 @@ describe('ThemeRuntime', () => {
     expect(host.set).toHaveBeenCalledOnce()
   })
 
-  it('rejects out-of-range and fractional font sizes', () => {
+  it('accepts any positive finite size and rejects zero, negative, and non-finite values', () => {
     const { theme, events, host } = make()
-    for (const px of [9, 23, 14.5, Number.NaN]) {
-      expect(() => { theme.setFontSize(px) }).toThrow('outside 10..22')
+    for (const px of [0, -1, Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(() => { theme.setFontSize(px) }).toThrow('must be a positive finite number')
     }
     expect(events).toHaveLength(0)
     expect(host.set).not.toHaveBeenCalled()
+    // A fractional size is accepted rather than rejected: the control writes
+    // whatever the user types, so the only boundary is "positive and finite".
+    theme.setFontSize(14.5)
+    expect(theme.getTheme().fontSize).toBe(14.5)
+    expect(theme.getTheme().fontScale).toBeCloseTo(14.5 / 14, 10)
+    expect(host.set).toHaveBeenCalledWith('fontSize', 14.5)
   })
 
   it('adopts a published Host font size without writing it back', () => {

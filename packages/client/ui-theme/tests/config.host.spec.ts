@@ -33,8 +33,12 @@ describe('ui-theme host', () => {
     await configuration.update({ fontSize: 22 })
     expect(plainConfig(configuration.fiber.config)).toEqual({ preference: 'dark', fontSize: 22 })
     await expect(configuration.update({ preference: 'sepia' })).rejects.toThrow()
-    await expect(configuration.update({ fontSize: 9 })).rejects.toThrow()
-    await expect(configuration.update({ fontSize: 23 })).rejects.toThrow()
+    await expect(configuration.update({ fontSize: 0 })).rejects.toThrow()
+    await expect(configuration.update({ fontSize: -1 })).rejects.toThrow()
+    await expect(configuration.update({ fontSize: Number.POSITIVE_INFINITY })).rejects.toThrow()
+    // No fixed range: a fractional value above the old 22px ceiling is accepted.
+    await configuration.update({ fontSize: 14.5 })
+    expect(plainConfig(configuration.fiber.config)).toEqual({ preference: 'dark', fontSize: 14.5 })
     await fiber.dispose()
   })
 

@@ -15,7 +15,7 @@ function snapshot(
 ): ThemeSnapshot {
   // The presenter must key off colorScheme, not the id — keep them distinct.
   const active = { id: `${colorScheme}-test`, colorScheme, tokens }
-  return { preference, fontSize, active, themes: [active], revision: 1 }
+  return { preference, fontSize, fontScale: fontSize / 14, active, themes: [active], revision: 1 }
 }
 
 function clearThemePresentation(): void {
@@ -78,12 +78,14 @@ describe('ThemePresenter', () => {
     expect(document.body.style.getPropertyValue('--dsw-alias-fg')).toBe('')
   })
 
-  it('publishes the content font size and follows changes', () => {
+  it('publishes the global interface size and its body scale, and follows changes', () => {
     const presenter = new ThemePresenter()
     presenter.apply(snapshot('light'))
-    expect(document.body.style.getPropertyValue('--dsh-content-font-size')).toBe('14px')
+    expect(document.body.style.getPropertyValue('--dsh-ui-font-size')).toBe('14px')
+    expect(document.body.style.getPropertyValue('--dsh-ui-font-scale')).toBe('1')
     presenter.apply(snapshot('light', {}, 17))
-    expect(document.body.style.getPropertyValue('--dsh-content-font-size')).toBe('17px')
+    expect(document.body.style.getPropertyValue('--dsh-ui-font-size')).toBe('17px')
+    expect(document.body.style.getPropertyValue('--dsh-ui-font-scale')).toBe(String(17 / 14))
   })
 
   it('publishes the theme source: system stays system, fixed preferences publish the resolved scheme', () => {
@@ -96,7 +98,7 @@ describe('ThemePresenter', () => {
     expect(document.documentElement.hasAttribute(THEME_SOURCE_ATTRIBUTE)).toBe(false)
   })
 
-  it('dispose removes color-scheme, the attribute, the font-size axis, and every applied variable, sparing foreign inline styles', () => {
+  it('dispose removes color-scheme, the attribute, the interface scale, and every applied variable, sparing foreign inline styles', () => {
     document.body.style.setProperty('--foreign', 'kept')
     const presenter = new ThemePresenter()
     presenter.apply(snapshot('dark', { '--dsw-alias-bg': '#111' }))
@@ -105,7 +107,8 @@ describe('ThemePresenter', () => {
     expect(document.documentElement.style.colorScheme).toBe('')
     expect(document.body.hasAttribute(DARK_ATTRIBUTE)).toBe(false)
     expect(document.body.style.getPropertyValue('--dsw-alias-bg')).toBe('')
-    expect(document.body.style.getPropertyValue('--dsh-content-font-size')).toBe('')
+    expect(document.body.style.getPropertyValue('--dsh-ui-font-size')).toBe('')
+    expect(document.body.style.getPropertyValue('--dsh-ui-font-scale')).toBe('')
     expect(document.body.style.getPropertyValue('--foreign')).toBe('kept')
     expect(meta?.isConnected).toBe(false)
   })

@@ -9,11 +9,11 @@ import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-host-webserver'
 import { bootThemeInjections } from './boot-theme.ts'
 import {
-  DEFAULT_FONT_SIZE, DEFAULT_PREFERENCE, FONT_SIZE_MIN, FONT_SIZE_MAX, THEME_PREFERENCES,
+  DEFAULT_FONT_SIZE, DEFAULT_PREFERENCE, THEME_PREFERENCES,
 } from './theme-settings.ts'
 
 export {
-  DEFAULT_FONT_SIZE, DEFAULT_PREFERENCE, FONT_SIZE_FIELD, FONT_SIZE_MAX, FONT_SIZE_MIN,
+  DEFAULT_FONT_SIZE, DEFAULT_PREFERENCE, FONT_SIZE_FIELD,
   THEME_PREFERENCE_FIELD, THEME_PREFERENCES, THEME_SETTINGS_NAMESPACE,
   type ThemePreference, type ThemeSettings,
 } from './theme-settings.ts'
@@ -22,14 +22,14 @@ export {
 export interface Config {
   /** Browser palette preference. */
   preference: Volatile<ThemePreference>
-  /** Browser font size in pixels. */
+  /** Browser global interface font-size reference in pixels. */
   fontSize: Volatile<number>
 }
 
 /** Live theme and typography preferences. */
 export const Config = z.object({
   preference: z.union([...THEME_PREFERENCES]).default(DEFAULT_PREFERENCE).volatile(),
-  fontSize: z.number().step(1).min(FONT_SIZE_MIN).max(FONT_SIZE_MAX).default(DEFAULT_FONT_SIZE).volatile(),
+  fontSize: z.number().min(Number.MIN_VALUE).max(Number.MAX_VALUE).default(DEFAULT_FONT_SIZE).volatile(),
 })
 
 /** Supply the current palette before browser plugins start.

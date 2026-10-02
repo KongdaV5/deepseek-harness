@@ -24,7 +24,7 @@ import { createAppearanceRowStore, createFontSizeRowStore } from './settings-sto
 import { installThemeStyles } from './styles.ts'
 import { en, zh, type ThemeKey } from './locales.ts'
 import {
-  DEFAULT_FONT_SIZE, DEFAULT_PREFERENCE, FONT_SIZE_FIELD, FONT_SIZE_MAX, FONT_SIZE_MIN,
+  DEFAULT_FONT_SIZE, DEFAULT_PREFERENCE, FONT_SIZE_FIELD,
   isThemePreference, THEME_PREFERENCE_FIELD, THEME_SETTINGS_NAMESPACE,
   type ThemePreference, type ThemeSettings,
 } from '../theme-settings.ts'
@@ -34,6 +34,7 @@ export type { FontSizeRowComponentProps, FontSizeRowInjected } from './FontSizeR
 export type { AppearanceRowState, FontSizeRowState } from './settings-store.ts'
 export type { ThemeKey } from './locales.ts'
 export type { ThemePreference, ThemeSettings } from '../theme-settings.ts'
+export { DEFAULT_FONT_SIZE } from '../theme-settings.ts'
 
 /** Namespace owning this feature's settings-row copy. */
 export const SETTINGS_NS = 'settings.theme'
@@ -80,8 +81,10 @@ export interface ThemeDefinition {
 export interface ThemeSnapshot {
   /** The persisted preference (may be `system`). */
   preference: ThemePreference
-  /** Conversation content font size in px (integer within FONT_SIZE_MIN..FONT_SIZE_MAX). */
+  /** Global interface font-size reference in px. */
   fontSize: number
+  /** Global body-scale ratio against the 14px reference. */
+  fontScale: number
   /**
    * The resolved active theme (`system` resolved via prefers-color-scheme)
    * with override layers folded into its tokens (seq order, later layers win
@@ -240,14 +243,13 @@ export class ThemeRuntime {
   }
 
   /**
-   * Change the conversation content font size — the only font-size write
-   * entry. Accepted values are written through the settings scope and emit
-   * `theme/change`.
-   * @param px - integer px within FONT_SIZE_MIN..FONT_SIZE_MAX; out-of-range or fractional values throw.
+   * Change the global interface font-size reference. Any positive finite
+   * value is accepted and written through the settings scope.
+   * @param px - positive finite reference size in CSS px.
    */
   setFontSize(px: number): void {
-    if (!Number.isInteger(px) || px < FONT_SIZE_MIN || px > FONT_SIZE_MAX) {
-      throw new Error(`font size ${px} is outside ${FONT_SIZE_MIN}..${FONT_SIZE_MAX}`)
+    if (!Number.isFinite(px) || px <= 0) {
+      throw new Error(`font size ${px} must be a positive finite number`)
     }
     if (this.fontSize === px) return
     this.fontSize = px
@@ -329,6 +331,7 @@ export class ThemeRuntime {
     return Object.freeze({
       preference: this.preference,
       fontSize: this.fontSize,
+      fontScale: scaleForFontSize(this.fontSize),
       active: this.composeActive(active),
       themes: Object.freeze([...this.themes]),
       revision: this.revision,
@@ -369,11 +372,17 @@ export class ThemeRuntime {
 function bootstrapFontSize(): number {
   /* v8 ignore next -- needs a documentless run (node e2e booting the client tree), not constructible under jsdom */
   if (typeof document === 'undefined') return DEFAULT_FONT_SIZE
-  const raw = document.body.style.getPropertyValue('--dsh-content-font-size')
-  const parsed = Number.parseInt(raw, 10)
-  return Number.isInteger(parsed) && parsed >= FONT_SIZE_MIN && parsed <= FONT_SIZE_MAX
+  const raw = document.body.style.getPropertyValue('--dsh-ui-font-size')
+  const parsed = Number.parseFloat(raw)
+  return Number.isFinite(parsed) && parsed > 0
     ? parsed
     : DEFAULT_FONT_SIZE
+}
+
+/** Preserve a positive CSS zoom for the smallest representable user value. */
+function scaleForFontSize(fontSize: number): number {
+  const scale = fontSize / DEFAULT_FONT_SIZE
+  return scale > 0 ? scale : Number.MIN_VALUE
 }
 
 /**

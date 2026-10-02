@@ -462,6 +462,7 @@ export const InputBar = memo(function InputBar({
                 <button
                   type="button"
                   className={css.primary}
+                  data-dsh-mascot-action="stop"
                   aria-label={t('input.stop')}
                   disabled={stop === undefined}
                   onMouseDown={keepFocus}
@@ -477,6 +478,7 @@ export const InputBar = memo(function InputBar({
               <button
                 type="button"
                 className={css.primary}
+                data-dsh-mascot-action={primaryStops ? 'stop' : 'send'}
                 aria-label={primaryLabel}
                 disabled={primaryDisabled}
                 onMouseDown={keepFocus}
