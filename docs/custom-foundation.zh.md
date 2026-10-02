@@ -139,3 +139,17 @@ Local-selected Agent 的 live registry 会收到官方 Schedule 管理工具定�
 最终文档检查只要求修改范围正确；既有历史 persistence-format 与 reasoning-policy README metadata 债务不属于本轮集成。复用此前已通过的 Schedule、composition、Local execution、typecheck、lint 与 generated-catalog 证据。
 
 Schedule service 持有任务定义与 delivery history；admission projection 从 canonical Session V4 inbox event 派生。Desktop lifecycle 决定 Host 是否运行；Schedule runtime 管理唯一 timer；SessionController 和 AgentLoop 管理 canonical message admission；所选 provider 持有 inference。没有添加 Computer Use provider、权限提示或 Schedule 专用 lifecycle manager。Final release qualification 和 Computer Use 仍延期。
+
+## M3 发布验收与回滚
+
+M3 保持固定官方 RC.2 底座，复用此前 Config、Session migration、runtime 与 Schedule 证据。Release 修复在 canonical package path 增加显式可晋升 candidate 选项，通过已有 Cordis scope 隔离各 live Agent 的模型选择，并解包已锁定 Bundled Codex vendor binary。Packaged runtime check 在私有 scratch 中运行该 binary 的版本命令，不启动 App Server 或打开认证文件。不增加 lifecycle manager、配置 store 或 runtime adapter。
+
+最终 arm64 Custom artifact 为 0.2.0-rc.2，bundle identity 为 `dev.dsh.desktop.custom`。严格代码签名完整性与 packaged runtime closure 通过；使用本地 ad-hoc 签名，没有 public distribution notarization。编译失败及 release-blocking package 检查只进行针对性修复和 rebuild，不重复已通过的历史 suites。Focused tests 覆盖 28 个不同用例；新增双 live Session 回归还保证断言失败时清理 owner。
+
+隔离 Native candidate 通过导航、Settings、runtime controls、动态模型与 effort、子菜单鼠标及键盘返回、Run Details 和官方 Schedule UI。一条 canonical conversation 按顺序包含四条可见回答：Local、Codex、scheduled Codex、Local。仅一次 scheduled inbox admission 和两次 Codex dispatch。一次正常 App/Host 重启保留 visible history、task history、mapping 和 authGeneration；settlement 后 dispatch、pendingSync 与 pending inbox 均为空。关闭窗口保留 Host，重新打开仍使用同一实例。Schedule history 仍表示 admission history，不承诺外部副作用 exactly-once。
+
+两次显式 fixture retry 保留在记录中：继承的 64-token Local 限制中止首次建任务 turn；重启后 Local 尚未 ready 时发送被 fail closed。修正 fixture 设置并等待 ready 后，只有一个任务和四条可见回答，失败 turn 仍保留。认证复用官方隔离登录，不读取 auth.json、复制凭证或 rotate generation。Candidate qualification 不访问 production data。
+
+随后 formal promotion 暴露尚未解决的 installed-profile blocker。既有 history 可以加载，但模型选择器持续 loading，Local/Codex 状态持续 unknown；没有提交 installed inference。同一 binary 在隔离 profile 中仍可解析模型和 runtime status。该比较只证明症状随 profile 不同，未定位原因。立即回滚 formal promotion，恢复旧 application bytes。将未变的已归档 legacy settings source 改名恢复，不读取其内容或覆盖文件；保留 canonical patch 与 immutable Session generations。不继续 production validation 或强制 migration。
+
+因此 M3 仍 blocked，candidate 证据通过并不构成最终发布成功。正式安装仍为旧版；Schedule 仅在 migration composition 和 candidate 中启用，Computer Use 仍禁用。Codex 可以执行 scheduled turn，但不能通过官方 external-turn tool surface 管理 DSH Schedule task。再次 promotion 前必须定位并验收 installed profile/catalog resolution。修改文档通过 focused checks，历史 persistence-format 与 reasoning-policy metadata 债务未变。不启动 Computer Use 或无关增强。

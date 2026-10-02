@@ -51,50 +51,53 @@ function waitForIdle(ctx: Context, agent: Agent): Promise<void> {
 describe('external Agent turns', () => {
   it('keeps model selection and disposal independent across live Sessions', async () => {
     const { ctx } = await harness()
-    const local = new MockAdapter([textResponse('Local first'), textResponse('Local retained')])
-    ctx.llm.registerAdapter(['local'], local)
-    const localSelection = { current: { provider: 'local', model: 'huihui' }, assembled: undefined }
-    const codexSelection = { current: { provider: 'codex', model: 'dynamic-model' }, assembled: undefined }
-    const first = await ctx.agents.create({
-      sessionId: SessionId('selection-local'),
-      meta: { cwd: process.cwd() },
-      agentOptions: { provider: 'local', model: 'huihui' },
-      setup(agentCtx) { installModelSelection(agentCtx, localSelection) },
-    })
-    const second = await ctx.agents.create({
-      sessionId: SessionId('selection-codex'),
-      meta: { cwd: process.cwd() },
-      agentOptions: { provider: 'local', model: 'huihui' },
-      setup(agentCtx) { installModelSelection(agentCtx, codexSelection) },
-    })
-    const external = vi.fn(async () => ({ text: 'Codex selected' }))
-    ctx.on('agent/resolve-external-turn', async (_request, next) => await next() ?? {
-      providerId: 'codex',
-      resolveWorkspace: async (_session, cwd) => ({ identity: 'isolated-selection', cwd }),
-      executeTurn: external,
-    })
-    expect(ctx.get('agentModelSelection')).toBeUndefined()
-    expect(first.agent.ctx.get('agentModelSelection')).toBe(localSelection)
-    expect(second.agent.ctx.get('agentModelSelection')).toBe(codexSelection)
-    const localIdle = waitForIdle(ctx, first.agent)
-    const codexIdle = waitForIdle(ctx, second.agent)
-    send(first.agent, 'Local only')
-    send(second.agent, 'Codex only')
-    await Promise.all([localIdle, codexIdle])
-    expect(external).toHaveBeenCalledTimes(1)
-    expect(local.requests).toHaveLength(1)
-    expect(second.agent.session.snapshotEvents().at(-1)).toMatchObject({
-      type: 'turn/end', data: { reason: { kind: 'completed' } },
-    })
-    await second.dispose()
-    expect(first.agent.ctx.get('agentModelSelection')).toBe(localSelection)
-    const retainedIdle = waitForIdle(ctx, first.agent)
-    send(first.agent, 'Still Local')
-    await retainedIdle
-    expect(local.requests).toHaveLength(2)
-    expect(external).toHaveBeenCalledTimes(1)
-    await first.dispose()
-    await ctx.fiber.dispose()
+    try {
+      const local = new MockAdapter([textResponse('Local first'), textResponse('Local retained')])
+      ctx.llm.registerAdapter(['local'], local)
+      const localSelection = { current: { provider: 'local', model: 'huihui' }, assembled: undefined }
+      const codexSelection = { current: { provider: 'codex', model: 'dynamic-model' }, assembled: undefined }
+      const first = await ctx.agents.create({
+        sessionId: SessionId('selection-local'),
+        meta: { cwd: process.cwd() },
+        agentOptions: { provider: 'local', model: 'huihui' },
+        setup(agentCtx) { installModelSelection(agentCtx, localSelection) },
+      })
+      const second = await ctx.agents.create({
+        sessionId: SessionId('selection-codex'),
+        meta: { cwd: process.cwd() },
+        agentOptions: { provider: 'local', model: 'huihui' },
+        setup(agentCtx) { installModelSelection(agentCtx, codexSelection) },
+      })
+      const external = vi.fn(async () => ({ text: 'Codex selected' }))
+      ctx.on('agent/resolve-external-turn', async (_request, next) => await next() ?? {
+        providerId: 'codex',
+        resolveWorkspace: async (_session, cwd) => ({ identity: 'isolated-selection', cwd }),
+        executeTurn: external,
+      })
+      expect(ctx.get('agentModelSelection')).toBeUndefined()
+      expect(first.agent.ctx.get('agentModelSelection')).toBe(localSelection)
+      expect(second.agent.ctx.get('agentModelSelection')).toBe(codexSelection)
+      const localIdle = waitForIdle(ctx, first.agent)
+      const codexIdle = waitForIdle(ctx, second.agent)
+      send(first.agent, 'Local only')
+      send(second.agent, 'Codex only')
+      await Promise.all([localIdle, codexIdle])
+      expect(external).toHaveBeenCalledTimes(1)
+      expect(local.requests).toHaveLength(1)
+      expect(second.agent.session.snapshotEvents().at(-1)).toMatchObject({
+        type: 'turn/end', data: { reason: { kind: 'completed' } },
+      })
+      await second.dispose()
+      expect(first.agent.ctx.get('agentModelSelection')).toBe(localSelection)
+      const retainedIdle = waitForIdle(ctx, first.agent)
+      send(first.agent, 'Still Local')
+      await retainedIdle
+      expect(local.requests).toHaveLength(2)
+      expect(external).toHaveBeenCalledTimes(1)
+      await first.dispose()
+    } finally {
+      await ctx.fiber.dispose()
+    }
   })
 
   it('resolves a frozen external route before local prompt/tool assembly and settles through DSH', async () => {
