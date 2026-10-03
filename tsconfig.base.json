@@ -32,7 +32,6 @@
       "@deepseek-ai/dsh-client-ui-custom-computer-use/client": ["./packages/client/ui-custom-computer-use/src/client/index.ts"],
       "@deepseek-ai/dsh-custom-computer-use-safety/types": ["./packages/computer-use/custom-computer-use-safety/src/types.ts"],
       "@deepseek-ai/dsh-custom-computer-use-safety/typert": ["./packages/computer-use/custom-computer-use-safety/lib/typert.host.d.ts"],
-      "@deepseek-ai/dsh-custom-computer-use-safety/remote": ["./packages/computer-use/custom-computer-use-safety/lib/typert.remote-client.d.ts"],
       "@deepseek-ai/dsh-api-runtime-diagnostics-controller": ["./packages/api/runtime-diagnostics-controller/src/index.ts"],
       "@deepseek-ai/dsh-api-runtime-diagnostics-controller/types": ["./packages/api/runtime-diagnostics-controller/src/types.ts"],
       "@deepseek-ai/dsh-reasoning-policy/types": ["./packages/runtime-diagnostics/reasoning-policy/src/types.ts"],

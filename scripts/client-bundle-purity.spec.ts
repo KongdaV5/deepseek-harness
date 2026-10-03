@@ -84,6 +84,34 @@ describe('client bundle dynamic imports', () => {
   })
 })
 
+describe('generated Computer Use Remote runtime resolution', () => {
+  it('bundles the generated JavaScript through the package export in the Client build', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'dsh-client-computer-remote-'))
+    onTestFinished(() => { rmSync(root, { recursive: true, force: true }) })
+    const cwd = fileURLToPath(new URL('../packages/client/ui-custom-computer-use/', import.meta.url))
+    const config = clientConfigs('@deepseek-ai/dsh-client-ui-custom-computer-use')[0]
+    if (config === undefined) throw new Error('Computer Use client config missing')
+
+    let builds: TsdownBundle[] = []
+    try {
+      // Keep the package's real tsconfig resolution and emitted Client entry.
+      builds = await build({
+        ...config, cwd, config: false, outDir: root,
+        write: false, clean: false, exports: false, report: false, logLevel: 'silent',
+      })
+      const chunks = builds.flatMap(bundle => bundle.chunks).filter(chunk => chunk.type === 'chunk')
+      const inputs = chunks.flatMap(chunk => Object.keys(chunk.modules))
+      expect(inputs.some(id => id.replaceAll('\\', '/').endsWith(
+        '/custom-computer-use-safety/lib/typert.remote-client.js',
+      ))).toBe(true)
+      expect(inputs.some(id => id.endsWith('typert.remote-client.d.ts'))).toBe(false)
+      expect(chunks.some(chunk => chunk.code.includes('computerUse/checkPermissions'))).toBe(true)
+    } finally {
+      for (const bundle of builds) await bundle[Symbol.asyncDispose]()
+    }
+  })
+})
+
 function clientSourceMapPath(packagePath: string): string {
   return fileURLToPath(new URL(`../packages/${packagePath}/lib/client.js.map`, import.meta.url))
 }
