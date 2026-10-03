@@ -12,7 +12,7 @@ import type {} from '@deepseek-ai/dsh-schedule/src/runtime.ts'
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
-import { agentEvents, type Agent } from '@deepseek-ai/dsh-agent'
+import { agentEvents, type Agent, type ExternalTurnExecutor } from '@deepseek-ai/dsh-agent'
 import { mountAgentLoopTestDependencies, mountAgentLoopTestHarness } from '@deepseek-ai/dsh-agent-loop-testkit'
 import CommandRuntime from '@deepseek-ai/dsh-commands'
 import ComputerUseRegistry from '@deepseek-ai/dsh-computer-use'
@@ -31,6 +31,13 @@ const ACTION_TOOLS = ['click', 'type_text'] as const
 const IRREVERSIBLE_TOOLS = ['send_message'] as const
 /** Every driver tool this spec registers, for the status count. */
 const DRIVER_TOOL_COUNT = OBSERVE_TOOLS.length + ACTION_TOOLS.length + IRREVERSIBLE_TOOLS.length
+
+/** External route marker; admission tests must never dispatch an external turn. */
+const EXTERNAL_EXECUTOR: ExternalTurnExecutor = {
+  providerId: 'codex',
+  async resolveWorkspace() { throw new Error('Admission fixture must not resolve an external workspace') },
+  async executeTurn() { throw new Error('Admission fixture must not execute an external turn') },
+}
 
 const contexts: Context[] = []
 
@@ -117,13 +124,27 @@ async function mount(approval: ApprovalAnswer, config: Partial<Safety.Config> = 
 /** Register the fake driver catalog over one context. */
 function registerDriverTools(ctx: Context, runs: string[]): void {
   const register = (driverName: string): void => {
+    if (driverName === 'check_permissions') {
+      const content = [{ type: 'text' as const, text: 'Accessibility: granted. Screen Recording: granted.' }]
+      ctx.tools.register({
+        name: `${PROVIDER}${driverName}`,
+        description: `fake driver tool ${driverName}`,
+        parameters: { type: 'object', properties: { prompt: { type: 'boolean' } } },
+        output: { schema: { type: 'object' }, render: () => content },
+        async execute() {
+          runs.push(driverName)
+          return { content, structuredContent: { accessibility: true, screen_recording: true } }
+        },
+      })
+      return
+    }
     ctx.tools.register(defineContentToolFixture({
       name: `${PROVIDER}${driverName}`,
       description: `fake driver tool ${driverName}`,
       parameters: { prompt: { type: 'boolean' } },
       async execute() {
         runs.push(driverName)
-        return [{ type: 'text', text: driverName === 'check_permissions' ? JSON.stringify({ accessibility: true, screen_recording: true }) : `${driverName} ran` }]
+        return [{ type: 'text', text: `${driverName} ran` }]
       },
     }))
   }
@@ -432,7 +453,7 @@ describe('refused turn origins', () => {
     await agentEvents(ctx, owner.agent).waterfall(
       'agent/resolve-external-turn',
       { selection: { provider: 'codex', model: 'gpt' }, signal: new AbortController().signal },
-      () => Promise.resolve({}),
+      () => Promise.resolve(EXTERNAL_EXECUTOR),
     )
     await beginTurn(ctx, owner, 1)
 
@@ -448,7 +469,7 @@ describe('refused turn origins', () => {
     await agentEvents(ctx, owner.agent).waterfall(
       'agent/resolve-external-turn',
       { selection: { provider: 'codex', model: 'gpt' }, signal: new AbortController().signal },
-      () => Promise.resolve({}),
+      () => Promise.resolve(EXTERNAL_EXECUTOR),
     )
     await beginTurn(ctx, owner, 1)
 
@@ -859,7 +880,7 @@ it('Stop then resume and same-owner reacquire cannot revive an old pending appro
 it('uses the in-force Session request route rather than stale Local constructor options', async () => {
   const h = await harness('allow')
   await beginTurn(h.ctx, h)
-  h.session.append('request/header', { header: { config: { provider: 'codex', model: 'fixture' } } })
+  h.session.append('request/header', { reason: 'initial', header: { config: { provider: 'codex', model: 'fixture' } } })
   expect((await h.call('get_window_state')).isError).toBe(true)
   expect((await h.call('click')).isError).toBe(true)
   expect(h.runs).toEqual([])

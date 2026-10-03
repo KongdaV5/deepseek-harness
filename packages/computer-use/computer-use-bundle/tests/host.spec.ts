@@ -19,9 +19,9 @@ import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import * as yaml from 'js-yaml'
-import { Context } from '@deepseek-ai/cordis'
+import { Context, type Plugin } from '@deepseek-ai/cordis'
 import { entryListSchema } from '@deepseek-ai/cordis-plugin-include'
-import { agentEvents, type Agent } from '@deepseek-ai/dsh-agent'
+import { agentEvents, type Agent, type ExternalTurnExecutor } from '@deepseek-ai/dsh-agent'
 import { mountAgentLoopTestDependencies, mountAgentLoopTestHarness } from '@deepseek-ai/dsh-agent-loop-testkit'
 import LocalAttachmentStore from '@deepseek-ai/dsh-attachment-local'
 import CommandRuntime from '@deepseek-ai/dsh-commands'
@@ -78,11 +78,18 @@ function bundleRows(): Row[] {
 }
 
 /** The plugin each declared row names. */
-const ROW_MODULES: Record<string, unknown> = {
+const ROW_MODULES: Record<string, Plugin> = {
   '@deepseek-ai/dsh-client-ui-custom-computer-use': ComputerUseUI,
   '@deepseek-ai/dsh-computer-use': ComputerUseRegistry,
   '@deepseek-ai/dsh-custom-computer-use-safety': Safety,
   '@deepseek-ai/dsh-experimental-computer-use-cua-driver-mcp': Provider,
+}
+
+/** External route marker; admission tests must never dispatch an external turn. */
+const EXTERNAL_EXECUTOR: ExternalTurnExecutor = {
+  providerId: 'codex',
+  async resolveWorkspace() { throw new Error('Admission fixture must not resolve an external workspace') },
+  async executeTurn() { throw new Error('Admission fixture must not execute an external turn') },
 }
 
 /** A model route the composed MCP client can resolve image capability from. */
@@ -380,7 +387,7 @@ describe('admission at the MCP seam', () => {
 
     // The refusal is a refusal, not a queue: once the owning turn ends, the
     // second session acts on the same desktop with no parked work to flush.
-    agentEvents(h.ctx, first.agent).emit('agent/turn-stopping', { turn: 1 })
+    agentEvents(h.ctx, first.agent).emit('agent/turn-stopping', { turn: 1, signal: new AbortController().signal })
     await vi.waitFor(() => { expect(h.ctx.desktopLease.snapshot().state).toBe('released') })
     expect((await h.call('click', second.agent, { x: 2, y: 2 })).isError).toBe(false)
     expect(await h.calls('click')).toHaveLength(2)
@@ -398,7 +405,7 @@ describe('admission at the MCP seam', () => {
     await agentEvents(h.ctx, external.agent).waterfall(
       'agent/resolve-external-turn',
       { selection: { provider: 'codex', model: 'gpt' }, signal: new AbortController().signal },
-      () => Promise.resolve({}),
+      () => Promise.resolve(EXTERNAL_EXECUTOR),
     )
     await beginTurn(h.ctx, external)
     expect(denial(await h.call('click', external.agent, { x: 1, y: 1 }))).toContain('Codex external route')
