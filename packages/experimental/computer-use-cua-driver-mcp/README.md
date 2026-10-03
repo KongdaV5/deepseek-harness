@@ -41,6 +41,8 @@ Add these rows to a composition that already provides tools and system-prompt se
 
 | Field | Default | Meaning |
 |---|---|---|
+| `env` | `{}` | Explicit MCP child environment overrides; defaults stay unchanged |
+| `failOnStartupError` | `true` | Reject initial failure; optional bundles may set false to retain reconnect and nonblocking startup |
 | `command` | `cua-driver` | Installed executable path or PATH command |
 | `args` | `[mcp]` | Arguments passed directly without a shell |
 | `toolCallTimeoutMs` | MCP client default | Per-call timeout override in milliseconds |
@@ -50,7 +52,7 @@ The generated [configuration catalog](../../../docs/config-catalog.md#deepseek-a
 
 ### Activation and ownership
 
-The provider registers as `cua-driver-mcp` before connecting. A second computer-use provider fails activation, including another instance of this package. Failed initialization or initial tool discovery rejects this entry and releases its registration after cleanup. Later disconnects retain the registration while the MCP client reconnects or exhausts its attempt budget; unload the entry to release it.
+The provider registers as `cua-driver-mcp` before connecting. A second computer-use provider fails activation, including another instance of this package. With the default failOnStartupError:true, failed initialization or discovery rejects this entry and releases its registration after cleanup. Setting false retains the existing MCP reconnect policy without making an optional provider a Host startup blocker. Later disconnects retain the registration while the MCP client reconnects or exhausts its attempt budget; unload the entry to release it.
 
 The model sees tools under the fixed `mcp__cua-driver-mcp__` namespace. Tool names, descriptions, input schemas, canonical results, and image admission follow the existing [MCP bridge](../../mcp/mcp-client/README.md). There is no additional DSH action catalog or provider-selection tool.
 

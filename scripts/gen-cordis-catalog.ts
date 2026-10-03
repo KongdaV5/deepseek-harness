@@ -81,6 +81,7 @@ export const SERVICE_PAGE: Record<string, string> = {
   ptcRuntime: 'ptc-runtime.md',
   browserUse: 'browser-use.md',
   computerUse: 'computer-use.md',
+  computerUseController: 'computer-use.md',
   commands: 'commands.md',
   compaction: 'compaction.md',
   cordisInspect: 'extensions.md',
@@ -182,6 +183,7 @@ export const SERVICE_WALK_EXEMPTIONS: Record<string, string> = {
   dshHomePath: 'not a service: boot-provided root accessor function (typeof dshHomePath | undefined) for Loader !!js config expressions — packages/boot/app-boot/README.md owns the boot contract',
   launchEnvironment: 'not a service: launcher-provided root accessor value (LaunchEnvironmentSnapshot | undefined) — packages/util/launch-environment/README.md owns this launcher contract',
   pluginPackages: 'profile-boot-owned package resolver service used by optional consumers — packages/boot/app-boot/README.md owns this internal API',
+  desktopLease: 'Custom-only desktop ownership and Stop service, deliberately not exported from its package root so it never joins the public host service tier — packages/computer-use/custom-computer-use-safety/README.md owns this contract',
   fileUpload: 'client-side browser upload service — packages/client/file-upload/README.md owns the API',
   uiRenderer: 'client-side interface-typed browser service — packages/client/ui-renderer/README.md owns the API',
   uiSession: 'client-side Session source adapter — packages/client/ui-session/README.md owns the API',
@@ -292,6 +294,7 @@ export const LINK_MAP: Readonly<Record<string, string>> = {
   CompactionPolicyAdmission: '../custom-foundation.md',
   CompactionBeginInput: '../custom-foundation.md',
   CompactionPolicyTransaction: '../custom-foundation.md',
+  ComputerUseStatus: '../custom-foundation.md',
   LocalModelRuntimeSnapshot: '../custom-foundation.md',
   LocalModelProfileId: '../custom-foundation.md',
 

@@ -815,6 +815,35 @@ export interface Config {
 ```
 <!-- END GENERATED config-catalog:@deepseek-ai/dsh-credentials-local -->
 
+<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-custom-computer-use-safety -->
+<a id="deepseek-aidsh-custom-computer-use-safety"></a>
+
+## `@deepseek-ai/dsh-custom-computer-use-safety`
+
+- `inject`: `tools` · `systemPrompt` · `commands` · `agents`
+- `source`: [`packages/computer-use/custom-computer-use-safety/src/index.ts:54`](../packages/computer-use/custom-computer-use-safety/src/index.ts)
+
+```ts config-catalog
+/** Driver tool-name prefixes and the conservative classification overrides. */
+export interface Config {
+  /**
+   * Public tool-name prefixes owned by the configured Computer Use provider.
+   * Defaults to the official Cua Driver MCP provider's namespace.
+   */
+  toolPrefixes: string[]
+  /**
+   * Bounded window, in milliseconds, to prove that every accounted desktop call
+   * settled before the lease is released. Exceeding it poisons the lease.
+   */
+  drainTimeoutMs: number
+  /** Reviewed read-only names; cannot widen the built-in observation catalog. */
+  observeTools: string[]
+  /** Driver-owned names forced to desktop actions; wins over every read-only rule. */
+  actTools: string[]
+}
+```
+<!-- END GENERATED config-catalog:@deepseek-ai/dsh-custom-computer-use-safety -->
+
 <!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-custom-foundation -->
 <a id="deepseek-aidsh-custom-foundation"></a>
 
@@ -1024,6 +1053,10 @@ export interface StagehandModelConfig {
 export interface Config {
   /** Executable path or PATH command; defaults to `cua-driver`. */
   command: string
+  /** Reject initial connection failure; optional products may opt out and reconnect instead. */
+  failOnStartupError: boolean
+  /** Explicit MCP child environment overrides; omission preserves upstream defaults. */
+  env: Record<string, string>
   /** Arguments passed without a shell; defaults to `['mcp']`. */
   args: string[]
   /** Per-call timeout in milliseconds; omission uses the MCP client's default. */
@@ -4419,6 +4452,7 @@ These load from a `cordis.yml` entry with no `config:` block; they declare no co
 | `@deepseek-ai/dsh-client-ui-commands` | — | [`packages/client/ui-commands/src/index.ts`](../packages/client/ui-commands/src/index.ts) |
 | `@deepseek-ai/dsh-client-ui-conversation` | — | [`packages/client/ui-conversation/src/index.ts`](../packages/client/ui-conversation/src/index.ts) |
 | `@deepseek-ai/dsh-client-ui-cordis` | — | [`packages/extensions/ui-cordis/src/index.ts`](../packages/extensions/ui-cordis/src/index.ts) |
+| `@deepseek-ai/dsh-client-ui-custom-computer-use` | — | [`packages/client/ui-custom-computer-use/src/index.ts`](../packages/client/ui-custom-computer-use/src/index.ts) |
 | `@deepseek-ai/dsh-client-ui-custom-runtime` | — | [`packages/client/ui-custom-runtime/src/index.ts`](../packages/client/ui-custom-runtime/src/index.ts) |
 | `@deepseek-ai/dsh-client-ui-deliverables` | `systemPrompt` · `connection` · `sessionQuery` · `sessionController` · `workspaceFiles` · `fs` · `sandboxPolicy` · `workspaceChanges` | [`packages/client/ui-deliverables/src/index.ts`](../packages/client/ui-deliverables/src/index.ts) |
 | `@deepseek-ai/dsh-client-ui-directory-picker-browse` | — | [`packages/client/ui-directory-picker-browse/src/index.ts`](../packages/client/ui-directory-picker-browse/src/index.ts) |
@@ -4552,6 +4586,7 @@ Imported as libraries by other packages; a `cordis.yml` cannot load them.
 | `@deepseek-ai/dsh-client-ui-slots` | — | [`packages/client/ui-slots/src/index.ts`](../packages/client/ui-slots/src/index.ts) |
 | `@deepseek-ai/dsh-client-web` | — | [`packages/client/web/src/index.ts`](../packages/client/web/src/index.ts) |
 | `@deepseek-ai/dsh-cmdline` | — | [`packages/boot/cmdline/src/index.ts`](../packages/boot/cmdline/src/index.ts) |
+| `@deepseek-ai/dsh-computer-use-bundle` | — | [`packages/computer-use/computer-use-bundle/src/index.ts`](../packages/computer-use/computer-use-bundle/src/index.ts) |
 | `@deepseek-ai/dsh-deque` | — | [`packages/util/deque/src/index.ts`](../packages/util/deque/src/index.ts) |
 | `@deepseek-ai/dsh-desktop-custom` | — | [`packages/bundle/desktop-custom/src/index.ts`](../packages/bundle/desktop-custom/src/index.ts) |
 | `@deepseek-ai/dsh-experimental-agent-team-profile` | — | [`packages/experimental/agent-team-profile/src/index.ts`](../packages/experimental/agent-team-profile/src/index.ts) |

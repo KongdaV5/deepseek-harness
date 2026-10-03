@@ -853,6 +853,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     occupants: [
       'client-ui-conversation QueueDock id \'queue\'',
       'client-ui-conversation TodoDock id \'todo\'',
+      'client-ui-custom-computer-use ComputerUseStop id \'computer-use-stop\'',
       'client-ui-goal GoalDock id \'goal\'',
       'client-ui-run-details RunDetailsDock id \'run-details\'',
     ],
@@ -2676,6 +2677,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     slotInject: '',
     declaredBy: 'an entry in \'settings.section\' (client-ui-settings-plugins), so it exists while that entry is mounted',
     occupants: [
+      'client-ui-custom-computer-use ComputerUseSettings id \'computer-use\'',
       'client-ui-settings-plugin-inventory PluginInventorySettingsTab id \'all\'',
     ],
     replaceRisk: 'none',

@@ -1,0 +1,1634 @@
+{
+  "formatVersion": 1,
+  "baseline": "dsh-v0.1.6-alpha.2",
+  "customChangeSurface": [
+    {
+      "domain": "desktop-product-identity",
+      "description": "DS Harness product flavor, bundle identity, startup shell, single-instance ownership, and official-product isolation.",
+      "customPaths": [
+        "apps/desktop/src/product-flavor.ts",
+        "apps/desktop/src/product-flavors.json",
+        "apps/desktop/src/paths.ts",
+        "apps/desktop/src/main.ts",
+        "apps/desktop/src/single-instance.ts",
+        "apps/desktop/src/data-boundary.ts",
+        "apps/desktop/src/web-document.ts",
+        "apps/desktop/electron-builder.config.mjs"
+      ],
+      "upstreamDependency": "Electron product configuration, environment-resolved app id, userData resolution, single-instance ownership, mandatory-update identity, and the startup web document contract.",
+      "riskSignificance": "A regression can rename the product, reuse the official profile/userData boundary, or show stale official branding."
+    },
+    {
+      "domain": "desktop-packaging",
+      "description": "Desktop staging, primary-runtime closure, Electron packaging, and the qualified install artifact contract.",
+      "customPaths": [
+        "apps/desktop/electron-builder.config.mjs",
+        "apps/desktop/scripts/package-macos.ts",
+        "apps/desktop/scripts/package-target.ts",
+        "apps/desktop/scripts/packaging-run.mjs",
+        "apps/desktop/scripts/prepare-dsh.ts",
+        "apps/desktop/scripts/prepare-package-set.ts",
+        "apps/desktop/scripts/prepare-primary-runtime.ts",
+        "apps/desktop/scripts/prepare-runtime.ts",
+        "apps/desktop/scripts/macos-runtime.ts",
+        "apps/desktop/scripts/primary-runtime-lock.json",
+        "apps/desktop/src/runtime-tree.ts",
+        "scripts/build.ts",
+        "scripts/client-build-environment.ts"
+      ],
+      "upstreamDependency": "Desktop staging layout, primary-runtime descriptor and payload digests, packaged Node/Python/pnpm tree, package resolution, and release-family build contracts.",
+      "riskSignificance": "Changes can produce an incomplete runtime, wrong architecture, missing native module, unqualified update payload, or non-replayable product build."
+    },
+    {
+      "domain": "desktop-custom-composition",
+      "description": "The `@deepseek-ai/dsh-desktop-custom` Cordis tail patch that layers the DS Harness capability composition onto the upstream base/web bundles. The historical `desktop-custom-composition` / `desktop-dev-composition` package-set implementation is retired and is not restored.",
+      "customPaths": [
+        "packages/bundle/desktop-custom/**"
+      ],
+      "upstreamDependency": "Cordis patch schema, base/web bundle graph, package export resolution, generated catalogs, and Desktop package-set loading.",
+      "riskSignificance": "Composition drift can silently omit a capability, add an unused runtime row, or make the Custom runtime fail during startup."
+    },
+    {
+      "domain": "stage-6-11-capabilities",
+      "description": "The Stage 6-11 DS Harness capability packages layered over upstream agent, session, LLM, compaction, and client contracts.",
+      "customPaths": [
+        "packages/runtime-diagnostics/**",
+        "packages/session/task-checkpoint/**",
+        "packages/session/session-checkpoint-policy/**",
+        "packages/compaction/compaction-task-aware-policy/**",
+        "packages/api/runtime-diagnostics-controller/**",
+        "packages/client/ui-run-details/**"
+      ],
+      "upstreamDependency": "Agent lifecycle events, LLM streaming/retry hooks, Session v3 events/projections, compaction executor, token-meter, Typert Remote streams, Gateway transport, Resource Registry, and scoped client slots.",
+      "riskSignificance": "Interface drift can break observability, task continuity, or safety invariants while leaving the Desktop superficially runnable."
+    },
+    {
+      "domain": "profile-runtime-boundary",
+      "description": "Desktop flavor, profile resolution, and the intentional isolation/sharing boundary for userData, settings, sessions, and migration.",
+      "customPaths": [
+        "apps/desktop/src/data-boundary.ts",
+        "apps/desktop/src/paths.ts",
+        "apps/desktop/src/main.ts",
+        "apps/desktop/src/profile-core-cleanup.ts",
+        "apps/desktop/src/profile-packages.ts",
+        "apps/desktop/src/project-manager.ts",
+        "apps/desktop/src/owned-directory.ts"
+      ],
+      "upstreamDependency": "Profile link/loading, project and runtime descriptors, userData, settings, sessions, and automatic migration semantics.",
+      "riskSignificance": "This is a data-safety boundary; a mismatch can mix official and Custom runtime state or migrate shared data unexpectedly."
+    },
+    {
+      "domain": "ui-integration",
+      "description": "Run Details, the transient diagnostics dock, and the client composition that mounts them.",
+      "customPaths": [
+        "packages/client/ui-run-details/**",
+        "packages/api/runtime-diagnostics-controller/src/client/**",
+        "packages/runtime-diagnostics/run-details/**",
+        "apps/desktop/src/web-document.ts",
+        "apps/desktop/src/main.ts"
+      ],
+      "upstreamDependency": "Client remote transport, generated client catalogs, dockkit and scoped slots, conversation layout, startup URL, and title/branding contracts.",
+      "riskSignificance": "Changes can hide diagnostics, reintroduce an idle dock gap, or surface official branding."
+    },
+    {
+      "domain": "tests",
+      "description": "Contract, composition, packaging, UI, and maintenance-tooling regressions.",
+      "customPaths": [
+        "apps/desktop/tests/**",
+        "packages/runtime-diagnostics/*/tests/**",
+        "packages/session/task-checkpoint/tests/**",
+        "packages/compaction/compaction-task-aware-policy/tests/**",
+        "packages/api/runtime-diagnostics-controller/tests/**",
+        "packages/client/ui-run-details/tests/**",
+        "scripts/upstream-*.spec.ts"
+      ],
+      "upstreamDependency": "Vitest, test helpers, Desktop fixtures, and package build conventions.",
+      "riskSignificance": "Test-framework drift can hide or falsely report compatibility failures; it does not itself prove a product regression."
+    },
+    {
+      "domain": "documentation",
+      "description": "Bilingual architecture notes, subsystem pages, generated catalogs, and maintenance evidence.",
+      "customPaths": [
+        ".agents/notes/implemented/architecture/2026-09-1*.md",
+        ".agents/notes/implemented/architecture/2026-09-1*.yaml",
+        ".agents/notes/implemented/architecture/2026-09-1*.json",
+        "docs/subsystems/compaction*",
+        "docs/capability-seams*",
+        "docs/config-catalog*",
+        "docs/event-producer-consumer*",
+        "docs/module-graph*",
+        "docs/persistence-catalog*"
+      ],
+      "upstreamDependency": "Documentation pairing, generated-catalog, link, and architecture-note conventions.",
+      "riskSignificance": "Documentation drift is normally non-runtime but can invalidate generated-doc gates and maintenance evidence."
+    },
+    {
+      "domain": "workspace-build-graph",
+      "description": "Workspace discovery, TypeScript project references, package exports, and build/release tooling.",
+      "customPaths": [
+        "package.json",
+        "pnpm-lock.yaml",
+        "tsconfig.base.json",
+        "tsconfig.client.json",
+        "tsconfig.host.json",
+        "scripts/type-equiv.manifest.json",
+        "scripts/release/families.ts",
+        "scripts/upstream-audit.ts",
+        "scripts/upstream-monitor.ts",
+        "scripts/upstream-schedule.ts"
+      ],
+      "upstreamDependency": "Workspace discovery, TypeScript project references, package exports, build/release tooling, and dependency resolution.",
+      "riskSignificance": "Structural drift can make Custom packages disappear from builds or resolve incompatible runtime dependencies."
+    }
+  ],
+  "seams": [
+    {
+      "id": "desktop-product-identity-isolation",
+      "description": "Product flavor, bundle identity, startup shell, userData, and single-instance isolation for DS Harness.",
+      "upstreamPaths": [
+        "apps/desktop/electron-builder.config.*",
+        "apps/desktop/src/main.ts",
+        "apps/desktop/src/paths.ts",
+        "apps/desktop/src/product-flavor.ts",
+        "apps/desktop/src/product-flavors.json",
+        "apps/desktop/src/single-instance.ts",
+        "apps/desktop/src/web-document.ts",
+        "apps/desktop/src/mandatory-update-*.ts",
+        "apps/desktop/src/project-manager.ts",
+        "apps/desktop/package.json"
+      ],
+      "contractPaths": [
+        "apps/desktop/electron-builder.config.*",
+        "apps/desktop/src/main.ts",
+        "apps/desktop/src/paths.ts",
+        "apps/desktop/src/product-flavor.ts",
+        "apps/desktop/src/product-flavors.json",
+        "apps/desktop/src/single-instance.ts",
+        "apps/desktop/src/web-document.ts"
+      ],
+      "customPaths": [
+        "apps/desktop/src/product-flavor.ts",
+        "apps/desktop/src/product-flavors.json",
+        "apps/desktop/src/paths.ts",
+        "apps/desktop/src/main.ts",
+        "apps/desktop/src/single-instance.ts",
+        "apps/desktop/src/data-boundary.ts",
+        "apps/desktop/src/web-document.ts",
+        "apps/desktop/electron-builder.config.mjs"
+      ],
+      "interface": "Electron productFlavor/appId identity, app.setPath('userData'), single-instance ownership, startup document/title, and flavor selection.",
+      "whyItMatters": "The product identity and the official/Custom data boundary are the first safety gate of any candidate launch.",
+      "failureMode": "A regression renames the product, reuses the official profile or userData, or lets both applications contend for one identity.",
+      "detectionMethod": "Exact path and rename detection; product/data-safety contract paths are treated as structural signals.",
+      "risk": "CRITICAL",
+      "tests": [
+        "apps/desktop/tests/product-flavor.spec.ts",
+        "apps/desktop/tests/main-startup.spec.ts",
+        "apps/desktop/tests/single-instance.spec.ts",
+        "apps/desktop/tests/project-manager.spec.ts"
+      ]
+    },
+    {
+      "id": "desktop-packaging-runtime-tree",
+      "description": "Desktop staging, primary-runtime closure, Electron packaging, and Custom install artifact contract.",
+      "upstreamPaths": [
+        "apps/desktop/electron-builder.config.*",
+        "apps/desktop/scripts/package*.ts",
+        "apps/desktop/scripts/prepare-*.ts",
+        "apps/desktop/scripts/macos-runtime.ts",
+        "apps/desktop/scripts/primary-runtime-lock.json",
+        "apps/desktop/src/runtime-tree.ts",
+        "apps/desktop/package.json",
+        "scripts/build.ts",
+        "scripts/release/**"
+      ],
+      "contractPaths": [
+        "apps/desktop/electron-builder.config.*",
+        "apps/desktop/scripts/prepare-dsh.ts",
+        "apps/desktop/scripts/prepare-package-set.ts",
+        "apps/desktop/scripts/prepare-runtime.ts",
+        "apps/desktop/scripts/prepare-primary-runtime.ts",
+        "apps/desktop/scripts/macos-runtime.ts",
+        "apps/desktop/scripts/primary-runtime-lock.json",
+        "apps/desktop/src/runtime-tree.ts",
+        "apps/desktop/package.json"
+      ],
+      "customPaths": [
+        "apps/desktop/electron-builder.config.mjs",
+        "apps/desktop/scripts/package-target.ts",
+        "apps/desktop/scripts/packaging-run.mjs",
+        "apps/desktop/scripts/primary-runtime-lock.json",
+        "apps/desktop/src/runtime-tree.ts",
+        "apps/desktop/src/desktop-composition.ts"
+      ],
+      "interface": "Prepared Resources tree, packaged Node/Python executables, primary-runtime payload digests, package-set closure, builder configuration, target architecture, and install source.",
+      "whyItMatters": "A candidate is only installable if the staged runtime tree and its qualified payload closure still describe the current upstream layout.",
+      "failureMode": "An incomplete runtime, wrong architecture, missing native module, or unqualified update payload reaches a packaged artifact.",
+      "detectionMethod": "Path/rename detection plus package/build manifest, runtime-lock, and runtime-tree structural signals.",
+      "risk": "HIGH",
+      "tests": [
+        "apps/desktop/tests/macos-signature.spec.ts",
+        "apps/desktop/tests/runtime-fixture.ts",
+        "apps/desktop/tests/primary-runtime-preparation.spec.ts",
+        "scripts/verify-runtime-closure.spec.ts"
+      ]
+    },
+    {
+      "id": "package-set-custom-composition",
+      "description": "Cordis patch schema and package-set loading that inject the DS Harness capability composition through the `@deepseek-ai/dsh-desktop-custom` tail patch. The historical `desktop-custom-composition` and `desktop-dev-composition` package-set implementation is retired; the seam ID is retained for report/state compatibility while its evidence points at the current tail-patch architecture.",
+      "upstreamPaths": [
+        "apps/desktop/scripts/prepare-package-set.ts",
+        "apps/desktop/src/core-package-set.ts",
+        "apps/desktop/src/profile-packages.ts",
+        "packages/bundle/base/**",
+        "packages/bundle/web-app/**",
+        "vendor/loader/**",
+        "vendor/cordis/**"
+      ],
+      "contractPaths": [
+        "apps/desktop/scripts/prepare-package-set.ts",
+        "apps/desktop/src/core-package-set.ts",
+        "packages/bundle/base/cordis.patch.yml",
+        "packages/bundle/base/package.json",
+        "packages/bundle/web-app/cordis.patch.yml",
+        "packages/bundle/web-app/package.json"
+      ],
+      "customPaths": [
+        "packages/bundle/desktop-custom/**"
+      ],
+      "interface": "Cordis patch declarations, package names/exports, built-in package resolution, generated catalogs, and Desktop package-set materialization.",
+      "whyItMatters": "The composition is how every DS Harness capability reaches the product runtime; a silent omission is invisible until runtime.",
+      "failureMode": "The tail patch references a removed package or duplicates a new upstream native service, and the Custom runtime fails or loads a partial capability set.",
+      "detectionMethod": "Bundle/package/loader path detection, manifest changes, patch-schema changes, and rename tracking.",
+      "risk": "HIGH",
+      "tests": [
+        "apps/desktop/tests/core-package-set.spec.ts",
+        "apps/desktop/tests/desktop-composition.spec.ts"
+      ]
+    },
+    {
+      "id": "client-package-export-loader",
+      "description": "Client package export faces, remote client registration, slot ownership, and renderer package loading.",
+      "upstreamPaths": [
+        "packages/client/modules/**",
+        "packages/client/connection/**",
+        "packages/client/ui-renderer/**",
+        "packages/client/ui-conversation/**",
+        "packages/client/ui-layout/**",
+        "packages/client/ui-dockkit/**",
+        "packages/client/tsdown.client.ts",
+        "scripts/client-build-environment.ts",
+        "scripts/gen-client-catalog.ts"
+      ],
+      "contractPaths": [
+        "packages/client/modules/src/client/manifest.ts",
+        "packages/client/modules/src/client/index.ts",
+        "packages/client/connection/src/client/api.ts",
+        "packages/client/ui-renderer/src/client/registry.ts",
+        "packages/client/ui-conversation/src/client/contract/**",
+        "packages/client/ui-layout/src/client/**",
+        "packages/client/ui-dockkit/src/**",
+        "packages/client/tsdown.client.ts",
+        "scripts/client-build-environment.ts"
+      ],
+      "customPaths": [
+        "packages/client/ui-run-details/**",
+        "packages/client/ui-dockkit/src/**",
+        "packages/api/runtime-diagnostics-controller/src/client/**",
+        "packages/bundle/desktop-custom/cordis.patch.yml",
+        "scripts/client-build-environment.ts"
+      ],
+      "interface": "Client/remote export maps, package manifest loading, dockkit and scoped UI slots, connection commands, and renderer registration.",
+      "whyItMatters": "The DS Harness client half is only reachable through the current export, catalog, and slot conventions.",
+      "failureMode": "Old export or renderer entry assumptions leave the Custom client packages unmounted or mounted at the wrong slot.",
+      "detectionMethod": "Contract-path and package-export changes; exact rename detection for client contracts.",
+      "risk": "HIGH",
+      "tests": [
+        "packages/client/ui-run-details/tests/run-details-dock.client.spec.tsx",
+        "scripts/verify-client-packages.spec.ts"
+      ]
+    },
+    {
+      "id": "profile-settings-session-boundary",
+      "description": "Custom profile/flavor selection and the intentional isolation/sharing boundary for userData, settings, and Sessions.",
+      "upstreamPaths": [
+        "apps/desktop/src/paths.ts",
+        "apps/desktop/src/main.ts",
+        "apps/desktop/src/project-manager.ts",
+        "apps/desktop/src/profile-packages.ts",
+        "apps/desktop/src/profile-core-cleanup.ts",
+        "packages/settings/**",
+        "packages/session/session-persistence/**",
+        "packages/core/session/**",
+        "packages/session/session-format*/**"
+      ],
+      "contractPaths": [
+        "apps/desktop/src/paths.ts",
+        "apps/desktop/src/main.ts",
+        "apps/desktop/src/project-manager.ts",
+        "apps/desktop/src/profile-packages.ts",
+        "apps/desktop/src/profile-core-cleanup.ts",
+        "packages/settings/**/src/**",
+        "packages/session/session-persistence/src/**",
+        "packages/core/session/src/**",
+        "packages/session/session-format/src/**"
+      ],
+      "customPaths": [
+        "apps/desktop/src/data-boundary.ts",
+        "apps/desktop/src/paths.ts",
+        "apps/desktop/src/main.ts",
+        "apps/desktop/src/profile-core-cleanup.ts",
+        "apps/desktop/src/profile-packages.ts",
+        "apps/desktop/src/project-manager.ts",
+        "apps/desktop/src/owned-directory.ts"
+      ],
+      "interface": "Flavor/profile path and name, profile-link resolution, settings ownership, Session persistence location/schema, migration, and userData derivation.",
+      "whyItMatters": "This is the data-safety boundary between the official product and DS Harness; mistakes are destructive and irreversible for user data.",
+      "failureMode": "An unqualified launch uses the official profile or migrates shared stores under unreviewed assumptions.",
+      "detectionMethod": "Exact data-boundary paths, schema/type files, migrations, and renames always require manual review.",
+      "risk": "CRITICAL",
+      "tests": [
+        "apps/desktop/tests/data-boundary.spec.ts",
+        "apps/desktop/tests/profile-core-cleanup.spec.ts",
+        "apps/desktop/tests/profile-packages.spec.ts",
+        "apps/desktop/tests/project-manager.spec.ts"
+      ]
+    },
+    {
+      "id": "agent-run-event-contract",
+      "description": "Agent lifecycle, turn/step, request-attempt, stream, retry, cancellation, and tool event surfaces projected by Run State and policy.",
+      "upstreamPaths": [
+        "packages/core/agent/**",
+        "packages/core/agent-loop/**",
+        "packages/core/session/src/known-event-types.ts",
+        "packages/extensions/tool-cordis/src/api-catalog.ts"
+      ],
+      "contractPaths": [
+        "packages/core/agent/**/src/types.ts",
+        "packages/core/agent/**/src/events.ts",
+        "packages/core/agent-loop/**/src/**",
+        "packages/core/session/src/known-event-types.ts",
+        "packages/extensions/tool-cordis/src/api-catalog.ts"
+      ],
+      "customPaths": [
+        "packages/runtime-diagnostics/agent-lifecycle-facts/**",
+        "packages/runtime-diagnostics/agent-run-state/**",
+        "packages/runtime-diagnostics/agent-run-policy/**",
+        "packages/session/task-checkpoint/**",
+        "packages/core/session/src/known-event-types.ts",
+        "packages/extensions/tool-cordis/src/api-catalog.ts"
+      ],
+      "interface": "Run/Attempt correlation, agent event payloads, LlmAttemptId, model-attempt lifecycle, tool completion facts, retry gates, and cancellation acknowledgement.",
+      "whyItMatters": "Run State, run policy, and task checkpoints all derive their facts from these events; the projection cannot invent correlation semantics.",
+      "failureMode": "The projection misinterprets or misses new events while appearing to work, silently corrupting Run and Task state.",
+      "detectionMethod": "Agent/core contract paths, event schema/type changes, direct overlap, and rename detection.",
+      "risk": "HIGH",
+      "tests": [
+        "packages/runtime-diagnostics/agent-run-state/tests/projection.spec.ts",
+        "packages/runtime-diagnostics/agent-run-policy/tests/policy.spec.ts",
+        "packages/runtime-diagnostics/agent-lifecycle-facts/tests",
+        "packages/session/task-checkpoint/tests/schema.spec.ts"
+      ]
+    },
+    {
+      "id": "llm-provider-stream-contract",
+      "description": "LLM request, reasoning effort, streaming chunks, durable retry classification, token usage, and provider adapter contracts.",
+      "upstreamPaths": [
+        "packages/llm/**"
+      ],
+      "contractPaths": [
+        "packages/llm/llm/src/types.ts",
+        "packages/llm/llm-retry/src/**",
+        "packages/llm/**/src/adapter.ts",
+        "packages/llm/**/src/types.ts"
+      ],
+      "customPaths": [
+        "packages/llm/llm/src/types.ts",
+        "packages/llm/llm-pi-ai/src/adapter.ts",
+        "packages/llm/llm-retry/src/**",
+        "packages/runtime-diagnostics/reasoning-policy/**",
+        "packages/runtime-diagnostics/agent-run-state/**",
+        "packages/runtime-diagnostics/agent-run-policy/**"
+      ],
+      "interface": "Request-level reasoning effort, stream chunks, usage/cache accounting, durable retry waterfall, error payloads, and provider defaults.",
+      "whyItMatters": "DS Harness adds exactly one policy layer over provider-owned retry; duplicating provider behavior would double-apply limits.",
+      "failureMode": "Old error/retry or reasoning adapters conflict with provider behavior, or the policy misreads new usage fields.",
+      "detectionMethod": "Type/adapter contract paths and package export changes; adjacent implementation is medium risk pending review.",
+      "risk": "HIGH",
+      "tests": [
+        "packages/llm/llm-pi-ai/tests/adapter.spec.ts",
+        "packages/runtime-diagnostics/reasoning-policy/tests/policy.spec.ts",
+        "packages/runtime-diagnostics/agent-run-state/tests/projection.spec.ts"
+      ]
+    },
+    {
+      "id": "session-projection-persistence-contract",
+      "description": "Session event durability, known event registration, projection replay, and persistence format used by Run and Task state.",
+      "upstreamPaths": [
+        "packages/core/session/**",
+        "packages/session/session-format/**",
+        "packages/session/session-format-v2-to-v3/**",
+        "packages/session/session-persistence/**",
+        "packages/api/session-controller/**"
+      ],
+      "contractPaths": [
+        "packages/core/session/src/known-event-types.ts",
+        "packages/core/session/src/types.ts",
+        "packages/session/session-format/src/**",
+        "packages/session/session-format-v2-to-v3/src/index.ts",
+        "packages/session/session-persistence/src/storage-contract.ts",
+        "packages/api/session-controller/src/**"
+      ],
+      "customPaths": [
+        "packages/core/session/src/known-event-types.ts",
+        "packages/runtime-diagnostics/agent-run-state/**",
+        "packages/session/session-checkpoint-policy/**",
+        "packages/session/task-checkpoint/**"
+      ],
+      "interface": "Durable Session v3 event envelope, known-type catalog, JSONL format, static migrations, projection registration/replay, ignorable single-writer extension events, and atomic persistence.",
+      "whyItMatters": "Task and Run durable facts must be written through the current envelope rules or cross-version persistence becomes unsafe.",
+      "failureMode": "Custom envelopes are rejected, or an unregistered extension event corrupts replay for other readers.",
+      "detectionMethod": "Schema/type/event/persistence paths and migrations; direct overlap is explicitly recorded.",
+      "risk": "CRITICAL",
+      "tests": [
+        "packages/runtime-diagnostics/agent-run-state/tests/projection.spec.ts",
+        "packages/session/task-checkpoint/tests/projection.spec.ts",
+        "packages/session/task-checkpoint/tests/resume.spec.ts"
+      ]
+    },
+    {
+      "id": "compaction-token-surface-contract",
+      "description": "Compaction executor, surface replacement, token meter, tool-result governance, and auxiliary reasoning isolation.",
+      "upstreamPaths": [
+        "packages/compaction/**",
+        "packages/llm/token-meter/**",
+        "packages/core/agent/**/src/context*.ts",
+        "packages/core/agent/**/src/surface*.ts"
+      ],
+      "contractPaths": [
+        "packages/compaction/compaction/src/**",
+        "packages/compaction/compaction-basic/src/**",
+        "packages/compaction/compaction-tool-result-pruner/src/**",
+        "packages/llm/token-meter/src/**",
+        "packages/core/agent/**/src/context*.ts",
+        "packages/core/agent/**/src/surface*.ts"
+      ],
+      "customPaths": [
+        "packages/compaction/compaction-basic/**",
+        "packages/compaction/compaction-task-aware-policy/**",
+        "packages/runtime-diagnostics/reasoning-policy/src/compaction-policy.ts",
+        "packages/runtime-diagnostics/reasoning-policy/src/context-pressure.ts",
+        "packages/session/task-checkpoint/**"
+      ],
+      "interface": "Pressure facts, compaction eligibility/execution, candidate-policy validation, atomic surface apply, tool-output references, context-overflow recovery, and the task-aware protection/audit contract.",
+      "whyItMatters": "Upstream owns the executor and thresholds; DS Harness only adds task-aware eligibility, so a duplicated engine would discard new upstream safety behavior.",
+      "failureMode": "Two compaction systems coexist, or the task-aware layer authorizes a scope upstream no longer supports.",
+      "detectionMethod": "Compaction/token-surface paths, schema/type changes, and direct overlap detection.",
+      "risk": "HIGH",
+      "tests": [
+        "packages/runtime-diagnostics/reasoning-policy/tests/policy.spec.ts",
+        "packages/compaction/compaction-basic/tests/compaction-basic.spec.ts",
+        "packages/compaction/compaction-task-aware-policy/tests",
+        "packages/session/task-checkpoint/tests/resume.spec.ts"
+      ]
+    },
+    {
+      "id": "diagnostics-remote-ui-contract",
+      "description": "Read-only diagnostics transport and UI source contract from Run State to Run Details, including the Stage 11 transient compaction diagnostics stream.",
+      "upstreamPaths": [
+        "packages/client/connection/**",
+        "packages/client/modules/**",
+        "packages/client/ui-conversation/**",
+        "packages/client/ui-layout/**",
+        "packages/client/ui-dockkit/**",
+        "packages/api/gateway/**",
+        "packages/api/remotes/**",
+        "packages/typert/**",
+        "packages/extensions/tool-cordis/src/api-catalog.ts"
+      ],
+      "contractPaths": [
+        "packages/client/connection/src/client/api.ts",
+        "packages/client/connection/src/client/resources/**",
+        "packages/client/modules/src/client/**",
+        "packages/client/ui-conversation/src/client/contract/**",
+        "packages/client/ui-layout/src/client/**",
+        "packages/client/ui-dockkit/src/**",
+        "packages/api/gateway/src/**",
+        "packages/api/remotes/src/**",
+        "packages/typert/**/src/**",
+        "packages/extensions/tool-cordis/src/api-catalog.ts"
+      ],
+      "customPaths": [
+        "packages/runtime-diagnostics/run-details/**",
+        "packages/api/runtime-diagnostics-controller/**",
+        "packages/compaction/compaction-task-aware-policy/src/diagnostics-transport.ts",
+        "packages/client/ui-run-details/**",
+        "packages/extensions/tool-cordis/src/api-catalog.ts"
+      ],
+      "interface": "Typert Remote service publication, Gateway stream transport, Resource Registry seats, generated client contributions, dock/scoped slot ownership, and explicit Unknown/idle presentation.",
+      "whyItMatters": "Upstream owns the transport and resource seats; the Stage 11 controller and Run Details must consume them read-only rather than open a second authority.",
+      "failureMode": "The diagnostics stream stops resolving, a second Remote authority or polling loop is introduced, or the dock loses its insertion point.",
+      "detectionMethod": "Remote/client contract, resource-seat, and slot paths; exact overlaps and renames increase confidence.",
+      "risk": "HIGH",
+      "tests": [
+        "packages/runtime-diagnostics/run-details/tests",
+        "packages/api/runtime-diagnostics-controller/tests",
+        "packages/client/ui-run-details/tests/run-details-dock.client.spec.tsx"
+      ]
+    },
+    {
+      "id": "native-runtime-abi-closure",
+      "description": "Electron/Node ABI and packaged native modules required by the Desktop Host.",
+      "upstreamPaths": [
+        "package.json",
+        "pnpm-lock.yaml",
+        "apps/desktop/package.json",
+        "apps/desktop/scripts/macos-runtime.ts",
+        "apps/desktop/scripts/primary-runtime-lock.json",
+        "native/system/**",
+        "packages/host/**/package.json",
+        "packages/shell/tool-bash/package.json"
+      ],
+      "contractPaths": [
+        "package.json",
+        "pnpm-lock.yaml",
+        "apps/desktop/package.json",
+        "apps/desktop/scripts/macos-runtime.ts",
+        "apps/desktop/scripts/primary-runtime-lock.json",
+        "native/system/**"
+      ],
+      "customPaths": [
+        "apps/desktop/scripts/package-target.ts",
+        "apps/desktop/scripts/macos-runtime.ts",
+        "apps/desktop/scripts/primary-runtime-lock.json",
+        "apps/desktop/electron-builder.config.mjs",
+        "pnpm-lock.yaml"
+      ],
+      "interface": "Electron version, primary Node version/architecture, Python runtime, native N-API boundary, target platform, and node-pty/koffi/sharp closure.",
+      "whyItMatters": "A packaged candidate loads native modules only if the Electron/Node ABI and primary-runtime payload closure still match.",
+      "failureMode": "An unloadable native module or a runtime tree built for the wrong architecture ships inside a signed artifact.",
+      "detectionMethod": "Manifest/lock/runtime-lock changes are inspected for Electron, Node, target, and named native dependencies rather than treating every dependency change as high risk.",
+      "risk": "HIGH",
+      "tests": [
+        "scripts/verify-runtime-closure.spec.ts",
+        "apps/desktop/tests/runtime-fixture.ts",
+        "apps/desktop/tests/macos-signature.spec.ts"
+      ]
+    },
+    {
+      "id": "computer-use-provider-lifecycle",
+      "description": "Official MCP discovery, execution, cancellation, teardown and image admission; Custom policy must not equate RPC abort with confirmed physical inactivity.",
+      "upstreamPaths": [
+        "packages/computer-use/computer-use/**",
+        "packages/experimental/computer-use-cua-driver-mcp/**",
+        "packages/mcp/mcp-client/**",
+        "packages/core/tools/**",
+        "packages/interaction/user-approval/**"
+      ],
+      "contractPaths": [
+        "packages/experimental/computer-use-cua-driver-mcp/src/index.ts",
+        "packages/core/tools/src/index.ts"
+      ],
+      "customPaths": [
+        "packages/computer-use/custom-computer-use-safety/**",
+        "packages/computer-use/computer-use-bundle/**",
+        "packages/client/ui-custom-computer-use/**"
+      ],
+      "interface": "Official MCP provider and ToolRuntime cancellation/settlement; Custom foreground admission and Host-memory ownership.",
+      "whyItMatters": "An aborted transport may leave an unknown physical outcome; approval must not survive stop or a closed root turn.",
+      "failureMode": "Old calls replay, two root Sessions control the same desktop, or restricted origins acquire or observe.",
+      "detectionMethod": "Deterministic lease races, canonical admission, actual MCP child wire records and Remote UI regressions.",
+      "risk": "CRITICAL",
+      "tests": [
+        "packages/computer-use/custom-computer-use-safety/tests/stop-race.spec.ts",
+        "packages/computer-use/custom-computer-use-safety/tests/permissions.spec.ts",
+        "packages/computer-use/computer-use-bundle/tests/host.spec.ts",
+        "packages/client/ui-custom-computer-use/tests/controls.client.spec.tsx"
+      ]
+    }
+  ],
+  "ownershipRevision": 2,
+  "contractRevision": 1,
+  "defaultOwner": "UPSTREAM",
+  "invariants": {
+    "LOCAL_FIRST": "Preserve the qualified Huihui Qwen local-first default route.",
+    "CODEX_OFFICIAL_ONLY": "Official subscription transport only: no key fallback, private endpoint, auth.json reads or token copying.",
+    "CANONICAL_DSH_CONVERSATION": "DSH Session is canonical; preserve Codex projection identity.",
+    "NO_REPLAY": "Never replay persisted side effects to reconstruct a turn.",
+    "ACCOUNT_GENERATION_ISOLATION": "Auth generation isolates threads and delayed results.",
+    "CODEX_RUNTIME_MAINT_INDEPENDENT": "Compatibility evidence depends on the adapter/process contract.",
+    "CUSTOM_PROFILE_BOUNDARY": "Custom profile and official userData ownership remain distinct.",
+    "NO_SILENT_MODEL_SUBSTITUTION": "Admission failures cannot silently select another model.",
+    "LOCAL_RUNTIME_SERIALIZATION": "Local process start/stop and inference ownership remain serialized."
+  },
+  "contracts": [
+    {
+      "id": "session-format",
+      "patterns": [
+        "packages/core/session/src/format/**",
+        "packages/session/session-format*/src/**",
+        "packages/session/session-persistence*/src/**",
+        "packages/storage/*/src/**"
+      ],
+      "impactFloor": 3,
+      "affectedTests": [
+        "packages/core/session/tests/canonical-envelopes.spec.ts",
+        "packages/core/session/tests/repair.spec.ts",
+        "packages/session/session-persistence/tests/storage-contract.spec.ts"
+      ],
+      "dependsOn": [],
+      "symbols": [
+        {
+          "path": "packages/core/session/src/types.ts",
+          "name": "SESSION_FORMAT_VERSION"
+        }
+      ]
+    },
+    {
+      "id": "session-history",
+      "patterns": [
+        "packages/core/session/src/**",
+        "packages/session/session-projection*/src/**"
+      ],
+      "impactFloor": 3,
+      "affectedTests": [
+        "packages/core/session/tests/message-projections.spec.ts",
+        "packages/core/session/tests/fork.spec.ts"
+      ],
+      "dependsOn": [
+        "session-format"
+      ],
+      "symbols": []
+    },
+    {
+      "id": "session-controller",
+      "patterns": [
+        "packages/api/session-controller/src/**"
+      ],
+      "impactFloor": 3,
+      "affectedTests": [
+        "packages/api/session-controller/tests/session-history-journal.host.spec.ts",
+        "packages/api/session-controller/tests/session-models.host.spec.ts",
+        "packages/api/session-controller/tests/session-fork.host.spec.ts",
+        "packages/api/session-controller/tests/transport.client.spec.ts"
+      ],
+      "dependsOn": [
+        "session-history",
+        "model-admission",
+        "agent-turn-lifecycle"
+      ],
+      "symbols": []
+    },
+    {
+      "id": "agent-turn-lifecycle",
+      "patterns": [
+        "packages/core/agent/src/**",
+        "packages/core/agent-loop/src/**"
+      ],
+      "impactFloor": 3,
+      "affectedTests": [
+        "packages/core/agent-loop/tests/external-turn.spec.ts",
+        "packages/core/agent-loop/tests/runtime-context.spec.ts"
+      ],
+      "dependsOn": [
+        "session-history"
+      ],
+      "symbols": []
+    },
+    {
+      "id": "agent-recovery",
+      "patterns": [
+        "packages/core/agent-loop/src/agent.ts",
+        "packages/core/agent-loop/src/index.ts",
+        "packages/core/agent-loop/src/tool-calls.ts"
+      ],
+      "impactFloor": 3,
+      "affectedTests": [
+        "packages/core/agent-loop/tests/resume.spec.ts",
+        "packages/core/agent-loop/tests/contract-regressions.spec.ts"
+      ],
+      "dependsOn": [
+        "session-history",
+        "agent-turn-lifecycle"
+      ],
+      "symbols": []
+    },
+    {
+      "id": "settings-api",
+      "patterns": [
+        "packages/settings/*/src/**",
+        "packages/api/settings-controller/src/**",
+        "packages/boot/config-editor/src/**",
+        "vendor/loader/src/config/**"
+      ],
+      "impactFloor": 3,
+      "affectedTests": [
+        "packages/api/settings-controller/tests/settings-controller.host.spec.ts",
+        "packages/api/settings-controller/tests/credentials-controller.host.spec.ts"
+      ],
+      "dependsOn": [],
+      "symbols": []
+    },
+    {
+      "id": "profile-config",
+      "patterns": [
+        "vendor/loader/src/config/**",
+        "packages/boot/app-boot/src/profile*.ts",
+        "packages/boot/app-boot/src/profile-resolution/**",
+        "packages/boot/config-editor/src/**",
+        "apps/cli/config/**",
+        "packages/settings/settings-file/src/**"
+      ],
+      "impactFloor": 3,
+      "affectedTests": [
+        "apps/desktop/tests/profile-packages.spec.ts"
+      ],
+      "dependsOn": [
+        "settings-api"
+      ],
+      "symbols": []
+    },
+    {
+      "id": "model-catalog",
+      "patterns": [
+        "packages/llm/llm/src/**",
+        "packages/llm/llm-pi-ai/src/**",
+        "packages/llm/llm-deepseek*/src/**"
+      ],
+      "impactFloor": 3,
+      "affectedTests": [
+        "packages/client/ui-model-selection/tests/catalog.client.spec.ts"
+      ],
+      "dependsOn": [
+        "settings-api"
+      ],
+      "symbols": []
+    },
+    {
+      "id": "model-admission",
+      "patterns": [
+        "packages/core/agent-default-model/src/**",
+        "packages/api/session-controller/src/agent.ts",
+        "packages/api/session-controller/src/catalog.ts"
+      ],
+      "impactFloor": 3,
+      "affectedTests": [
+        "packages/core/agent-default-model/tests/agent-default-model.spec.ts",
+        "packages/api/session-controller/tests/session-models.host.spec.ts"
+      ],
+      "dependsOn": [
+        "model-catalog"
+      ],
+      "symbols": []
+    },
+    {
+      "id": "desktop-host-lifecycle",
+      "patterns": [
+        "apps/desktop/src/main.ts",
+        "apps/desktop/src/host-process.ts",
+        "apps/desktop/src/project-manager.ts",
+        "apps/desktop-host/src/**"
+      ],
+      "impactFloor": 3,
+      "affectedTests": [
+        "apps/desktop/tests/main-startup.spec.ts",
+        "apps/desktop/tests/host-process.spec.ts",
+        "apps/desktop/tests/project-manager.spec.ts"
+      ],
+      "dependsOn": [
+        "runtime-process-lifecycle",
+        "plugin-composition"
+      ],
+      "symbols": []
+    },
+    {
+      "id": "desktop-profile-boundary",
+      "patterns": [
+        "apps/desktop/src/data-boundary.ts",
+        "apps/desktop/src/paths.ts",
+        "apps/desktop/src/profile-*.ts",
+        "apps/desktop/src/product-flavor*"
+      ],
+      "impactFloor": 3,
+      "affectedTests": [
+        "apps/desktop/tests/data-boundary.spec.ts",
+        "apps/desktop/tests/product-flavor.spec.ts",
+        "apps/desktop/tests/profile-core-cleanup.spec.ts"
+      ],
+      "dependsOn": [
+        "profile-config"
+      ],
+      "symbols": []
+    },
+    {
+      "id": "runtime-process-lifecycle",
+      "patterns": [
+        "packages/subprocess/*/src/**",
+        "apps/desktop/scripts/prepare-runtime*.ts",
+        "apps/desktop/scripts/primary-runtime*",
+        "packages/api/settings-controller/src/local-model-runtime.ts"
+      ],
+      "impactFloor": 3,
+      "affectedTests": [
+        "packages/api/settings-controller/tests/local-model-runtime.host.spec.ts",
+        "packages/api/settings-controller/tests/local-model-runtime.system.host.spec.ts"
+      ],
+      "dependsOn": [],
+      "symbols": []
+    },
+    {
+      "id": "plugin-composition",
+      "patterns": [
+        "vendor/cordis/src/**",
+        "vendor/loader/src/**",
+        "packages/bundle/*/src/**",
+        "packages/bundle/*/cordis.patch.yml",
+        "packages/boot/app-boot/src/profile-plugins.ts"
+      ],
+      "impactFloor": 3,
+      "affectedTests": [
+        "apps/desktop/tests/desktop-composition.spec.ts"
+      ],
+      "dependsOn": [
+        "profile-config"
+      ],
+      "symbols": []
+    },
+    {
+      "id": "client-model-selector",
+      "patterns": [
+        "packages/client/ui-model-selection/src/**",
+        "packages/client/ui-settings-models/src/**"
+      ],
+      "impactFloor": 2,
+      "affectedTests": [
+        "packages/client/ui-model-selection/tests/browser-plugin.client.spec.ts",
+        "packages/client/ui-model-selection/tests/catalog.client.spec.ts"
+      ],
+      "dependsOn": [
+        "model-catalog"
+      ],
+      "symbols": []
+    },
+    {
+      "id": "run-details-transport",
+      "patterns": [
+        "packages/api/remotes/src/**",
+        "packages/typert/*/src/**",
+        "packages/api/runtime-diagnostics-controller/src/**",
+        "packages/runtime-diagnostics/run-details/src/**"
+      ],
+      "impactFloor": 3,
+      "affectedTests": [
+        "packages/api/runtime-diagnostics-controller/tests/controller.spec.ts",
+        "packages/api/runtime-diagnostics-controller/tests/stream.spec.ts",
+        "packages/runtime-diagnostics/run-details/tests/projection.spec.ts"
+      ],
+      "dependsOn": [
+        "agent-turn-lifecycle",
+        "session-history"
+      ],
+      "symbols": []
+    },
+    {
+      "id": "compaction-contract",
+      "patterns": [
+        "packages/compaction/*/src/**",
+        "packages/llm/token-meter/src/**"
+      ],
+      "impactFloor": 3,
+      "affectedTests": [
+        "packages/compaction/compaction-task-aware-policy/tests/protection.spec.ts",
+        "packages/compaction/compaction-task-aware-policy/tests/reasoning.spec.ts",
+        "packages/compaction/compaction-task-aware-policy/tests/diagnostics-transport.spec.ts"
+      ],
+      "dependsOn": [
+        "session-history",
+        "agent-recovery"
+      ],
+      "symbols": []
+    },
+    {
+      "id": "codex-thread",
+      "patterns": [
+        "packages/core/agent-codex/src/runtime.ts"
+      ],
+      "impactFloor": 4,
+      "affectedTests": [
+        "packages/core/agent-codex/tests/runtime.spec.ts"
+      ],
+      "dependsOn": [
+        "session-history",
+        "agent-turn-lifecycle",
+        "agent-recovery"
+      ],
+      "symbols": []
+    },
+    {
+      "id": "codex-auth",
+      "patterns": [
+        "packages/core/agent-codex/src/home.ts",
+        "packages/core/agent-codex/src/runtime.ts"
+      ],
+      "impactFloor": 4,
+      "affectedTests": [
+        "packages/core/agent-codex/tests/home.spec.ts",
+        "packages/core/agent-codex/tests/plugin.spec.ts"
+      ],
+      "dependsOn": [
+        "settings-api"
+      ],
+      "symbols": [
+        {
+          "path": "packages/core/agent-codex/src/home.ts",
+          "name": "secureCodexHome"
+        }
+      ]
+    },
+    {
+      "id": "codex-adapter",
+      "patterns": [
+        "packages/core/agent-codex/src/app-server.ts",
+        "scripts/codex-runtime-compat.ts",
+        "packages/core/agent-codex/src/compatibility.ts"
+      ],
+      "impactFloor": 3,
+      "affectedTests": [
+        "packages/core/agent-codex/tests/app-server.spec.ts"
+      ],
+      "dependsOn": [],
+      "symbols": []
+    },
+    {
+      "id": "schedule",
+      "patterns": [
+        "packages/schedule/*/src/**",
+        "packages/experimental/schedule-bundle/src/**",
+        "packages/context/time-context/src/**",
+        "packages/client/ui-schedule/src/**"
+      ],
+      "impactFloor": 3,
+      "affectedTests": [],
+      "dependsOn": [
+        "session-controller",
+        "agent-recovery"
+      ],
+      "symbols": []
+    },
+    {
+      "id": "computer-use",
+      "patterns": [
+        "packages/computer-use/*/src/**",
+        "packages/experimental/computer-use-cua-driver-*/src/**"
+      ],
+      "impactFloor": 3,
+      "affectedTests": [],
+      "dependsOn": [
+        "runtime-process-lifecycle"
+      ],
+      "symbols": []
+    },
+    {
+      "id": "package-payload",
+      "patterns": [
+        "apps/desktop/scripts/package-*.ts",
+        "apps/desktop/scripts/prepare-*.ts",
+        "apps/desktop/electron-builder.config.*",
+        "pnpm-lock.yaml",
+        "package.json",
+        "tsconfig*.json"
+      ],
+      "impactFloor": 3,
+      "affectedTests": [
+        "apps/desktop/tests/runtime-package-manifests.spec.ts"
+      ],
+      "dependsOn": [
+        "plugin-composition"
+      ],
+      "symbols": []
+    },
+    {
+      "id": "maintenance-tooling",
+      "patterns": [
+        "scripts/upstream-*.ts",
+        "scripts/upstream-*.json"
+      ],
+      "impactFloor": 1,
+      "affectedTests": [
+        "scripts/upstream-maintenance.spec.ts",
+        "scripts/upstream-audit.spec.ts",
+        "scripts/upstream-monitor.spec.ts",
+        "scripts/upstream-tracking-seams.spec.ts"
+      ],
+      "dependsOn": [],
+      "symbols": []
+    }
+  ],
+  "ownershipRules": [
+    {
+      "id": "custom-computer-use-v1",
+      "patterns": [
+        "packages/computer-use/custom-computer-use-safety/**",
+        "packages/computer-use/computer-use-bundle/**",
+        "packages/client/ui-custom-computer-use/**"
+      ],
+      "owner": "CUSTOM",
+      "reason": "Foreground Local-only admission, Host-memory desktop lease, explicit permission controls and Global Stop. Official MCP execution, attachments and approvals are reused.",
+      "dependsOn": [
+        "computer-use-provider-lifecycle"
+      ],
+      "invariants": [
+        "NO_REPLAY",
+        "LOCAL_FIRST"
+      ],
+      "affectedTests": [
+        "packages/computer-use/custom-computer-use-safety/tests/stop-race.spec.ts",
+        "packages/computer-use/custom-computer-use-safety/tests/permissions.spec.ts",
+        "packages/computer-use/computer-use-bundle/tests/host.spec.ts",
+        "packages/client/ui-custom-computer-use/tests/controls.client.spec.tsx"
+      ],
+      "impactFloor": 4,
+      "technicalTags": [
+        "physical-desktop"
+      ]
+    },
+    {
+      "id": "computer-use-optional-startup",
+      "patterns": [
+        "packages/experimental/computer-use-cua-driver-mcp/src/index.ts"
+      ],
+      "owner": "MIXED",
+      "reason": "Default-true startup policy and default-empty child environment forwarded to the existing MCP client; the optional Custom bundle disables startup failure and automatic OS permission onboarding. No driver implementation or execution pipeline fork.",
+      "dependsOn": [
+        "computer-use-provider-lifecycle"
+      ],
+      "invariants": [
+        "NO_REPLAY"
+      ],
+      "affectedTests": [
+        "packages/experimental/computer-use-cua-driver-mcp/tests/lifecycle.spec.ts"
+      ],
+      "impactFloor": 3,
+      "technicalTags": []
+    },
+    {
+      "id": "computer-use-upstream",
+      "patterns": [
+        "packages/computer-use/computer-use/**",
+        "packages/experimental/computer-use-cua-driver-mcp/**",
+        "packages/mcp/mcp-client/**",
+        "packages/attachment/**",
+        "packages/interaction/user-approval/**",
+        "packages/client/ui-approval/**"
+      ],
+      "owner": "UPSTREAM",
+      "reason": "Canonical provider reservation, MCP, image admission and approval implementation.",
+      "dependsOn": [
+        "computer-use-provider-lifecycle"
+      ],
+      "invariants": [
+        "NO_REPLAY"
+      ],
+      "affectedTests": [],
+      "impactFloor": 3,
+      "technicalTags": []
+    },
+    {
+      "id": "codex",
+      "patterns": [
+        "packages/core/agent-codex/**"
+      ],
+      "owner": "CUSTOM",
+      "reason": "Official subscription adapter and DSH conversation projection.",
+      "dependsOn": [
+        "settings-api",
+        "session-history",
+        "agent-turn-lifecycle",
+        "agent-recovery",
+        "model-catalog"
+      ],
+      "invariants": [
+        "CODEX_OFFICIAL_ONLY",
+        "CANONICAL_DSH_CONVERSATION",
+        "NO_REPLAY",
+        "ACCOUNT_GENERATION_ISOLATION",
+        "CODEX_RUNTIME_MAINT_INDEPENDENT"
+      ],
+      "affectedTests": [
+        "packages/core/agent-codex/tests/runtime.spec.ts",
+        "packages/core/agent-codex/tests/plugin.spec.ts",
+        "packages/core/agent-codex/tests/home.spec.ts"
+      ],
+      "impactFloor": 3,
+      "technicalTags": []
+    },
+    {
+      "id": "local-settings",
+      "patterns": [
+        "packages/api/settings-controller/**",
+        "packages/core/agent-default-model/**",
+        "packages/llm/llm-pi-ai/**"
+      ],
+      "owner": "MIXED",
+      "reason": "Local preference and default admission consume upstream settings/catalog contracts.",
+      "dependsOn": [
+        "settings-api",
+        "model-catalog",
+        "runtime-process-lifecycle",
+        "model-admission"
+      ],
+      "invariants": [
+        "LOCAL_FIRST",
+        "NO_SILENT_MODEL_SUBSTITUTION",
+        "LOCAL_RUNTIME_SERIALIZATION"
+      ],
+      "affectedTests": [
+        "packages/api/settings-controller/tests/local-model-runtime.host.spec.ts",
+        "packages/api/settings-controller/tests/local-model-runtime.system.host.spec.ts",
+        "packages/core/agent-default-model/tests/agent-default-model.spec.ts"
+      ],
+      "impactFloor": 3,
+      "technicalTags": []
+    },
+    {
+      "id": "agent-session",
+      "patterns": [
+        "packages/core/agent/**",
+        "packages/core/agent-loop/**",
+        "packages/core/session/**",
+        "packages/api/session-controller/**"
+      ],
+      "owner": "MIXED",
+      "reason": "External turns and admission share official history semantics.",
+      "dependsOn": [
+        "session-format",
+        "session-history",
+        "agent-turn-lifecycle",
+        "agent-recovery"
+      ],
+      "invariants": [
+        "CANONICAL_DSH_CONVERSATION",
+        "NO_REPLAY",
+        "NO_SILENT_MODEL_SUBSTITUTION"
+      ],
+      "affectedTests": [
+        "packages/core/agent-loop/tests/external-turn.spec.ts",
+        "packages/api/session-controller/tests/session-models.host.spec.ts"
+      ],
+      "impactFloor": 3,
+      "technicalTags": []
+    },
+    {
+      "id": "diagnostics-continuity",
+      "patterns": [
+        "packages/runtime-diagnostics/**",
+        "packages/session/task-checkpoint/**",
+        "packages/compaction/compaction-task-aware-policy/**",
+        "packages/api/runtime-diagnostics-controller/**",
+        "packages/client/ui-run-details/**"
+      ],
+      "owner": "CUSTOM",
+      "reason": "Custom continuity, event projections and diagnostic UI.",
+      "dependsOn": [
+        "session-format",
+        "session-history",
+        "run-details-transport",
+        "agent-recovery",
+        "compaction-contract"
+      ],
+      "invariants": [
+        "NO_REPLAY",
+        "CANONICAL_DSH_CONVERSATION"
+      ],
+      "affectedTests": [
+        "packages/session/task-checkpoint/tests/projection.spec.ts",
+        "packages/session/task-checkpoint/tests/ignorable-append.spec.ts",
+        "packages/session/task-checkpoint/tests/resume.spec.ts",
+        "packages/runtime-diagnostics/agent-run-state/tests/projection.spec.ts",
+        "packages/runtime-diagnostics/reasoning-policy/tests/policy.spec.ts"
+      ],
+      "impactFloor": 3,
+      "technicalTags": []
+    },
+    {
+      "id": "custom-composition",
+      "patterns": [
+        "packages/bundle/desktop-custom/**"
+      ],
+      "owner": "CUSTOM",
+      "reason": "Qualified Custom plugin tail composition.",
+      "dependsOn": [
+        "plugin-composition",
+        "profile-config"
+      ],
+      "invariants": [
+        "CUSTOM_PROFILE_BOUNDARY",
+        "LOCAL_FIRST"
+      ],
+      "affectedTests": [
+        "apps/desktop/tests/desktop-composition.spec.ts"
+      ],
+      "impactFloor": 3,
+      "technicalTags": []
+    },
+    {
+      "id": "base-composition",
+      "patterns": [
+        "packages/bundle/base/cordis.patch.yml"
+      ],
+      "owner": "MIXED",
+      "reason": "Custom default provider removal and official base composition share the plugin graph.",
+      "dependsOn": [
+        "plugin-composition",
+        "model-catalog"
+      ],
+      "invariants": [
+        "LOCAL_FIRST"
+      ],
+      "affectedTests": [
+        "apps/desktop/tests/desktop-composition.spec.ts"
+      ],
+      "impactFloor": 3,
+      "technicalTags": []
+    },
+    {
+      "id": "desktop",
+      "patterns": [
+        "apps/desktop/src/**",
+        "apps/desktop/scripts/**",
+        "apps/desktop-host/src/**",
+        "apps/desktop/electron-builder.config.*"
+      ],
+      "owner": "MIXED",
+      "reason": "Product identity, profile boundary and host/runtime lifecycle.",
+      "dependsOn": [
+        "desktop-host-lifecycle",
+        "desktop-profile-boundary",
+        "runtime-process-lifecycle",
+        "package-payload"
+      ],
+      "invariants": [
+        "CUSTOM_PROFILE_BOUNDARY"
+      ],
+      "affectedTests": [
+        "apps/desktop/tests/data-boundary.spec.ts",
+        "apps/desktop/tests/host-process.spec.ts"
+      ],
+      "impactFloor": 3,
+      "technicalTags": []
+    },
+    {
+      "id": "client-leaves",
+      "patterns": [
+        "packages/client/ui-brand-official/**",
+        "packages/client/ui-conversation/**",
+        "packages/client/ui-layout/**",
+        "packages/client/ui-model-selection/**",
+        "packages/client/ui-primitives/**",
+        "packages/client/ui-session/**",
+        "packages/client/ui-settings-models/**",
+        "packages/client/ui-settings-plugin-inventory/**",
+        "packages/client/ui-sidebar/**",
+        "packages/client/ui-theme/**"
+      ],
+      "owner": "MIXED",
+      "reason": "Model selector, layout, theme and client changes.",
+      "dependsOn": [
+        "client-model-selector"
+      ],
+      "invariants": [
+        "NO_SILENT_MODEL_SUBSTITUTION"
+      ],
+      "affectedTests": [
+        "packages/client/ui-model-selection/tests/catalog.client.spec.ts"
+      ],
+      "impactFloor": 2,
+      "technicalTags": []
+    },
+    {
+      "id": "compaction-retry",
+      "patterns": [
+        "packages/compaction/compaction/**",
+        "packages/compaction/compaction-basic/**",
+        "packages/llm/llm-retry/**",
+        "packages/guard/repeat-tool-reminder/**",
+        "packages/api/remotes/**"
+      ],
+      "owner": "MIXED",
+      "reason": "Reasoning/retry and transport hooks share official contracts.",
+      "dependsOn": [
+        "compaction-contract",
+        "run-details-transport",
+        "agent-turn-lifecycle"
+      ],
+      "invariants": [
+        "NO_REPLAY"
+      ],
+      "affectedTests": [
+        "packages/compaction/compaction/tests/invariant.spec.ts"
+      ],
+      "impactFloor": 3,
+      "technicalTags": []
+    },
+    {
+      "id": "generated-catalog",
+      "patterns": [
+        "packages/core/scope/src/scoped-events.generated.ts",
+        "packages/extensions/cordis-client-runner/src/**",
+        "packages/extensions/tool-cordis/src/api-catalog.ts"
+      ],
+      "owner": "MIXED",
+      "reason": "Generated Cordis consumer catalogs.",
+      "dependsOn": [
+        "plugin-composition"
+      ],
+      "invariants": [],
+      "affectedTests": [],
+      "impactFloor": 2,
+      "technicalTags": [
+        "GENERATED",
+        "DERIVED"
+      ]
+    },
+    {
+      "id": "maintenance",
+      "patterns": [
+        "scripts/upstream-*",
+        "scripts/check-workspace-constraints.ts",
+        "scripts/codex-runtime-compat.ts",
+        "scripts/doc-standard.spec.ts",
+        "scripts/gen-cordis-catalog.ts",
+        "scripts/gen-doc-graphs.ts",
+        "scripts/verify-package-readme-model-experience.ts",
+        "scripts/verify-repository-references.ts",
+        "scripts/verify-repository-references.spec.ts"
+      ],
+      "owner": "MIXED",
+      "reason": "Repository tooling and engineering decisions.",
+      "dependsOn": [
+        "maintenance-tooling"
+      ],
+      "invariants": [],
+      "affectedTests": [
+        "scripts/upstream-maintenance.spec.ts"
+      ],
+      "impactFloor": 1,
+      "technicalTags": []
+    },
+    {
+      "id": "workspace",
+      "patterns": [
+        "package.json",
+        "pnpm-workspace.yaml",
+        "tsconfig*.json",
+        ".oxlintrc*",
+        "vitest.config.ts",
+        ".gitignore",
+        ".github/**",
+        "apps/desktop/package.json",
+        "apps/desktop-host/package.json",
+        "apps/cli/package.json",
+        "apps/desktop/tsconfig.json"
+      ],
+      "owner": "MIXED",
+      "reason": "Build and composition configuration.",
+      "dependsOn": [
+        "package-payload"
+      ],
+      "invariants": [],
+      "affectedTests": [],
+      "impactFloor": 3,
+      "technicalTags": []
+    },
+    {
+      "id": "lockfile",
+      "patterns": [
+        "pnpm-lock.yaml"
+      ],
+      "owner": "MIXED",
+      "reason": "Dependency resolution requires separate payload qualification.",
+      "dependsOn": [
+        "package-payload"
+      ],
+      "invariants": [],
+      "affectedTests": [],
+      "impactFloor": 3,
+      "technicalTags": [
+        "LOCKFILE"
+      ]
+    },
+    {
+      "id": "documentation",
+      "patterns": [
+        ".agents/notes/implemented/architecture/2026-08-10-session-log-version-mechanism.i18n.yaml",
+        ".agents/notes/implemented/architecture/2026-08-10-session-log-version-mechanism.md",
+        ".agents/notes/implemented/architecture/2026-08-10-session-log-version-mechanism.zh.md",
+        ".agents/notes/implemented/architecture/2026-09-17-incremental-upstream-monitor.i18n.yaml",
+        ".agents/notes/implemented/architecture/2026-09-17-incremental-upstream-monitor.md",
+        ".agents/notes/implemented/architecture/2026-09-17-incremental-upstream-monitor.zh.md",
+        ".agents/notes/implemented/architecture/2026-09-17-upstream-adaptation-strategy.i18n.yaml",
+        ".agents/notes/implemented/architecture/2026-09-17-upstream-adaptation-strategy.manifest.json",
+        ".agents/notes/implemented/architecture/2026-09-17-upstream-adaptation-strategy.md",
+        ".agents/notes/implemented/architecture/2026-09-17-upstream-adaptation-strategy.zh.md",
+        ".agents/notes/implemented/architecture/2026-09-17-upstream-monitor-scheduling-and-notification.i18n.yaml",
+        ".agents/notes/implemented/architecture/2026-09-17-upstream-monitor-scheduling-and-notification.md",
+        ".agents/notes/implemented/architecture/2026-09-17-upstream-monitor-scheduling-and-notification.zh.md",
+        ".agents/notes/implemented/architecture/2026-09-17-upstream-scheduler-maintenance-runtime-resilience.i18n.yaml",
+        ".agents/notes/implemented/architecture/2026-09-17-upstream-scheduler-maintenance-runtime-resilience.md",
+        ".agents/notes/implemented/architecture/2026-09-17-upstream-scheduler-maintenance-runtime-resilience.zh.md",
+        ".agents/notes/implemented/architecture/2026-09-17-upstream-tracking-read-only-auditor.i18n.yaml",
+        ".agents/notes/implemented/architecture/2026-09-17-upstream-tracking-read-only-auditor.md",
+        ".agents/notes/implemented/architecture/2026-09-17-upstream-tracking-read-only-auditor.zh.md",
+        ".agents/notes/implemented/feature/2026-09-27-shared-dsh-mascot-motion.i18n.yaml",
+        ".agents/notes/implemented/feature/2026-09-27-shared-dsh-mascot-motion.md",
+        ".agents/notes/implemented/feature/2026-09-27-shared-dsh-mascot-motion.zh.md",
+        "docs/capability-seams.i18n.yaml",
+        "docs/capability-seams.md",
+        "docs/capability-seams.zh.md",
+        "docs/config-catalog.i18n.yaml",
+        "docs/config-catalog.md",
+        "docs/config-catalog.zh.md",
+        "docs/event-producer-consumer.i18n.yaml",
+        "docs/event-producer-consumer.md",
+        "docs/event-producer-consumer.zh.md",
+        "docs/module-graph.i18n.yaml",
+        "docs/module-graph.md",
+        "docs/module-graph.zh.md",
+        "docs/persistence-catalog.i18n.yaml",
+        "docs/persistence-catalog.md",
+        "docs/persistence-catalog.zh.md",
+        "docs/persistence-changes/2026-09-18-restore-task-checkpoint-events.i18n.yaml",
+        "docs/persistence-changes/2026-09-18-restore-task-checkpoint-events.md",
+        "docs/persistence-changes/2026-09-18-restore-task-checkpoint-events.schema.json",
+        "docs/persistence-changes/2026-09-18-restore-task-checkpoint-events.zh.md",
+        "docs/persistence-changes/2026-09-19-task-aware-compaction-audit.i18n.yaml",
+        "docs/persistence-changes/2026-09-19-task-aware-compaction-audit.md",
+        "docs/persistence-changes/2026-09-19-task-aware-compaction-audit.schema.json",
+        "docs/persistence-changes/2026-09-19-task-aware-compaction-audit.zh.md",
+        "docs/persistence-changes/2026-09-28-codex-subscription-session-mapping.i18n.yaml",
+        "docs/persistence-changes/2026-09-28-codex-subscription-session-mapping.md",
+        "docs/persistence-changes/2026-09-28-codex-subscription-session-mapping.schema.json",
+        "docs/persistence-changes/2026-09-28-codex-subscription-session-mapping.zh.md",
+        "docs/persistence-changes/2026-09-30-codex-runtime-fingerprint.i18n.yaml",
+        "docs/persistence-changes/2026-09-30-codex-runtime-fingerprint.md",
+        "docs/persistence-changes/2026-09-30-codex-runtime-fingerprint.schema.json",
+        "docs/persistence-changes/2026-09-30-codex-runtime-fingerprint.zh.md",
+        "docs/persistence-changes/historical-formats/README.i18n.yaml",
+        "docs/persistence-changes/historical-formats/README.md",
+        "docs/persistence-changes/historical-formats/README.zh.md",
+        "docs/persistence-schema.json",
+        "docs/subsystems/compaction.i18n.yaml",
+        "docs/subsystems/compaction.md",
+        "docs/subsystems/compaction.zh.md",
+        "docs/subsystems/core.i18n.yaml",
+        "docs/subsystems/core.md",
+        "docs/subsystems/core.zh.md",
+        "docs/subsystems/llm-streaming.i18n.yaml",
+        "docs/subsystems/llm-streaming.md",
+        "docs/subsystems/llm-streaming.zh.md",
+        "docs/subsystems/session.i18n.yaml",
+        "docs/subsystems/session.md",
+        "docs/subsystems/session.zh.md",
+        "docs/subsystems/settings.i18n.yaml",
+        "docs/subsystems/settings.md",
+        "docs/subsystems/settings.zh.md",
+        "docs/subsystems/typert.i18n.yaml",
+        "docs/subsystems/typert.md",
+        "docs/subsystems/typert.zh.md",
+        "docs/upstream-maintenance*",
+        "docs/development*",
+        "apps/desktop/README*",
+        "packages/core/README*"
+      ],
+      "owner": "MIXED",
+      "reason": "Maintained documentation and locales.",
+      "dependsOn": [],
+      "invariants": [],
+      "affectedTests": [],
+      "impactFloor": 0,
+      "technicalTags": [
+        "DERIVED"
+      ]
+    },
+    {
+      "id": "custom-evidence",
+      "patterns": [
+        "apps/desktop/tests/**",
+        "apps/desktop-host/tests/**",
+        "packages/core/scope/tests/**",
+        "packages/client/ui-attachment/tests/message-image.client.spec.tsx",
+        "packages/client/ui-chat/tests/chat-view.client.spec.tsx",
+        "packages/client/ui-sidebar-terminal/tests/apply.client.spec.ts",
+        "packages/client/ui-sidebar-terminal/tests/terminal-body.client.spec.tsx",
+        "packages/client/ui-trajectory/tests/views.client.spec.tsx",
+        "packages/client/ui-user-questions/tests/plan-review-panel.client.spec.tsx",
+        "packages/client/ui-user-questions/tests/user-questions-composer.client.spec.tsx",
+        "packages/client/ui-workflow-run/tests/workflow-run.client.spec.tsx"
+      ],
+      "owner": "MIXED",
+      "reason": "Custom UI and Desktop evidence extends shared official test modules.",
+      "dependsOn": [],
+      "invariants": [],
+      "affectedTests": [],
+      "impactFloor": 1,
+      "technicalTags": []
+    }
+  ],
+  "evidence": [
+    {
+      "id": "codex-settings",
+      "dependsOn": [
+        "settings-api"
+      ],
+      "invalidatedBy": [],
+      "invariants": [
+        "CODEX_OFFICIAL_ONLY"
+      ]
+    },
+    {
+      "id": "codex-q1-thread",
+      "dependsOn": [
+        "session-history",
+        "agent-turn-lifecycle",
+        "agent-recovery",
+        "codex-thread"
+      ],
+      "invalidatedBy": [
+        "session-format",
+        "codex-thread"
+      ],
+      "invariants": [
+        "CANONICAL_DSH_CONVERSATION",
+        "NO_REPLAY"
+      ]
+    },
+    {
+      "id": "codex-q1-auth",
+      "dependsOn": [
+        "codex-auth"
+      ],
+      "invalidatedBy": [
+        "codex-auth"
+      ],
+      "invariants": [
+        "ACCOUNT_GENERATION_ISOLATION"
+      ]
+    },
+    {
+      "id": "codex-runtime-maintenance",
+      "dependsOn": [
+        "codex-adapter"
+      ],
+      "invalidatedBy": [
+        "codex-adapter"
+      ],
+      "invariants": [
+        "CODEX_RUNTIME_MAINT_INDEPENDENT"
+      ]
+    },
+    {
+      "id": "local-model",
+      "dependsOn": [
+        "settings-api",
+        "runtime-process-lifecycle",
+        "model-admission"
+      ],
+      "invalidatedBy": [
+        "runtime-process-lifecycle"
+      ],
+      "invariants": [
+        "LOCAL_FIRST",
+        "LOCAL_RUNTIME_SERIALIZATION"
+      ]
+    },
+    {
+      "id": "desktop-profile",
+      "dependsOn": [
+        "desktop-profile-boundary",
+        "profile-config"
+      ],
+      "invalidatedBy": [
+        "desktop-profile-boundary"
+      ],
+      "invariants": [
+        "CUSTOM_PROFILE_BOUNDARY"
+      ]
+    },
+    {
+      "id": "continuity",
+      "dependsOn": [
+        "session-format",
+        "session-history",
+        "compaction-contract"
+      ],
+      "invalidatedBy": [
+        "session-format"
+      ],
+      "invariants": [
+        "NO_REPLAY"
+      ]
+    }
+  ],
+  "computerUseFoundation": "dsh-v0.2.0-rc.2",
+  "legacyInventoryStatus": "Recovered trusted-branch inventory. Non-Computer-Use entries retain the original baseline and are not requalified by P-COMPUTER-I1."
+}

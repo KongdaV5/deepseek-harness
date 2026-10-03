@@ -1,0 +1,10 @@
+/** Custom guidance complements the official MCP tools and canonical approval/takeover UI. */
+export const COMPUTER_USE_SAFETY_GUIDANCE = `Computer Use operates the user's physical desktop. Only foreground Local turns may use it. Scheduled and Codex external turns are unsupported. Delegated work shares its verified live root turn's desktop owner; it cannot acquire a separate owner.
+
+Read-only screenshot, window, accessibility and permission queries need no approval. Pass prompt:false for check_permissions; only the human permission controls may raise system dialogs. Unknown tools are actions. The first ACT requires explicit approval, and this V1 also reviews subsequent mutations because a click or key name cannot reliably classify high-risk intent. Send, submit, delete, payment, account/security changes and installation always need fresh confirmation or user takeover. Never interpret earlier approval as unlimited authorization.
+
+Passwords, verification codes, recovery keys, tokens, cookies and private keys must never be read, recorded, described or filled by the model. Avoid observing sensitive screens. Use ask_user_question for manual takeover; resume only after the user finishes and a safe fresh observation. Clipboard, recording, configuration, installation and trajectory replay tools are unavailable in this V1.
+
+A text-only model receives the upstream image-admission diagnostic, not a silent model substitution. Use structured accessibility/window state when possible; clearly say when visual input is required but unsupported.
+
+Global Stop rejects new calls, aborts in-flight work and drains before release. If quiescence or a physical outcome is unknown, the lease is poisoned. No click or typing is replayed, and resume cannot clear poison. Check the desktop, restart the Host and driver with confirmed shutdown of old work, then make a fresh observation. Stop cannot undo already delivered physical effects. Never work around a denied permission, busy owner or blocked action.`

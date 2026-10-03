@@ -1,0 +1,46 @@
+# Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write packages/computer-use/custom-computer-use-safety/README.md
+/:
+  en: 520dd0a41142a5f7
+  zh: 8f25fbed94401637
+/deepseek-ai-dsh-custom-computer-use-safety:
+  en: 06988345e3d04d39
+  zh: c20d0de8392e1e41
+/deepseek-ai-dsh-custom-computer-use-safety/summary:
+  en: 13e4c660ca9ade0d
+  zh: 990111a9f6b84aba
+/deepseek-ai-dsh-custom-computer-use-safety/table-of-contents:
+  en: d152484eb41ac6b4
+  zh: 1db86285abf6c499
+/deepseek-ai-dsh-custom-computer-use-safety/use-this-package:
+  en: 6f8746ae595dbe28
+  zh: c4d1ce1220348bc5
+/deepseek-ai-dsh-custom-computer-use-safety/understand-the-implementation:
+  en: d68a66c4079a3b0e
+  zh: 4d3a0043e84b2e03
+/deepseek-ai-dsh-custom-computer-use-safety/further-exploration:
+  en: 990d2c8679247919
+  zh: 3e2e6e5cb6947229
+/deepseek-ai-dsh-custom-computer-use-safety/model-experience:
+  en: 215e7ba838619b7b
+  zh: a311da3843709f90
+/deepseek-ai-dsh-custom-computer-use-safety/model-experience/runtime-integration:
+  en: db9a1add82d49892
+  zh: b3a20c93c3cf2839
+/deepseek-ai-dsh-custom-computer-use-safety/model-experience/runtime-integration/what-the-model-sees:
+  en: 0003075b38bcb50c
+  zh: 6891e4600352fa6b
+/deepseek-ai-dsh-custom-computer-use-safety/model-experience/runtime-integration/token-effect:
+  en: 8d0c66368153dfec
+  zh: a6313ee13f009d78
+/deepseek-ai-dsh-custom-computer-use-safety/model-experience/runtime-integration/kv-cache-effect:
+  en: 1943fba7170e75fa
+  zh: 871f116180e22c96
+/deepseek-ai-dsh-custom-computer-use-safety/known-limitations-and-deferred-work:
+  en: 1627b49826bf2c9b
+  zh: a0ac92d0718804a1
+/deepseek-ai-dsh-custom-computer-use-safety/known-limitations-and-deferred-work/dev-note:
+  en: e67f633dc6fe7773
+  zh: 8ec3e73528ddb1a6

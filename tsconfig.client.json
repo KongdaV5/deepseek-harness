@@ -50,6 +50,7 @@
     "packages/client/*/tests/**/*.host.spec.ts"
   ],
   "references": [
+    { "path": "packages/client/ui-custom-computer-use" },
     { "path": "packages/client/ui-custom-runtime" },
     { "path": "packages/client/ui-run-details" },
     { "path": "packages/api/runtime-diagnostics-controller/tsconfig.client.json" },

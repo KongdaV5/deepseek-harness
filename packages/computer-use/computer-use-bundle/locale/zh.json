@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Computer Use",
+    "description": "让一个前台会话通过已安装的 Cua Driver 查看并控制桌面，同一时间只有一个会话拥有控制权。"
+  }
+}

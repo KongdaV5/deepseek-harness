@@ -737,6 +737,43 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
+    key: 'computerUseController',
+    summary: 'One profile\'s explicit Computer Use controls; the lease remains Host-wide.',
+    description: 'One profile\'s explicit Computer Use controls; the lease remains Host-wide.',
+    methods: [
+      {
+        signature: '@Remote status(): ComputerUseStatus',
+        description: 'Observe current owner and last explicit permission check; does not launch or prompt.',
+        parameters: [],
+        returns: 'Redacted lease, driver and permission state.',
+      },
+      {
+        signature: '@Remote async stop(): Promise<ComputerUseStatus>',
+        description: 'Reject new calls immediately, abort owned calls and await bounded quiescence.',
+        parameters: [],
+        returns: 'Redacted state after release or poison.',
+      },
+      {
+        signature: '@Remote resume(): ComputerUseStatus',
+        description: 'Resume a proven-idle stopped lease; poison and outstanding calls remain blocked.',
+        parameters: [],
+        returns: 'Current state; an uncertain lease remains blocked.',
+      },
+      {
+        signature: '@Remote checkPermissions(): Promise<ComputerUseStatus>',
+        description: 'Explicit read-only permission query; no system dialog or live capture probe.',
+        parameters: [],
+        returns: 'Verified grants and current lease state.',
+      },
+      {
+        signature: '@Remote requestPermissions(): Promise<ComputerUseStatus>',
+        description: 'Explicit user permission request; agents cannot mint its one-shot call identity.',
+        parameters: [],
+        returns: 'Driver-reported grants after the explicit request.',
+      },
+    ],
+  },
+  {
     key: 'configEditor',
     summary: 'Persist complete raw configs and apply them through the normal Loader path.',
     description: 'Persist complete raw configs and apply them through the normal Loader path.',

@@ -53,4 +53,36 @@ register(name: ComputerUseProviderName): () => Promise<void>
 ```
 
 Source: [`packages/computer-use/computer-use/src/index.ts`](../../packages/computer-use/computer-use/src/index.ts)
+
+<a id="ctxcomputerusecontroller--computerusecontroller"></a>
+
+### `ctx.computerUseController` — `ComputerUseController`
+
+One profile's explicit Computer Use controls; the lease remains Host-wide.
+
+```ts cordis-catalog
+/** Observe current owner and last explicit permission check; does not launch or prompt.
+ * @returns Redacted lease, driver and permission state. */
+@Remote status(): ComputerUseStatus
+
+/** Reject new calls immediately, abort owned calls and await bounded quiescence.
+ * @returns Redacted state after release or poison. */
+@Remote async stop(): Promise<ComputerUseStatus>
+
+/** Resume a proven-idle stopped lease; poison and outstanding calls remain blocked.
+ * @returns Current state; an uncertain lease remains blocked. */
+@Remote resume(): ComputerUseStatus
+
+/** Explicit read-only permission query; no system dialog or live capture probe.
+ * @returns Verified grants and current lease state. */
+@Remote checkPermissions(): Promise<ComputerUseStatus>
+
+/** Explicit user permission request; agents cannot mint its one-shot call identity.
+ * @returns Driver-reported grants after the explicit request. */
+@Remote requestPermissions(): Promise<ComputerUseStatus>
+```
+
+Types: [ComputerUseStatus](../custom-foundation.md)
+
+Source: [`packages/computer-use/custom-computer-use-safety/src/controller.ts`](../../packages/computer-use/custom-computer-use-safety/src/controller.ts)
 <!-- END GENERATED cordis-surface -->

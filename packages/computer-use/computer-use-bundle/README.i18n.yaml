@@ -1,0 +1,46 @@
+# Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write packages/computer-use/computer-use-bundle/README.md
+/:
+  en: 9226a70700c4d1f7
+  zh: 709f10417aa066d8
+/deepseek-ai-dsh-computer-use-bundle:
+  en: 4e310768c006f719
+  zh: 8a0060fa16bb3174
+/deepseek-ai-dsh-computer-use-bundle/summary:
+  en: 58435aa3f93a6b5b
+  zh: 02484263a62ae8d7
+/deepseek-ai-dsh-computer-use-bundle/table-of-contents:
+  en: d152484eb41ac6b4
+  zh: 1db86285abf6c499
+/deepseek-ai-dsh-computer-use-bundle/use-this-package:
+  en: 4da64351e83967b4
+  zh: b34e88b139f5f9ac
+/deepseek-ai-dsh-computer-use-bundle/understand-the-implementation:
+  en: ae1f7173e1303ebb
+  zh: b66cf49d6b3bbeeb
+/deepseek-ai-dsh-computer-use-bundle/further-exploration:
+  en: 990d2c8679247919
+  zh: 3e2e6e5cb6947229
+/deepseek-ai-dsh-computer-use-bundle/model-experience:
+  en: 215e7ba838619b7b
+  zh: a311da3843709f90
+/deepseek-ai-dsh-computer-use-bundle/model-experience/runtime-integration:
+  en: db9a1add82d49892
+  zh: b3a20c93c3cf2839
+/deepseek-ai-dsh-computer-use-bundle/model-experience/runtime-integration/what-the-model-sees:
+  en: 0003075b38bcb50c
+  zh: 6891e4600352fa6b
+/deepseek-ai-dsh-computer-use-bundle/model-experience/runtime-integration/token-effect:
+  en: 8d0c66368153dfec
+  zh: a6313ee13f009d78
+/deepseek-ai-dsh-computer-use-bundle/model-experience/runtime-integration/kv-cache-effect:
+  en: 1943fba7170e75fa
+  zh: 871f116180e22c96
+/deepseek-ai-dsh-computer-use-bundle/known-limitations-and-deferred-work:
+  en: 570d8de019406d34
+  zh: 44989a2aca7723ee
+/deepseek-ai-dsh-computer-use-bundle/known-limitations-and-deferred-work/dev-note:
+  en: e67f633dc6fe7773
+  zh: 8ec3e73528ddb1a6

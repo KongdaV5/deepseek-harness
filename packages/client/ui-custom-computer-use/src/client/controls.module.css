@@ -1,0 +1,5 @@
+.card { display: flex; flex-direction: column; gap: 12px; padding: 16px; color: var(--dsw-alias-label-primary); background: var(--dsw-alias-settings-card-fill); border: 0.5px solid var(--dsw-alias-settings-card-stroke); border-radius: 12px; }
+.row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 8px; overflow-wrap: anywhere; }
+.row [role="status"] { flex: 1; min-width: 0; }
+.card p { margin: 0; }
+.card [role="alert"] { color: var(--dsw-alias-state-warn-label); }

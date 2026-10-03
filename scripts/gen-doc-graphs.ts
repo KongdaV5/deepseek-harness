@@ -166,6 +166,11 @@ const SERVICE_ROLES: ServiceRole[] = [
     note: 'One provider-owned name per service instance. Providers own their tools and browser resources per live Session; the shared service has no browser operation API.',
   },
   {
+    key: 'computerUseController', pkg: 'custom-computer-use-safety', title: 'Custom Computer Use controls', mode: 'core',
+    consumers: ['ui-custom-computer-use'],
+    note: 'Redacted observation and explicit human permission/stop operations through canonical Remote transport.',
+  },
+  {
     key: 'computerUse',
     pkg: 'computer-use',
     title: 'Computer-use provider registration',

@@ -1,0 +1,24 @@
+# Explicit optional-bundle activation owns enablement. No driver starts in the default profile.
+- insert:
+    - id: computer-use
+      name: '@deepseek-ai/dsh-computer-use'
+
+    - id: computer-use-safety
+      name: '@deepseek-ai/dsh-custom-computer-use-safety'
+
+    - id: computer-use-cua-driver-mcp
+      name: '@deepseek-ai/dsh-experimental-computer-use-cua-driver-mcp'
+      config:
+        failOnStartupError: false
+        command: cua-driver
+        args: [mcp]
+        env:
+          CUA_DRIVER_RS_PERMISSIONS_GATE: "0"
+        reconnect:
+          enabled: true
+          initialDelayMs: 500
+          maxDelayMs: 30000
+          maxAttempts: 10
+
+    - id: ui-custom-computer-use
+      name: '@deepseek-ai/dsh-client-ui-custom-computer-use'

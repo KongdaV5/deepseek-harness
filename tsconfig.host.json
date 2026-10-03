@@ -341,6 +341,12 @@
       "path": "./packages/computer-use/computer-use"
     },
     {
+      "path": "./packages/computer-use/computer-use-bundle"
+    },
+    {
+      "path": "./packages/computer-use/custom-computer-use-safety/tsconfig.host.json"
+    },
+    {
       "path": "./packages/context/agent-instructions"
     },
     {
@@ -1038,6 +1044,9 @@
     },
     {
       "path": "packages/session/task-checkpoint"
+    },
+    {
+      "path": "packages/client/ui-custom-computer-use/tsconfig.host.json"
     }
   ]
 }

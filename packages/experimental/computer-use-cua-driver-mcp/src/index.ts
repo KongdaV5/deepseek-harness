@@ -20,6 +20,10 @@ export const inject = ['computerUse', 'tools']
 export interface Config {
   /** Executable path or PATH command; defaults to `cua-driver`. */
   command: string
+  /** Reject initial connection failure; optional products may opt out and reconnect instead. */
+  failOnStartupError: boolean
+  /** Explicit MCP child environment overrides; omission preserves upstream defaults. */
+  env: Record<string, string>
   /** Arguments passed without a shell; defaults to `['mcp']`. */
   args: string[]
   /** Per-call timeout in milliseconds; omission uses the MCP client's default. */
@@ -30,8 +34,10 @@ export interface Config {
 
 /** Validate executable options; the MCP client resolves connection defaults. */
 export const Config: z<Partial<Config>, Config> = z.object({
+  failOnStartupError: z.boolean().default(true),
   command: z.string().pattern(/[^\s]/u).default('cua-driver'),
   args: z.array(String).default(['mcp']),
+  env: z.dict(String).default({}),
   toolCallTimeoutMs: z.number().min(1),
   reconnect: z.object({
     enabled: z.boolean(),
@@ -43,7 +49,7 @@ export const Config: z<Partial<Config>, Config> = z.object({
 
 /**
  * Reserve computer use and activate the installed Cua Driver's MCP tools.
- * Initial connection or discovery failure rejects activation and rolls back.
+ * Initial failure rejects activation by default; optional compositions may retain reconnection.
  * Disposal retains the reservation until the MCP child has finished teardown.
  * @param ctx - context providing computer use and the tool registry.
  * @param config - validated executable options and optional connection overrides.
@@ -53,11 +59,12 @@ export async function apply(ctx: Context, config: Config): Promise<void> {
   const connection = McpClient.Config({
     command: config.command,
     args: config.args,
+    env: config.env,
     ...config.toolCallTimeoutMs === undefined ? {} : { toolCallTimeoutMs: config.toolCallTimeoutMs },
     reconnect: config.reconnect,
     transport: 'stdio',
     serverName: 'cua-driver-mcp',
-    failOnStartupError: true,
+    failOnStartupError: config.failOnStartupError,
   })
   // One effect orders child shutdown before release; separate fiber effects
   // unload concurrently and could otherwise admit another live driver.

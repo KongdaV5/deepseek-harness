@@ -28,6 +28,11 @@
     // not declaration path aliases, keep each package/vendor source compiled
     // under its own tsconfig boundary.
     "paths": {
+      "@deepseek-ai/dsh-client-ui-custom-computer-use": ["./packages/client/ui-custom-computer-use/src/index.ts"],
+      "@deepseek-ai/dsh-client-ui-custom-computer-use/client": ["./packages/client/ui-custom-computer-use/src/client/index.ts"],
+      "@deepseek-ai/dsh-custom-computer-use-safety/types": ["./packages/computer-use/custom-computer-use-safety/src/types.ts"],
+      "@deepseek-ai/dsh-custom-computer-use-safety/typert": ["./packages/computer-use/custom-computer-use-safety/lib/typert.host.d.ts"],
+      "@deepseek-ai/dsh-custom-computer-use-safety/remote": ["./packages/computer-use/custom-computer-use-safety/lib/typert.remote-client.d.ts"],
       "@deepseek-ai/dsh-api-runtime-diagnostics-controller": ["./packages/api/runtime-diagnostics-controller/src/index.ts"],
       "@deepseek-ai/dsh-api-runtime-diagnostics-controller/types": ["./packages/api/runtime-diagnostics-controller/src/types.ts"],
       "@deepseek-ai/dsh-reasoning-policy/types": ["./packages/runtime-diagnostics/reasoning-policy/src/types.ts"],
@@ -387,10 +392,12 @@
       "@deepseek-ai/dsh-compaction-image-offload": ["./packages/compaction/compaction-image-offload/src"],
       "@deepseek-ai/dsh-compaction-task-aware-policy": ["./packages/compaction/compaction-task-aware-policy/src"],
       "@deepseek-ai/dsh-compaction-tool-result-pruner": ["./packages/compaction/compaction-tool-result-pruner/src"],
+      "@deepseek-ai/dsh-computer-use-bundle": ["./packages/computer-use/computer-use-bundle/src"],
       "@deepseek-ai/dsh-config-editor": ["./packages/boot/config-editor/src"],
       "@deepseek-ai/dsh-credentials": ["./packages/credentials/credentials/src"],
       "@deepseek-ai/dsh-credentials/invariant": ["./packages/credentials/credentials/src/invariant.ts"],
       "@deepseek-ai/dsh-credentials-local": ["./packages/credentials/credentials-local/src"],
+      "@deepseek-ai/dsh-custom-computer-use-safety": ["./packages/computer-use/custom-computer-use-safety/src"],
       "@deepseek-ai/dsh-custom-foundation": ["./packages/boot/custom-foundation/src"],
       "@deepseek-ai/dsh-deepseek-llm-api-extensions": ["./packages/llm/deepseek-llm-api-extensions/src"],
       "@deepseek-ai/dsh-deque": ["./packages/util/deque/src"],

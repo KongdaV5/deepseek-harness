@@ -1,0 +1,46 @@
+# Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write packages/client/ui-custom-computer-use/README.md
+/:
+  en: 0d64da76be6bd06c
+  zh: ef49876584890b7c
+/deepseek-ai-dsh-client-ui-custom-computer-use:
+  en: 23a64ad5fc243bb4
+  zh: aeb004c21c49c5b6
+/deepseek-ai-dsh-client-ui-custom-computer-use/summary:
+  en: 91a4bff8d8ac86cb
+  zh: bb0071869162dd72
+/deepseek-ai-dsh-client-ui-custom-computer-use/table-of-contents:
+  en: d152484eb41ac6b4
+  zh: 1db86285abf6c499
+/deepseek-ai-dsh-client-ui-custom-computer-use/use-this-package:
+  en: d7cfc7c3101a123b
+  zh: ba7db022a65d5750
+/deepseek-ai-dsh-client-ui-custom-computer-use/understand-the-implementation:
+  en: 9a50c57e7df978be
+  zh: 4059238aeeba4155
+/deepseek-ai-dsh-client-ui-custom-computer-use/further-exploration:
+  en: 990d2c8679247919
+  zh: 3e2e6e5cb6947229
+/deepseek-ai-dsh-client-ui-custom-computer-use/model-experience:
+  en: 215e7ba838619b7b
+  zh: a311da3843709f90
+/deepseek-ai-dsh-client-ui-custom-computer-use/model-experience/runtime-integration:
+  en: db9a1add82d49892
+  zh: b3a20c93c3cf2839
+/deepseek-ai-dsh-client-ui-custom-computer-use/model-experience/runtime-integration/what-the-model-sees:
+  en: 228f7126a3bd9594
+  zh: f7b3110f5479acdc
+/deepseek-ai-dsh-client-ui-custom-computer-use/model-experience/runtime-integration/token-effect:
+  en: 1c98cd2690f503ab
+  zh: c6fa10faaa3df860
+/deepseek-ai-dsh-client-ui-custom-computer-use/model-experience/runtime-integration/kv-cache-effect:
+  en: 1943fba7170e75fa
+  zh: 871f116180e22c96
+/deepseek-ai-dsh-client-ui-custom-computer-use/known-limitations-and-deferred-work:
+  en: 6ee9acd0f18b21b1
+  zh: 67aa8755d15f5f66
+/deepseek-ai-dsh-client-ui-custom-computer-use/known-limitations-and-deferred-work/dev-note:
+  en: e67f633dc6fe7773
+  zh: 8ec3e73528ddb1a6

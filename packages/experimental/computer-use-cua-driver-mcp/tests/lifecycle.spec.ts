@@ -122,3 +122,9 @@ describe('installed Cua Driver ownership', () => {
     expect(ctx.computerUse.providerName).toBeUndefined()
   })
 })
+
+it('forwards an explicit optional startup policy without changing the strict default', async () => {
+  const ctx = await context()
+  await ctx.plugin(Provider, { failOnStartupError: false, env: { CUA_DRIVER_RS_PERMISSIONS_GATE: '0' } })
+  expect(fake.configurations[0]).toMatchObject({ failOnStartupError: false, env: { CUA_DRIVER_RS_PERMISSIONS_GATE: '0' } })
+})

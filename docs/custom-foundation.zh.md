@@ -169,3 +169,16 @@ M3 保持固定官方 RC.2 底座，复用此前 Config、Session migration、ru
 在该变量不存在时，标准入口无需任何产品改动即可工作：`open -a` 可以启动应用，由 Finder 打开 bundle 等效。installed smoke 通过 LaunchServices 重跑并全部通过：窗口已呈现且可见，使用正式 Custom profile 与其 canonical patch，patch 未被改写；此前持久化的 Session 被列出并恢复了一条；模型选择器离开 loading 并 settle；Local 报告带端点的具体 stopped 状态；Codex 报告 ready 及 system runtime 与模型数量。没有改动任何源码，也没有为此入口加入假 timeout、UI 硬编码状态或第二套 catalog store。
 
 由于该变量只影响从已导出它的 shell 发起的启动（例如某 Electron 宿主应用的嵌入式终端），正常的 Finder 启动不受影响。这是启动环境说明，不是产品缺陷。
+
+## 前台电脑操作 V1
+
+电脑操作采用可选 profile bundle，默认关闭。复用官方 MCP、图像准入及审批；[Custom 安全层](../packages/computer-use/custom-computer-use-safety/README.zh.md)负责唯一 Host 租约及停止／排空／污染策略，[客户端控件](../packages/client/ui-custom-computer-use/README.zh.md)观察其状态。Schedule 和 Codex 电脑操作不受支持。凭据、租约及待执行物理动作均不持久化，不确定的物理结果绝不重放。未找到完整 A1 原文，明确的 P-COMPUTER-I1 交接说明作为本轮实施合同。
+
+
+实现采用一个安全包、一个可选 bundle 和一个客户端 UI 包。官方 provider 注册、MCP 传输、ToolRuntime 取消、审批、图像准入、Typert Remote 和 scoped UI slots 继续拥有各自职责。provider 仅将默认 true 的启动失败策略及默认空的子进程环境转交现有 MCP 客户端。Custom bundle 关闭驱动自动权限引导，但不跳过系统授权或运行时审批。没有兼容层、第二个启用布尔值或新增持久化格式。
+
+聚焦验证覆盖十二个文件的 176 个不同用例，包括真实假 MCP 子进程、审批／Stop 竞态、子 Agent ownership、权限控件及 UI 观察失效。失败文件修正后仅重跑自身；未重复 Local、Codex 或 Schedule 专项资格验收。受影响 Host／Client 类型检查、lint、安全包／bundle／客户端产物构建、ownership 校验、配置／客户端／Cordis 目录、package 列表、模块图、双语配对、仓库引用、空白和工作区卫生通过。快速文档集合初次为 17/21；两项本轮文档失败已修正并通过对应检查。剩余两项未修改的失败是历史 persistence-format freshness 和 reasoning-policy README metadata。服务关系图生成器仍有六个既有 Custom 服务分类缺口；新增公开 Computer Use controller 已登记分类。这些基线失败未被报告为通过。
+
+原生资格验证待完成。已安装 cua-driver 0.22.0 能发现 MCP 工具目录。通过实际 CuaDriver daemon 身份取得的只读状态为辅助功能已授权、屏幕录制未授权。在该原生探查中，Host 权限控件未取得可接受的权限事实；尽管 fixture 通过，真实 MCP 响应路径仍需 closeout 检查。未进行鼠标、键盘、截图、权限弹窗或正式 profile 访问。临时 daemon 已停止，正式应用字节未变。用户需在系统设置 → 隐私与安全性 → 屏幕录制中授权 CuaDriver（`com.trycua.driver`），随后重启 CuaDriver 并重新检查授权，再执行有界原生资格验证。当前是待收尾的源码交付，不是 COMPLETE。
+
+迁移底座缺失已有 ownership registry，已从可信分支恢复同一路径。非 Computer Use inventory 保留原始基线并明确尚未重新资格验证；新增 Computer Use ownership 和受影响测试指向固定 RC.2 底座。没有建立第二份 ownership map。
