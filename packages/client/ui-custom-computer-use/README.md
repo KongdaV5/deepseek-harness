@@ -35,7 +35,7 @@ The optional bundle mounts a Computer Use tab in Plugins settings and a Global S
 <details>
 <summary>Implementation internals — click to expand</summary>
 
-A disposable observation polls redacted Host status while controls are mounted. Permission checks and prompts occur only on explicit button presses. Global Stop remains available during other asynchronous operations. Stale responses cannot overwrite a newer Stop result; unavailable Host facts remove stale healthy status.
+The optional UI mounts its generated Computer Use Remote contribution through the Gateway before injecting the namespace into its controls. Removing the UI releases both the namespace and controls. A disposable observation polls redacted Host status while controls are mounted. Permission checks and prompts occur only on explicit button presses. Global Stop remains available during other asynchronous operations. Stale responses cannot overwrite a newer Stop result; unavailable Host facts remove stale healthy status.
 
 </details>
 

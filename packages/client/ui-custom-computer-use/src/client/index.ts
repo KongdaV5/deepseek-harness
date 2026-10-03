@@ -2,7 +2,7 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 import type {} from '@deepseek-ai/dsh-api-remotes/client'
-import type {} from '@deepseek-ai/dsh-custom-computer-use-safety/remote'
+import computerUseRemote from '@deepseek-ai/dsh-custom-computer-use-safety/remote'
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
@@ -17,11 +17,17 @@ async function read<T>(operation: Promise<RemoteResult<T>>): Promise<T> {
   return result.value
 }
 /** Required transport and renderer capabilities; absent bundle contributes no controls. */
-export const inject = ['slots', 'locale', 'remote', 'remote.computerUse']
+export const inject = ['slots', 'locale', 'remote']
 /** Register observational controls; no local runtime or enablement owner.
  * @param ctx - Client plugin lifecycle and canonical Remote capabilities.
+ * @returns Resolves after the owned Remote namespace and controls activate.
  */
-export function apply(ctx: Context): void {
+export async function apply(ctx: Context): Promise<void> {
+  await ctx.remote.$mount(computerUseRemote)
+  await ctx.inject(['remote.computerUse'], mountControls)
+}
+
+function mountControls(ctx: Context): void {
   const api = ctx.remote.computerUse
   const model = new ComputerUseModel({ status: () => read(api.status()), stop: () => read(api.stop()),
     resume: () => read(api.resume()), checkPermissions: () => read(api.checkPermissions()),
