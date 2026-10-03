@@ -69,7 +69,7 @@ This package manages no model KV cache; the selected provider owns cache behavio
 
 <a id="known-limitations-and-deferred-work"></a>
 
-- The Host controller exposes redacted status, explicit permission queries/requests, Stop and idle-only resume. Prompt authority is tied to a single user-request call ID, never a session flag. No startup permission query occurs. Permission failures remain denied; unavailable catalog reports driver-unavailable. Credentials require user takeover. Clipboard, recording, configuration, installation and trajectory replay calls are excluded.
+- The Host controller exposes redacted status, explicit permission queries/requests, Stop and idle-only resume. Permission grants require boolean fields in the canonical MCP result's structuredContent; readable text cannot authorize access. Prompt authority is tied to a single user-request call ID, never a session flag. No startup permission query occurs. Permission failures remain denied; unavailable catalog reports driver-unavailable. Credentials require user takeover. Clipboard, recording, configuration, installation and trajectory replay calls are excluded.
 
 -----
 

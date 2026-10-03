@@ -408,11 +408,13 @@ describe('admission at the MCP seam', () => {
 
   it('lets the model read permission state but never raise the system prompt', async () => {
     const h = await host({ approval: 'allow' })
+    expect(await h.ctx.computerUseController.checkPermissions())
+      .toMatchObject({ accessibility: 'granted', screenRecording: 'granted' })
     const owner = await peer(h.ctx, 'owner')
     await beginTurn(h.ctx, owner)
 
     expect((await h.call('check_permissions', owner.agent, { prompt: false })).isError).toBe(false)
-    expect(await h.calls('check_permissions')).toHaveLength(1)
+    expect(await h.calls('check_permissions')).toHaveLength(2)
 
     expect(denial(await h.call('check_permissions', owner.agent, { prompt: true })))
       .toContain('only the user may start the macOS permission prompt')

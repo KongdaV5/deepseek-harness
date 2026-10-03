@@ -79,7 +79,8 @@ const TOOLS = [
 function callResult(name, args) {
   switch (name) {
     case 'check_permissions':
-      return { text: JSON.stringify({ accessibility: true, screen_recording: true, prompted: args.prompt === true }) }
+      return { text: 'Accessibility: granted. Screen Recording: granted.',
+        permissions: { accessibility: true, screen_recording: true, prompted: args.prompt === true } }
     case 'screenshot':
       return { text: `Display ${args.display}`, image: true }
     case 'accessibility_tree':
@@ -143,7 +144,7 @@ lines.on('line', (line) => {
         content: outcome.image === true
           ? [{ type: 'text', text: outcome.text }, { type: 'image', mimeType: 'image/png', data: png }]
           : [{ type: 'text', text: outcome.text }],
-        structuredContent: { text: outcome.text },
+        structuredContent: outcome.permissions ?? { text: outcome.text },
       }
       break
     }

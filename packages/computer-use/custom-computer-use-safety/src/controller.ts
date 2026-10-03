@@ -69,8 +69,9 @@ export class ComputerUseController extends TypertRemoteService {
       const result = await this.ctx.tools.execute({ name, callId, arguments: { prompt, probe_direct_capture: false },
         signal: new AbortController().signal })
       if (result.isError) throw new Error('Computer Use permission check failed; no permission state was accepted')
-      const text = result.content.find(block => block.type === 'text')
-      const facts: unknown = text?.type === 'text' ? JSON.parse(text.text) : undefined
+      const value = result.value
+      const facts = typeof value === 'object' && value !== null && 'structuredContent' in value
+        ? value.structuredContent : undefined
       if (typeof facts !== 'object' || facts === null || !('accessibility' in facts) ||
         !('screen_recording' in facts) || typeof facts.accessibility !== 'boolean' || typeof facts.screen_recording !== 'boolean') {
         throw new Error('Driver permission response omitted required boolean grants; permission remains denied')

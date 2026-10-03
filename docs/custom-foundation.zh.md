@@ -179,6 +179,6 @@ M3 保持固定官方 RC.2 底座，复用此前 Config、Session migration、ru
 
 聚焦验证覆盖十二个文件的 176 个不同用例，包括真实假 MCP 子进程、审批／Stop 竞态、子 Agent ownership、权限控件及 UI 观察失效。失败文件修正后仅重跑自身；未重复 Local、Codex 或 Schedule 专项资格验收。受影响 Host／Client 类型检查、lint、安全包／bundle／客户端产物构建、ownership 校验、配置／客户端／Cordis 目录、package 列表、模块图、双语配对、仓库引用、空白和工作区卫生通过。快速文档集合初次为 17/21；两项本轮文档失败已修正并通过对应检查。剩余两项未修改的失败是历史 persistence-format freshness 和 reasoning-policy README metadata。服务关系图生成器仍有六个既有 Custom 服务分类缺口；新增公开 Computer Use controller 已登记分类。这些基线失败未被报告为通过。
 
-原生资格验证待完成。已安装 cua-driver 0.22.0 能发现 MCP 工具目录。通过实际 CuaDriver daemon 身份取得的只读状态为辅助功能已授权、屏幕录制未授权。在该原生探查中，Host 权限控件未取得可接受的权限事实；尽管 fixture 通过，真实 MCP 响应路径仍需 closeout 检查。未进行鼠标、键盘、截图、权限弹窗或正式 profile 访问。临时 daemon 已停止，正式应用字节未变。用户需在系统设置 → 隐私与安全性 → 屏幕录制中授权 CuaDriver（`com.trycua.driver`），随后重启 CuaDriver 并重新检查授权，再执行有界原生资格验证。当前是待收尾的源码交付，不是 COMPLETE。
+原生资格验证待完成。已安装 cua-driver 0.22.0 能发现 MCP 工具目录。通过实际 CuaDriver daemon 身份取得的只读状态为辅助功能已授权、屏幕录制未授权。Host 控制器从 canonical MCP structuredContent 读取布尔授权事实，而非解析可读文本投影。其真实 MCP 查询与直接驱动查询一致：辅助功能已授权、屏幕录制未授权。响应读取修正后，八个直接受影响权限用例通过，包括真实 fixture MCP 子进程，以及缺失／非布尔结构化授权事实的拒绝；复用此前聚焦门禁。未进行鼠标、键盘、截图、权限弹窗或正式 profile 访问。临时 daemon 已停止，正式应用字节未变。用户需在系统设置 → 隐私与安全性 → 屏幕录制中授权 CuaDriver（`com.trycua.driver`），随后重启 CuaDriver 并重新检查授权，再执行有界原生资格验证。当前是待收尾的源码交付，不是 COMPLETE。
 
 迁移底座缺失已有 ownership registry，已从可信分支恢复同一路径。非 Computer Use inventory 保留原始基线并明确尚未重新资格验证；新增 Computer Use ownership 和受影响测试指向固定 RC.2 底座。没有建立第二份 ownership map。
