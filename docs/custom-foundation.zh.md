@@ -105,6 +105,8 @@ M2 affected set 使用既有 upstream maintenance contract/evidence planner 的 
 
 ## Desktop candidate ownership
 
+[Local foundation](../packages/boot/custom-foundation/README.zh.md#understand-the-implementation)将 Desktop 拥有的机器资源路径与 Harness 数据分开。Desktop bootstrap 拥有账户 home；既有 profile 登记和显式 LaunchAgent driver 消费它。Candidate 数据隔离保留现有 owner，用户自定义 Local 模型路径仍由配置拥有。
+
 Packaging 与 runtime identity 读取同一个 product definition。Custom candidate 使用官方 package pipeline 和显式本地 ad-hoc signing，不使用公司 signing cache，不 notarize 或 publish。Manifest 要求在 profile 访问前提供 qualification root。已有 rehearsal path owner 隔离 Electron state、logs 与 crashes，并可复用严格位于该 root 内的已认证 fixture DSH home。正式产品数据位于此边界之外。
 
 Session catalog 将 canonical owner 的纯 Custom event schema 作为 build input 内嵌，移除 catalog graph 对 Codex 与 task execution package 的 runtime dependency。Runtime card 通过官方 Models footer 贡献，并声明 Remote carrier 与 Local/Codex namespace。Activation regression 将 Remote 挂载于独立 plugin fiber，避免 root-context fixture 掩盖缺少 service declaration。Host 向 Codex containment 与 maintenance 传递准确的 DSH home，区别于更大的 Electron rehearsal root。官方 selector 在模型与推理等级面板增加可见的返回操作；search、provider grouping、focus restoration 与 portal positioning 保留既有 owner。没有新增 lifecycle manager、runtime authority、persistence store 或 compatibility shim。 Local 设置通过已有 Host Remote 保留当前 profile 标识与显式重启。弹框定位采用上游公共 anchor hook，移除 selector 内重复实现；ResizeObserver 处理菜单高度变化。

@@ -813,7 +813,8 @@
       "affectedTests": [
         "apps/desktop/tests/data-boundary.spec.ts",
         "apps/desktop/tests/product-flavor.spec.ts",
-        "apps/desktop/tests/profile-core-cleanup.spec.ts"
+        "apps/desktop/tests/profile-core-cleanup.spec.ts",
+        "apps/desktop-host/tests/machine-resource-home.spec.ts"
       ],
       "dependsOn": [
         "profile-config"
@@ -1025,6 +1026,31 @@
     }
   ],
   "ownershipRules": [
+    {
+      "id": "custom-local-machine-resources",
+      "patterns": [
+        "packages/boot/custom-foundation/src/profile.ts",
+        "packages/boot/custom-foundation/src/local-runtime.ts"
+      ],
+      "owner": "CUSTOM",
+      "reason": "Desktop supplies one OS account resource home to canonical profile defaults and LaunchAgent lookup independently of isolated Harness data.",
+      "dependsOn": [
+        "desktop-host-lifecycle",
+        "model-catalog"
+      ],
+      "invariants": [
+        "CUSTOM_PROFILE_BOUNDARY",
+        "LOCAL_FIRST",
+        "LOCAL_RUNTIME_SERIALIZATION"
+      ],
+      "affectedTests": [
+        "apps/desktop-host/tests/machine-resource-home.spec.ts",
+        "packages/boot/custom-foundation/tests/local-model-runtime.system.host.spec.ts",
+        "packages/boot/custom-foundation/tests/foundation.spec.ts"
+      ],
+      "impactFloor": 3,
+      "technicalTags": []
+    },
     {
       "id": "custom-computer-use-v1",
       "patterns": [

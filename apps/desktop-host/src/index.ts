@@ -1,7 +1,6 @@
 /** Launch the Desktop profile through the Web application and report its URL to Electron. */
 
-import { delimiter, join, basename, dirname } from 'node:path'
-import { homedir } from 'node:os'
+import { delimiter, join, basename, dirname, isAbsolute } from 'node:path'
 import { initializeCustomProfile } from '@deepseek-ai/dsh-custom-foundation'
 import { inspect } from 'node:util'
 import { loadLayeredEnv, loadProfile, loadProfileDirectory, reportSkippedBundles } from '@deepseek-ai/dsh-app-boot'
@@ -17,6 +16,20 @@ import { installDesktopQuitInspection } from './quit-inspection.ts'
 import { installPlatformSessionPublisher } from './platform-session.ts'
 import { installOfficeEngineResolution } from './office-engine.ts'
 
+/** Initialize Custom defaults from Desktop-owned resource and data paths.
+ * @param projectDir Explicit Custom profile directory.
+ * @param environment Desktop child launch environment.
+ * @returns The initialized Custom profile path; never reads another Harness home.
+ */
+export async function initializeDesktopCustomProfile(projectDir: string, environment: NodeJS.ProcessEnv): Promise<string> {
+  if (basename(projectDir) !== 'desktop-custom') throw new Error('Custom profile directory disagrees with Host selection')
+  const machineResourceHome = environment.DSH_DESKTOP_MACHINE_RESOURCE_HOME
+  if (machineResourceHome === undefined || !isAbsolute(machineResourceHome)) {
+    throw new Error('Custom Desktop Host requires an absolute machine resource home from Desktop')
+  }
+  return initializeCustomProfile(dirname(dirname(projectDir)), machineResourceHome)
+}
+
 async function main(): Promise<void> {
   const runtimeDir = process.argv[2] as string
   const projectDir = process.argv[3] as string
@@ -25,8 +38,7 @@ async function main(): Promise<void> {
   const profileName = process.env.DSH_DESKTOP_PROFILE ?? 'desktop'
   if (profileName !== 'desktop' && profileName !== 'desktop-custom') throw new Error('Unsupported Desktop profile')
   if (profileName === 'desktop-custom') {
-    if (basename(projectDir) !== profileName) throw new Error('Custom profile directory disagrees with Host selection')
-    await initializeCustomProfile(dirname(dirname(projectDir)), homedir())
+    await initializeDesktopCustomProfile(projectDir, process.env)
   }
   const profile = profileName === 'desktop-custom'
     ? loadProfile('dsh', profileName, installAnchor, dirname(dirname(projectDir)))

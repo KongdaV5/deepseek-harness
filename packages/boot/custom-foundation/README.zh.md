@@ -34,6 +34,8 @@ kind: package-reference
 
 CustomFoundation 拥有 Local manager inventory 和能力偏好；agent-default-model 拥有默认选择，llm-pi-ai 拥有 provider profiles。旧配置翻译在官方 profile lock 内，验证所有已知 section 后进行一次原子写入。源文件归档和导入 digest 恢复旧 partial import 及发布后归档前的中断。已有 profile 值优先；冲突的认证 authority 被拒绝。未知 section 保留在归档中并返回给调用方。
 
+Desktop 在隔离 Harness 数据之前取得 OS 账户 home，通过 `DSH_DESKTOP_MACHINE_RESOURCE_HOME` 传给 Host。Host 将这一个机器资源 home 交给既有默认模型登记和 Local runtime Config；LaunchAgent driver 要求显式提供它，不再从 `HOME` 推断。启动器刷新自己拥有的字段，保留用户模型路径和运行时偏好。Rehearsal 隔离 Harness 配置、Session、缓存及 Electron 状态，同时引用真实机器的 manager、LaunchAgent 和模型文件。修正此前生成的 rehearsal 模型目录时，仅对隔离 profile 使用 `customLocalPatches`。
+
 未发布 runtime invariant companion，因为所有持久写入经过既有 Session 或 ConfigEditor 校验，且本包没有可独立分歧的状态副本。
 
 -----

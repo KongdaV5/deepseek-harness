@@ -34,6 +34,8 @@ Use through the Custom profile bundle composition; this package owns no addition
 
 CustomFoundation owns Local manager inventory and capability preferences; agent-default-model owns the default selection and llm-pi-ai owns provider profiles. Legacy translation validates all recognized sections before one atomic write under the official profile lock. The source archive and an import digest recover both old partial imports and publication-before-archive interruption. Existing profile values win; competing authentication authority fails closed. Unknown sections remain in the source archive and are returned to the caller.
 
+Desktop captures the OS account home before isolating Harness data and passes it to Host as `DSH_DESKTOP_MACHINE_RESOURCE_HOME`. Host supplies that machine resource home to the existing default-model registration and Local runtime Config; the LaunchAgent driver requires it explicitly and never derives it from `HOME`. The launcher refreshes this owned field on startup while preserving user model paths and runtime preferences. Rehearsal isolates Harness configuration, Sessions, caches and Electron state while referencing the actual machine manager, LaunchAgent and model files. Correcting a previously generated rehearsal catalog uses `customLocalPatches` on that isolated profile only.
+
 No runtime invariant companion is published because persistence writes use the existing Session or ConfigEditor validation and this package owns no independently diverging state copy.
 
 -----

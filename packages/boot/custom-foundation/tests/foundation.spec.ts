@@ -129,6 +129,21 @@ it('initializes Local Huihui and excludes the inherited hosted default without p
   expect(customLocalPatches(f.home)).toEqual(customLocalPatches(f.home))
 })
 
+it('refreshes the launcher resource home while preserving explicitly configured Local model identities', async () => {
+  const f = await fixture()
+  await initializeCustomProfile(f.home, f.home)
+  const rows = parse(await readFile(f.patch, 'utf8')) as Array<{ id: string; config: Record<string, unknown> }>
+  const choice = rows.find(row => row.id === 'agent-default-model')!
+  choice.config['model'] = '/user-selected/custom-model.gguf'
+  const runtime = rows.find(row => row.id === 'local-model-runtime')!
+  runtime.config = { machineResourceHome: '/stale/home', driver: 'owned-process', endpoint: 'http://127.0.0.1:18080/v1' }
+  await writeFile(f.patch, stringify(rows))
+  await initializeCustomProfile(f.home, f.home)
+  const output = parse(await readFile(f.patch, 'utf8')) as Array<{ id: string; config: Record<string, unknown> }>
+  expect(output.find(row => row.id === 'agent-default-model')?.config['model']).toBe('/user-selected/custom-model.gguf')
+  expect(output.find(row => row.id === 'local-model-runtime')?.config).toEqual({ machineResourceHome: f.home, driver: 'owned-process', endpoint: 'http://127.0.0.1:18080/v1' })
+})
+
 it('translates required UI preferences to their official plugin owners', () => {
   expect(translateLegacyCustomSettings({ 'ui-onboarding': { welcomeNoticeVersion: '1' }, 'ui-developer-tools': { enabled: false } }).rows).toEqual([
     { id: 'ui-settings-general', config: { welcomeNoticeVersion: '1' } }, { id: 'ui-settings', config: { enabled: false } },

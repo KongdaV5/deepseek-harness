@@ -9,8 +9,7 @@
 import { execFile as execFileCallback } from 'node:child_process'
 import { constants } from 'node:fs'
 import { access, stat } from 'node:fs/promises'
-import { homedir } from 'node:os'
-import { join } from 'node:path'
+import { isAbsolute, join } from 'node:path'
 import { createConnection } from 'node:net'
 import { promisify } from 'node:util'
 import { Context } from '@deepseek-ai/cordis'
@@ -61,7 +60,7 @@ export interface LocalModelRuntimeConfig {
 /** Host facts not needed by the browser-facing profile. */
 interface SystemDriverOptions {
   readonly inventory: () => readonly { id: string; name: string; modality: 'text' | 'image'; modelId: string }[]
-  readonly home?: string
+  readonly home: string
   readonly platform?: NodeJS.Platform
   readonly uid?: number
   readonly execute?: (file: string, args: readonly string[], timeoutMs: number) => Promise<string>
@@ -331,7 +330,7 @@ export class SystemLocalModelRuntimeDriver implements LocalModelRuntimeDriver {
   private readonly pause: NonNullable<SystemDriverOptions['pause']>
 
   constructor(private readonly options: SystemDriverOptions) {
-    this.home = options.home ?? homedir()
+    this.home = options.home
     this.platform = options.platform ?? process.platform
     this.uid = options.uid ?? process.getuid?.() ?? 0
     this.execute = options.execute ?? (async (file, args, timeoutMs) => {
@@ -506,6 +505,8 @@ export default class LocalRuntimePlugin extends LocalModelRuntimeController {
   static Config = z.object({
     endpoint: z.string().default('http://127.0.0.1:8080/v1'),
     driver: z.union(['launch-agent', 'owned-process']).default('launch-agent'),
+    /** Launcher-owned OS account home for manager and LaunchAgent lookup. */
+    machineResourceHome: z.string(),
     binary: z.string(),
     cwd: z.string(),
     args: z.array(z.string()).default([]),
@@ -515,20 +516,24 @@ export default class LocalRuntimePlugin extends LocalModelRuntimeController {
    * @param config Process deployment; alternate serving resources require matching provider configuration.
    */
   constructor(ctx: Context,
-    config: { endpoint: string; driver: 'launch-agent' | 'owned-process'; binary?: string; cwd?: string; args: string[] }) {
+    config: { endpoint: string; driver: 'launch-agent' | 'owned-process'; machineResourceHome?: string; binary?: string; cwd?: string; args: string[] }) {
     const endpoint = new URL(config.endpoint)
     if (endpoint.hostname !== '127.0.0.1' || endpoint.protocol !== 'http:' || endpoint.pathname !== '/v1' || !endpoint.port || endpoint.search !== '' || endpoint.hash !== '' || endpoint.username !== '' || endpoint.password !== '') {
       throw new Error('Local runtime endpoint must be an explicit loopback /v1 resource')
     }
     const inventory = () => ctx.customFoundation.snapshot().profiles
+    const machineResourceHome = config.machineResourceHome ?? ''
     if (config.driver === 'launch-agent' && config.endpoint !== ENDPOINT) throw new Error('LaunchAgent owns only its qualified serving resource')
+    if (config.driver === 'launch-agent' && !isAbsolute(machineResourceHome)) {
+      throw new Error('LaunchAgent Local runtime requires an absolute machine resource home from its launcher')
+    }
     if (config.driver === 'owned-process' && (config.binary === undefined || config.cwd === undefined)) {
       throw new Error('Owned Local process requires an explicit binary and working directory')
     }
     const binary = config.binary ?? ''
     const cwd = config.cwd ?? ''
     const driver = config.driver === 'launch-agent'
-      ? new SystemLocalModelRuntimeDriver({ inventory })
+      ? new SystemLocalModelRuntimeDriver({ inventory, home: machineResourceHome })
       : new OwnedLocalProcessDriver(ctx, {
         endpoint: config.endpoint, binary, cwd, args: config.args,
       }, inventory)

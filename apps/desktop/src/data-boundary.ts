@@ -328,11 +328,19 @@ function assertRealDirectory(path: string, details = lstatSync(path)): void {
   }
 }
 
-/** Build the complete child environment from the already-validated rehearsal boundary. */
+/** Build the child environment, keeping machine resources independent of Harness data.
+ * @param boundary Validated Harness data paths.
+ * @param environment Login-shell environment inherited by the child.
+ * @param machineResourceHome Actual account home captured by Desktop before rehearsal isolation.
+ * @returns Host environment with one explicit machine-resource owner.
+ */
 export function desktopHostEnvironment(
   boundary: DesktopDataBoundary,
   environment: NodeJS.ProcessEnv,
+  machineResourceHome: string,
 ): NodeJS.ProcessEnv {
+  if (!isAbsolute(machineResourceHome)) throw new Error('desktop data: machine resource home must be absolute')
+  const hostEnvironment = { ...environment, DSH_DESKTOP_MACHINE_RESOURCE_HOME: machineResourceHome }
   // Codex's dedicated home and maintenance evidence belong to this DSH home,
   // not to the broader directory that also owns Electron rehearsal state.
   const trustedRoot = boundary.dshHome
@@ -345,7 +353,7 @@ export function desktopHostEnvironment(
     const electronUserData = boundary.electronUserData.mode === 'explicit' ? boundary.electronUserData.path : undefined
     if (electronUserData === undefined) throw new Error('qualification isolation violation: Electron userData is missing')
     return {
-      ...environment,
+      ...hostEnvironment,
       HOME: join(root, 'home'),
       TMPDIR: join(root, 'tmp'),
       DSH_HOME: boundary.dshHome,
@@ -364,10 +372,10 @@ export function desktopHostEnvironment(
   }
   if (boundary.mode === 'custom-default') {
     return {
-      ...environment,
+      ...hostEnvironment,
       DSH_HOME: boundary.dshHome,
       [DESKTOP_CODEX_HOME_ALLOWED_ROOT_ENV]: trustedRoot,
     }
   }
-  return { ...environment, [DESKTOP_CODEX_HOME_ALLOWED_ROOT_ENV]: trustedRoot }
+  return { ...hostEnvironment, [DESKTOP_CODEX_HOME_ALLOWED_ROOT_ENV]: trustedRoot }
 }

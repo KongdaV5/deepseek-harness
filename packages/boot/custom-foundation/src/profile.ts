@@ -18,6 +18,7 @@ export function customLocalPatches(userHome: string): PatchOptions[] {
     { id: 'agent-default-model', config: { provider: 'dsh-local-huihui', model } },
     { id: 'llm-pi-ai', config: { providers: { 'dsh-local-huihui': { displayName: 'Local Huihui Qwen', api: 'openai-completions', baseURL: 'http://127.0.0.1:8080/v1', headers: { Authorization: 'Bearer local' }, models: [{ id: model, name: 'Huihui Qwen3.8 27B', contextWindow: 32768, maxTokens: 8192 }, { id: join(userHome, 'Models', 'Qwen3.8-27B-GSQ-RCO-GGUF', 'Qwen3.8-27B-GSQ-RCO-IQ3_S.gguf'), name: 'Original Qwen3.8 27B', contextWindow: 32768, maxTokens: 8192 }] } } } },
     { id: 'custom-foundation', config: { localProfiles: [{ id: 'huihui', name: 'Huihui Qwen3.8 27B', modality: 'text', modelId: model }, { id: 'img21', name: 'Qwen Image 2.1', modality: 'image', modelId: join(userHome, 'Models', 'Qwen-Image-2.1-mflux-8bit') }, { id: '38', name: 'Original Qwen3.8 27B', modality: 'text', modelId: join(userHome, 'Models', 'Qwen3.8-27B-GSQ-RCO-GGUF', 'Qwen3.8-27B-GSQ-RCO-IQ3_S.gguf') }], selectedLocalProfile: 'huihui', localModelRuntime: true, codexSubscription: true } },
+    { id: 'local-model-runtime', config: { machineResourceHome: userHome } },
   ]
 }
 
@@ -47,6 +48,8 @@ export async function initializeCustomProfile(home: string, userHome: string): P
         const defaults = row.config as Record<string, unknown>
         const current = existing.config ?? {}
         existing.config = { ...defaults, ...current }
+        // Launcher-owned machine resources cannot be redirected by a stale profile value.
+        if (row.id === 'local-model-runtime') existing.config['machineResourceHome'] = userHome
         if (row.id === 'llm-pi-ai') {
           const providerDefaults = z.record(z.string(), z.unknown()).parse(defaults['providers'])
           const providers = {

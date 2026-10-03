@@ -48,7 +48,7 @@ describe('desktop data boundary', () => {
       migration: { historicalSessionRead: 'upstream-native', liveSharedDataMigrationAllowed: true },
       approvedRoots: [dshHome],
     })
-    expect(desktopHostEnvironment(boundary, {})).toMatchObject({
+    expect(desktopHostEnvironment(boundary, {}, '/synthetic/machine-home')).toMatchObject({
       [DESKTOP_CODEX_HOME_ALLOWED_ROOT_ENV]: dshHome,
     })
   })
@@ -81,7 +81,7 @@ describe('desktop data boundary', () => {
       migration: { historicalSessionRead: 'disabled', liveSharedDataMigrationAllowed: false },
       approvedRoots: [root],
     })
-    expect(desktopHostEnvironment(boundary, {})).toMatchObject({
+    expect(desktopHostEnvironment(boundary, {}, '/synthetic/machine-home')).toMatchObject({
       DSH_HOME: root,
       [DESKTOP_CODEX_HOME_ALLOWED_ROOT_ENV]: boundary.dshHome,
     })
@@ -131,7 +131,7 @@ describe('desktop data boundary', () => {
     expect(boundary.mode).toBe('candidate-rehearsal')
     expect(boundary.approvedRoots).toEqual([root])
     expect(boundary.profile).toBe(join(root, 'dsh-home', 'profiles', 'desktop-custom'))
-    expect(desktopHostEnvironment(boundary, {})).toMatchObject({
+    expect(desktopHostEnvironment(boundary, {}, '/synthetic/machine-home')).toMatchObject({
       HOME: join(root, 'home'),
       TMPDIR: join(root, 'tmp'),
       DSH_HOME: join(root, 'dsh-home'),
@@ -230,8 +230,8 @@ describe('desktop data boundary', () => {
     const environment = { ...rehearsal('/synthetic'), DSH_DESKTOP_REHEARSAL_DSH_HOME: '/synthetic/allowed-candidate/profile' }
     const boundary = resolveDesktopDataBoundary(custom, environment)
     expect(boundary.dshHome).toBe('/synthetic/allowed-candidate/profile')
-    expect(desktopHostEnvironment(boundary, {}).DSH_HOME).toBe('/synthetic/allowed-candidate/profile')
-    expect(desktopHostEnvironment(boundary, {})[DESKTOP_CODEX_HOME_ALLOWED_ROOT_ENV]).toBe(boundary.dshHome)
+    expect(desktopHostEnvironment(boundary, {}, '/synthetic/machine-home').DSH_HOME).toBe('/synthetic/allowed-candidate/profile')
+    expect(desktopHostEnvironment(boundary, {}, '/synthetic/machine-home')[DESKTOP_CODEX_HOME_ALLOWED_ROOT_ENV]).toBe(boundary.dshHome)
     for (const invalid of ['/synthetic/allowed-candidate', '/production/profile', 'relative']) {
       expect(() => resolveDesktopDataBoundary(custom, { ...environment, DSH_DESKTOP_REHEARSAL_DSH_HOME: invalid })).toThrow('rehearsal DSH home')
     }

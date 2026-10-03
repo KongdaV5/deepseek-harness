@@ -1,5 +1,5 @@
 import { localModelProfileCatalog } from './local-fixtures.ts'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { chmod, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -49,6 +49,21 @@ function plistFor(home: string): string {
 }
 
 describe('the System local-model manager driver', () => {
+  it('uses the explicit resource owner for manager and LaunchAgent with a different process HOME', async () => {
+    const home = await fakeHome()
+    vi.stubEnv('HOME', join(home, 'isolated-data-home'))
+    onTestFinished(() => { vi.unstubAllEnvs() })
+    const execute = vi.fn(async (file: string) => file === '/usr/bin/plutil' ? plistFor(home) : 'state = running')
+    const driver = new SystemLocalModelRuntimeDriver({ inventory: () => localModelProfileCatalog(home),
+      home, platform: 'darwin', uid: 501, execute, portOpen: async () => false, fetchModels: async () => [],
+    })
+    onTestFinished(() => driver.dispose())
+    expect(await driver.probe()).toMatchObject({ available: true, managed: true })
+    expect(execute).toHaveBeenCalledWith('/usr/bin/plutil', ['-convert', 'json', '-o', '-', join(home, 'Library', 'LaunchAgents', 'com.kongda.local-mlx.plist')], 3000)
+    await driver.run('runtime-start', 'huihui')
+    expect(execute).toHaveBeenLastCalledWith(join(home, '.local', 'bin', 'local-model'), ['runtime-start', 'huihui'], 240_000)
+  })
+
   it('recognizes only the matching LaunchAgent and checks the loopback model endpoint', async () => {
     const home = await fakeHome()
     const execute = vi.fn(async (file: string) => {

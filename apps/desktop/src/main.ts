@@ -1,4 +1,5 @@
 import { existsSync } from 'node:fs'
+import { userInfo } from 'node:os'
 import type { ProductEventMap, ProductEvent } from '@deepseek-ai/dsh-client-product-analytics/types'
 import { WINDOWS_TITLEBAR_HEIGHT } from './windows-layout.ts'
 /** Electron shell: desktop project ownership, custom protocol, windows, and lifecycle. */
@@ -83,6 +84,8 @@ const rendererConsole = new RendererConsoleTail()
 const applicationManifest = readDesktopApplicationManifest(app.getAppPath())
 const productFlavor = resolveDesktopRuntimeProductFlavor(app.isPackaged, applicationManifest)
 const accountOnboarding = productFlavor.id === 'official'
+// OS account records remain independent of the rehearsal child's HOME.
+const machineResourceHome = userInfo().homedir
 const dataBoundary = resolveDesktopDataBoundary(productFlavor, process.env, app.getPath('appData'), readDesktopQualificationRootArgument(process.argv))
 if (applicationManifest.dshDesktopCandidate === true && dataBoundary.mode !== 'candidate-rehearsal') {
   throw new Error('desktop candidate requires an explicit qualification root')
@@ -460,7 +463,7 @@ async function main(): Promise<void> {
     const hostInspectPort = developmentHostInspectPort(development)
     const host = new DesktopHostProcess(resources.node, resources.dsh, activeProject,
       hostInspectPort, {
-        ...desktopHostEnvironment(dataBoundary, hostEnvironment),
+        ...desktopHostEnvironment(dataBoundary, hostEnvironment, machineResourceHome),
         DSH_DESKTOP_PROFILE: productFlavor.profileName, DSH_CLIENT_VERSION: desktopClientVersion(),
       }, onFailure,
       primaryRuntime,
