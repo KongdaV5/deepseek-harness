@@ -59,6 +59,27 @@ it('identifies the active Local profile and delegates its explicit restart to th
   model.dispose()
 })
 
+it('shows each canonical Local lifecycle and availability state with its active profile', async () => {
+  const { operations, model } = fixture()
+  const waitForLocalStatus = async (expected: string): Promise<void> => {
+    await waitFor(() => { expect(screen.getAllByRole('status')[0]?.textContent).toBe(expected) })
+  }
+  await waitForLocalStatus('Local runtime · Stopped')
+  const stopped = await operations.localStatus()
+  const refreshAs = async (next: Awaited<ReturnType<RuntimeOperations['localStatus']>>, expected: string): Promise<void> => {
+    operations.localStatus = async () => next
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh status' }))
+    await waitForLocalStatus(expected)
+  }
+  await refreshAs({ ...stopped, state: 'starting' }, 'Local runtime · Starting')
+  await refreshAs({ ...stopped, state: 'running', profile: 'huihui' }, 'Local runtime · Ready · Huihui')
+  await refreshAs({ ...stopped, state: 'stopping', profile: 'huihui' }, 'Local runtime · Stopping · Huihui')
+  await refreshAs({ ...stopped, available: false, state: 'error', error: 'Manager unavailable' }, 'Local runtime · Unavailable')
+  await refreshAs({ ...stopped, state: 'error', error: 'Health check failed' }, 'Local runtime · Error')
+  await refreshAs({ ...stopped, enabled: false, available: false, state: 'stopped' }, 'Local runtime · Disabled in this profile')
+  model.dispose()
+})
+
 it('replaces a stale runtime view with an alert and disables controls when the owner read fails', async () => {
   const { operations, model } = fixture()
   await screen.findByRole('button', { name: 'Start / switch to Huihui' })

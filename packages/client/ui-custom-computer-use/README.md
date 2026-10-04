@@ -11,6 +11,8 @@ English | [中文](README.zh.md)
 
 The optional bundle mounts a Computer Use tab in Plugins settings and a Global Stop row above every visible conversation composer. These controls use canonical Remote operations. Enablement stays with the standard Plugins bundle list. No renderer lease or runtime manager exists.
 
+The composer row labels itself Computer Use and reports the lease separately from Global Stop: an idle lease is not a Local runtime status, and Global Stop is shown as not engaged, stopping or engaged from the Host snapshot.
+
 ## Table of Contents
 
 - [Use this package](#use-this-package)

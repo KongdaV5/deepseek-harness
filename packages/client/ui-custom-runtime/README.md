@@ -27,6 +27,8 @@ Inspect Local model health and Codex subscription status in Models settings. Sta
 
 Use the Custom composition, which mounts this Client contribution in the official Models footer. Choose an available exact text profile; unavailable profiles and unverified System runtime choices stay disabled. Changing a runtime preference does not change account ownership. Authentication controls always require an explicit user action. The Local card identifies the Host-reported active profile and modality. Start/switch, stop and explicit restart invoke the existing Host controller; a profile is restartable only while the Host reports safe stop ownership.
 
+The Local runtime line uses the same Host snapshot to distinguish disabled, unavailable, stopped, starting, ready, stopping and error, and names the active profile when one is running. Computer Use has its own separately labeled lease/Global Stop row; its idle lease never means the Local runtime is stopped. This card adds no polling timer.
+
 The Codex card shows Host-reported runtime and account states, the selected runtime source/version, runtime selection notes and dynamic model count. Both available usage windows include their used percentage, duration and reset time. Missing quota information remains unavailable; it does not affect routing or infer connection health.
 
 -----

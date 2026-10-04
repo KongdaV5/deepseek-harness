@@ -15,7 +15,7 @@ export function ComputerUseStop({ useComputerUse, model, t }: InjectFace<Control
   const state = useComputerUse(value => value)
   return <section className={css.row} aria-label={t('title')}>
     <span role="status">{state.error !== undefined ? t('failed') : state.status === undefined ? t('loading') :
-      `${t(state.status.lease.state)} · ${t(state.status.lease.stop)}${state.status.lease.owner === undefined ? '' : ` · ${state.status.lease.owner.sessionId}`}`}</span>
+      `${t('status.computerUse')} · ${t('status.lease')}: ${t(state.status.lease.state)} · ${t('status.globalStop')}: ${t(state.status.lease.stop)}${state.status.lease.owner === undefined ? '' : ` · ${state.status.lease.owner.sessionId}`}`}</span>
     <Button onClick={() => { void model.run(() => model.operations.stop()) }}>{t('stop')}</Button>
   </section>
 }

@@ -44,7 +44,14 @@ import css from './ModelSelect.module.css'
 import { orderModelProviders } from './provider-order.ts'
 
 /** Which pane the dropdown shows: the two-row root or one drilled-in list. */
-type Pane = 'root' | 'model' | 'effort'
+type Pane = 'root' | 'model' | 'effort' | 'preset'
+type ExecutionPresetId = 'quick' | 'standard' | 'deep'
+
+interface ExecutionPreset {
+  id: ExecutionPresetId
+  effort: string
+  label: string
+}
 
 /** One dynamic effort row; undefined means preserve the provider default. */
 interface EffortChoice {
@@ -79,6 +86,7 @@ export function ModelSelect(
   const [query, setQuery] = useState('')
   const [highlightedIndex, setHighlightedIndex] = useState<number | null>(null)
   const [selectionFocus, setSelectionFocus] = useState(false)
+  const [manualOverride, setManualOverride] = useState(false)
   // The in-menu error strip serves catalog loads (its Retry re-runs the
   // load); a rejected SELECTION announces through the transient toast
   // instead, so the strip renders only while the latest failure-capable
@@ -140,6 +148,29 @@ export function ModelSelect(
         label: effort.name,
       })),
     ], [reasoning, t])
+  const executionPresets = useMemo<readonly ExecutionPreset[]>(() => {
+    if (reasoning === undefined || reasoning.efforts.length < 2) return []
+    const efforts = reasoning.efforts
+    const quick = efforts[0]
+    const deep = efforts.at(-1)
+    const standard = efforts.find(effort => effort.id === reasoning.defaultEffort)
+      ?? efforts[Math.floor((efforts.length - 1) / 2)]
+    if (quick === undefined || deep === undefined || standard === undefined) return []
+    const candidates: readonly [ExecutionPresetId, string][] = [
+      ['quick', quick.id],
+      ['standard', standard.id],
+      ['deep', deep.id],
+    ]
+    const seen = new Set<string>()
+    return candidates.flatMap(([presetId, effort]) => {
+      if (seen.has(effort)) return []
+      seen.add(effort)
+      return [{ id: presetId, effort, label: t(`preset.${presetId}`) }]
+    })
+  }, [reasoning, t])
+  const currentPreset = manualOverride
+    ? undefined
+    : executionPresets.find(preset => preset.effort === effectiveEffort)
   const { pending } = state
   const busy = pending !== null
 
@@ -169,7 +200,7 @@ export function ModelSelect(
 
   // Pane switches unmount the focused row; restore focus inside the menu so
   // keyboard navigation remains available.
-  const paneFocus = useRef<'drill' | 'model' | 'effort' | null>(null)
+  const paneFocus = useRef<'drill' | 'model' | 'effort' | 'preset' | null>(null)
   const previousShowSearch = useRef(showSearch)
   useEffect(() => {
     const changedSearchMode = previousShowSearch.current !== showSearch
@@ -191,8 +222,9 @@ export function ModelSelect(
       ;(target ?? triggerRef.current)?.focus()
       return
     }
-    const cell = menuItems(menuRef.current)[intent === 'effort' ? 1 : 0]
-    ;(cell !== null && cell !== undefined && !cell.disabled ? cell : triggerRef.current)?.focus()
+    const cellIndex = intent === 'model' ? 0 : intent === 'effort' ? 1 : 2
+    const cell = menuItems(menuRef.current)[cellIndex]
+    ;(cell !== undefined && !cell.disabled ? cell : triggerRef.current)?.focus()
   }, [open, pane, showSearch])
 
   useEffect(() => {
@@ -351,12 +383,15 @@ export function ModelSelect(
     })
   }
 
-  const submit = (selection: ModelSelection): void => {
+  const submit = (selection: ModelSelection, onSuccess?: () => void): void => {
     lastActionRef.current = 'select'
     // Disabled option rows cannot retain focus while a selection is pending.
     setSelectionFocus(true)
     triggerRef.current?.focus()
-    void select(selection).then(settleSelection)
+    void select(selection).then((result) => {
+      if (result?.ok) onSuccess?.()
+      settleSelection(result)
+    })
   }
 
   const choose = (selection: ModelSelection): void => {
@@ -364,7 +399,7 @@ export function ModelSelect(
       closeAfterSelection()
       return
     }
-    submit(selection)
+    submit(selection, () => { setManualOverride(true) })
   }
 
   const chooseEffort = (effort: string | undefined): void => {
@@ -378,7 +413,21 @@ export function ModelSelect(
       model: state.current.model,
       ...effort === undefined ? {} : { reasoningEffort: effort },
     }
-    submit(selection)
+    submit(selection, () => { setManualOverride(true) })
+  }
+
+  const choosePreset = (preset: ExecutionPreset): void => {
+    if (state.current === null) return
+    if (effectiveEffort === preset.effort) {
+      setManualOverride(false)
+      closeAfterSelection()
+      return
+    }
+    submit({
+      provider: state.current.provider,
+      model: state.current.model,
+      reasoningEffort: preset.effort,
+    }, () => { setManualOverride(false) })
   }
 
   const waiting = state.current === null && state.status === 'loading'
@@ -453,7 +502,7 @@ export function ModelSelect(
             <button type="button" className={clsx(css.cell, css.back)} aria-label={t('menu.back')}
               onClick={() => { back(pane) }}>
               <IconChevronLeftOutlineRegular className={css.cellChevron} />
-              <span className={css.cellLabel}>{t(pane === 'model' ? 'menu.model' : 'menu.effort')}</span>
+              <span className={css.cellLabel}>{t(pane === 'model' ? 'menu.model' : pane === 'effort' ? 'menu.effort' : 'menu.preset')}</span>
             </button>
           )}
           {pane === 'root' && (
@@ -467,6 +516,13 @@ export function ModelSelect(
                 <button type="button" role="menuitem" className={css.cell} onClick={() => { drill('effort') }}>
                   <span className={css.cellLabel}>{t('menu.effort')}</span>
                   <span className={css.cellValue}>{effortLabel}</span>
+                  <IconChevronRightOutlineRegular className={css.cellChevron} />
+                </button>
+              )}
+              {executionPresets.length > 1 && (
+                <button type="button" role="menuitem" className={css.cell} onClick={() => { drill('preset') }}>
+                  <span className={css.cellLabel}>{t('menu.preset')}</span>
+                  <span className={css.cellValue}>{currentPreset?.label ?? t('preset.custom')}</span>
                   <IconChevronRightOutlineRegular className={css.cellChevron} />
                 </button>
               )}
@@ -606,6 +662,33 @@ export function ModelSelect(
                     </span>
                   </button>
                 ))}
+            </>
+          )}
+
+          {pane === 'preset' && (
+            <>
+              <div className={css.status}>{t('preset.currentModelOnly')}</div>
+              {executionPresets.map(preset => (
+                <button
+                  type="button"
+                  role="menuitemradio"
+                  aria-checked={currentPreset?.id === preset.id}
+                  className={clsx(css.option, currentPreset?.id === preset.id && css.selected)}
+                  key={preset.id}
+                  disabled={busy}
+                  onClick={() => { choosePreset(preset) }}
+                >
+                  <span className={css.optionCopy}>
+                    <span className={css.modelName}>{preset.label}</span>
+                  </span>
+                  <span className={css.check}>
+                    {pending !== null && pending.provider === state.current?.provider
+                      && pending.model === state.current.model && pending.reasoningEffort === preset.effort
+                      ? <StateDot state="ongoing" />
+                      : currentPreset?.id === preset.id ? <IconCheckOutlineRegular /> : null}
+                  </span>
+                </button>
+              ))}
             </>
           )}
         </MenuSurface>,

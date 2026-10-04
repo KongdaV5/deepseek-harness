@@ -19,12 +19,23 @@ export function RuntimeCards({ useRuntime, model, t }: InjectFace<RuntimeCardsIn
   const state = useRuntime(value => value)
   useEffect(() => { void model.refresh() }, [model])
   const action = (operation: () => Promise<unknown>) => { void model.run(operation) }
+  const local = state.local
+  const currentProfile = local?.profile === null || local?.profile === undefined
+    ? undefined
+    : local.profiles.find(profile => profile.id === local.profile)?.name
+  const localState = local === undefined
+    ? state.loading ? 'checking' : 'unavailable'
+    : !local.enabled ? 'disabled'
+      : !local.available ? 'unavailable'
+        : local.state === 'running' ? 'ready'
+          : local.state === 'error' ? 'runtimeError'
+            : local.state
   return <section className={css.section} aria-label={t('title')}>
     <h3>{t('title')}</h3>
     {state.error === undefined ? null : <p role="alert">{state.error}</p>}
     <fieldset className={css.card} disabled={state.loading || state.local?.enabled !== true}><legend>{t('local')}</legend>
       <p className={css.hint}>{t('localHint')}</p>
-      <p>{state.local === undefined ? t('unknown') : t(state.local.state)} · {state.local?.endpoint ?? ''}</p>
+      <p role="status"><strong>{t('localRuntime')}</strong> · {t(localState)}{currentProfile === undefined ? '' : ` · ${currentProfile}`}</p>
       {state.local?.error === undefined ? null : <p role="alert">{state.local.error}</p>}
       {state.local?.profiles.map(profile => <div key={profile.id} className={css.profile}>
         <span>{profile.name} · {t(profile.modality)}{state.local?.profile === profile.id ? ` · ${t('current')}` : ''}</span>

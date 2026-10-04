@@ -45,6 +45,8 @@ Both entries group models by provider, with DeepSeek Account first and DeepSeek 
 
 The composer replaces the model and effort text with the Models icon when the expanded controls cannot share one line, and restores the text when space permits. The full selection remains available in the trigger's accessible name, tooltip, and menu.
 
+Execution presets are offered only when the selected model advertises multiple reasoning efforts. Quick, Standard and Deep apply adapter-advertised effort values to the current provider/model through the same Session selection path; they never switch models or providers. A successful manual model or effort change shows Custom. There is no separate preset persistence store; the existing provider/model/effort fields remain the persisted selection.
+
 ### Unroutable sessions
 
 Catalog availability does not block sending with a saved selection; request execution reports missing credentials or unavailable models. Refreshes and refresh failures retain the last displayed selection and groups. A Host reset clears that display. Sign-out hides the account provider from the picker while preserving the saved provider/model ID and reasoning effort. Signing in restores the catalog name when that model is available again. Existing session logs remain unchanged.
