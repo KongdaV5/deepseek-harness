@@ -248,3 +248,15 @@ Candidate 工作期间，因 candidate 与 formal 共用 bundle identifier，CUA
 | `/Users/kongda/Developer/Local/worktrees/dsh-pmodel-recovery` | `recovery/pmodel-20260928` @ `e84102f2a3db4968bc5d96ecc338be934cc183e6` | 2485848 KiB | `0.1.6-alpha.2`：`da220fafaafa103144ab821428bc1d44e68a760ef72ac62e43b95ee1e1862dc6` |
 
 保留的正式 App 哈希为 `22fa9856996ccc7744975b9c29569d4abac521716c7b35d21527ee6d41fa918a`；rollback 哈希为 `084bf057914adf5e52745a214eceb147d24296b63a3f488abf35a6587771a776`。历史 package targets、downloads、非活动 `node_modules` 与已确认忽略且可再生成的输出均可从保留的源码和 lockfile 重建，现已删除。主 checkout 的 `.desktop-build` 中 development homes 和 session 数据仍保留；仅删除了生成的 targets 与 downloads。另外两个 `.desktop-build` 内没有名为 home 的目录，现已整体删除。当前 Computer Use evidence 和其他独立 DSH 临时 evidence 均未触碰。
+
+## Computer Use I1 最终恢复资格
+
+P-COMPUTER-I1-FINAL-RESUME 仍为 BLOCKED_WITH_DIAGNOSTIC_EVIDENCE，恢复点为 COLD_PERFORMANCE_MODEL_SUITABILITY。当前源码包括已完成的项目瘦身与 runtime feedback/preset 实现。经审核的 V1 呈现仍为三个 OBSERVE 工具和五个须审批的 ACT 原语，未知工具不予呈现。既有 context、Host 与 Native 安全资格继续有效；不重复历史 context、安全和 UI 测试集。
+
+实际机器目录确认当前选中模型为 Huihui-Qwen3.8-27B-abliterated-GSQ-RCO-IQ3_S.gguf；Original Qwen3.8 IQ3_S 是另一套可用文本 profile。本轮仅使用用户明确指定的 Huihui 模型及已经就绪的 canonical 机器服务，llama.cpp b10809-5266f24da、单个 65,536-token slot。隔离源码 Host 使用独立 DSH_HOME、profile 和 workspace；机器资源仍来自真实账户 home。正式应用、rollback、正式 profile、模型文件、manager 与 LaunchAgent 配置未触碰。
+
+当前 standard-preset 请求呈现共 41 个工具，其中恰八个 CU 工具，并保留 27 条 Skill 目录和普通非 CU 能力。精确 admission 为 18,657 输入 tokens，其中 CU schema 边际占 6,664 tokens，保留 8,192-token 输出预算和 4,096-token 余量。冷请求仅在 probe 使用 cache_prompt=false；服务器 slot 证据确认零 token 复用。181.22 秒时仅处理 12,288 输入 tokens，尚无生成内容；295.41 秒时处理到 18,653 tokens，速度为 63.14 tokens/s。未改变的 300,000ms idle timeout 在 300.471 秒后以 TIMEOUT 结束 turn，零生成内容、零 CU call。
+
+紧邻缓存请求使用相同模型与工具呈现。首个生成 reasoning 出现在 3.002 秒，一次成功的 mcp__cua-driver-mcp__list_windows 结果在 13.861 秒内完成。服务器对 90 个新增 tokens 的 prompt evaluation 为 2.37965 秒。两个 probe 合计零 ACT call、零 retry、零物理动作。Global Stop 后租约为 RELEASED、in-flight 为零，隔离 Host 干净退出。暖请求功能成功确认 OBSERVE 通路可用，但不满足既有的“两次冷 OBSERVE 请求均在 180 秒内产生首个生成内容”要求。
+
+因此当前机器/部署和所需冷 V1 负载仍裁决为 CURRENT_LOCAL_MODEL_NOT_VIABLE。未采用 timeout 增大、模型替换、runtime 调参或安全变更。Candidate build count 为零；性能资格仍阻塞，未运行 Native candidate qualification、遗留 UI Native smoke、promotion 或 installed smoke。既有 Native 安全证据及两个安装 bundle 均保留。I1 不是 COMPLETE；UI 源码交付继续完成、Native smoke 继续 pending。恢复需要用户明确选择合适 Local 模型，或有证据的当前部署改善满足既有冷性能要求。诊断证据保留在 /private/tmp/dsh-i1-resume-_xtxnqja/diagnostics.json，同目录包含序列化请求、精确计数、服务器 timing 与 profile 隔离记录；这些持久结论不依赖该临时目录长期存在。
