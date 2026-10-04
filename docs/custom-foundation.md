@@ -236,3 +236,15 @@ The candidate was promoted to `/Applications/DS Harness.app`; exactly one rollba
 There was one brief accidental formal-app launch while resolving the CUA app handle during candidate work, because the candidate and formal app share a bundle identifier. It exited on the existing listener collision before candidate smoke proceeded; the successful candidate smoke then ran candidate-only, and the installed smoke ran formal-only after candidate shutdown. No model turn was run during the accidental launch. The installed UI displayed the generic “DeepSeek thinking” activity label; General Settings still exposes the work-step display preference (currently Standard). The user's preference for richer, more visible step progress is recorded for later UI work and was not changed or repackaged in this release. Computer Use code and safety work remain present, default OFF; its cold-performance qualification remains paused at `COLD_PERFORMANCE_MODEL_SUITABILITY` and was not run for Core Release.
 
 No source code changed in this release closeout. Only the release/status ledger is added here; the packaged binary provenance remains the source SHA above, while the documentation commit advances the branch separately.
+
+## P-PROJECT-SLIM cleanup manifest
+
+Recorded before cleanup on `2026-10-04`. These generated build trees belong to inactive checkouts. Their source worktrees and lockfiles remain; none of the historical app hashes below matches the formal app or the only rollback.
+
+| Checkout | Branch @ HEAD | `.desktop-build` | Historical app.asar |
+|---|---|---:|---|
+| `/Users/kongda/Developer/Local/deepseek-harness` | `master` @ `a305151ffd83556500b2eb8841b029d7c23fb7f0` | 954552 KiB | `0.1.5-rc.2`: `468eaf25e07b9db7d7758b9fd214be6859255f5de02f87c302c4301639d3513e` |
+| `/Users/kongda/Developer/Local/worktrees/dsh-codex-subscription` | `feature/codex-subscription` @ `b7ad141ed4a3f75a6652e1d86a8cc09aa8500c19` | 4418544 KiB | `0.1.6-alpha.2`: `98be4e0d9b2447a65669d044b6ada7fa8096a170c7e72eff2ba9b48626f5b181`; embedded rollback copy: `da9324b2db28141057d3402aadfcd5e9c323a1dd155998717df9e8321a2a6a74` |
+| `/Users/kongda/Developer/Local/worktrees/dsh-pmodel-recovery` | `recovery/pmodel-20260928` @ `e84102f2a3db4968bc5d96ecc338be934cc183e6` | 2485848 KiB | `0.1.6-alpha.2`: `da220fafaafa103144ab821428bc1d44e68a760ef72ac62e43b95ee1e1862dc6` |
+
+The retained formal app hash is `22fa9856996ccc7744975b9c29569d4abac521716c7b35d21527ee6d41fa918a`; the retained rollback hash is `084bf057914adf5e52745a214eceb147d24296b63a3f488abf35a6587771a776`. Historical packaged targets, downloads, inactive `node_modules`, and confirmed ignored generated outputs were removed because they can be rebuilt from the retained source and lockfiles. The main checkout's development homes and session data under `.desktop-build` remain; only its generated targets and downloads were removed. The other two `.desktop-build` trees had no named home roots and were removed whole. Current Computer Use evidence and all separate DSH temporary evidence remain untouched.

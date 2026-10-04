@@ -236,3 +236,15 @@ Candidate 已晋升至 `/Applications/DS Harness.app`；仅保留一份 rollback
 Candidate 工作期间，因 candidate 与 formal 共用 bundle identifier，CUA 应用句柄解析曾短暂意外启动正式 App。它在既有 listener 冲突处退出，candidate-only smoke 随后继续；candidate 退出后才进行 formal-only installed smoke。意外启动期间没有运行模型 turn。当前安装版在生成时显示通用的“深度求索中”；通用设置仍有“工作步骤展示”选项（当前为“标准”）。用户偏好更丰富、可见的步骤进度，已记录为后续 UI 工作；本次发布没有改动或重打包此 UI。Computer Use 代码和安全成果保留，默认关闭；冷性能资格仍暂停在 `COLD_PERFORMANCE_MODEL_SUITABILITY`，本次 Core Release 未运行该资格。
 
 本次 closeout 未修改源码，只在此补充 release/status ledger。打包产物 provenance 仍指向上述源码 SHA；文档提交会单独推进分支 SHA。
+
+## P-PROJECT-SLIM 清理清单
+
+本清单在 `2026-10-04` 清理前记录。下表中的生成产物属于非活动 checkout；对应源码 worktree 与 lockfile 会保留。下列历史 app 哈希均不等于正式 App 或唯一 rollback 的哈希。
+
+| Checkout | Branch @ HEAD | `.desktop-build` | 历史 app.asar |
+|---|---|---:|---|
+| `/Users/kongda/Developer/Local/deepseek-harness` | `master` @ `a305151ffd83556500b2eb8841b029d7c23fb7f0` | 954552 KiB | `0.1.5-rc.2`：`468eaf25e07b9db7d7758b9fd214be6859255f5de02f87c302c4301639d3513e` |
+| `/Users/kongda/Developer/Local/worktrees/dsh-codex-subscription` | `feature/codex-subscription` @ `b7ad141ed4a3f75a6652e1d86a8cc09aa8500c19` | 4418544 KiB | `0.1.6-alpha.2`：`98be4e0d9b2447a65669d044b6ada7fa8096a170c7e72eff2ba9b48626f5b181`；内含 rollback 副本：`da9324b2db28141057d3402aadfcd5e9c323a1dd155998717df9e8321a2a6a74` |
+| `/Users/kongda/Developer/Local/worktrees/dsh-pmodel-recovery` | `recovery/pmodel-20260928` @ `e84102f2a3db4968bc5d96ecc338be934cc183e6` | 2485848 KiB | `0.1.6-alpha.2`：`da220fafaafa103144ab821428bc1d44e68a760ef72ac62e43b95ee1e1862dc6` |
+
+保留的正式 App 哈希为 `22fa9856996ccc7744975b9c29569d4abac521716c7b35d21527ee6d41fa918a`；rollback 哈希为 `084bf057914adf5e52745a214eceb147d24296b63a3f488abf35a6587771a776`。历史 package targets、downloads、非活动 `node_modules` 与已确认忽略且可再生成的输出均可从保留的源码和 lockfile 重建，现已删除。主 checkout 的 `.desktop-build` 中 development homes 和 session 数据仍保留；仅删除了生成的 targets 与 downloads。另外两个 `.desktop-build` 内没有名为 home 的目录，现已整体删除。当前 Computer Use evidence 和其他独立 DSH 临时 evidence 均未触碰。
