@@ -30,6 +30,7 @@ import { DesktopLease } from './lease.ts'
 import type { AdmissionVerdict, DesktopLeaseOwner, DesktopLeaseSnapshot } from './lease.ts'
 import { TurnOrigin } from './origin.ts'
 import { ComputerUseController } from './controller.ts'
+import { installV1Presentation } from './presentation.ts'
 export { ComputerUseController } from './controller.ts'
 export type { ComputerUseStatus, PermissionState } from './types.ts'
 
@@ -103,6 +104,7 @@ export function apply(ctx: Context, config: Config): void {
   const admittedEpochs = new Map<ToolCallId, number>()
   const permissionCalls = new Set<ToolCallId>()
   new ComputerUseController(ctx, lease, taxonomy, permissionCalls)
+  installV1Presentation(ctx, taxonomy)
 
   ctx.effect(() => ctx.systemPrompt.section({
     name: 'computer-use:custom-safety',

@@ -10,7 +10,8 @@
     "src/controller.ts",
     "src/classify.ts",
     "src/origin.ts",
-    "src/guidance.ts"
+    "src/guidance.ts",
+    "src/presentation.ts"
   ],
   "references": [
     {

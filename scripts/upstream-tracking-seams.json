@@ -1059,7 +1059,7 @@
         "packages/client/ui-custom-computer-use/**"
       ],
       "owner": "CUSTOM",
-      "reason": "Foreground Local-only admission, Host-memory desktop lease, explicit permission controls and Global Stop. Official MCP execution, attachments and approvals are reused.",
+      "reason": "Foreground Local-only admission, Host-memory desktop lease, explicit permission controls, Global Stop and a reviewed eight-tool V1 per-Agent presentation policy over complete official MCP discovery. Official execution, attachments and approvals are reused.",
       "dependsOn": [
         "computer-use-provider-lifecycle"
       ],
@@ -1071,7 +1071,8 @@
         "packages/computer-use/custom-computer-use-safety/tests/stop-race.spec.ts",
         "packages/computer-use/custom-computer-use-safety/tests/permissions.spec.ts",
         "packages/computer-use/computer-use-bundle/tests/host.spec.ts",
-        "packages/client/ui-custom-computer-use/tests/controls.client.spec.tsx"
+        "packages/client/ui-custom-computer-use/tests/controls.client.spec.tsx",
+        "packages/computer-use/custom-computer-use-safety/tests/presentation.spec.ts"
       ],
       "impactFloor": 4,
       "technicalTags": [

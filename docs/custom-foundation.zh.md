@@ -192,3 +192,11 @@ M3 保持固定官方 RC.2 底座，复用此前 Config、Session migration、ru
 生成的 Huihui 声明为 32,768，而实际 server slot 为 65,536。pi-ai 预留 4,096 个 token 后，把请求的 8,192 输出压到一 token 下限，却没有拒绝已超窗输入。现在在现有序列化 payload callback 中，使用 loopback 服务端模板和 tokenizer，在 inference 前执行精确准入。以声明和真实窗口的较小值约束输入、输出与余量；保留用户明确设置的短输出上限，剩余答复空间不足时抛出 canonical context error。未修改的生成 Huihui metadata 更新到 65,536；用户显式容量仍由用户拥有。现有 compaction 使用精确 Local target policy 和 4,096 headroom。没有引入第二套 compaction engine、工具目录、cache accounting 或 finish-reason 模型。
 
 聚焦 adapter/config/profile 测试通过：四文件共 95 个不同用例，包括七个准入回归。无密钥记录式 Session 场景证明固定输入无法压缩时，在 canonical compaction recovery 后保留诊断，不再次 dispatch 主模型请求。真实隔离 standard-preset Local Session 返回 LOCAL-CONTEXT-OK。真实 CU-enabled source Host 请求包含全部 56 个 CU 定义、共 89 个工具，精确输入 33,619，输出仍为 8,192；加上 4,096 余量，总计 45,907，满足 65,536 窗口。然而输入处理阶段仍触发既有 300 秒 stream-idle timeout，尚未生成 token 或 CU call。既有 retry policy 在有界 probe 关闭前开始一次 retry；没有成功 OBSERVE，也没有物理动作。当前为 BLOCKED_BY_LOCAL_PREFILL_BEFORE_OBSERVE，不是 COMPLETE。未增加超时、删除工具、package、执行 Native ACT、重新权限验收、正式晋升或访问生产 profile。
+
+## Local V1 电脑操作工具呈现
+
+[上下文准入提交](../packages/llm/llm-pi-ai/src/context-admission.ts)已独立提交并推送。安全包现在在完整官方 MCP discovery 之上，唯一拥有逐 Agent 的已核实工具呈现策略：三项结构化观察和五项经过审批的动作原语。已安装的 56 项目录在同一源码 owner 中分为 OBSERVE_CORE、ACT_CORE、ADVANCED、UNSUPPORTED_V1 和 SENSITIVE_EXCLUDED。未来未知工具不呈现；非 CU 工具和原始 schema 参数保持原样。全局 discovery 仍完整供 Host 权限 controller 使用。没有 fork provider、复制实现工具目录、UI allowlist 或删除 prompt JSON 字段。
+
+同一冻结请求中，八项 CU 定义占 6,664 token，原为 24,018；总输入从 34,157 降到 16,803（减少 50.8%），保留 34 项非 CU 工具。真实隔离 standard-preset Host 请求共 41 项工具，其中 CU 八项，输入 16,349，保留 8,192 输出和 4,096 余量，满足真实 65,536 窗口。真实 Huihui 首 token 在 275.622 秒到达；模型正常 reasoning 并且仅 dispatch 一次成功的 list_windows OBSERVE，之后 probe 显式取消该轮。没有 ACT 或物理动作。Server 报告 prompt evaluation 为 258.083 秒／16,349 token（63.35 token/s）。300 秒边界与选定 Local 模型均不变；冷 prefill 仍是产品性能限制。
+
+六项新增聚焦用例覆盖完整 discovery 与八工具呈现的区分、动态未知工具拒绝／重连、已有 Agent 启用、非 CU schema 保持原样、ACT approval 允许／拒绝，以及结构化 text-only 工作流；与受影响 typecheck、lint、双语配对、引用、catalog 一致性和 workspace hygiene 一起通过。复用此前 95 个 context 和 176 个 safety 用例。Candidate Native qualification 与正式晋升仍待完成；源码证据不能单独成立 P-COMPUTER-I1 COMPLETE。

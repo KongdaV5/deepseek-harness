@@ -37,6 +37,9 @@ kind: "package-reference"
 
 唯一的 Host 根内存租约跨 bundle 重载保留。根 Session 与轮次标识所有者，经过核实的子 Agent 共享此所有者。停止会拒绝新调用、取消进行中的操作，并在排空后释放。排空超时或已派发动作失败／被取消会污染租约；恢复不能清除污染。重启 Host 和驱动前必须确认旧操作已终止并检查桌面。本包不持久化租约、待执行物理动作、权限或截图。
 
+
+V1 工具呈现由 [presentation.ts](src/presentation.ts) 唯一拥有，复用官方逐 Agent 的 ToolRuntime restriction seam。CuaDriver 0.22.0 在全局发现 56 项工具；模型只接收八项：`get_accessibility_tree`、`list_windows`、`get_window_state`、`click`、`type_text`、`press_key`、`scroll` 和 `bring_to_front`。text-only Local 路由使用 `include_screenshot:false` 的结构化窗口状态与 element token。高级 browser／视觉／session 控制，以及敏感剪贴板／录制／配置／安装／重放操作均在 V1 范围外。未来未知工具默认不呈现。Host 权限控件保留完整注册表；非 CU schema 和每次 ACT 安全检查保持原样。五类已核实目录在同一 policy 源码中，不另建工具目录或 UI allowlist。
+
 </details>
 
 -----
@@ -59,7 +62,7 @@ kind: "package-reference"
 
 #### Token 影响
 
-启用组合会增加安全提示词与驱动工具 schema；观察结果使用上游内容及图像准入。
+冻结请求保持相同 transcript 与非 CU 工具。选择八项 CU 定义后，CU schema token 从 24,018 降到 6,664，总输入从 34,157 降到 16,803（减少 50.8%）。计数使用部署中的 server template/tokenizer；cache-read token 是输入子集。观察结果仍走上游内容与图像准入。
 
 #### KV Cache 影响
 
