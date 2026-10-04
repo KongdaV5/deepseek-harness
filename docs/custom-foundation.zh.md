@@ -220,3 +220,9 @@ P-COMPUTER-I1-FINAL 仍为 BLOCKED_WITH_DIAGNOSTIC_EVIDENCE。第 3 个 candidat
 临时采用 1,024 和 2,048 物理 batch、将 RAM prompt cache 限定为 1,024 MiB，仍未通过该负载资格。batch 1,024 时，42 工具、16,504 token 的隔离请求在 282.391 秒后成功执行一次 OBSERVE；加入 27 条目录后为 19,092 token，尚无生成内容便在 300 秒超时。batch 2,048 的两次正式形态请求均含 19,096 token、42 项工具、八项 CU 定义；两次均触发未改变的 300 秒超时，零生成内容、零 CU call。Server 日志确认两次均未复用 token。第二次包含约 21.7 秒等待前次取消完成，但其自身冷计算也要 240.71 秒才到 14,336 token，独立超过 180 秒要求。增大 batch 未建立值得采用的改善。保留内存压力观察，不把 swap 单独认定为失败原因。
 
 P-COMPUTER-I1-COLD-START-FINAL 在当前机器/部署和所需 V1 prompt 下为 CURRENT_LOCAL_MODEL_NOT_VIABLE。阻止资格通过的是模型冷输入处理速度，并非容量、提前注入 Skill 正文、重复 payload 或电脑操作安全层。没有采用 runtime 调参；原机器服务已恢复。未进行新 package、promotion 或 installed smoke，旧正式应用保持原样、Computer Use 关闭；I1 不是 COMPLETE。产品裁决是为用户显式选择的更合适 Local 模型进行电脑操作资格验证；本任务不实施模型替换，也不新增专用模型架构。普通 Local 使用与已有 Native 安全证据仍成立。紧凑 idle 电脑操作入口和 active 一键 Global Stop 仅登记为 NEXT UI polish。
+
+### 恢复锚点与发布边界
+
+Computer Use V1 状态为**已实现并通过安全资格验证；暂停在性能资格与正式启用之前**。复用 Native 安全资格、权限路径、DesktopLease、审批、Global Stop、no-replay 边界和已审查的八工具呈现；除非后续改动真实改变这些 contract，否则不要重做。下一项目优先级为 `P-CORE-RELEASE`。它可以在保留 Computer Use 代码和安全行为、且 optional bundle 默认关闭的情况下发布稳定核心客户端，不必等待当前 Local 冷启动 OBSERVE 性能门槛。
+
+恢复 Computer Use 时，第一步重新检查机器当前已安装的 Local 模型目录，然后只继续冷启动性能与模型适用性评估。用户说明当前有两套可用的 27B 量化 Local 配置，但本文没有可靠记录其准确模型名与量化身份。`Qwen3.6-35B-A3B` 已卸载，不可假定仍可用。禁止静默替换模型、自动 fallback 到 Codex 或云端，也不得为通过 benchmark 移除普通 Local 能力。本双语 ledger 已保存可长期恢复所需的资格摘要与恢复点；临时 probe 产物只是补充材料，不是恢复项目状态的必要依赖。
