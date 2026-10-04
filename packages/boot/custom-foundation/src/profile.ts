@@ -16,9 +16,10 @@ export function customLocalPatches(userHome: string): PatchOptions[] {
   const model = join(userHome, 'Models', 'Huihui-Qwen3.8-27B-abliterated-GGUF', 'Huihui-Qwen3.8-27B-abliterated-GSQ-RCO-IQ3_S.gguf')
   return [
     { id: 'agent-default-model', config: { provider: 'dsh-local-huihui', model } },
-    { id: 'llm-pi-ai', config: { providers: { 'dsh-local-huihui': { displayName: 'Local Huihui Qwen', api: 'openai-completions', baseURL: 'http://127.0.0.1:8080/v1', headers: { Authorization: 'Bearer local' }, models: [{ id: model, name: 'Huihui Qwen3.8 27B', contextWindow: 32768, maxTokens: 8192 }, { id: join(userHome, 'Models', 'Qwen3.8-27B-GSQ-RCO-GGUF', 'Qwen3.8-27B-GSQ-RCO-IQ3_S.gguf'), name: 'Original Qwen3.8 27B', contextWindow: 32768, maxTokens: 8192 }] } } } },
+    { id: 'llm-pi-ai', config: { providers: { 'dsh-local-huihui': { displayName: 'Local Huihui Qwen', api: 'openai-completions', baseURL: 'http://127.0.0.1:8080/v1', headers: { Authorization: 'Bearer local' }, llamaCppContextAdmission: { safetyMarginTokens: 4096, minimumOutputTokens: 1024 }, models: [{ id: model, name: 'Huihui Qwen3.8 27B', contextWindow: 65536, maxTokens: 8192 }, { id: join(userHome, 'Models', 'Qwen3.8-27B-GSQ-RCO-GGUF', 'Qwen3.8-27B-GSQ-RCO-IQ3_S.gguf'), name: 'Original Qwen3.8 27B', contextWindow: 32768, maxTokens: 8192 }] } } } },
     { id: 'custom-foundation', config: { localProfiles: [{ id: 'huihui', name: 'Huihui Qwen3.8 27B', modality: 'text', modelId: model }, { id: 'img21', name: 'Qwen Image 2.1', modality: 'image', modelId: join(userHome, 'Models', 'Qwen-Image-2.1-mflux-8bit') }, { id: '38', name: 'Original Qwen3.8 27B', modality: 'text', modelId: join(userHome, 'Models', 'Qwen3.8-27B-GSQ-RCO-GGUF', 'Qwen3.8-27B-GSQ-RCO-IQ3_S.gguf') }], selectedLocalProfile: 'huihui', localModelRuntime: true, codexSubscription: true } },
     { id: 'local-model-runtime', config: { machineResourceHome: userHome } },
+    { id: 'compaction-basic', config: { modelPolicies: [model, join(userHome, 'Models', 'Qwen3.8-27B-GSQ-RCO-GGUF', 'Qwen3.8-27B-GSQ-RCO-IQ3_S.gguf')].map(model => ({ provider: 'dsh-local-huihui', model, headroomTokens: 4096, maxTokens: 8192 })) } },
   ]
 }
 
@@ -75,7 +76,13 @@ export async function initializeCustomProfile(home: string, userHome: string): P
                 ...target,
                 ...old.data,
                 headers: old.data.headers ?? target.headers,
-                models: isExactM1 ? [...old.data.models, ...target.models.slice(1)] : old.data.models,
+                models: (isExactM1 ? [...old.data.models, ...target.models.slice(1)] : old.data.models).map((value, index) => {
+                  const standard = target.models[index]
+                  // Upgrade the unchanged generated Huihui declaration; explicit user capacities retain ownership.
+                  if (standard !== undefined && Object.keys(value).length === 4 && index === 0 && value['contextWindow'] === 32768 && value['maxTokens'] === 8192
+                    && value['name'] === standard['name']) return { ...value, contextWindow: standard['contextWindow'] }
+                  return value
+                }),
               }
             }
           }

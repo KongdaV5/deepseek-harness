@@ -1,0 +1,24 @@
+# Keyless error replay verifies durable diagnostics and no automatic inference retry.
+- id: llm-deepseek
+  name: '@deepseek-ai/dsh-llm-deepseek-api-key'
+  disabled: true
+- id: session-persistence-jsonl
+  name: '@deepseek-ai/dsh-session-persistence-jsonl'
+  config:
+    root: !!js dshHomePath('sessions')
+    compression: none
+- id: compaction-basic
+  name: '@deepseek-ai/dsh-compaction-basic'
+  config:
+    headroomTokens: 4096
+    maxTokens: 8192
+- insert:
+    - id: llm-replay
+      name: '@deepseek-ai/dsh-llm-replay'
+      config:
+        providers:
+          - id: deepseek-official
+            name: Replay-only context contract
+            models:
+              - id: deepseek-v4-flash
+                contextWindow: 32768

@@ -104,6 +104,10 @@ A profile's `models` list replaces the route's installed catalog rather than ext
 
 For self-hosted Chat Completions endpoints, `thinkingTokenBudgetField` selects the reasoning-budget parameter, and `vllmPriority` sets an integer scheduler priority when the server enables priority scheduling. Template arguments accept `$var: thinking.budget`. `openai-responses` gateways can set `supportsMaxOutputTokens: false` to omit `max_output_tokens`; Azure and Codex transports ignore this shared compatibility field. These controls are opt-in; catalog-owned Anthropic effort and fallback capabilities are not configurable switches.
 
+### Admit Local requests before inference
+
+Loopback llama.cpp routes can set `llamaCppContextAdmission` with explicit `safetyMarginTokens` and `minimumOutputTokens`. After pi-ai serializes the complete text request, the adapter reads live `/props`, renders `/apply-template` and calls `/tokenize`; these operations perform no inference. The effective output limit is the minimum of the requested limit, model output capability and remaining total context after the rendered prompt and safety margin. The lower of declared capacity and live `n_ctx` wins. Cache hits occupy the same logical context once. Insufficient answer room raises `CONTEXT_WINDOW_EXCEEDED` before dispatch, allowing the existing compaction handler to reduce eligible history; a new conversation with oversized fixed instructions or tools fails without replay. Missing metadata/tokenization and unsupported image content fail closed. Other routes retain their existing pi-ai serialization.
+
 ### Change configuration at runtime
 
 Each operation captures the current `providers` Config reference. New or changed provider profiles are validated before form persistence; unchanged catalog failures remain editable. Route-set or retry-policy changes update registration atomically, preserving previous routes if another adapter owns a requested route.

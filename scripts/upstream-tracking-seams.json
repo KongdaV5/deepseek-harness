@@ -1156,7 +1156,7 @@
         "packages/llm/llm-pi-ai/**"
       ],
       "owner": "MIXED",
-      "reason": "Local preference and default admission consume upstream settings/catalog contracts.",
+      "reason": "Local preference, model catalog and exact loopback llama.cpp admission reuse upstream provider serialization, scoped ToolRuntime and canonical context-error compaction recovery.",
       "dependsOn": [
         "settings-api",
         "model-catalog",
@@ -1171,7 +1171,11 @@
       "affectedTests": [
         "packages/api/settings-controller/tests/local-model-runtime.host.spec.ts",
         "packages/api/settings-controller/tests/local-model-runtime.system.host.spec.ts",
-        "packages/core/agent-default-model/tests/agent-default-model.spec.ts"
+        "packages/core/agent-default-model/tests/agent-default-model.spec.ts",
+        "packages/llm/llm-pi-ai/tests/context-admission.spec.ts",
+        "packages/llm/llm-pi-ai/tests/config.spec.ts",
+        "packages/llm/llm-pi-ai/tests/adapter.spec.ts",
+        "snapshots/session/local-context-admission-failfast/session.v4.jsonl"
       ],
       "impactFloor": 3,
       "technicalTags": []

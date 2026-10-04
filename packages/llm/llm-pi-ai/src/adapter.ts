@@ -59,6 +59,7 @@ import type { AttachmentStore, ImageAttachmentRef } from '@deepseek-ai/dsh-attac
 import { idleWatchdog, timeoutOf } from '@deepseek-ai/dsh-timeout'
 import type { ResolvedPiAiProviderProfile } from './config.ts'
 import { toPiContext } from './context.ts'
+import { admitLlamaCppRequest } from './context-admission.ts'
 import { createModels, getSupportedThinkingLevels } from './models.ts'
 import { toStreamChunks } from './stream.ts'
 
@@ -353,6 +354,8 @@ export class PiAiAdapter extends LlmAdapter {
       : AbortSignal.any([options.signal, consumer.signal])
     const streamIdleTimeoutMs = profile.streamIdleTimeoutMs
     using watchdog = idleWatchdog(upstream, streamIdleTimeoutMs, 'LLM_STREAM_IDLE_TIMEOUT')
+    // pi-ai serializes callback exceptions; preserve the canonical admission failure for agent recovery.
+    let admissionFailure: Error | undefined
 
     try {
       const containsImage = options.messages.some(message => contentHasImage(message.content))
@@ -386,12 +389,23 @@ export class PiAiAdapter extends LlmAdapter {
         // Profile headers are deployment-owned; attribution names are
         // Harness-owned and therefore win collisions.
         headers: requestHeaders(profile.headers),
+        ...profile.llamaCppContextAdmission === undefined ? {} : {
+          onPayload: async (payload: unknown, requestModel: Model<Api>) => {
+            try {
+              return await admitLlamaCppRequest(payload, requestModel, profile, options.maxTokens ?? model.maxTokens, watchdog.signal)
+            } catch (error) {
+              admissionFailure = error instanceof Error ? error : new Error(String(error))
+              throw error
+            }
+          },
+        },
       })
       const iterator = toStreamChunks(events, model.contextWindow, options.signal, model.id)[Symbol.asyncIterator]()
       let exhausted = false
       try {
         while (true) {
           const result = await watchdog.next(iterator)
+          if (admissionFailure !== undefined) throw admissionFailure
           const timeout = timeoutOf(watchdog.signal, 'LLM_STREAM_IDLE_TIMEOUT')
           if (timeout !== undefined) throw timeout
           if (result.done) {

@@ -36,6 +36,8 @@ CustomFoundation 拥有 Local manager inventory 和能力偏好；agent-default-
 
 Desktop 在隔离 Harness 数据之前取得 OS 账户 home，通过 `DSH_DESKTOP_MACHINE_RESOURCE_HOME` 传给 Host。Host 将这一个机器资源 home 交给既有默认模型登记和 Local runtime Config；LaunchAgent driver 要求显式提供它，不再从 `HOME` 推断。启动器刷新自己拥有的字段，保留用户模型路径和运行时偏好。Rehearsal 隔离 Harness 配置、Session、缓存及 Electron 状态，同时引用真实机器的 manager、LaunchAgent 和模型文件。修正此前生成的 rehearsal 模型目录时，仅对隔离 profile 使用 `customLocalPatches`。
 
+生成的 Huihui 元数据声明 65,536 token 总上下文；Local 适配器按该声明和运行中服务容量共同准入每个序列化文本请求。profile 初始化只升级未修改的生成式 32k Huihui 条目，保留用户显式容量。Local 精确目标 policy 复用现有 compaction 引擎，预留 4,096 token 余量并限制摘要为 8,192 token。profile 仍是唯一配置 owner；不会为了容纳请求移除工具。
+
 未发布 runtime invariant companion，因为所有持久写入经过既有 Session 或 ConfigEditor 校验，且本包没有可独立分歧的状态副本。
 
 -----

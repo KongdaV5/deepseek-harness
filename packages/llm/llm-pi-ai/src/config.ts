@@ -90,6 +90,13 @@ export type {
 
 /** Configuration for one pi-ai provider route; the `providers` dict key IS the route. */
 export interface PiAiProviderProfile {
+  /** Exact text-request admission through this llama.cpp endpoint's template, tokenizer, and live context size. */
+  llamaCppContextAdmission?: {
+    /** Tokens reserved beyond the complete prompt and generated output. */
+    safetyMarginTokens: number
+    /** Refuse inference when the available generated-output budget is below this value. */
+    minimumOutputTokens: number
+  }
   /** Credential reference (environment-variable name) resolved per request through `ctx.credentials`. */
   apiKeyEnv?: string
   /** Name shown by configuration surfaces; defaults to the route key. */
@@ -324,6 +331,10 @@ const modelProfile: z<PiAiModelProfile> = z.object({
 const modelOverride: z<PiAiModelOverride> = z.object(modelFields)
 
 const profile = z.object({
+  llamaCppContextAdmission: z.union([z.object({
+    safetyMarginTokens: z.natural().required(),
+    minimumOutputTokens: z.number().step(1).min(1).required(),
+  })]),
   apiKeyEnv: z.string().role('credential-ref'),
   displayName: z.string(),
   api: z.union(supportedProtocols()),
@@ -426,6 +437,18 @@ export function resolveProfiles(
       throw new Error(`llm-pi-ai: provider "${provider}" has an empty displayName`)
     }
     assertValidHeaders(provider, source.headers)
+    if (source.llamaCppContextAdmission !== undefined) {
+      const budget = source.llamaCppContextAdmission
+      const endpoint = source.baseURL === undefined ? undefined : new URL(source.baseURL)
+      if (source.api !== 'openai-completions' || endpoint === undefined
+        || !['127.0.0.1', 'localhost', '[::1]'].includes(endpoint.hostname)) {
+        throw new Error(`llm-pi-ai: provider "${provider}" llamaCppContextAdmission requires a loopback openai-completions endpoint`)
+      }
+      if (!Number.isSafeInteger(budget.safetyMarginTokens) || budget.safetyMarginTokens < 0
+        || !Number.isSafeInteger(budget.minimumOutputTokens) || budget.minimumOutputTokens < 1) {
+        throw new Error(`llm-pi-ai: provider "${provider}" has invalid llamaCppContextAdmission token bounds`)
+      }
+    }
     const streamIdleTimeoutMs = source.streamIdleTimeoutMs ?? DEFAULT_STREAM_IDLE_TIMEOUT_MS
     if (!Number.isFinite(streamIdleTimeoutMs)
       || streamIdleTimeoutMs <= 0
@@ -500,6 +523,7 @@ export function resolveProfiles(
       retryPolicy: resolveRetryPolicy(retryPolicy, `llm-pi-ai: provider "${provider}" retryPolicy`),
       ...rest.headers === undefined ? {} : { headers: { ...rest.headers } },
       ...rest.thinkingBudgets === undefined ? {} : { thinkingBudgets: { ...rest.thinkingBudgets } },
+      ...rest.llamaCppContextAdmission === undefined ? {} : { llamaCppContextAdmission: { ...rest.llamaCppContextAdmission } },
       configuredMaxTokens: catalog?.configuredMaxTokens ?? new Map(),
       modelErrors: catalog?.modelErrors ?? new Map(),
       ...piProvider === undefined ? {} : { piProvider },

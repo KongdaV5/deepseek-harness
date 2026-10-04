@@ -184,3 +184,11 @@ M3 保持固定官方 RC.2 底座，复用此前 Config、Session migration、ru
 原生资格验证待完成。已安装 cua-driver 0.22.0 能发现 MCP 工具目录。通过实际 CuaDriver daemon 身份取得的只读状态为辅助功能已授权、屏幕录制未授权。Host 控制器从 canonical MCP structuredContent 读取布尔授权事实，而非解析可读文本投影。其真实 MCP 查询与直接驱动查询一致：辅助功能已授权、屏幕录制未授权。响应读取修正后，八个直接受影响权限用例通过，包括真实 fixture MCP 子进程，以及缺失／非布尔结构化授权事实的拒绝；复用此前聚焦门禁。未进行鼠标、键盘、截图、权限弹窗或正式 profile 访问。临时 daemon 已停止，正式应用字节未变。用户需在系统设置 → 隐私与安全性 → 屏幕录制中授权 CuaDriver（`com.trycua.driver`），随后重启 CuaDriver 并重新检查授权，再执行有界原生资格验证。当前是待收尾的源码交付，不是 COMPLETE。
 
 迁移底座缺失已有 ownership registry，已从可信分支恢复同一路径。非 Computer Use inventory 保留原始基线并明确尚未重新资格验证；新增 Computer Use ownership 和受影响测试指向固定 RC.2 底座。没有建立第二份 ownership map。
+
+## Local 上下文准入封板
+
+由真实 llama.cpp 模板与 tokenizer 重建的冻结首轮请求包含 34,157 个输入 token：system/模板边界 2,061、Session 运行时注入 587、工具 schema 31,451、用户文本 58。其中 56 个 CuaDriver 定义占 24,018 个 schema token。cache-read 30,720 属于输入子集，不额外占一份容量。同一冻结请求关闭 CU 后有 34 个工具、9,799 个输入 token；启用 CU 增加 56 个工具、24,018 个 schema token 和 24,358 个总输入 token。这里采用包含模板边界的顺序增量计数，不把各段独立分词结果简单相加。
+
+生成的 Huihui 声明为 32,768，而实际 server slot 为 65,536。pi-ai 预留 4,096 个 token 后，把请求的 8,192 输出压到一 token 下限，却没有拒绝已超窗输入。现在在现有序列化 payload callback 中，使用 loopback 服务端模板和 tokenizer，在 inference 前执行精确准入。以声明和真实窗口的较小值约束输入、输出与余量；保留用户明确设置的短输出上限，剩余答复空间不足时抛出 canonical context error。未修改的生成 Huihui metadata 更新到 65,536；用户显式容量仍由用户拥有。现有 compaction 使用精确 Local target policy 和 4,096 headroom。没有引入第二套 compaction engine、工具目录、cache accounting 或 finish-reason 模型。
+
+聚焦 adapter/config/profile 测试通过：四文件共 95 个不同用例，包括七个准入回归。无密钥记录式 Session 场景证明固定输入无法压缩时，在 canonical compaction recovery 后保留诊断，不再次 dispatch 主模型请求。真实隔离 standard-preset Local Session 返回 LOCAL-CONTEXT-OK。真实 CU-enabled source Host 请求包含全部 56 个 CU 定义、共 89 个工具，精确输入 33,619，输出仍为 8,192；加上 4,096 余量，总计 45,907，满足 65,536 窗口。然而输入处理阶段仍触发既有 300 秒 stream-idle timeout，尚未生成 token 或 CU call。既有 retry policy 在有界 probe 关闭前开始一次 retry；没有成功 OBSERVE，也没有物理动作。当前为 BLOCKED_BY_LOCAL_PREFILL_BEFORE_OBSERVE，不是 COMPLETE。未增加超时、删除工具、package、执行 Native ACT、重新权限验收、正式晋升或访问生产 profile。

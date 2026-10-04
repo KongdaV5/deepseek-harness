@@ -32,6 +32,9 @@
 /deepseek-ai-dsh-llm-pi-ai/use-this-package/run-with-reasoning-and-wire-compatibility:
   en: 86b456496b54854e
   zh: ff77ca11d39ba8d2
+/deepseek-ai-dsh-llm-pi-ai/use-this-package/admit-local-requests-before-inference:
+  en: 8436928d5582ec9c
+  zh: c33129eb792eb4d3
 /deepseek-ai-dsh-llm-pi-ai/use-this-package/change-configuration-at-runtime:
   en: 92f554e1718614ca
   zh: f17ed3ad3e5d28e2

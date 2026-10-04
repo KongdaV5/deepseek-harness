@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url'
 import { tmpdir } from 'node:os'
 import { expect, it, onTestFinished } from 'vitest'
 import { parse, stringify } from 'yaml'
+import { z } from 'zod'
 import { boot, initProfile, readProfilePatches, composeEntries, loadOptionalPatches, type ProfileContext } from '@deepseek-ai/dsh-app-boot'
 import ConfigEditor from '@deepseek-ai/dsh-config-editor'
 import Settings from '@deepseek-ai/dsh-settings'
@@ -236,4 +237,35 @@ it('upgrades only the exact M1 text catalog while preserving Local-first routing
   expect(output.find(row => row.id === 'agent-default-model')?.config).toEqual(rows[0]?.config)
   const before = await readFile(f.patch, 'utf8'); await initializeCustomProfile(f.home, f.home)
   expect(await readFile(f.patch, 'utf8')).toBe(before)
+})
+
+it('upgrades only the unchanged Huihui capacity and configures existing Local compaction policies', async () => {
+  const f = await fixture()
+  await initializeCustomProfile(f.home, f.home)
+  const rowSchema = z.array(z.object({ id: z.string(), config: z.record(z.string(), z.unknown()) }))
+  const routeSchema = z.object({
+    models: z.array(z.object({ id: z.string(), name: z.string(), contextWindow: z.number(), maxTokens: z.number() }).loose()),
+    llamaCppContextAdmission: z.object({ safetyMarginTokens: z.number(), minimumOutputTokens: z.number() }).optional(),
+  }).loose()
+  const readRows = async () => rowSchema.parse(parse(await readFile(f.patch, 'utf8')))
+  const readLocal = (rows: z.infer<typeof rowSchema>) => routeSchema.parse(z.record(z.string(), z.unknown()).parse(rows.find(row => row.id === 'llm-pi-ai')!.config['providers'])['dsh-local-huihui'])
+  const rows = await readRows()
+  const provider = readLocal(rows)
+  provider.models[0]!.contextWindow = 32768
+  delete provider.llamaCppContextAdmission
+  rows.find(row => row.id === 'llm-pi-ai')!.config['providers'] = { 'dsh-local-huihui': provider }
+  await writeFile(f.patch, stringify(rows))
+  await initializeCustomProfile(f.home, f.home)
+  const next = await readRows()
+  const local = readLocal(next)
+  expect(local.models[0]!.contextWindow).toBe(65536)
+  expect(local.models[1]!.contextWindow).toBe(32768)
+  expect(local.llamaCppContextAdmission).toEqual({ safetyMarginTokens: 4096, minimumOutputTokens: 1024 })
+  const compaction = next.find(row => row.id === 'compaction-basic')!.config['modelPolicies']
+  expect(compaction).toEqual(local.models.map((model: { id: string }) => ({ provider: 'dsh-local-huihui', model: model.id, headroomTokens: 4096, maxTokens: 8192 })))
+  local.models[0]!.contextWindow = 16384
+  next.find(row => row.id === 'llm-pi-ai')!.config['providers'] = { 'dsh-local-huihui': local }
+  await writeFile(f.patch, stringify(next))
+  await initializeCustomProfile(f.home, f.home)
+  expect(readLocal(await readRows()).models[0]!.contextWindow).toBe(16384)
 })

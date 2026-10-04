@@ -36,6 +36,8 @@ CustomFoundation owns Local manager inventory and capability preferences; agent-
 
 Desktop captures the OS account home before isolating Harness data and passes it to Host as `DSH_DESKTOP_MACHINE_RESOURCE_HOME`. Host supplies that machine resource home to the existing default-model registration and Local runtime Config; the LaunchAgent driver requires it explicitly and never derives it from `HOME`. The launcher refreshes this owned field on startup while preserving user model paths and runtime preferences. Rehearsal isolates Harness configuration, Sessions, caches and Electron state while referencing the actual machine manager, LaunchAgent and model files. Correcting a previously generated rehearsal catalog uses `customLocalPatches` on that isolated profile only.
 
+Generated Huihui metadata declares a 65,536-token total context; the Local adapter admits each serialized text request against both that declaration and the running server capacity. Profile initialization upgrades only the unchanged generated 32k Huihui entry, preserving explicit user capacities. Exact-target Local policies use the existing compaction engine with 4,096 tokens of headroom and an 8,192-token summary cap. The profile remains the sole configuration owner; no tools are removed to fit requests.
+
 No runtime invariant companion is published because persistence writes use the existing Session or ConfigEditor validation and this package owns no independently diverging state copy.
 
 -----

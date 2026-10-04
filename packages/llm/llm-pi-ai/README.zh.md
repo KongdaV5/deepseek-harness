@@ -104,6 +104,10 @@ profile 的 `models` 列表会替换而非扩展路由的已安装目录；每�
 
 对于自托管 Chat Completions 端点，`thinkingTokenBudgetField` 选择推理预算参数，`vllmPriority` 在服务端启用优先级调度时设置整数调度优先级。模板参数接受 `$var: thinking.budget`。`openai-responses` 网关可设置 `supportsMaxOutputTokens: false` 来省略 `max_output_tokens`；Azure 与 Codex 传输会忽略这个共享兼容字段。这些控制均需显式启用；目录拥有的 Anthropic effort 和回退能力不是可配置开关。
 
+### 推理前准入 Local 请求
+
+回环地址上的 llama.cpp 路由可配置 `llamaCppContextAdmission`，显式指定 `safetyMarginTokens` 与 `minimumOutputTokens`。pi-ai 序列化完整文本请求后，适配器读取实时 `/props`，通过 `/apply-template` 渲染，再调用 `/tokenize`；这些操作不执行推理。有效输出上限取请求上限、模型输出能力、以及完整提示和安全余量之后剩余总上下文的最小值。声明容量与实时 `n_ctx` 中较小者生效。缓存命中仍占据同一逻辑上下文，只计一次。回答空间不足时，在发送前抛出 `CONTEXT_WINDOW_EXCEEDED`，由现有 compaction 处理器缩减符合条件的历史；固定指令或工具已经超窗的新会话会直接失败，不重放。元数据或 tokenization 缺失，以及不支持的图像内容都会拒绝发送。其他路由保留现有 pi-ai 序列化行为。
+
 ### 运行时更改配置
 
 每次操作捕获当前 `providers` Config 引用。新增或修改的 provider 配置在表单持久化前验证；未更改的目录故障仍可编辑。路由集合或重试策略变化时原子更新注册；如果其他适配器已拥有所请求的路由，则保留先前路由。
