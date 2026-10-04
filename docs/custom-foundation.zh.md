@@ -208,3 +208,15 @@ M3 保持固定官方 RC.2 底座，复用此前 Config、Session migration、ru
 P-COMPUTER-I1-FINAL 仍为 BLOCKED_WITH_DIAGNOSTIC_EVIDENCE。第 3 个 candidate 的 package closure 和隔离通过；安全层/provider/MCP 字节与 Native-qualified 第 2 个 candidate 相同。安装 smoke 成功准入修复后的 canonical Local 默认，但真实首轮在 300 秒超时，尚无 CU call 或物理动作。实际 header 有 42 个唯一工具，其中 CU 八项。单个 skill-catalog 消息包含 27 个唯一条目、11,066 个模型可见文本字符；持久化 source metadata 不是另一份 prompt。没有发现重复目录注入。既有 retry 开始一次后立即被取消；Global Stop 阻止准入，旧正式 App 已恢复并正常启动，Computer Use 关闭。未增加 timeout、删除用户 Skill、切换云模型或进行第 4 次 build。隔离 Native 证据仍有效，但 installed smoke 失败意味着不能 COMPLETE，也不能最终晋升。
 
 输入区域状态/Stop 横条仍有 UI 呈现问题：空闲标签无需独占整行，但桌面工作期间必须保留立即可达的 Global Stop。本次三次 build 配额已用尽，未夹带布局改动。截图 retention、后台自主 CU、Codex/Schedule CU bridge 继续延期；物理副作用不是 exactly-once，结果未知绝不重放。
+
+## Local 电脑操作冷启动资格验证
+
+精确重建正式安装失败首轮后，输入为 19,322 token，而非此前较小的隔离输入 16,349。顺序增量计数中，system/guidance 为 2,060，34 项非 CU schema 为 7,433，八项 CU schema 为 6,664，Skill 目录为 2,588，Session/runtime metadata 为 416，用户轮为 114；模板边界和顺序差异净计 47。正式与隔离输入相差 2,973 token，其中 Skills 为 2,588，其余组合/消息差异为 385。27 条 Skill 只有名称和受限长度简介，不含完整说明；正文通过既有 skill 工具按需加载。未发现重复 schema 或 Skill 目录。输出仍为 8,192，余量 4,096，总容量 65,536；容量准入成立。
+
+实测部署为 M1 Pro / 32 GiB 上的 Huihui Qwen3.8 27B IQ3，使用 llama.cpp build 10809、单个 65,536-token slot、全部 65 层 offload、Flash Attention、f16 KV，以及实际八条 CPU 线程。机器 manager 使用逻辑 batch 2,048、物理 batch 512，以及 backend 默认 8,192 MiB RAM prompt cache。既有 backend 会复用匹配前缀；此前 33.975 秒的缓存请求不构成冷启动证据。动态 Session 消息位于静态 system/schema 前缀之后，工具组合变化可能缩短前缀复用。未引入第二套缓存、私有 Session 持久缓存或跨 Session 内容投影。
+
+冷启动资格要求两次真实 Host OBSERVE 请求均在 180 秒内产生首个生成内容，且无 ACT、retry 或物理动作。仅 probe 使用 cache_prompt=false，并通过服务器缓存 token 证据区分冷计算与复用。终止错误 frame 不计为首个生成内容。隔离数据/profile root 与既有机器模型资源保持分离；性能 probe 使用现有 Host-owned process driver，不编辑机器模型文件或 LaunchAgent 配置。
+
+临时采用 1,024 和 2,048 物理 batch、将 RAM prompt cache 限定为 1,024 MiB，仍未通过该负载资格。batch 1,024 时，42 工具、16,504 token 的隔离请求在 282.391 秒后成功执行一次 OBSERVE；加入 27 条目录后为 19,092 token，尚无生成内容便在 300 秒超时。batch 2,048 的两次正式形态请求均含 19,096 token、42 项工具、八项 CU 定义；两次均触发未改变的 300 秒超时，零生成内容、零 CU call。Server 日志确认两次均未复用 token。第二次包含约 21.7 秒等待前次取消完成，但其自身冷计算也要 240.71 秒才到 14,336 token，独立超过 180 秒要求。增大 batch 未建立值得采用的改善。保留内存压力观察，不把 swap 单独认定为失败原因。
+
+P-COMPUTER-I1-COLD-START-FINAL 在当前机器/部署和所需 V1 prompt 下为 CURRENT_LOCAL_MODEL_NOT_VIABLE。阻止资格通过的是模型冷输入处理速度，并非容量、提前注入 Skill 正文、重复 payload 或电脑操作安全层。没有采用 runtime 调参；原机器服务已恢复。未进行新 package、promotion 或 installed smoke，旧正式应用保持原样、Computer Use 关闭；I1 不是 COMPLETE。产品裁决是为用户显式选择的更合适 Local 模型进行电脑操作资格验证；本任务不实施模型替换，也不新增专用模型架构。普通 Local 使用与已有 Native 安全证据仍成立。紧凑 idle 电脑操作入口和 active 一键 Global Stop 仅登记为 NEXT UI polish。
