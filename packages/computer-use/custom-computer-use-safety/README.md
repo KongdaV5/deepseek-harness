@@ -73,6 +73,7 @@ This package manages no model KV cache; the selected provider owns cache behavio
 <a id="known-limitations-and-deferred-work"></a>
 
 - The Host controller exposes redacted status, explicit permission queries/requests, Stop and idle-only resume. Permission grants require boolean fields in the canonical MCP result's structuredContent; readable text cannot authorize access. Prompt authority is tied to a single user-request call ID, never a session flag. No startup permission query occurs. Permission failures remain denied; unavailable catalog reports driver-unavailable. Credentials require user takeover. Clipboard, recording, configuration, installation and trajectory replay calls are excluded.
+- Cold Local prefill remains slow: the isolated eight-tool OBSERVE preflight reaches its first token in 275.6 seconds within the unchanged 300-second boundary. Screenshot retention remains deferred. Physical effects are not exactly-once; unknown outcomes are never replayed. Codex, Schedule and autonomous background Computer Use are unsupported in V1.
 
 -----
 

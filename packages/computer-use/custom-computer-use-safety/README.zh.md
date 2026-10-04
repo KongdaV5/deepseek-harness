@@ -73,6 +73,7 @@ V1 工具呈现由 [presentation.ts](src/presentation.ts) 唯一拥有，复用�
 <a id="known-limitations-and-deferred-work"></a>
 
 - Host 控制接口提供脱敏状态、显式权限查询／请求、停止及仅在空闲时恢复。权限状态必须来自 canonical MCP 结果 structuredContent 中的布尔字段，可读文本不能授予访问权限。弹窗权限绑定单次用户请求的调用 ID，不使用会话标记。启动时不查询权限。查询失败保持未授权，目录不可用时报告驱动不可用。凭据必须由用户接管。剪贴板、录制、配置、安装和轨迹重放调用被排除。
+- Local 冷 prefill 仍较慢：隔离八工具 OBSERVE preflight 在 275.6 秒产生首 token，满足未修改的 300 秒边界。Screenshot retention 仍待后续处理。物理效果不保证 exactly-once；未知结果永不 replay。V1 不支持 Codex、Schedule 或后台自主 Computer Use。
 
 -----
 
