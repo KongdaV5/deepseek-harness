@@ -3,6 +3,7 @@ import { join } from 'node:path'
 import { readFile } from 'node:fs/promises'
 import { withFileLock, writeFileAtomic } from '@deepseek-ai/dsh-atomic-write'
 import { z } from 'zod'
+import { isDeepStrictEqual } from 'node:util'
 import { initProfile, PROFILE_TEMPLATES } from '@deepseek-ai/dsh-app-boot'
 import type { PatchOptions } from '@deepseek-ai/cordis-plugin-include'
 import { parse, stringify } from 'yaml'
@@ -66,6 +67,23 @@ export async function initializeCustomProfile(home: string, userHome: string): P
           }).loose()
           const old = routeSchema.safeParse(local)
           const target = routeSchema.parse(standard)
+          // The generated pre-0.2 Local alias lacks deployment headers and capacity.
+          // Recognize its complete value, never overwrite a user-edited route.
+          const legacy = {
+            displayName: 'Local Huihui Qwen', api: target.api, baseURL: target.baseURL,
+            models: target.models.map((model, index) => ({ id: model.id,
+              name: index === 0 ? 'Huihui Qwen3.8 27B (Local)' : 'Qwen3.8 27B IQ3_S (Original, Local profile 38)' })),
+          }
+          if (isDeepStrictEqual(providers['local-huihui-qwen'], legacy)) {
+            // Retain the alias for stored Session selections; new Sessions use the canonical owner.
+            providers['local-huihui-qwen'] = { ...target }
+            const selection = imported.findLast(value => value.id === 'agent-default-model')
+            if (selection?.config?.['provider'] === 'local-huihui-qwen'
+              && isDeepStrictEqual(local, standard)
+              && target.models.some(model => model.id === selection.config?.['model'])) {
+              selection.config['provider'] = 'dsh-local-huihui'
+            }
+          }
           // Normalize only the exact built-in Local route. Modified routes and inventories keep their owner values.
           if (old.success && old.data.api === target.api && old.data.baseURL === target.baseURL) {
             const isExactM1 = old.data.models.length === 1 && old.data.models[0]?.id === target.models[0]?.id

@@ -38,6 +38,8 @@ Desktop captures the OS account home before isolating Harness data and passes it
 
 Generated Huihui metadata declares a 65,536-token total context; the Local adapter admits each serialized text request against both that declaration and the running server capacity. Profile initialization upgrades only the unchanged generated 32k Huihui entry, preserving explicit user capacities. Exact-target Local policies use the existing compaction engine with 4,096 tokens of headroom and an 8,192-token summary cap. The profile remains the sole configuration owner; no tools are removed to fit requests.
 
+The exact generated legacy `local-huihui-qwen` route is upgraded to the same Local deployment headers and capacities. New defaults move to `dsh-local-huihui`; the old route ID remains resolvable for stored Session selections. User-edited routes are preserved. Retire this alias only when supported persisted selections no longer reference it.
+
 No runtime invariant companion is published because persistence writes use the existing Session or ConfigEditor validation and this package owns no independently diverging state copy.
 
 -----

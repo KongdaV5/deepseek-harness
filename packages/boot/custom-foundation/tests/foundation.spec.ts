@@ -239,6 +239,49 @@ it('upgrades only the exact M1 text catalog while preserving Local-first routing
   expect(await readFile(f.patch, 'utf8')).toBe(before)
 })
 
+it('normalizes only the generated legacy Local alias and preserves stored route identity', async () => {
+  const f = await fixture()
+  const rows = customLocalPatches(f.home)
+  const llm = rows.find(row => row.id === 'llm-pi-ai')!.config as { providers: Record<string, { displayName: string; api: string; baseURL: string; models: { id: string; name: string }[]; headers?: Record<string, string> }> }
+  const canonical = llm.providers['dsh-local-huihui']!
+  llm.providers['local-huihui-qwen'] = { displayName: 'Local Huihui Qwen', api: canonical.api, baseURL: canonical.baseURL,
+    models: canonical.models.map((model, index) => ({ id: model.id, name: index === 0 ? 'Huihui Qwen3.8 27B (Local)' : 'Qwen3.8 27B IQ3_S (Original, Local profile 38)' })) }
+  rows[0]!.config = { provider: 'local-huihui-qwen', model: canonical.models[0]!.id }
+  await writeFile(f.patch, stringify(rows))
+  await initializeCustomProfile(f.home, f.home)
+  const output = parse(await readFile(f.patch, 'utf8')) as typeof rows
+  const actual = output.find(row => row.id === 'llm-pi-ai')!.config as typeof llm
+  expect(actual.providers['local-huihui-qwen']).toEqual(actual.providers['dsh-local-huihui'])
+  expect(actual.providers['local-huihui-qwen']?.headers).toEqual({ Authorization: 'Bearer local' })
+  expect(output[0]!.config).toEqual({ provider: 'dsh-local-huihui', model: canonical.models[0]!.id })
+  const once = await readFile(f.patch, 'utf8'); await initializeCustomProfile(f.home, f.home)
+  expect(await readFile(f.patch, 'utf8')).toBe(once)
+  // A separately customized canonical route cannot capture the legacy loopback default.
+  const customRows = customLocalPatches(f.home)
+  const customLlm = customRows.find(row => row.id === 'llm-pi-ai')!.config as typeof llm
+  customLlm.providers['local-huihui-qwen'] = { displayName: 'Local Huihui Qwen', api: canonical.api, baseURL: canonical.baseURL,
+    models: canonical.models.map((model, index) => ({ id: model.id, name: index === 0 ? 'Huihui Qwen3.8 27B (Local)' : 'Qwen3.8 27B IQ3_S (Original, Local profile 38)' })) }
+  customLlm.providers['dsh-local-huihui']!.baseURL = 'http://127.0.0.1:9080/v1'
+  customRows[0]!.config = { provider: 'local-huihui-qwen', model: canonical.models[0]!.id }
+  await writeFile(f.patch, stringify(customRows)); await initializeCustomProfile(f.home, f.home)
+  const customOutput = parse(await readFile(f.patch, 'utf8')) as typeof rows
+  expect(customOutput[0]!.config).toEqual(customRows[0]!.config)
+  expect((customOutput.find(row => row.id === 'llm-pi-ai')!.config as typeof llm).providers['local-huihui-qwen']?.baseURL).toBe(canonical.baseURL)
+})
+
+it('preserves an explicitly edited legacy Local route and its default selection', async () => {
+  const f = await fixture()
+  const rows = customLocalPatches(f.home)
+  const llm = rows.find(row => row.id === 'llm-pi-ai')!.config as { providers: Record<string, unknown> }
+  const customized = { displayName: 'Local Huihui Qwen', api: 'openai-completions', baseURL: 'http://127.0.0.1:9080/v1', models: [{ id: '/custom/model', name: 'Huihui Qwen3.8 27B (Local)' }] }
+  llm.providers['local-huihui-qwen'] = customized
+  rows[0]!.config = { provider: 'local-huihui-qwen', model: '/custom/model' }
+  await writeFile(f.patch, stringify(rows)); await initializeCustomProfile(f.home, f.home)
+  const output = parse(await readFile(f.patch, 'utf8')) as typeof rows
+  expect((output.find(row => row.id === 'llm-pi-ai')!.config as typeof llm).providers['local-huihui-qwen']).toEqual(customized)
+  expect(output[0]!.config).toEqual(rows[0]!.config)
+})
+
 it('upgrades only the unchanged Huihui capacity and configures existing Local compaction policies', async () => {
   const f = await fixture()
   await initializeCustomProfile(f.home, f.home)

@@ -40,6 +40,8 @@ Desktop 在隔离 Harness 数据之前取得 OS 账户 home，通过 `DSH_DESKTO
 
 未发布 runtime invariant companion，因为所有持久写入经过既有 Session 或 ConfigEditor 校验，且本包没有可独立分歧的状态副本。
 
+完全匹配旧版生成值的 `local-huihui-qwen` 路由会升级为同一 Local 部署 headers 和容量。新默认选择转向 `dsh-local-huihui`；旧路由 ID 保留供已持久化的 Session 选择解析。用户修改过的路由保持不变。只有受支持的持久化选择不再引用它时，才能移除该别名。
+
 -----
 
 <a id="further-exploration"></a>
