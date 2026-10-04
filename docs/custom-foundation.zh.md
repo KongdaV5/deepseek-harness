@@ -260,3 +260,14 @@ P-COMPUTER-I1-FINAL-RESUME 仍为 BLOCKED_WITH_DIAGNOSTIC_EVIDENCE，恢复点�
 紧邻缓存请求使用相同模型与工具呈现。首个生成 reasoning 出现在 3.002 秒，一次成功的 mcp__cua-driver-mcp__list_windows 结果在 13.861 秒内完成。服务器对 90 个新增 tokens 的 prompt evaluation 为 2.37965 秒。两个 probe 合计零 ACT call、零 retry、零物理动作。Global Stop 后租约为 RELEASED、in-flight 为零，隔离 Host 干净退出。暖请求功能成功确认 OBSERVE 通路可用，但不满足既有的“两次冷 OBSERVE 请求均在 180 秒内产生首个生成内容”要求。
 
 因此当前机器/部署和所需冷 V1 负载仍裁决为 CURRENT_LOCAL_MODEL_NOT_VIABLE。未采用 timeout 增大、模型替换、runtime 调参或安全变更。Candidate build count 为零；性能资格仍阻塞，未运行 Native candidate qualification、遗留 UI Native smoke、promotion 或 installed smoke。既有 Native 安全证据及两个安装 bundle 均保留。I1 不是 COMPLETE；UI 源码交付继续完成、Native smoke 继续 pending。恢复需要用户明确选择合适 Local 模型，或有证据的当前部署改善满足既有冷性能要求。诊断证据保留在 /private/tmp/dsh-i1-resume-_xtxnqja/diagnostics.json，同目录包含序列化请求、精确计数、服务器 timing 与 profile 隔离记录；这些持久结论不依赖该临时目录长期存在。
+## Local 模型适用性后续检查
+
+P-COMPUTER-I1-MODEL-SUITABILITY-AND-FINAL-CLOSEOUT 仍为 BLOCKED_WITH_DIAGNOSTIC_EVIDENCE，恢复点为 COLD_PERFORMANCE_MODEL_SUITABILITY。复用已有 Huihui 结果：18,657-token 冷请求缓存复用为零，在 300.471 秒 timeout 时仍无生成内容或 CU call，处理速度为 63.14 tokens/s。紧随其后的 warm 请求成功执行一次 list_windows OBSERVE，但不满足既定的两次 cold 要求。
+
+当前 local-model manager 仅提供两套已安装文本 profile：Huihui Qwen3.8-27B abliterated IQ3_S 和 Original Qwen3.8-27B IQ3_S。两者都通过相同 GGUF llama-server 通路加载，模型规模和量化等级相同，使用 65,536 context、Flash Attention 和 xhigh reasoning。服务器显示八个 worker threads；当前 Huihui 部署已将 65 层模型全部 offload 至 GPU，KV 为 f16。Manager 未提供 GPU offload、batch、thread 数或 prompt-cache 容量的独立运行时控制。既有 ledger 已记录 physical batch 1,024 与 2,048，以及限制为 1,024 MiB 的 prompt cache 测试，均未通过冷资格；没有发现新的正式低风险参数可采用，也未修改 manager 或 LaunchAgent。
+
+唯一已安装的备用文本 profile 通过隔离 Session 的 canonical model-selection API 显式选择。没有修改 profile router 或默认模型。请求保留 41-tool catalog、八个 CU tools、8,192 输出预算和现有 reasoning/tool contract；精确 admission 为 18,656 input tokens。服务器报告 prefix reuse 为零。184 秒后的采样已处理 10,240 tokens，仍无生成内容；隔离 Host 在 240.782 秒时停止，服务器已处理 16,056 prompt tokens 中的 14,336，生成 tokens 和 tool call 均为零。采样时服务器在 185.82 秒已处理 12,288 tokens（66.13 tokens/s）。未观察到首内容时间或完整 tool decision；该 profile 未通过冷性能时限，其 tool quality 未完成资格确认。后续请求未能确认缓存复用，且在首个生成内容之前停止，因此不构成额外质量证据。
+
+Canonical manager 没有第三套已安装文本 profile；剩余 Qwen Image profile 用于图像生成，不是文本模型 route。因此两套已安装的 27B IQ3_S 文本 profile 均未能证明符合 cold V1 要求，目前没有合格模型。Huihui DSH 模型配置、全局默认路由、机器 manager 与 LaunchAgent 内容保持不变。仅通过 runtime-start 临时切换至 38 后已恢复 huihui；模型接口 READY，LaunchAgent 原 SHA-256 未变。没有下载模型，也没有修改安全或工具呈现 contract。
+
+已安装候选的 MODEL_SUITABILITY_RESOLVED 为 FAIL。Candidate package、candidate Native CU、pending UI Native smoke、formal promotion 和 installed smoke 均为 NOT_RUN。既有 Native safety、Schedule/Codex 拒绝及 no-replay 证据继续复用。I1 仍未完成；需要某个 Local 模型/部署满足既有的两次 cold 要求，并完成后续 candidate 与 release qualification。18,657-token 请求仅要赶上 180 秒首内容时限，prompt processing 就至少需要 103.7 tokens/s；实际候选还需留出余量，同时保持 OBSERVE planning 正确。本任务没有推荐或下载任何未安装模型。
