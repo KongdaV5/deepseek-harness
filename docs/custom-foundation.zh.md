@@ -191,7 +191,7 @@ M3 保持固定官方 RC.2 底座，复用此前 Config、Session migration、ru
 
 生成的 Huihui 声明为 32,768，而实际 server slot 为 65,536。pi-ai 预留 4,096 个 token 后，把请求的 8,192 输出压到一 token 下限，却没有拒绝已超窗输入。现在在现有序列化 payload callback 中，使用 loopback 服务端模板和 tokenizer，在 inference 前执行精确准入。以声明和真实窗口的较小值约束输入、输出与余量；保留用户明确设置的短输出上限，剩余答复空间不足时抛出 canonical context error。未修改的生成 Huihui metadata 更新到 65,536；用户显式容量仍由用户拥有。现有 compaction 使用精确 Local target policy 和 4,096 headroom。没有引入第二套 compaction engine、工具目录、cache accounting 或 finish-reason 模型。
 
-聚焦 adapter/config/profile 测试通过：四文件共 95 个不同用例，包括七个准入回归。无密钥记录式 Session 场景证明固定输入无法压缩时，在 canonical compaction recovery 后保留诊断，不再次 dispatch 主模型请求。真实隔离 standard-preset Local Session 返回 LOCAL-CONTEXT-OK。真实 CU-enabled source Host 请求包含全部 56 个 CU 定义、共 89 个工具，精确输入 33,619，输出仍为 8,192；加上 4,096 余量，总计 45,907，满足 65,536 窗口。然而输入处理阶段仍触发既有 300 秒 stream-idle timeout，尚未生成 token 或 CU call。既有 retry policy 在有界 probe 关闭前开始一次 retry；没有成功 OBSERVE，也没有物理动作。当前为 BLOCKED_BY_LOCAL_PREFILL_BEFORE_OBSERVE，不是 COMPLETE。未增加超时、删除工具、package、执行 Native ACT、重新权限验收、正式晋升或访问生产 profile。
+聚焦 adapter/config/profile 测试通过：四文件共 95 个不同用例，包括七个准入回归。无密钥记录式 Session 场景证明固定输入无法压缩时，在 canonical compaction recovery 后保留诊断，不再次 dispatch 主模型请求。真实隔离 standard-preset Local Session 返回 LOCAL-CONTEXT-OK。真实 CU-enabled source Host 请求包含全部 56 个 CU 定义、共 89 个工具，精确输入 33,619，输出仍为 8,192；加上 4,096 余量，总计 45,907，满足 65,536 窗口。然而输入处理阶段仍触发既有 300 秒 stream-idle timeout，尚未生成 token 或 CU call。既有 retry policy 在有界 probe 关闭前开始一次 retry；没有成功 OBSERVE，也没有物理动作。这个历史全目录性能阻塞由下述 V1 presentation policy 闭合。未增加超时、删除工具、package、执行 Native ACT、重新权限验收、正式晋升或访问生产 profile。
 
 ## Local V1 电脑操作工具呈现
 
@@ -199,6 +199,12 @@ M3 保持固定官方 RC.2 底座，复用此前 Config、Session migration、ru
 
 同一冻结请求中，八项 CU 定义占 6,664 token，原为 24,018；总输入从 34,157 降到 16,803（减少 50.8%），保留 34 项非 CU 工具。真实隔离 standard-preset Host 请求共 41 项工具，其中 CU 八项，输入 16,349，保留 8,192 输出和 4,096 余量，满足真实 65,536 窗口。真实 Huihui 首 token 在 275.622 秒到达；模型正常 reasoning 并且仅 dispatch 一次成功的 list_windows OBSERVE，之后 probe 显式取消该轮。没有 ACT 或物理动作。Server 报告 prompt evaluation 为 258.083 秒／16,349 token（63.35 token/s）。300 秒边界与选定 Local 模型均不变；冷 prefill 仍是产品性能限制。
 
-六项新增聚焦用例覆盖完整 discovery 与八工具呈现的区分、动态未知工具拒绝／重连、已有 Agent 启用、非 CU schema 保持原样、ACT approval 允许／拒绝，以及结构化 text-only 工作流；与受影响 typecheck、lint、双语配对、引用、catalog 一致性和 workspace hygiene 一起通过。复用此前 95 个 context 和 176 个 safety 用例。Candidate Native qualification 与正式晋升仍待完成；源码证据不能单独成立 P-COMPUTER-I1 COMPLETE。
+六项新增聚焦用例覆盖完整 discovery 与八工具呈现的区分、动态未知工具拒绝／重连、已有 Agent 启用、非 CU schema 保持原样、ACT approval 允许／拒绝，以及结构化 text-only 工作流；与受影响 typecheck、lint、双语配对、引用、catalog 一致性和 workspace hygiene 一起通过。复用此前 95 个 context 和 176 个 safety 用例。Native 证据见下文；源码测试本身不构成完成。
 
-此源码的一次 promotable Custom candidate build 成功。隔离产物为 arm64、0.2.0-rc.2、bundle identity dev.dsh.desktop.custom，已核实 clean build metadata、strict/deep ad-hoc signature 和 packaged runtime closure。包内 safety runtime 与 Host-preflight runtime 逐字节相同。已准备的 rehearsal appData、userData、DSH_HOME 与 profile 位于同一 private qualification root，manager、LaunchAgent 与模型 identity 仍属于真实 OS account home。新 profile 保持 Computer Use OFF。macOS 锁定且用户目前无法解锁；尚未运行 candidate GUI、Native ACT matrix、正式晋升或 installed smoke。正式 App 字节保持原样。解锁后继续同一包，不重复 source suites、权限验收或 package。
+第二个可晋升 candidate 修复真实 model projection 缺口：官方 MCP structuredContent 以可读结构化文本交给模型；若服务端文本已包含相同 JSON，则不重复。raw/PTC 值、image admission、错误与 transport 不变。所属 59 个不同用例通过，包括结构化窗口 identity 和拒绝图片时保留 identity；更新后的 Host 在缓存 prefill 下 33.975 秒 dispatch 一次 OBSERVE。冷 prefill 仍慢：candidate 的一次首轮触及未修改的 300 秒 idle 边界后被显式取消。后续有界 Native 请求到达 OBSERVE；不宣称延迟保证，没有增加 timeout 或替换模型。
+
+隔离 Native matrix 在第二个 candidate 通过。arm64 Custom identity、strict/deep ad-hoc 签名、runtime closure、八工具 presentation、data/machine home 分离均已验证。随后 installed smoke 暴露未改变的生成 legacy Local alias 缺少部署 headers，却仍被选作默认；立即恢复旧正式 App。现有 profile bootstrap 只识别完整生成 alias，补入 Local headers/容量，并仅在 canonical Local route 未改变时迁移新默认选择。用户修改过的路由保留；历史 Session 选择保留可解析 alias，直到受支持的持久化引用退役。四个聚焦 profile 用例和真实隔离 legacy-default Host 回答通过；安全与 Session contract 不变。第 3 次也是最后一次获准 candidate build 纳入这项有界修复。
+
+P-COMPUTER-I1-FINAL 仍为 BLOCKED_WITH_DIAGNOSTIC_EVIDENCE。第 3 个 candidate 的 package closure 和隔离通过；安全层/provider/MCP 字节与 Native-qualified 第 2 个 candidate 相同。安装 smoke 成功准入修复后的 canonical Local 默认，但真实首轮在 300 秒超时，尚无 CU call 或物理动作。实际 header 有 42 个唯一工具，其中 CU 八项。单个 skill-catalog 消息包含 27 个唯一条目、11,066 个模型可见文本字符；持久化 source metadata 不是另一份 prompt。没有发现重复目录注入。既有 retry 开始一次后立即被取消；Global Stop 阻止准入，旧正式 App 已恢复并正常启动，Computer Use 关闭。未增加 timeout、删除用户 Skill、切换云模型或进行第 4 次 build。隔离 Native 证据仍有效，但 installed smoke 失败意味着不能 COMPLETE，也不能最终晋升。
+
+输入区域状态/Stop 横条仍有 UI 呈现问题：空闲标签无需独占整行，但桌面工作期间必须保留立即可达的 Global Stop。本次三次 build 配额已用尽，未夹带布局改动。截图 retention、后台自主 CU、Codex/Schedule CU bridge 继续延期；物理副作用不是 exactly-once，结果未知绝不重放。
