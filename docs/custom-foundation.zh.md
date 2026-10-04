@@ -226,3 +226,13 @@ P-COMPUTER-I1-COLD-START-FINAL 在当前机器/部署和所需 V1 prompt 下为 
 Computer Use V1 状态为**已实现并通过安全资格验证；暂停在性能资格与正式启用之前**。复用 Native 安全资格、权限路径、DesktopLease、审批、Global Stop、no-replay 边界和已审查的八工具呈现；除非后续改动真实改变这些 contract，否则不要重做。下一项目优先级为 `P-CORE-RELEASE`。它可以在保留 Computer Use 代码和安全行为、且 optional bundle 默认关闭的情况下发布稳定核心客户端，不必等待当前 Local 冷启动 OBSERVE 性能门槛。
 
 恢复 Computer Use 时，第一步重新检查机器当前已安装的 Local 模型目录，然后只继续冷启动性能与模型适用性评估。用户说明当前有两套可用的 27B 量化 Local 配置，但本文没有可靠记录其准确模型名与量化身份。`Qwen3.6-35B-A3B` 已卸载，不可假定仍可用。禁止静默替换模型、自动 fallback 到 Codex 或云端，也不得为通过 benchmark 移除普通 Local 能力。本双语 ledger 已保存可长期恢复所需的资格摘要与恢复点；临时 probe 产物只是补充材料，不是恢复项目状态的必要依赖。
+
+## P-CORE-RELEASE
+
+P-CORE-RELEASE（2026-10-04）**已完成**。仅构建一次隔离 arm64 candidate，源码为 `5d705499a8f565f4ca781bd9136c9524e536d0df`，bundle ID `dev.dsh.desktop.custom`，版本 `0.2.0-rc.2`；本地 ad-hoc 签名严格／深度完整性验证通过，不声称已公开公证。Candidate 的 user data、profile 和 DSH home 均隔离；Local 机器资源仍从真实 OS 账户 home 解析。Candidate smoke 通过 Custom 主界面、Local-first Huihui 默认、一条短 Local 回答、一条无害只读 shell 工具调用、一条动态目录中的 `GPT-6.1-Sol` low effort Codex 回答、Schedule 页面，以及 Computer Use 默认关闭。Candidate 的 Local 回答约耗时 2 分 41 秒；这是普通 Local 性能证据，不是独立的 Computer Use 冷 prefill 门槛。
+
+Candidate 已晋升至 `/Applications/DS Harness.app`；仅保留一份 rollback：`/Applications/DS Harness.rollback-2026-10-04.app`。正式安装为 arm64、`dev.dsh.desktop.custom`、0.2.0-rc.2，严格／深度签名验证通过；当前 `app.asar` SHA-256 为 `22fa9856996ccc7744975b9c29569d4abac521716c7b35d21527ee6d41fa918a`。Rollback 的 `app.asar` SHA-256 为 `084bf057914adf5e52745a214eceb147d24296b63a3f488abf35a6587771a776`。Installed smoke 正常加载现有正式 profile 与 history，然后在一个新 smoke conversation 中分别完成 Huihui Local 与官方 `GPT-6.1-Sol` turn；Schedule 页面可打开，Computer Use 仍关闭。该正常安装 smoke 按任务授权使用了正式 profile；candidate 未使用该 profile，没有执行 profile migration 或 rewrite。
+
+Candidate 工作期间，因 candidate 与 formal 共用 bundle identifier，CUA 应用句柄解析曾短暂意外启动正式 App。它在既有 listener 冲突处退出，candidate-only smoke 随后继续；candidate 退出后才进行 formal-only installed smoke。意外启动期间没有运行模型 turn。当前安装版在生成时显示通用的“深度求索中”；通用设置仍有“工作步骤展示”选项（当前为“标准”）。用户偏好更丰富、可见的步骤进度，已记录为后续 UI 工作；本次发布没有改动或重打包此 UI。Computer Use 代码和安全成果保留，默认关闭；冷性能资格仍暂停在 `COLD_PERFORMANCE_MODEL_SUITABILITY`，本次 Core Release 未运行该资格。
+
+本次 closeout 未修改源码，只在此补充 release/status ledger。打包产物 provenance 仍指向上述源码 SHA；文档提交会单独推进分支 SHA。
