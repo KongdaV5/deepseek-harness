@@ -86,6 +86,8 @@ When the model calls an MCP tool, the call runs against the remote server with a
 
 Images are supported when the current model accepts image input and the harness attachment feature is enabled; they then appear in the conversation like other images. Otherwise — and for audio or embedded resources — the model sees a clear diagnostic message instead of nothing.
 
+Structured output is also rendered as JSON for native model calls, so window IDs and opaque element tokens remain available even when the server supplies only a short text summary. Equivalent JSON already present in a text block is not repeated. Programmatic callers retain the original MCP result; image admission and error handling remain unchanged.
+
 ### Startup, updates, and reconnection
 
 The server's tools appear before the harness starts its first turn. When the server changes its tool list, the model's tool set updates automatically; if the update fails, the previous tool set keeps working.

@@ -1099,6 +1099,28 @@
       "technicalTags": []
     },
     {
+      "id": "mcp-structured-model-projection",
+      "patterns": [
+        "packages/mcp/mcp-client/src/tools.ts",
+        "packages/mcp/mcp-client/tests/tool-definition.spec.ts",
+        "packages/mcp/mcp-client/README*"
+      ],
+      "owner": "MIXED",
+      "reason": "Canonical MCP result rendering includes structured facts for native models without duplicating server JSON; raw results, transport, image admission, approval and cancellation remain upstream-owned.",
+      "dependsOn": [
+        "computer-use-provider-lifecycle"
+      ],
+      "invariants": [
+        "NO_REPLAY"
+      ],
+      "affectedTests": [
+        "packages/mcp/mcp-client/tests/tool-definition.spec.ts",
+        "packages/mcp/mcp-client/tests/mcp-client.spec.ts"
+      ],
+      "impactFloor": 3,
+      "technicalTags": []
+    },
+    {
       "id": "computer-use-upstream",
       "patterns": [
         "packages/computer-use/computer-use/**",

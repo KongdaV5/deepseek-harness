@@ -37,6 +37,55 @@ describe('MCP result callback adaptation', () => {
       expect(result.value).toEqual({
         content: [{ type: 'text', text: 'Observed window.' }], structuredContent: { window: 7 },
       })
+      expect(result.content).toEqual([
+        { type: 'text', text: 'Observed window.' },
+        { type: 'text', text: 'Structured result:\n{"window":7}' },
+      ])
+    } finally {
+      await ctx.fiber.dispose()
+    }
+  })
+
+  it('does not repeat structured JSON already serialized by the server', async () => {
+    const ctx = new Context()
+    try {
+      await ctx.plugin(SystemPrompt)
+      await ctx.plugin(ToolRuntime)
+      const text = '{ "window": 7, "element_token": "opaque-snapshot-element" }'
+      ctx.tools.register(createMcpToolDefinition(ctx, {
+        name: 'window_identity', rawName: 'window', description: 'Read window identity.',
+        inputSchema: { type: 'object' }, call: async () => ({
+          content: [{ type: 'text', text }],
+          structuredContent: { element_token: 'opaque-snapshot-element', window: 7 },
+        }),
+      }))
+      const result = await ctx.tools.execute({ name: 'window_identity', callId: ToolCallId('identity-call'),
+        arguments: {}, signal: new AbortController().signal })
+      expect(result.isError).toBe(false)
+      expect(result.content).toEqual([{ type: 'text', text }])
+    } finally {
+      await ctx.fiber.dispose()
+    }
+  })
+
+  it('retains structured identities when canonical image admission refuses the image', async () => {
+    const ctx = new Context()
+    try {
+      await ctx.plugin(SystemPrompt)
+      await ctx.plugin(ToolRuntime)
+      ctx.tools.register(createMcpToolDefinition(ctx, {
+        name: 'window_image', rawName: 'window', description: 'Window image and identity.',
+        inputSchema: { type: 'object' }, call: async () => ({
+          content: [{ type: 'text', text: 'Window.' }, { type: 'image', mimeType: 'image/png', data: 'AQ==' }],
+          structuredContent: { window: 7, element_token: 'opaque-snapshot-element' },
+        }),
+      }))
+      const result = await ctx.tools.execute({ name: 'window_image', callId: ToolCallId('image-identity-call'),
+        arguments: {}, signal: new AbortController().signal })
+      expect(result.isError).toBe(false)
+      expect(result.content.every(block => block.type === 'text')).toBe(true)
+      expect(result.content.filter(block => block.type === 'text' && block.text.startsWith('Structured result:')))
+        .toEqual([{ type: 'text', text: 'Structured result:\n{"window":7,"element_token":"opaque-snapshot-element"}' }])
     } finally {
       await ctx.fiber.dispose()
     }
