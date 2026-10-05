@@ -114,6 +114,7 @@ describe('shipped business AgentPreset compositions', () => {
       expect(configOf(skillSource)?.includeDefaultRoots).toBe(false)
       const paths = (configOf(skillSource)?.customSkillDirs ?? []).map(value => value.__jsExpr)
       expect(paths).toHaveLength(expected[id]!.length)
+      expect(paths.every(path => path.includes("process.getBuiltinModule('node:os').userInfo().homedir"))).toBe(true)
       expected[id]!.forEach(path => expect(paths.join('\n')).toContain(path))
 
       const ptc = id === 'development' || id === 'github-cloudflare'

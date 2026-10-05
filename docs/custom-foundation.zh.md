@@ -291,3 +291,11 @@ Canonical manager 没有第三套已安装文本 profile；剩余 Qwen Image pro
 Native 检查确认四个业务预设都已注册且没有 broken 状态；首轮前可选，turn 开始后锁定。打包 app.asar 内的 General composition include 可以解析。candidate 重启后仍保留 General Agent 和 Huihui Local model。Local 设置页显示 canonical Huihui profile/runtime ready 与 endpoint；Computer Use 保持 OFF，Schedule 页面正常打开。Run Details 显示来自实际 Session 的运行状态。两次简短 Local 请求在手动取消前均未返回；检查到的运行记录显示 `gateway/internal`、backend unknown、primary inference unset、`CLIENT_CANCELLED`。这是人工取消的运行，不能据此断言 Local 服务独立报错，但也不能证明要求的 Local short-turn gate。候选 Codex 状态明确要求重新登录；没有尝试登录、转移凭证或发送 Codex turn。因此候选 release gate 为 BLOCKED，而不是 PASS。未再次构建；未执行 formal promotion 和 installed smoke；现有 formal app 与唯一 rollback 未变。未运行 Computer Use 资格或性能工作。
 
 恢复点为这个隔离 candidate：待有经授权的登录路径后，完成真实 Local short turn 和任务要求的 Codex short turn，再完成既定的聚焦 candidate 检查；只有全部 gate 通过才晋升。不重复已经通过的源码测试，不在无 root-cause 修改时重建，也不借本次发布启动 Computer Use 工作。
+
+## P-UI-PRESETS-FINAL-RELEASE（2026-10-05）
+
+P-UI-PRESETS-FINAL-RELEASE **已完成**。发布 UI 复用 canonical AgentPreset/composition，实现 General、AMZ、Development/Script 和 GitHub/Cloudflare 四个预设；Standard 仍为默认，首轮开始后锁定预设，切换预设需新建 Session。现有配置归属不变，没有新增第二套 Agent framework 或持久化存储。
+
+源码修复使打包后的 Skill 目录从 OS 账户 home（`os.userInfo().homedir`）解析，不再受 candidate 隔离 `HOME` 影响。针对性回归测试通过；隔离 AMZ candidate turn 找到实际安装的 8 个 Amazon Skills。一次不可晋升的 package 尝试由后续唯一的 `--candidate --promotable` arm64 package 替代。最终包通过 archive identity 与本地严格签名检查，并晋升至 `/Applications/DS Harness.app`（bundle `dev.dsh.desktop.custom`，版本 `0.2.0-rc.2`，app.asar SHA-256 `1c3c7ca1756135ace49568414357f6e1f276616831ac3d82ee19edd2c47280ed`）。唯一 rollback `/Applications/DS Harness.rollback-2026-10-04.app` 保留（app.asar SHA-256 `084bf057914adf5e52745a214eceb147d24296b63a3f488abf35a6587771a776`）。该包为本地 ad-hoc 签名，不代表公开公证。
+
+正式安装 smoke 使用现有用户 profile 并通过：Local Huihui 显示 READY，endpoint 为 `http://127.0.0.1:8080/v1`；纯文本 turn 在一次自动重试后于 6:01 返回 `OK`；只读工具 turn 实际读取当前 worktree 的 `package.json`，返回包名和前五个 scripts，并在一次重试后于 11:14 完成。没有修改 timeout 或模型路由。较长工具回合的大部分时间 UI 显示通用运行状态；期间短暂显示请求分析，Run Details 从一步更新为两步，最终以健康状态结束并显示真实的 `已读取 package.json` 结果；没有展示隐藏 reasoning。使用现有认证和动态模型列表中的 GPT-6-Luna，官方 Codex 回合在 6 秒内返回 `INSTALLEDCODEXOK`。Schedule 页面正常打开且没有任务。Computer Use 仍默认关闭；设置页显示租约空闲、权限尚未检查，本轮未检查／请求权限，也未执行 CU 操作。

@@ -20,7 +20,7 @@
                   config:
                     includeDefaultRoots: false
                     customSkillDirs:
-                      - !!js "process.getBuiltinModule('node:path').join(process.getBuiltinModule('node:os').homedir(), '.dsh', 'skill-scopes', 'general')"
+                      - !!js "process.getBuiltinModule('node:path').join(process.getBuiltinModule('node:os').userInfo().homedir, '.dsh', 'skill-scopes', 'general')"
     - id: preset-amz
       name: '@deepseek-ai/dsh-agent-preset'
       config:
@@ -40,8 +40,8 @@
                   config:
                     includeDefaultRoots: false
                     customSkillDirs:
-                      - !!js "process.getBuiltinModule('node:path').join(process.getBuiltinModule('node:os').homedir(), '.dsh', 'skill-scopes', 'common')"
-                      - !!js "process.getBuiltinModule('node:path').join(process.getBuiltinModule('node:os').homedir(), '.dsh', 'skill-scopes', 'amazon')"
+                      - !!js "process.getBuiltinModule('node:path').join(process.getBuiltinModule('node:os').userInfo().homedir, '.dsh', 'skill-scopes', 'common')"
+                      - !!js "process.getBuiltinModule('node:path').join(process.getBuiltinModule('node:os').userInfo().homedir, '.dsh', 'skill-scopes', 'amazon')"
     - id: preset-development
       name: '@deepseek-ai/dsh-agent-preset'
       config:
@@ -69,7 +69,7 @@
                   config:
                     includeDefaultRoots: false
                     customSkillDirs:
-                      - !!js "process.getBuiltinModule('node:path').join(process.getBuiltinModule('node:os').homedir(), '.dsh', 'skill-scopes', 'common')"
+                      - !!js "process.getBuiltinModule('node:path').join(process.getBuiltinModule('node:os').userInfo().homedir, '.dsh', 'skill-scopes', 'common')"
     - id: preset-github-cloudflare
       name: '@deepseek-ai/dsh-agent-preset'
       config:
@@ -100,5 +100,5 @@
                   config:
                     includeDefaultRoots: false
                     customSkillDirs:
-                      - !!js "process.getBuiltinModule('node:path').join(process.getBuiltinModule('node:os').homedir(), '.dsh', 'skill-scopes', 'common')"
-                      - !!js "process.getBuiltinModule('node:path').join(process.getBuiltinModule('node:os').homedir(), '.dsh', 'skill-scopes', 'cloudflare-dev')"
+                      - !!js "process.getBuiltinModule('node:path').join(process.getBuiltinModule('node:os').userInfo().homedir, '.dsh', 'skill-scopes', 'common')"
+                      - !!js "process.getBuiltinModule('node:path').join(process.getBuiltinModule('node:os').userInfo().homedir, '.dsh', 'skill-scopes', 'cloudflare-dev')"
