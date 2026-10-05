@@ -235,7 +235,7 @@ Candidate 已晋升至 `/Applications/DS Harness.app`；仅保留一份 rollback
 
 Candidate 工作期间，因 candidate 与 formal 共用 bundle identifier，CUA 应用句柄解析曾短暂意外启动正式 App。它在既有 listener 冲突处退出，candidate-only smoke 随后继续；candidate 退出后才进行 formal-only installed smoke。意外启动期间没有运行模型 turn。当前安装版在生成时显示通用的“深度求索中”；通用设置仍有“工作步骤展示”选项（当前为“标准”）。用户偏好更丰富、可见的步骤进度，已记录为后续 UI 工作；本次发布没有改动或重打包此 UI。Computer Use 代码和安全成果保留，默认关闭；冷性能资格仍暂停在 `COLD_PERFORMANCE_MODEL_SUITABILITY`，本次 Core Release 未运行该资格。
 
-本次 closeout 未修改源码，只在此补充 release/status ledger。打包产物 provenance 仍指向上述源码 SHA；文档提交会单独推进分支 SHA。
+本次 closeout 未修改源码，只在此补充 release/status ledger。打包产物由上述源码 SHA 构建；文档提交会单独推进分支 SHA。
 
 ## P-PROJECT-SLIM 清理清单
 

@@ -235,7 +235,7 @@ The candidate was promoted to `/Applications/DS Harness.app`; exactly one rollba
 
 There was one brief accidental formal-app launch while resolving the CUA app handle during candidate work, because the candidate and formal app share a bundle identifier. It exited on the existing listener collision before candidate smoke proceeded; the successful candidate smoke then ran candidate-only, and the installed smoke ran formal-only after candidate shutdown. No model turn was run during the accidental launch. The installed UI displayed the generic “DeepSeek thinking” activity label; General Settings still exposes the work-step display preference (currently Standard). The user's preference for richer, more visible step progress is recorded for later UI work and was not changed or repackaged in this release. Computer Use code and safety work remain present, default OFF; its cold-performance qualification remains paused at `COLD_PERFORMANCE_MODEL_SUITABILITY` and was not run for Core Release.
 
-No source code changed in this release closeout. Only the release/status ledger is added here; the packaged binary provenance remains the source SHA above, while the documentation commit advances the branch separately.
+No source code changed in this release closeout. Only the release/status ledger is added here; the packaged binary was built from the source SHA above, while the documentation commit advances the branch separately.
 
 ## P-PROJECT-SLIM cleanup manifest
 
