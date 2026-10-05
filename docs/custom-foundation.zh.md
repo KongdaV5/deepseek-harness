@@ -281,3 +281,13 @@ Canonical manager 没有第三套已安装文本 profile；剩余 Qwen Image pro
 如果要在保持现有 Minimal/Standard/PTC Agent composition 的同时，让业务预设独立影响已开始 Session 的后续 turn，则当前架构没有现成路径。canonical agentPreset Session projection 记录完整 Agent composition；第一轮开始后会拒绝切换，Session Skill catalog 也从同一 composition 读取 Skill scope。独立业务 scope 因而需要一个新的可变 Session capability 维度，以及实时工具/Skill 绑定路径；现有实现没有对应的 canonical owner。按任务指定的架构停止条件，本轮没有增加业务预设选择器、持久化、Agent framework、candidate package 或正式晋升。
 
 聚焦 UI 测试（选定的 52 个用例）和 Client TypeScript build 通过。未运行 Computer Use 性能或安全工作；Computer Use 保持 OFF。由于业务预设验收在架构边界受阻，未运行 candidate 或 installed UI smoke。正式 App 和 rollback 均未改动。
+
+## P-UI-POLISH-PRESETS-RELEASE-FINAL（2026-10-05）
+
+更新后的产品裁决复用 canonical AgentPreset / composition。提交 `08635aef7005a43b40ef486e16e0cb0cdc3c25c1` 新增 General、AMZ、Development/Script、GitHub/Cloudflare compositions，Standard 仍为默认。General 复用 Standard；AMZ 使用实际存在的 8 个 Amazon Skills；Development/Script 复用现有 PTC composition；GitHub/Cloudflare 在此基础上纳入实际存在的 13 个 Cloudflare Skills 和现有 Git/`gh` shell 能力。没有声称存在专用 GitHub connector 或本机 Wrangler CLI。Skill 正文仍按需加载。唯一启动逻辑改动使嵌套相对 composition include 以 preset 源文件为基准，因此打包 YAML include 能正确解析。保留既有首轮前选择、首轮开始后锁定的语义；切换预设需新建 Session。历史 Session 和现有用户配置没有迁移或重写；没有新增 Agent framework、可变 capability 维度、持久化存储、schema 或 runtime。
+
+实现提交的聚焦验证通过：app-boot、preset registry/composition、client preset UI 共选定 194 个测试；受影响 Client TypeScript build 通过；web-app browser defaults 的 6 个测试通过。只构建了一次 arm64 candidate，源提交为 `08635aef`，packaging/runtime smoke 通过。候选 `app.asar` SHA-256 为 `4a2d6e291667c891781c4ef9fa3067036ab20fe408f9c56faee82fc6924a15a1`。应用运行于隔离 qualification root `/private/tmp/dsh-ui-presets-release-20261005`；其 DSH_HOME、profile、sessions、cache 与 app data 均在该目录。此次 candidate 流程没有启动或修改 formal app / rollback。
+
+Native 检查确认四个业务预设都已注册且没有 broken 状态；首轮前可选，turn 开始后锁定。打包 app.asar 内的 General composition include 可以解析。candidate 重启后仍保留 General Agent 和 Huihui Local model。Local 设置页显示 canonical Huihui profile/runtime ready 与 endpoint；Computer Use 保持 OFF，Schedule 页面正常打开。Run Details 显示来自实际 Session 的运行状态。两次简短 Local 请求在手动取消前均未返回；检查到的运行记录显示 `gateway/internal`、backend unknown、primary inference unset、`CLIENT_CANCELLED`。这是人工取消的运行，不能据此断言 Local 服务独立报错，但也不能证明要求的 Local short-turn gate。候选 Codex 状态明确要求重新登录；没有尝试登录、转移凭证或发送 Codex turn。因此候选 release gate 为 BLOCKED，而不是 PASS。未再次构建；未执行 formal promotion 和 installed smoke；现有 formal app 与唯一 rollback 未变。未运行 Computer Use 资格或性能工作。
+
+恢复点为这个隔离 candidate：待有经授权的登录路径后，完成真实 Local short turn 和任务要求的 Codex short turn，再完成既定的聚焦 candidate 检查；只有全部 gate 通过才晋升。不重复已经通过的源码测试，不在无 root-cause 修改时重建，也不借本次发布启动 Computer Use 工作。
