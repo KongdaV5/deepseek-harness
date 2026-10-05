@@ -16,6 +16,15 @@ describe('presetDisplayText', () => {
     })
   })
 
+  it.each([
+    ['general', 'presetGeneralName', 'presetGeneralDescription'],
+    ['amz', 'presetAmzName', 'presetAmzDescription'],
+    ['development', 'presetDevelopmentName', 'presetDevelopmentDescription'],
+    ['github-cloudflare', 'presetGithubCloudflareName', 'presetGithubCloudflareDescription'],
+  ] as const)('recognizes the built-in %s business composition', (id, nameKey, descriptionKey) => {
+    expect(presetDisplayText({ id }, t)).toEqual({ name: `t:${nameKey}`, description: `t:${descriptionKey}` })
+  })
+
   it('keeps user-authored metadata untranslated', () => {
     expect(presetDisplayText({ id: 'mine', name: '我的模式', description: '自述' }, t))
       .toEqual({ name: '我的模式', description: '自述' })

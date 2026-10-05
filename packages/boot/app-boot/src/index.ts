@@ -342,14 +342,28 @@ export function loadOverlayPatches(binName: string, file: string): PatchOptions[
   return parsePatchList(binName, file, content, 'overlay')
 }
 
-/** Convert inserted filesystem paths to file URLs, anchoring relative paths beside the patch; keep assertion names literal. */
-function anchorInsertedPluginNames(patches: PatchOptions[], file: string): PatchOptions[] {
+/** Convert inserted filesystem paths to file URLs beside the patch; keep assertion names literal. */
+function anchorInsertedPaths(patches: PatchOptions[], file: string): PatchOptions[] {
   const base = dirname(resolve(file))
   const visit = (entry: EntryOptions): void => {
     if (typeof entry.name === 'string' && (isAbsolute(entry.name) || entry.name.startsWith('./') || entry.name.startsWith('../'))) {
       entry.name = pathToFileURL(resolve(base, entry.name)).href
     }
+    if ((entry.name === 'cordis:include' || entry.name === '@deepseek-ai/cordis-plugin-include')
+      && typeof entry.config === 'object' && entry.config !== null && !Array.isArray(entry.config)) {
+      const config = entry.config as { path?: unknown }
+      if (typeof config.path === 'string' && !config.path.startsWith('file:')) {
+        // Detached AgentPreset trees inherit the profile base URL; preserve the
+        // bundle patch's source directory for its relative composition files.
+        config.path = pathToFileURL(resolve(base, config.path)).href
+      }
+    }
     if (entry.group && Array.isArray(entry.config)) entry.config.forEach(visit)
+    if (entry.name === '@deepseek-ai/dsh-agent-preset'
+      && typeof entry.config === 'object' && entry.config !== null && !Array.isArray(entry.config)) {
+      const plugins = (entry.config as { plugins?: unknown }).plugins
+      if (Array.isArray(plugins)) (plugins as EntryOptions[]).forEach(visit)
+    }
   }
   for (const patch of patches) patch.insert?.forEach(visit)
   return patches
@@ -384,7 +398,7 @@ function parsePatchList(
       throw new Error(`${binName}: ${label} entry ${index + 1} in ${file} must be a mapping (a loader patch entry)`)
     }
   })
-  return anchorInsertedPluginNames(parsed as PatchOptions[], file)
+  return anchorInsertedPaths(parsed as PatchOptions[], file)
 }
 
 /** One overlay patch list with the source label printed in dump comments. */

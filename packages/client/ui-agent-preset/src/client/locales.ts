@@ -21,6 +21,14 @@ export type AgentPresetSettingsKey =
   | 'presetMinimalDescription'
   | 'presetCordisName'
   | 'presetCordisDescription'
+  | 'presetGeneralName'
+  | 'presetGeneralDescription'
+  | 'presetAmzName'
+  | 'presetAmzDescription'
+  | 'presetDevelopmentName'
+  | 'presetDevelopmentDescription'
+  | 'presetGithubCloudflareName'
+  | 'presetGithubCloudflareDescription'
   | 'inUse'
   | 'noDescription'
   | 'brokenBadge'
@@ -32,7 +40,7 @@ export type AgentPresetSettingsKey =
 export const en: Record<AgentPresetSettingsKey, string> = {
   ...guideEn,
   builtInGroup: 'Built-in', customGroup: 'Custom',
-  sectionIntro: 'Choose the agent’s tools and how it works. Use Standard mode for everyday tasks, or Creator mode to add capabilities to DSH.',
+  sectionIntro: 'Choose an Agent composition for a new task: General, Amazon, development, GitHub/Cloudflare, or a specialized mode.',
 
   seatHint: 'Choose the agent preset for your new task',
   headerHint: 'The agent preset chosen when this task started',
@@ -53,6 +61,14 @@ export const en: Record<AgentPresetSettingsKey, string> = {
   presetCordisName: 'Creator mode',
   presetCordisDescription:
     'Customize DSH through conversation. Let the agent write plugins that add features or UI, or combine tools and prompts to create your own mode.',
+  presetGeneralName: 'General',
+  presetGeneralDescription: 'For everyday tasks with the general Skill scope.',
+  presetAmzName: 'AMZ',
+  presetAmzDescription: 'Amazon operations, listings, advertising, product research, and images.',
+  presetDevelopmentName: 'Development / Script',
+  presetDevelopmentDescription: 'Code, shell, debugging, and automation scripts.',
+  presetGithubCloudflareName: 'GitHub / Cloudflare',
+  presetGithubCloudflareDescription: 'GitHub project work and Cloudflare/Workers development.',
 
   inUse: 'New task default',
 
@@ -71,7 +87,7 @@ export const en: Record<AgentPresetSettingsKey, string> = {
 export const zh: Record<AgentPresetSettingsKey, string> = {
   ...guideZh,
   builtInGroup: '内置', customGroup: '自定义',
-  sectionIntro: '选择 Agent 的工具和工作方式。日常任务用「标准模式」，扩展 DSH 的能力用「创造模式」。',
+  sectionIntro: '为新任务选择 Agent 组合：通用、AMZ、开发/脚本、GitHub/Cloudflare，或其他专用模式。',
 
   seatHint: '选择新任务使用的 Agent 预设',
   headerHint: '本任务的 Agent 预设，在任务开始时确定',
@@ -88,6 +104,14 @@ export const zh: Record<AgentPresetSettingsKey, string> = {
   presetMinimalDescription: 'Agent 仅使用终端工具完成任务，适合测试和对比其基础表现。',
   presetCordisName: '创造模式',
   presetCordisDescription: '用对话定制 DSH：让 Agent 编写插件，添加新功能或界面；也能组合工具和提示词，创建自己的模式。',
+  presetGeneralName: '通用',
+  presetGeneralDescription: '日常通用任务，使用通用 Skill 范围。',
+  presetAmzName: 'AMZ',
+  presetAmzDescription: 'Amazon 运营、Listing、广告、选品与图片工作。',
+  presetDevelopmentName: '开发 / 脚本',
+  presetDevelopmentDescription: '代码、Shell、调试与自动化脚本。',
+  presetGithubCloudflareName: 'GitHub / Cloudflare',
+  presetGithubCloudflareDescription: 'GitHub 项目维护及 Cloudflare/Workers 开发。',
 
   inUse: '新任务默认',
 

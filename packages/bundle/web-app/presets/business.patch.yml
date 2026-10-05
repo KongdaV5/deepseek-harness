@@ -1,0 +1,104 @@
+# Business presets are AgentPreset compositions. They include the shared
+# Standard composition and narrow only the mounted Skill roots.
+- insert:
+    - id: preset-general
+      name: '@deepseek-ai/dsh-agent-preset'
+      config:
+        id: general
+        order: 2
+        plugins:
+          - id: general-composition
+            name: cordis:include
+            config:
+              path: compositions/standard.yml
+              patches:
+                - id: persona
+                  config:
+                    suffix: Your working directory is {{cwd}}.
+                    prefix: You are a helpful general-task assistant powered by the {{model}} model.
+                - id: skill-filesystem
+                  config:
+                    includeDefaultRoots: false
+                    customSkillDirs:
+                      - !!js "process.getBuiltinModule('node:path').join(process.getBuiltinModule('node:os').homedir(), '.dsh', 'skill-scopes', 'general')"
+    - id: preset-amz
+      name: '@deepseek-ai/dsh-agent-preset'
+      config:
+        id: amz
+        order: 3
+        plugins:
+          - id: amz-composition
+            name: cordis:include
+            config:
+              path: compositions/standard.yml
+              patches:
+                - id: persona
+                  config:
+                    suffix: Your working directory is {{cwd}}.
+                    prefix: You are an Amazon operations assistant powered by the {{model}} model. Use the available Amazon Skills for ads, listings, product research, and images.
+                - id: skill-filesystem
+                  config:
+                    includeDefaultRoots: false
+                    customSkillDirs:
+                      - !!js "process.getBuiltinModule('node:path').join(process.getBuiltinModule('node:os').homedir(), '.dsh', 'skill-scopes', 'common')"
+                      - !!js "process.getBuiltinModule('node:path').join(process.getBuiltinModule('node:os').homedir(), '.dsh', 'skill-scopes', 'amazon')"
+    - id: preset-development
+      name: '@deepseek-ai/dsh-agent-preset'
+      config:
+        id: development
+        order: 4
+        plugins:
+          - id: development-composition
+            name: cordis:include
+            config:
+              path: compositions/standard.yml
+              patches:
+                - id: workflow-ptc
+                  disabled: true
+                - id: tool-workflow
+                  disabled: true
+                - id: tool-presentation
+                  disabled: false
+                  config:
+                    mode: ptc
+                - id: persona
+                  config:
+                    suffix: Your working directory is {{cwd}}.
+                    prefix: You are a software and script development agent powered by the {{model}} model. Use shell, filesystem, search, editing, and project tools as needed.
+                - id: skill-filesystem
+                  config:
+                    includeDefaultRoots: false
+                    customSkillDirs:
+                      - !!js "process.getBuiltinModule('node:path').join(process.getBuiltinModule('node:os').homedir(), '.dsh', 'skill-scopes', 'common')"
+    - id: preset-github-cloudflare
+      name: '@deepseek-ai/dsh-agent-preset'
+      config:
+        id: github-cloudflare
+        order: 5
+        plugins:
+          - id: github-cloudflare-composition
+            name: cordis:include
+            config:
+              path: compositions/standard.yml
+              patches:
+                - id: workflow-ptc
+                  disabled: true
+                - id: tool-workflow
+                  disabled: true
+                - id: tool-presentation
+                  disabled: false
+                  config:
+                    mode: ptc
+                - id: persona
+                  config:
+                    suffix: Your working directory is {{cwd}}.
+                    prefix: >-
+                      You handle GitHub repository and Cloudflare/Workers work, powered by the {{model}} model.
+                      Use available Shell tools for Git and GitHub CLI operations, and use the loaded Cloudflare Skills as guidance.
+                      Check which commands are installed; do not assume a dedicated connector or an uninstalled CLI.
+                - id: skill-filesystem
+                  config:
+                    includeDefaultRoots: false
+                    customSkillDirs:
+                      - !!js "process.getBuiltinModule('node:path').join(process.getBuiltinModule('node:os').homedir(), '.dsh', 'skill-scopes', 'common')"
+                      - !!js "process.getBuiltinModule('node:path').join(process.getBuiltinModule('node:os').homedir(), '.dsh', 'skill-scopes', 'cloudflare-dev')"
