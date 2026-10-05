@@ -401,7 +401,7 @@ describe('Definition-owned Chat process groups', () => {
     expect(store.groupSource(groups[2]!.key).getSnapshot()?.members.map(member => member.key)).toEqual(['b'])
   })
 
-  it('updates live detail without replacing roots or members and closes on the first reply', () => {
+  it('updates a non-disclosing thinking summary without replacing roots or members', () => {
     const h = harness([assistant('first thought')])
     const first = h.store.entries[0]!
     if (first.kind !== 'group') throw new Error('expected group')
@@ -412,7 +412,7 @@ describe('Definition-owned Chat process groups', () => {
     expect(h.commit()?.entries).toBeUndefined()
     expect(h.store.entries).toBe(entries)
     expect(source.getSnapshot()!.members).toBe(members)
-    expect(source.getSnapshot()!.data.summary.runningDetail).toBe('second thought')
+    expect(source.getSnapshot()!.data.summary.runningDetail).toBe('')
     h.builder.apply({ upserts: [assistant('second thought', 'reply')], timeline })
     h.commit()
     expect(h.store.entries[0]).toEqual(first)

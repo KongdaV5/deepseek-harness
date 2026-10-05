@@ -20,9 +20,6 @@ export function RuntimeCards({ useRuntime, model, t }: InjectFace<RuntimeCardsIn
   useEffect(() => { void model.refresh() }, [model])
   const action = (operation: () => Promise<unknown>) => { void model.run(operation) }
   const local = state.local
-  const currentProfile = local?.profile === null || local?.profile === undefined
-    ? undefined
-    : local.profiles.find(profile => profile.id === local.profile)?.name
   const localState = local === undefined
     ? state.loading ? 'checking' : 'unavailable'
     : !local.enabled ? 'disabled'
@@ -35,17 +32,44 @@ export function RuntimeCards({ useRuntime, model, t }: InjectFace<RuntimeCardsIn
     {state.error === undefined ? null : <p role="alert">{state.error}</p>}
     <fieldset className={css.card} disabled={state.loading || state.local?.enabled !== true}><legend>{t('local')}</legend>
       <p className={css.hint}>{t('localHint')}</p>
-      <p role="status"><strong>{t('localRuntime')}</strong> · {t(localState)}{currentProfile === undefined ? '' : ` · ${currentProfile}`}</p>
+      <p role="status"><strong>{t('localRuntime')}</strong> · {t(localState)}</p>
+      {local?.endpoint === undefined ? null : <p className={css.endpoint}>{t('endpoint')}: <code>{local.endpoint}</code></p>}
       {state.local?.error === undefined ? null : <p role="alert">{state.local.error}</p>}
-      {state.local?.profiles.map(profile => <div key={profile.id} className={css.profile}>
-        <span>{profile.name} · {t(profile.modality)}{state.local?.profile === profile.id ? ` · ${t('current')}` : ''}</span>
-        {profile.available ? null : <span>{profile.unavailableReason ?? t('unavailable')}</span>}
-        <Button disabled={!state.local?.enabled || !profile.available || !profile.manageable}
-          onClick={() => { action(() => model.operations.start(profile.id)) }}>{t('start')} {profile.name}</Button>
-        {state.local?.profile === profile.id && state.local.canStop && profile.manageable && <Button
-          onClick={() => { action(() => model.operations.restart(profile.id)) }}>{t('restart')} {profile.name}</Button>}
-      </div>)}
-      <Button disabled={!state.local?.canStop} onClick={() => { action(() => model.operations.stop()) }}>{t('stop')}</Button>
+      <ul className={css.profiles} aria-label={t('profiles')}>
+        {local?.profiles.map((profile) => {
+          const isCurrent = local.profile === profile.id
+          const isRunning = isCurrent && local.state === 'running'
+          const profileState = !profile.available ? 'unavailable'
+            : isCurrent ? !local.enabled ? 'disabled'
+              : !local.available ? 'unavailable'
+                : local.state === 'running' ? 'running'
+                  : local.state === 'error' ? 'runtimeError' : local.state
+              : 'stopped'
+          const canManage = local.enabled && profile.available && profile.manageable
+          return <li key={profile.id} className={css.profile} data-state={profileState}>
+            <div className={css.profileInfo}>
+              <strong className={css.profileName}>{profile.name}</strong>
+              <div className={css.badges}>
+                <span className={css.badge}>{t(profile.modality)}</span>
+                {isCurrent && <span className={css.badge} data-kind="current">{t('current')}</span>}
+                <span className={css.badge} data-state={profileState}>{t(profileState)}</span>
+              </div>
+              {!profile.available && <span className={css.profileError}>{profile.unavailableReason ?? t('unavailable')}</span>}
+            </div>
+            <div className={css.actions}>
+              {isRunning && local.canStop && profile.manageable
+                ? <>
+                  <Button aria-label={`${t('restart')} ${profile.name}`} disabled={!canManage}
+                    onClick={() => { action(() => model.operations.restart(profile.id)) }}>{t('restart')}</Button>
+                  <Button aria-label={`${t('stop')} ${profile.name}`} disabled={!canManage}
+                    onClick={() => { action(() => model.operations.stop()) }}>{t('stop')}</Button>
+                </>
+                : <Button aria-label={`${t('start')} ${profile.name}`} disabled={!canManage}
+                  onClick={() => { action(() => model.operations.start(profile.id)) }}>{t('start')}</Button>}
+            </div>
+          </li>
+        })}
+      </ul>
     </fieldset>
     <fieldset className={css.card} disabled={state.loading || state.codex?.enabled !== true}><legend>{t('codex')}</legend>
       <p className={css.hint}>{t('codexHint')}</p>

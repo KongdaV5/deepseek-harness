@@ -50,23 +50,6 @@ function questionDetail(value: unknown): string {
   return ''
 }
 
-function liveReasoningDetail(nodes: readonly ChatNode[]): string {
-  for (let nodeIndex = nodes.length - 1; nodeIndex >= 0; nodeIndex--) {
-    const node = nodes[nodeIndex]
-    if (node?.kind !== 'assistant-step' || node.data.status !== 'running') continue
-    for (let blockIndex = node.data.blocks.length - 1; blockIndex >= 0; blockIndex--) {
-      const block = node.data.blocks[blockIndex]
-      if (block?.kind !== 'reasoning') continue
-      const paragraphs = block.text.split(/\r?\n[\t ]*\r?\n/)
-      for (let paragraphIndex = paragraphs.length - 1; paragraphIndex >= 0; paragraphIndex--) {
-        const detail = normalizeLiveToolDetail(paragraphs[paragraphIndex]?.replaceAll('**', ''))
-        if (detail !== '') return detail
-      }
-    }
-  }
-  return ''
-}
-
 function liveToolDetail(name: string, argsRaw: string): string {
   let args: unknown
   try {
@@ -119,7 +102,6 @@ export function processActivity(nodes: readonly ChatNode[]): ProcessActivitySumm
   for (const node of nodes) {
     if (node.kind === 'tool-call') visit(node.data.root)
   }
-  if (running === undefined) runningDetail = liveReasoningDetail(nodes)
   return {
     counts: [...counts].map(([kind, count]) => ({ kind, count })).sort((a, b) => b.count - a.count),
     running,

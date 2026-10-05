@@ -30,7 +30,7 @@ export function localPathMediaUrl(base: string, value: string): string | undefin
 export interface AssistantMarkdownProps {
   /** Render only the requested business portion, preserving original block indexes. */
   groupPart?: string | undefined
-  /** Stable Hook forwarded to each independently expandable reasoning block. */
+  /** Compatibility input retained for current chat-view callers; reasoning is not expandable. */
   useDisclosure: UseDisclosure
   blocks: readonly AssistantBlock[]
   streaming: boolean
@@ -40,7 +40,7 @@ export interface AssistantMarkdownProps {
   renderMessageImages: ChatNodeOwnerProps['renderMessageImages']
   /** Hide reasoning that belongs to the Turn-level process disclosure. */
   reasoningHidden?: boolean | undefined
-  /** Live display policy for reasoning summaries. */
+  /** Compatibility input retained for current chat-view callers; reasoning text is never shown. */
   usePresentation: UsePresentation
   /** Reveal the disclosure that hides this reasoning. */
   revealProcess?: (() => void) | undefined
@@ -52,8 +52,8 @@ export interface AssistantMarkdownProps {
 
 /** Reasoning block as the Think variant summary row (figma 39:28304). */
 export const AssistantMarkdown = memo(function AssistantMarkdown({
-  blocks, streaming, interrupted, renderMessageImages, groupPart, useDisclosure,
-  reasoningHidden = false, usePresentation, revealProcess, mentions, t,
+  blocks, streaming, interrupted, renderMessageImages, groupPart,
+  reasoningHidden = false, revealProcess, mentions, t,
 }: AssistantMarkdownProps) {
   // Stable per locale revision (t identity changes on switch): a fresh object
   // per render would rebuild MarkdownText's component table every chunk.
@@ -96,8 +96,7 @@ export const AssistantMarkdown = memo(function AssistantMarkdown({
             hidden={reasoningHidden}
             reveal={revealProcess}
           >
-            <ReasoningRow text={block.text} running={streaming && i === last} usePresentation={usePresentation}
-              useDisclosure={useDisclosure} t={t} />
+            <ReasoningRow running={streaming && i === last} t={t} />
           </ProcessReasoning>,
         )
         break

@@ -271,3 +271,13 @@ P-COMPUTER-I1-MODEL-SUITABILITY-AND-FINAL-CLOSEOUT 仍为 BLOCKED_WITH_DIAGNOSTI
 Canonical manager 没有第三套已安装文本 profile；剩余 Qwen Image profile 用于图像生成，不是文本模型 route。因此两套已安装的 27B IQ3_S 文本 profile 均未能证明符合 cold V1 要求，目前没有合格模型。Huihui DSH 模型配置、全局默认路由、机器 manager 与 LaunchAgent 内容保持不变。仅通过 runtime-start 临时切换至 38 后已恢复 huihui；模型接口 READY，LaunchAgent 原 SHA-256 未变。没有下载模型，也没有修改安全或工具呈现 contract。
 
 已安装候选的 MODEL_SUITABILITY_RESOLVED 为 FAIL。Candidate package、candidate Native CU、pending UI Native smoke、formal promotion 和 installed smoke 均为 NOT_RUN。既有 Native safety、Schedule/Codex 拒绝及 no-replay 证据继续复用。I1 仍未完成；需要某个 Local 模型/部署满足既有的两次 cold 要求，并完成后续 candidate 与 release qualification。18,657-token 请求仅要赶上 180 秒首内容时限，prompt processing 就至少需要 103.7 tokens/s；实际候选还需留出余量，同时保持 OBSERVE planning 正确。本任务没有推荐或下载任何未安装模型。
+
+## P-UI-POLISH-EXECUTION-PRESETS-FINAL（2026-10-05）
+
+源码审计将执行反馈和 Local runtime 控制判为 PARTIAL，将独立的业务 Agent 预设判为 NOT_IMPLEMENTED。已安装的 0.2.0-rc.2 App 仍是上述 P-CORE 产物；其 app.asar 哈希未变，也不包含后续源码 UI 修改。
+
+本轮仅修改源码的 UI 工作复用现有 Session/tool event 活动投影和 canonical localModels/status Host Remote。聊天界面现在用中性本地化状态显示模型正在分析请求，不渲染私有 reasoning 正文；Standard 模式只显示当前工具类别，不附带参数详情。详细步骤历史和 Run Details 保持可用。Local profile 现在以紧凑的模型类型/状态标记和 Host 提供的短启动、重启、停止按钮显示；服务地址作为次要信息。没有增加重复轮询或业务状态机。
+
+如果要在保持现有 Minimal/Standard/PTC Agent composition 的同时，让业务预设独立影响已开始 Session 的后续 turn，则当前架构没有现成路径。canonical agentPreset Session projection 记录完整 Agent composition；第一轮开始后会拒绝切换，Session Skill catalog 也从同一 composition 读取 Skill scope。独立业务 scope 因而需要一个新的可变 Session capability 维度，以及实时工具/Skill 绑定路径；现有实现没有对应的 canonical owner。按任务指定的架构停止条件，本轮没有增加业务预设选择器、持久化、Agent framework、candidate package 或正式晋升。
+
+聚焦 UI 测试（选定的 52 个用例）和 Client TypeScript build 通过。未运行 Computer Use 性能或安全工作；Computer Use 保持 OFF。由于业务预设验收在架构边界受阻，未运行 candidate 或 installed UI smoke。正式 App 和 rollback 均未改动。

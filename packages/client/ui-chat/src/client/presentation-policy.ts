@@ -15,10 +15,8 @@ export interface ChatPresentationPolicy {
   readonly foldCompletedTurns: boolean
   /** Collapsible group headers for all Turns, historical Turns only, or no Turns. */
   readonly stepGrouping: 'collapsed' | 'history' | 'none'
-  /** Show the running command, path, query, or reasoning detail in group titles. */
+  /** Show the running tool's bounded detail in group titles. */
   readonly liveProcessDetail: boolean
-  /** Whether a settled reasoning row previews its first line beside the Think title. */
-  readonly settledReasoningPreview: boolean
 }
 
 const POLICIES: Readonly<Record<TranscriptViewMode, ChatPresentationPolicy>> = {
@@ -27,28 +25,24 @@ const POLICIES: Readonly<Record<TranscriptViewMode, ChatPresentationPolicy>> = {
     foldCompletedTurns: true,
     stepGrouping: 'collapsed',
     liveProcessDetail: false,
-    settledReasoningPreview: false,
   },
   standard: {
     mode: 'standard',
     foldCompletedTurns: true,
     stepGrouping: 'collapsed',
-    liveProcessDetail: true,
-    settledReasoningPreview: true,
+    liveProcessDetail: false,
   },
   detailed: {
     mode: 'detailed',
     foldCompletedTurns: true,
     stepGrouping: 'history',
     liveProcessDetail: true,
-    settledReasoningPreview: true,
   },
   verbose: {
     mode: 'verbose',
     foldCompletedTurns: false,
     stepGrouping: 'none',
     liveProcessDetail: false,
-    settledReasoningPreview: true,
   },
 }
 

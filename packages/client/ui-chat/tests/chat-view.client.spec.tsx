@@ -944,7 +944,7 @@ describe('ChatView', () => {
       expect([...view.container.querySelectorAll('[data-process-activity]')]).toEqual(allHeaders)
       expect(headers.map(header => header.textContent)).toEqual(titles)
       const liveLabel = h.props.t('message.stepProcess.commands')
-      expect(allHeaders[40]?.textContent).toBe(mode === 'compact' ? liveLabel
+      expect(allHeaders[40]?.textContent).toBe(mode === 'compact' || mode === 'standard' ? liveLabel
         : `${liveLabel}${h.props.t('message.turnProcess.separator')}pwd`)
     }
     const running = groups[40]!
@@ -2559,13 +2559,10 @@ describe('ChatView', () => {
     expect(reasoning?.getAttribute('hidden')).toBe('until-found')
     expect(view.getByText('final answer')).toBeTruthy()
     fireEvent.click(toggle)
-    const think = within(reasoning!).getByRole('button', { name: /^思考/ })
-    expect(think.getAttribute('aria-expanded')).toBe('false')
     expect(reasoning?.getAttribute('hidden')).toBeNull()
-    expect(view.queryByText(/Check the final decision/)).toBeNull()
-    fireEvent.click(think)
-    expect(think.getAttribute('aria-expanded')).toBe('true')
-    expect(view.getByText(/Check the final decision/)).toBeTruthy()
+    expect(within(reasoning!).getByText('正在分析请求')).toBeTruthy()
+    expect(view.queryByText(/private analysis|Check the final decision/u)).toBeNull()
+    expect(within(reasoning!).queryByRole('button', { name: /^思考/u })).toBeNull()
   })
 
   it('folds a completed Turn even while the reader is away from the tail', () => {

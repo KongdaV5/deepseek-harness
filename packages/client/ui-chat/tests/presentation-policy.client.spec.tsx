@@ -10,13 +10,13 @@ afterEach(cleanup)
 
 describe('Chat presentation policy', () => {
   it.each([
-    ['compact', true, 'collapsed', false, false],
-    ['standard', true, 'collapsed', true, true],
-    ['detailed', true, 'history', true, true],
-    ['verbose', false, 'none', true, false],
-  ] as const)('maps %s to stable presentation capabilities', (mode, foldCompletedTurns, stepGrouping, settledReasoningPreview, liveProcessDetail) => {
+    ['compact', true, 'collapsed', false],
+    ['standard', true, 'collapsed', false],
+    ['detailed', true, 'history', true],
+    ['verbose', false, 'none', false],
+  ] as const)('maps %s to stable presentation capabilities', (mode, foldCompletedTurns, stepGrouping, liveProcessDetail) => {
     const policy = presentationPolicyFor(mode)
-    expect(policy).toEqual({ mode, foldCompletedTurns, stepGrouping, settledReasoningPreview, liveProcessDetail })
+    expect(policy).toEqual({ mode, foldCompletedTurns, stepGrouping, liveProcessDetail })
     expect(presentationPolicyFor(mode)).toBe(policy)
   })
 
@@ -38,28 +38,28 @@ describe('Chat presentation policy', () => {
     const mode = createSnapshotStore<TranscriptViewMode>('compact')
     const usePresentation = bindSnapshotSelector(derivePresentationPolicy(mode))
     const foldRender = vi.fn()
-    const previewRender = vi.fn()
+    const detailRender = vi.fn()
     function Fold() {
       const fold = usePresentation(policy => policy.foldCompletedTurns)
       foldRender(fold)
       return <span>{String(fold)}</span>
     }
-    function Preview() {
-      const preview = usePresentation(policy => policy.settledReasoningPreview)
-      previewRender(preview)
-      return <span>{String(preview)}</span>
+    function Detail() {
+      const detail = usePresentation(policy => policy.liveProcessDetail)
+      detailRender(detail)
+      return <span>{String(detail)}</span>
     }
-    render(<><Fold /><Preview /></>)
+    render(<><Fold /><Detail /></>)
     expect(foldRender).toHaveBeenCalledTimes(1)
-    expect(previewRender).toHaveBeenCalledTimes(1)
+    expect(detailRender).toHaveBeenCalledTimes(1)
     act(() => { mode.set('detailed') })
     expect(foldRender).toHaveBeenCalledTimes(1)
-    expect(previewRender).toHaveBeenCalledTimes(2)
+    expect(detailRender).toHaveBeenCalledTimes(2)
     act(() => { mode.set('standard') })
     expect(foldRender).toHaveBeenCalledTimes(1)
-    expect(previewRender).toHaveBeenCalledTimes(2)
+    expect(detailRender).toHaveBeenCalledTimes(3)
     act(() => { mode.set('compact') })
     expect(foldRender).toHaveBeenCalledTimes(1)
-    expect(previewRender).toHaveBeenCalledTimes(3)
+    expect(detailRender).toHaveBeenCalledTimes(3)
   })
 })
