@@ -1,5 +1,5 @@
 /** Stable process container; display policy changes visibility, never member parents. */
-import { memo, useCallback, useEffect, useId, useRef, useState, type ComponentProps, type ReactNode } from 'react'
+import { memo, useCallback, useEffect, useId, useRef, type ComponentProps, type ReactNode } from 'react'
 import {
   IconAgentPresetOutlineRegular, IconApiOutlineRegular, IconBrowseOutlineRegular, IconChevronDownOutlineRegular,
   IconChevronUpOutlineRegular, IconCodeOutlineRegular, IconEditOutlineRegular, IconGlobeOutlineRegular,
@@ -24,8 +24,6 @@ type ChatGroupSeatProps = SeatProps & {
   readonly groupKey: GroupKey
   readonly useChatGroup: ChatViewSlotProps['useChatGroup']
 }
-const PROCESS_TITLE_MINIMUM_MS = 150
-
 type ProcessTitleActivity = ProcessActivity | 'thinking'
 
 interface LiveProcessTitle {
@@ -51,36 +49,6 @@ const PROCESS_ICONS: Record<ProcessTitleActivity, ReactNode> = {
   tools: <IconSparkleRegular size={14} />,
 }
 
-function sameLiveProcessTitle(left: LiveProcessTitle, right: LiveProcessTitle): boolean {
-  return left.activity === right.activity && left.detail === right.detail && left.preparing === right.preparing
-}
-
-function useStableLiveProcessTitle(desired: LiveProcessTitle, active: boolean): LiveProcessTitle {
-  const [displayed, setDisplayed] = useState(desired)
-  const displayedRef = useRef(displayed)
-  const desiredRef = useRef(desired)
-  const displayedAtRef = useRef(Date.now())
-  useEffect(() => {
-    desiredRef.current = desired
-    if (!active || sameLiveProcessTitle(displayedRef.current, desired)) return
-    const remaining = PROCESS_TITLE_MINIMUM_MS - (Date.now() - displayedAtRef.current)
-    const commit = (): void => {
-      const next = desiredRef.current
-      displayedRef.current = next
-      displayedAtRef.current = Date.now()
-      setDisplayed(next)
-    }
-    if (remaining <= 0) {
-      commit()
-      return
-    }
-    const timer = setTimeout(commit, remaining)
-    return () => { clearTimeout(timer) }
-  }, [active, desired.activity, desired.detail, desired.preparing])
-  return active ? displayed : desired
-}
-
-
 const GroupMembers = memo(function GroupMembers({ members, ...props }: SeatProps & {
   readonly members: readonly NodeReference[]
 }) {
@@ -99,11 +67,11 @@ const ProcessGroupHeader = memo(function ProcessGroupHeader({ groupKey, useChatG
 }) {
   const data = useChatGroup(groupKey, group => group?.data)
   const detailed = usePresentation(policy => data?.closed === false && policy.liveProcessDetail)
-  const live = useStableLiveProcessTitle({
+  const live: LiveProcessTitle = {
     activity: data?.summary.running ?? 'thinking',
     detail: data?.summary.runningDetail ?? '',
     preparing: data?.summary.preparing === true,
-  }, data !== undefined && !data.closed)
+  }
   if (data === undefined) return null
   const label = data.closed ? processTitle(data.summary, t)
     : live.preparing ? t(`message.stepProcess.prepare.${live.activity === 'thinking' ? 'tools' : live.activity}`)

@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { createServer } from 'node:http'
 import type { Server } from 'node:http'
 import { PiAiAdapter } from '../src/adapter.ts'
+import { startLlamaCppProgressMonitor } from '../src/context-admission.ts'
 import { resolveProfiles } from '../src/config.ts'
 import { BlockAssembler, CONTEXT_WINDOW_EXCEEDED_CODE, createUserMessage, createAssistantMessage } from '@deepseek-ai/dsh-llm'
 import type { GenerateOptions, TokenUsage } from '@deepseek-ai/dsh-llm'
@@ -27,6 +28,9 @@ async function fixture(contextWindow = 2000, serverWindow = contextWindow, minim
       requests.push({ path, body })
       response.setHeader('Content-Type', 'application/json')
       if (path === '/props') response.end(JSON.stringify({ default_generation_settings: { n_ctx: serverWindow } }))
+      else if (path === '/slots') response.end(JSON.stringify([
+        { id: 0, id_task: 0, is_processing: false, n_prompt_tokens: 0, n_prompt_tokens_processed: 0 },
+      ]))
       else if (path === '/apply-template') {
         // The fixture tokenizer counts one token per rendered character, including tools and framing.
         response.end(JSON.stringify({ prompt: JSON.stringify({ messages: body['messages'], tools: body['tools'] }) }))
@@ -126,5 +130,68 @@ describe('Local pre-dispatch context admission', () => {
     expect(result.error).toBeUndefined()
     expect(f.requests.at(-1)?.body['max_completion_tokens']).toBe(500)
     expect(result.assembler.message({ provider: 'local', model: 'model' }).content).toEqual([{ type: 'text', text: 'hello' }])
+  })
+
+  it('pulses only when the newly dispatched llama.cpp task advances prompt evaluation', async () => {
+    const samples = [
+      [{ id: 0, id_task: 10, is_processing: false, n_prompt_tokens: 24, n_prompt_tokens_processed: 0 }],
+      [{ id: 0, id_task: 10, is_processing: true, n_prompt_tokens: 24, n_prompt_tokens_processed: 900 }],
+      [{ id: 0, id_task: 11, is_processing: true, n_prompt_tokens: 6, n_prompt_tokens_processed: 6 }],
+      [{ id: 0, id_task: 11, is_processing: true, n_prompt_tokens: 18, n_prompt_tokens_processed: 18 }],
+      [{ id: 0, id_task: 11, is_processing: true, n_prompt_tokens: 24, n_prompt_tokens_processed: 24 }],
+      [{ id: 0, id_task: 11, is_processing: true, n_prompt_tokens: 25, n_prompt_tokens_processed: 24 }],
+      [{ id: 0, id_task: 11, is_processing: false, n_prompt_tokens: 24, n_prompt_tokens_processed: 24 }],
+      [{ id: 0, id_task: 12, is_processing: true, n_prompt_tokens: 25, n_prompt_tokens_processed: 5 }],
+    ]
+    let read = 0
+    const gates: Array<() => void> = []
+    const notifications: Array<{ readonly target: number; readonly resolve: () => void }> = []
+    const waitForPoll = (signal: AbortSignal): Promise<void> => new Promise((resolve) => {
+      const finish = (): void => {
+        signal.removeEventListener('abort', finish)
+        resolve()
+      }
+      gates.push(finish)
+      for (const notice of notifications.splice(0)) {
+        if (gates.length >= notice.target) notice.resolve()
+        else notifications.push(notice)
+      }
+      signal.addEventListener('abort', finish, { once: true })
+    })
+    const waitUntilPoll = (target: number): Promise<void> => gates.length >= target
+      ? Promise.resolve()
+      : new Promise((resolve) => { notifications.push({ target, resolve }) })
+    const advancePoll = async (index: number): Promise<void> => {
+      await waitUntilPoll(index + 1)
+      gates[index]?.()
+      await waitUntilPoll(index + 2)
+    }
+    const pulses: number[] = []
+    const controller = new AbortController()
+    const monitor = await startLlamaCppProgressMonitor({
+      model: { baseUrl: 'http://127.0.0.1:8080/v1' },
+      profile: {},
+      signal: controller.signal,
+      expectedPromptTokens: 24,
+      pulse: () => { pulses.push(read) },
+      fetch: async () => new Response(JSON.stringify(samples[read++] ?? samples.at(-1))),
+      waitForPoll,
+    })
+    expect(monitor).toBeDefined()
+    await advancePoll(0)
+    expect(pulses).toEqual([])
+    await advancePoll(1)
+    expect(pulses).toEqual([3])
+    await advancePoll(2)
+    expect(pulses).toEqual([3, 4])
+    await advancePoll(3)
+    expect(pulses).toEqual([3, 4, 5])
+    await advancePoll(4)
+    expect(pulses).toEqual([3, 4, 5])
+    await advancePoll(5)
+    expect(pulses).toEqual([3, 4, 5])
+    await advancePoll(6)
+    expect(pulses).toEqual([3, 4, 5])
+    await monitor?.stop()
   })
 })

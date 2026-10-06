@@ -299,3 +299,21 @@ P-UI-PRESETS-FINAL-RELEASE **已完成**。发布 UI 复用 canonical AgentPrese
 源码修复使打包后的 Skill 目录从 OS 账户 home（`os.userInfo().homedir`）解析，不再受 candidate 隔离 `HOME` 影响。针对性回归测试通过；隔离 AMZ candidate turn 找到实际安装的 8 个 Amazon Skills。一次不可晋升的 package 尝试由后续唯一的 `--candidate --promotable` arm64 package 替代。最终包通过 archive identity 与本地严格签名检查，并晋升至 `/Applications/DS Harness.app`（bundle `dev.dsh.desktop.custom`，版本 `0.2.0-rc.2`，app.asar SHA-256 `1c3c7ca1756135ace49568414357f6e1f276616831ac3d82ee19edd2c47280ed`）。唯一 rollback `/Applications/DS Harness.rollback-2026-10-04.app` 保留（app.asar SHA-256 `084bf057914adf5e52745a214eceb147d24296b63a3f488abf35a6587771a776`）。该包为本地 ad-hoc 签名，不代表公开公证。
 
 正式安装 smoke 使用现有用户 profile 并通过：Local Huihui 显示 READY，endpoint 为 `http://127.0.0.1:8080/v1`；纯文本 turn 在一次自动重试后于 6:01 返回 `OK`；只读工具 turn 实际读取当前 worktree 的 `package.json`，返回包名和前五个 scripts，并在一次重试后于 11:14 完成。没有修改 timeout 或模型路由。较长工具回合的大部分时间 UI 显示通用运行状态；期间短暂显示请求分析，Run Details 从一步更新为两步，最终以健康状态结束并显示真实的 `已读取 package.json` 结果；没有展示隐藏 reasoning。使用现有认证和动态模型列表中的 GPT-6-Luna，官方 Codex 回合在 6 秒内返回 `INSTALLEDCODEXOK`。Schedule 页面正常打开且没有任务。Computer Use 仍默认关闭；设置页显示租约空闲、权限尚未检查，本轮未检查／请求权限，也未执行 CU 操作。
+
+## P-LOCAL-LATENCY-EXECUTION-FEEDBACK-FINAL（2026-10-05）
+
+状态：COMPLETE。普通 General 预设在运行时解析为 Standard 衍生 composition，实际范围小于 P-CORE Standard 基线：31 个工具、5,665 个工具 schema tokens，以及 17 个 Skill 目录、约 1,517 个目录 tokens；基线为 34 个工具 / 7,433 个 schema tokens，以及 27 个 Skill 目录 / 约 2,588 个目录 tokens。General 没有混入 AMZ 或 Cloudflare 垂直业务范围，本轮没有改变预设架构或持久化。
+
+此前正式 Local 纯文本请求确实进入 llama.cpp，输入 17,219 tokens，prefix reuse 为零。291.96 秒时 llama 已处理 16,201 tokens（约 55.5 tokens/s），但尚未生成内容。原有 300,000 ms idle timeout 随后触发 retry。Retry 重新发送了相同逻辑 prompt；llama.cpp 复用了缓存前缀，因此约 30.42 秒完成，其中 prompt eval 为 20.98 秒，生成 52 tokens 用时 9.44 秒。这说明第二次请求为何更快，并确认缺陷是实际 prompt evaluation 期间被误判为空闲，而不是 General scope 膨胀或模型请求失败。
+
+Local adapter 现在通过 canonical llama.cpp slot progress endpoint 观察新 dispatch 的 task。它绑定新 task ID，并且仅在 n_prompt_tokens_processed 推进时刷新现有 stream idle watchdog。Prompt evaluation 期间，n_prompt_tokens 是不断增长的实时计数，并非最终 prompt 长度；旧的相等判断因此忽略了有效冷进度。现有 timeout、request 内容、output budget、模型路由、context contract 和 fallback 行为均保持不变。没有新增缓存框架或日志系统。
+
+修复后的冷 candidate 以一次合法 attempt 在约 2 分 58 秒完成 General + Local 纯文本请求。正式安装 smoke 中，带缓存的 General + Local 文本请求约 33 秒返回 OK，cache hit 为 94%；服务器对 971 个新 prompt tokens 做 eval 用时 22.159 秒，生成 37 tokens 用时约 6.65 秒。该 warm 结果不代表冷启动时间。
+
+正式安装的冷 read-tool turn 实际读取了当前工作树的 package.json，并返回包名与 scripts，自动 retry 为零。首个请求包含 21,413 input tokens、零 cache reuse 和 8,192-token output budget；prompt eval 用时 408.551 秒处理 21,292 tokens（52.12 tokens/s），首个生成内容约在 408.6 秒出现。后续模型请求评估 6,260 个新 tokens 用时 139.458 秒，生成 148 tokens 用时 27.36 秒。整个 turn 用时 9 分 59 秒。冷多步 Local 工作仍然缓慢，但 retry 现在不会再把持续进行的 prompt 计算误判为 backend idle。
+
+执行反馈现在复用 canonical Session、tool、run 和 Local adapter events。正式安装 smoke 中可见“等待 Local 响应”、真实文件读取和“分析请求”等阶段，之后才给出最终答案。通用 reasoning 不再覆盖正在进行的具体工具状态；私有 reasoning 正文和完整工具参数仍然隐藏。详细历史继续放在 Run Details。
+
+本轮共进行三次 candidate packaging；第三个也是最终 candidate 通过聚焦 release gate 并已晋升。其 app.asar SHA-256 为 b90e847673f9b78d3dfe3f7ab8067921fd4ec8d9611a380d239c4705018ec31d，正式安装于 /Applications/DS Harness.app（bundle dev.dsh.desktop.custom，版本 0.2.0-rc.2）。唯一 rollback /Applications/DS Harness.rollback-2026-10-04.app 保持不变，app.asar SHA-256 为 084bf057914adf5e52745a214eceb147d24296b63a3f488abf35a6587771a776。Candidate 数据和 profile 隔离在 qualification root 下。经授权的正式安装 smoke 使用现有 formal profile，将活动 worktree 注册为 workspace，并创建两个测试 Session；没有迁移或重写已有设置。Computer Use 始终为 OFF，Schedule 和 Codex contract 未改，本轮没有 CU 操作或权限检查。
+
+晋升后的首次 App 启动在任何推理请求到达 llama.cpp 之前出现 Host API fetch 失败。干净重开后状态请求恢复，要求的正式安装 Local smoke 通过；这次启动问题未归因于 Local prompt latency，也未计为模型 attempt。

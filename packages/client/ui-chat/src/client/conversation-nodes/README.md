@@ -101,6 +101,8 @@ Paging adds older content above the retained anchor without jumping to the new t
 
 While the Session runs, Chat appends a Session-level indicator at the bottom of the current transcript, after pending submission or steering rows: a whale tail beside shimmering elapsed time. Before the current Turn start time arrives, the indicator shows status text without a duration. The clock updates in whole seconds, starts at one second, and uses hours from 60 minutes. When the Session stops running, the indicator disappears; the closed Turn process control shows the fixed duration, cancellation, or failure status. Lifecycle changes have a polite announcement; clock ticks do not. The whale is hidden from assistive technology and remains static under reduced motion.
 
+The running status follows current projected activity: request preparation, waiting for the canonical Local route, non-disclosing analysis, the active Tool category, model retry, or reply generation. It never includes reasoning text. Hidden Local request-header metadata supplies the route, and the Conversation timeline's Assistant-step state identifies the wait before its first streamed block; this metadata does not create a transcript row. Process-group titles follow Tool-call/result events directly, so later Assistant updates cannot replace a still-running Tool category.
+
 The top duration/status control and trigger title use the group-title font size and follow the font-size setting. Completed duration digits use the code font with tabular numerals; running and completed minutes and seconds have no leading zero. The timed running label ends with a space and “···”; completion shows “Completed in”.
 
 Automatic collapse keeps the process open if hiding it would hide keyboard focus. Manual closing focuses the process control before hiding its members. Closing a whole Turn resets its groups and inner reasoning/tool disclosures; it does not reset unrelated renderer state. Browser find can reveal searchable hidden content.
@@ -278,7 +280,7 @@ Exact-name rules also mean that a recorded name such as `functions.read`, `mcp.r
 
 Preparing calls use their first named delta time; only the generic tool category provides the tool name as detail. Dispatched calls use their tool/call time and complete arguments.
 
-Among running calls, the greatest `time` selects the live category and detail; equal times select the later visited call. With no running call, the category is absent and detail comes from the last nonempty reasoning paragraph of the latest running Assistant with nonempty reasoning, in member order. Reasoning detail removes `**` markers and does not require a newline-terminated first line; the individual reasoning-row preview has separate rules.
+Among running calls, the greatest `time` selects the live category and detail; equal times select the later visited call. The live group title follows that event-owned Tool lifecycle directly and changes when its result settles. With no running call, the category is absent and detail comes from the last nonempty reasoning paragraph of the latest running Assistant with nonempty reasoning, in member order. Reasoning detail removes `**` markers and does not require a newline-terminated first line; the individual reasoning-row preview has separate rules.
 
 Live selection uses call start `time`, not the latest output/progress time. A call is a running candidate while its projected tool value has no result; pending approval or waiting for a result does not receive a separate category.
 

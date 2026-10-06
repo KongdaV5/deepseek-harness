@@ -106,7 +106,7 @@ profile 的 `models` 列表会替换而非扩展路由的已安装目录；每�
 
 ### 推理前准入 Local 请求
 
-回环地址上的 llama.cpp 路由可配置 `llamaCppContextAdmission`，显式指定 `safetyMarginTokens` 与 `minimumOutputTokens`。pi-ai 序列化完整文本请求后，适配器读取实时 `/props`，通过 `/apply-template` 渲染，再调用 `/tokenize`；这些操作不执行推理。有效输出上限取请求上限、模型输出能力、以及完整提示和安全余量之后剩余总上下文的最小值。声明容量与实时 `n_ctx` 中较小者生效。缓存命中仍占据同一逻辑上下文，只计一次。回答空间不足时，在发送前抛出 `CONTEXT_WINDOW_EXCEEDED`，由现有 compaction 处理器缩减符合条件的历史；固定指令或工具已经超窗的新会话会直接失败，不重放。元数据或 tokenization 缺失，以及不支持的图像内容都会拒绝发送。其他路由保留现有 pi-ai 序列化行为。
+回环地址上的 llama.cpp 路由可配置 `llamaCppContextAdmission`，显式指定 `safetyMarginTokens` 与 `minimumOutputTokens`。pi-ai 序列化完整文本请求后，适配器读取实时 `/props`，通过 `/apply-template` 渲染，再调用 `/tokenize`；这些操作不执行推理。有效输出上限取请求上限、模型输出能力、以及完整提示和安全余量之后剩余总上下文的最小值。声明容量与实时 `n_ctx` 中较小者生效。缓存命中仍占据同一逻辑上下文，只计一次。回答空间不足时，在发送前抛出 `CONTEXT_WINDOW_EXCEEDED`，由现有 compaction 处理器缩减符合条件的历史；固定指令或工具已经超窗的新会话会直接失败，不重放。元数据或 tokenization 缺失，以及不支持的图像内容都会拒绝发送。推理期间，适配器尽力观察 `/slots`；只有 slot 上新分派任务的提示长度与本次精确 tokenization 结果一致，且其 prompt-evaluation 计数前进时，才刷新现有 stream idle watchdog。它在分派前读取本次请求的任务基线，绑定到首个匹配任务后忽略该 slot 上的后续任务；不改变超时或重试策略，也不会被其他 slot 的活动续期。若 `/slots` 不可用，仍由现有 stream timeout 生效。其他路由保留现有 pi-ai 序列化行为。
 
 ### 运行时更改配置
 

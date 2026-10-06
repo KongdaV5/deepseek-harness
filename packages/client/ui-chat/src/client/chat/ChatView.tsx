@@ -19,6 +19,8 @@ import { chatRenderKey } from './render-entry.ts'
 import { assertNever } from '@deepseek-ai/dsh-util-values'
 import { TurnNavigator } from './TurnNavigator.tsx'
 import { RunningStatus } from './RunningStatus.tsx'
+import { executionFeedback } from '../conversation-nodes/execution-feedback.ts'
+import type {} from '../conversation-nodes/assistant.ts'
 import { mergeTurnRailItems } from './turn-rail-items.ts'
 import { useChatScroll } from './use-chat-scroll.ts'
 import { fileMediaUrl, resolveWorkspacePath } from '@deepseek-ai/dsh-util-workspace-path'
@@ -104,6 +106,7 @@ export function ChatView({
   usePresentation, useProjection, t,
 }: ChatViewSlotProps) {
   const order = useChat(s => s.order)
+  const chatNodes = useChat(s => s.nodes.values())
   const groupedEntries = useConversation(snapshot => snapshot.views.grouped('chat')?.entries)
   const entries = useMemo<readonly RenderEntry[]>(() => groupedEntries
     ?? order.map(key => ({ kind: 'node', key: key as NodeKey })), [groupedEntries, order])
@@ -119,6 +122,15 @@ export function ChatView({
       ? location.turn.status === 'open' ? location.turn.start?.time : undefined
       : undefined
   })
+  const activeExecution = useChat((snapshot) => {
+    const turn = [...snapshot.timeline.turns.values()].findLast(candidate => candidate.status === 'open')
+    if (turn === undefined) return undefined
+    return { turn: turn.turn, assistant: turn.steps.at(-1)?.data.get('assistant-step') }
+  })
+  const runningFeedback = useMemo(
+    () => executionFeedback(chatNodes, activeExecution),
+    [activeExecution, chatNodes],
+  )
   // Host-computed whole-log outline; the merge is view-layer only (the
   // conversation snapshot never carries projection values).
   const turnOutline = useProjection('turnOutline')
@@ -277,7 +289,7 @@ export function ChatView({
                 t={t}
               />
             </MarkdownDelegateProvider>
-            {running && <RunningStatus startTime={runningStartTime} t={t} />}
+            {running && <RunningStatus startTime={runningStartTime} feedback={runningFeedback} t={t} />}
             {/* No pending placeholders: questions (ui-user-questions) and approvals
                 (ApprovalPanel) both take over the composer, so a flow card would
                 double-render the same wait. */}

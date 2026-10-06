@@ -1909,6 +1909,25 @@ describe('built-in conversation node Definitions', () => {
     expect(node(current, 'system-prompt')?.data).toEqual({ text: '# System\n\nFollow instructions.' })
   })
 
+  it.each(['dsh-local-huihui', 'local-huihui-qwen'])(
+    'retains hidden Local route metadata for %s before the first Assistant stream event',
+    (provider) => {
+      const current = snapshot(assembler([
+        at(1, 'turn/start', { turn: 1 }),
+        at(2, 'step/start', { turn: 1, step: 1 }),
+        at(3, 'request/header', {
+          reason: 'initial',
+          header: { config: { provider, model: 'huihui' } },
+        }),
+      ]))
+
+      expect(node(current, 'system-prompt')?.data).toEqual({
+        text: '', request: { provider, model: 'huihui', seq: 3 },
+      })
+      expect(current.order.map(key => current.nodes.get(key)?.kind)).not.toContain('system-prompt')
+    },
+  )
+
   it.each(['replay', 'live', 'partial'] as const)('restores A when compaction shadows B without a new system event (%s)', (mode) => {
     const history = [
       at(1, 'turn/start', { turn: 1 }),

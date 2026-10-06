@@ -425,6 +425,29 @@ describe('Definition-owned Chat process groups', () => {
     expect(source.getSnapshot()).toBe(closed)
   })
 
+  it('keeps the live Tool activity until its result even when reasoning updates arrive', () => {
+    const h = harness([assistant('first thought'), tool('read-call', 3, 'read')])
+    const entry = h.store.entries[0]
+    if (entry?.kind !== 'group') throw new Error('expected one open process group')
+    const source = h.store.groupSource(entry.key)
+    expect(source.getSnapshot()?.data.summary.running).toBe('read')
+
+    h.builder.apply({ upserts: [assistant('later thought')], timeline })
+    h.commit()
+    expect(source.getSnapshot()?.data.summary.running).toBe('read')
+
+    const settled: ChatNode<'tool-call'> = {
+      ...tool('read-call', 3, 'read'),
+      data: { root: {
+        kind: 'tool-result', callId: 'read-call', seq: 4, time: 4, callTime: 3,
+        call: { name: 'read', argsRaw: '{}' }, content: [], isError: false, subCalls: [],
+      } },
+    }
+    h.builder.apply({ upserts: [settled], timeline })
+    h.commit()
+    expect(source.getSnapshot()?.data.summary.running).toBeUndefined()
+  })
+
   it('keeps a no-Turn row between groups and repairs membership on replacement', () => {
     const a = tool('a', 2)
     const b = tool('b', 4)

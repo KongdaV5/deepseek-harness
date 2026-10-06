@@ -160,6 +160,8 @@ class TurnGroups {
       previous = key
       followed = position.next !== undefined
       const node = readNode(input, key)
+      // Request headers carry the canonical route for live feedback, not process rows.
+      if (node.kind === 'system-prompt') continue
       // Both Definitions retain the same message id; only its question presentation renders.
       if (node.kind === 'turn-trigger' && replies.has(node.id)) continue
       if (INDEPENDENT.has(node.kind)) {

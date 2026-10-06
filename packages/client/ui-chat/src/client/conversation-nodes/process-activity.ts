@@ -4,7 +4,12 @@ import type { ChatNode } from '../contract/chat-nodes.ts'
 import { isRunningTool } from '../contract/chat-nodes.ts'
 import type { ToolCallBlock } from '../contract/snapshot.ts'
 
-function activity(name: string): ProcessActivity {
+/**
+ * Classify one canonical Tool name for the live process summary.
+ * @param name - model-visible Tool name.
+ * @returns the owning Chat activity category.
+ */
+export function processActivityForTool(name: string): ProcessActivity {
   if (name === 'read') return 'read'
   if (name === 'read_image') return 'readImage'
   if (name === 'grep' || name === 'glob' || name.endsWith('_inspect')) return 'search'
@@ -86,7 +91,7 @@ export function processActivity(nodes: readonly ChatNode[]): ProcessActivitySumm
     seen.add(tool.callId)
     const call = isRunningTool(tool) ? tool : tool.call
     if (call !== null) {
-      const kind = activity(call.name)
+      const kind = processActivityForTool(call.name)
       if (isRunningTool(tool) && tool.time >= runningTime) {
         running = kind
         preparing = tool.phase === 'preparing'

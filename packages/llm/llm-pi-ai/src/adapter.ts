@@ -59,7 +59,7 @@ import type { AttachmentStore, ImageAttachmentRef } from '@deepseek-ai/dsh-attac
 import { idleWatchdog, timeoutOf } from '@deepseek-ai/dsh-timeout'
 import type { ResolvedPiAiProviderProfile } from './config.ts'
 import { toPiContext } from './context.ts'
-import { admitLlamaCppRequest } from './context-admission.ts'
+import { admitLlamaCppRequest, startLlamaCppProgressMonitor } from './context-admission.ts'
 import { createModels, getSupportedThinkingLevels } from './models.ts'
 import { toStreamChunks } from './stream.ts'
 
@@ -356,6 +356,7 @@ export class PiAiAdapter extends LlmAdapter {
     using watchdog = idleWatchdog(upstream, streamIdleTimeoutMs, 'LLM_STREAM_IDLE_TIMEOUT')
     // pi-ai serializes callback exceptions; preserve the canonical admission failure for agent recovery.
     let admissionFailure: Error | undefined
+    const progressMonitor: { current: Awaited<ReturnType<typeof startLlamaCppProgressMonitor>> } = { current: undefined }
 
     try {
       const containsImage = options.messages.some(message => contentHasImage(message.content))
@@ -392,7 +393,20 @@ export class PiAiAdapter extends LlmAdapter {
         ...profile.llamaCppContextAdmission === undefined ? {} : {
           onPayload: async (payload: unknown, requestModel: Model<Api>) => {
             try {
-              return await admitLlamaCppRequest(payload, requestModel, profile, options.maxTokens ?? model.maxTokens, watchdog.signal)
+              let admittedInputTokens: number | undefined
+              const admitted = await admitLlamaCppRequest(
+                payload, requestModel, profile, options.maxTokens ?? model.maxTokens, watchdog.signal,
+                (inputTokens) => { admittedInputTokens = inputTokens },
+              )
+              await progressMonitor.current?.stop()
+              progressMonitor.current = admittedInputTokens === undefined ? undefined : await startLlamaCppProgressMonitor({
+                model: requestModel,
+                profile,
+                signal: watchdog.signal,
+                expectedPromptTokens: admittedInputTokens,
+                pulse: () => { watchdog.pulse() },
+              })
+              return admitted
             } catch (error) {
               admissionFailure = error instanceof Error ? error : new Error(String(error))
               throw error
@@ -434,6 +448,7 @@ export class PiAiAdapter extends LlmAdapter {
       throw error
     } finally {
       consumer.abort('pi-ai stream consumer stopped')
+      await progressMonitor.current?.stop()
     }
   }
 }

@@ -9,7 +9,12 @@ import { chatNode } from './common.ts'
 declare module '../contract/chat-nodes.ts' {
   interface ChatNodeDataMap {
     /** Complete system prompt rendered for one model request, or an in-history prompt update at its own position. */
-    'system-prompt': { readonly text: string; readonly update?: true }
+    'system-prompt': {
+      readonly text: string
+      readonly update?: true
+      /** Canonical request route used only to explain the current waiting stage. */
+      readonly request?: { readonly provider: string; readonly model: string; readonly seq: number }
+    }
   }
 }
 
@@ -18,6 +23,18 @@ interface RequestPromptState extends ReturnType<RequestPromptInspector> {
   readonly showsPrompt: boolean
   readonly turn?: number
   readonly step?: number
+  readonly request: { readonly provider: string; readonly model: string; readonly seq: number }
+}
+
+/**
+ * Identify the built-in DSH Local provider namespace and its retained aliases.
+ * @param provider - Canonical provider name reported by the request event.
+ * @returns Whether the provider uses the DSH Local runtime.
+ */
+export function isLocalRequestProvider(provider: string): boolean {
+  return provider === 'local'
+    || provider === 'local-huihui-qwen'
+    || provider.startsWith('dsh-local-')
 }
 
 /** Place a request's system prompt at the start of its visible message series. */
@@ -127,6 +144,11 @@ export function requestPromptDefinition(inspect: RequestPromptInspector): Conver
           || match.event.data.startsSeries === true
           || change === 'system'
           || change === 'system-and-tools'),
+        request: {
+          provider: match.event.data.header.config.provider,
+          model: match.event.data.header.config.model,
+          seq: match.event.seq,
+        },
         ...location,
         ...inspection,
       }
@@ -135,14 +157,14 @@ export function requestPromptDefinition(inspect: RequestPromptInspector): Conver
     buildViewNode: (context) => {
       const state = context.state
       if (state === undefined) return null
-      const current = context.current.get('chat') as ChatNode | null | undefined
       const visible = state.showsPrompt && state.prompt.system !== ''
-      if (!visible && current?.kind !== 'system-prompt') return null
+      const localRequest = isLocalRequestProvider(state.request.provider) ? state.request : undefined
+      if (!visible && localRequest === undefined) return null
       return chatNode(
         context,
         'system-prompt',
         state.anchorSeq,
-        { text: state.prompt.system },
+        { text: state.prompt.system, ...localRequest === undefined ? {} : { request: localRequest } },
         { visibility: visible ? 'visible' : 'hidden' },
       )
     },
