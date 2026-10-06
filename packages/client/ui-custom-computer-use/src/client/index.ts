@@ -8,7 +8,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 import { ComputerUseModel } from './model.ts'
-import { ComputerUseSettings, ComputerUseStop, type ControlsInjected } from './controls.tsx'
+import { ComputerUseActivity, ComputerUseSettings, type ControlsInjected } from './controls.tsx'
 import { en, zh, type CopyKey } from './locales.ts'
 declare module '@deepseek-ai/dsh-client-ui-slots' { interface LocaleNamespaceMap { 'custom.computerUse': CopyKey } }
 async function read<T>(operation: Promise<RemoteResult<T>>): Promise<T> {
@@ -38,6 +38,5 @@ function mountControls(ctx: Context): void {
   const inject = (): ControlsInjected => ({ hooks: { computerUse: model }, model, t: ctx.locale.bind('custom.computerUse') })
   ctx.slots.inject('settings.plugins.tab', () => ctx.slots.register({ name: 'settings.plugins.tab', id: 'computer-use',
     order: 30, label: () => ctx.locale.bind('custom.computerUse')('title'), inject }, ComputerUseSettings))
-  ctx.slots.inject('conversation.input.dock', () => ctx.slots.register({ name: 'conversation.input.dock', id: 'computer-use-stop',
-    order: 20, inject }, ComputerUseStop))
+  ctx.slots.inject('conversation.input.activity', () => ctx.slots.register({ name: 'conversation.input.activity', inject }, ComputerUseActivity))
 }

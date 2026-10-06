@@ -1,7 +1,7 @@
 /** Minimal settings/status and conversation Stop contributions. */
 import { useEffect } from 'react'
 import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { InjectFace } from '@deepseek-ai/dsh-client-ui-slots'
+import type { InjectFace, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { ComputerUseModel } from './model.ts'
 import type { CopyKey } from './locales.ts'
 import css from './controls.module.css'
@@ -9,15 +9,25 @@ import css from './controls.module.css'
 export interface ControlsInjected { hooks: { computerUse: ComputerUseModel }; model: ComputerUseModel; t(key: CopyKey): string }
 /** Host-authoritative Stop remains clickable during permission checks or drain.
  * @param props - Observable Host facts and explicit user operations.
- * @returns Compact control row for every visible session.
+ * @returns The labeled status and explicit Stop action.
  */
-export function ComputerUseStop({ useComputerUse, model, t }: InjectFace<ControlsInjected>) {
+export function ComputerUseStop({ useComputerUse, model, t, presentation = 'settings' }: InjectFace<ControlsInjected> & {
+  presentation?: 'settings' | 'toolbar'
+}) {
   const state = useComputerUse(value => value)
-  return <section className={css.row} aria-label={t('title')}>
-    <span role="status">{state.error !== undefined ? t('failed') : state.status === undefined ? t('loading') :
+  const toolbar = presentation === 'toolbar'
+  return <div className={toolbar ? css.toolbar : css.settingsStop} role="group" aria-label={t('title')}>
+    <span className={toolbar ? css.toolbarStatus : css.settingsStatus} role="status">{state.error !== undefined ? t('failed') : state.status === undefined ? t('loading') :
       `${t('status.computerUse')} · ${t('status.lease')}: ${t(state.status.lease.state)} · ${t('status.globalStop')}: ${t(state.status.lease.stop)}${state.status.lease.owner === undefined ? '' : ` · ${state.status.lease.owner.sessionId}`}`}</span>
-    <Button onClick={() => { void model.run(() => model.operations.stop()) }}>{t('stop')}</Button>
-  </section>
+    <Button size={toolbar ? 'sm' : 'md'} className={toolbar ? css.toolbarStop : undefined}
+      onClick={() => { void model.run(() => model.operations.stop()) }}>{t('stop')}</Button>
+  </div>
+}
+
+/** Keep Host stop status in the persistent composer action row. */
+export function ComputerUseActivity(props: PropsRuntime<'conversation.input.activity'> & InjectFace<ControlsInjected>) {
+  const { useComputerUse, model, t } = props
+  return <ComputerUseStop useComputerUse={useComputerUse} model={model} t={t} presentation="toolbar" />
 }
 /** Settings read permission grants only on an explicit button press.
  * @param props - Redacted facts and user control closures.
