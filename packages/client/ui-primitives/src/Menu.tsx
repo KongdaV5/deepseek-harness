@@ -8,6 +8,7 @@ import { usePointerGrace } from './pointer-grace.ts'
 import { isBehindModal } from './useModalLayer.ts'
 import { observeComposition } from './keyboard-composition.ts'
 import { focusWithoutRing } from './focus.ts'
+import { effectiveZoom } from './useAnchoredPosition.ts'
 import { ShortcutKeys } from './ShortcutKeys.tsx'
 import { MenuSurface } from './MenuSurface.tsx'
 import css from './Menu.module.css'
@@ -236,8 +237,9 @@ export function Menu({ open, anchor, items = [], children, selectedId, selectedI
   const [fixedPos, setFixedPos] = useState<CSSProperties | null>(null)
   const { arm: armClose, cancel: cancelClose } = usePointerGrace(onClose)
 
-  // Portal mode: fixed-position the list from the anchor rect before paint;
-  // track the anchor while open (capture-phase scroll catches nested panes).
+  // Portal mode: place the list from viewport rectangles, converting fixed
+  // coordinates through the panel's CSS zoom before paint. Track the anchor
+  // while open; capture-phase scroll catches nested panes.
   // getAnchorRect trumps measuring the wrapper span: a child layout effect
   // runs before the parent's, so a wrapper the host positions in its own
   // effect measures stale here — the host callback owns the truth instead.
@@ -256,8 +258,10 @@ export function Menu({ open, anchor, items = [], children, selectedId, selectedI
       const vw = window.innerWidth
       const vh = window.innerHeight
       const listEl = listRef.current
-      const lw = listEl?.offsetWidth ?? 0
-      const lh = listEl?.offsetHeight ?? 0
+      const listRect = listEl?.getBoundingClientRect()
+      const lw = listRect?.width || listEl?.offsetWidth || 0
+      const lh = listRect?.height || listEl?.offsetHeight || 0
+      const zoom = listEl === null ? 1 : effectiveZoom(listEl)
 
       let x: number
       let y: number
@@ -275,7 +279,9 @@ export function Menu({ open, anchor, items = [], children, selectedId, selectedI
       if (lw > 0) x = Math.min(Math.max(x, MARGIN), vw - lw - MARGIN)
       if (lh > 0) y = Math.min(Math.max(y, overlayTopMargin(MARGIN)), vh - lh - MARGIN)
 
-      setFixedPos(current => current?.left === x && current.top === y ? current : { left: x, top: y })
+      const left = x / zoom
+      const top = y / zoom
+      setFixedPos(current => current?.left === left && current.top === top ? current : { left, top })
     }
     // First run measures the hidden pre-render (same commit as `open`), so
     // end/top alignment and clamping use real dimensions before anything

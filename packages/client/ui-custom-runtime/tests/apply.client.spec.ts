@@ -15,7 +15,7 @@ it('activates through the canonical slot and Remote lifecycle without issuing ru
   const status = vi.fn()
   const command = vi.fn()
   await ctx.plugin({ apply: (owner) => { new TestRemote(owner, {
-    localModels: { status, start: command, restart: command, stop: command },
+    localModels: { status, start: command, restart: command, stop: command, addProfile: command },
     codexSubscription: { status, selectRuntime: command, reconnect: command,
       connect: command, disconnect: command, cancelLogin: command },
   }) } }).await()

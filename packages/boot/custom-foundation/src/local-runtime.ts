@@ -13,21 +13,25 @@ import { isAbsolute, join } from 'node:path'
 import { createConnection } from 'node:net'
 import { promisify } from 'node:util'
 import { Context } from '@deepseek-ai/cordis'
+import type {} from '@deepseek-ai/dsh-settings'
 import { Remote, RemoteError, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 import type {
-  LocalModelProfileId, LocalModelRuntimeProfile, LocalModelRuntimeSnapshot,
+  LocalModelProfileDraft, LocalModelProfileId, LocalModelRuntimeEngine, LocalModelRuntimeProfile, LocalModelRuntimeSnapshot,
 } from './local-runtime-types.ts'
 
 const execFile = promisify(execFileCallback)
 const SERVICE_LABEL = 'com.kongda.local-mlx'
 const PORT = 8080
 const ENDPOINT = `http://127.0.0.1:${String(PORT)}/v1`
-const MANAGEABLE_PROFILES = new Set<LocalModelProfileId>(['huihui', 'img21', '38'])
-const PROFILE_IDS: readonly LocalModelProfileId[] = ['huihui', 'img21', '38']
+const BUILTIN_PROFILE_IDS = new Set(['huihui', 'img21', '38'])
+const PROFILE_ID_PATTERN = /^[a-z0-9][a-z0-9_-]{0,63}$/u
 
 /** Values replaceable by deterministic Host tests. */
 export interface LocalModelRuntimeDriver {
   profiles(): Promise<RuntimeProfile[]>
+  pathAvailable?(path: string, directory: boolean): Promise<boolean>
+  registerProfile?(profile: RuntimeProfile): Promise<void>
+  unregisterProfile?(id: LocalModelProfileId): Promise<void>
   dispose?(): Promise<void>
   probe(): Promise<LocalModelRuntimeProbe>
   run(command: 'runtime-start' | 'stop', profile?: LocalModelProfileId): Promise<void>
@@ -55,11 +59,15 @@ export interface LocalModelRuntimeConfig {
   readonly endpoint: string
   /** Canonical intent owner invoked only after exact serving health is proven. */
   readonly onSelected?: (profile: LocalModelProfileId) => Promise<void>
+  /** Persist newly registered profile intent and expose new text model routes. */
+  readonly onProfileRegistered?: (profile: RuntimeProfile) => Promise<void>
+  /** Roll back profile intent when manager registration is refused. */
+  readonly onProfileRegistrationRollback?: (profile: RuntimeProfile) => Promise<void>
 }
 
 /** Host facts not needed by the browser-facing profile. */
 interface SystemDriverOptions {
-  readonly inventory: () => readonly { id: string; name: string; modality: 'text' | 'image'; modelId: string }[]
+  readonly inventory: () => readonly { id: string; name: string; modality: 'text' | 'image'; modelId: string; engine?: LocalModelRuntimeEngine }[]
   readonly home: string
   readonly platform?: NodeJS.Platform
   readonly uid?: number
@@ -126,7 +134,7 @@ export class LocalModelRuntimeController extends TypertRemoteService {
   }
 
   /**
-   * Start one allowlisted local profile after releasing the shared port.
+   * Start one registered local profile after releasing the shared port.
    * @param profile - local-model manager profile to activate.
    * @returns the profile state after its loopback health check succeeds.
    * @throws RemoteError when disabled, unavailable, unsafe, or not healthy after start.
@@ -160,9 +168,47 @@ export class LocalModelRuntimeController extends TypertRemoteService {
     })
   }
 
+  /** Register an installed model profile without starting it.
+   * @param draft User-entered id, name, modality, and exact local model path.
+   * @returns Fresh manager and health observation after the profile is saved.
+   * @throws RemoteError for invalid, duplicate, unavailable, or unsupported profiles.
+   */
+  @Remote
+  addProfile(draft: LocalModelProfileDraft): Promise<LocalModelRuntimeSnapshot> {
+    return this.exclusive(async () => {
+      this.requireEnabled()
+      const profile = normalizeProfileDraft(draft)
+      if (BUILTIN_PROFILE_IDS.has(profile.id)) {
+        throw new RemoteError('gateway/bad-request', 'Choose a new profile ID; built-in profiles cannot be replaced here.', {})
+      }
+      if ((await this.driver.profiles()).some(candidate => candidate.id === profile.id)) {
+        throw new RemoteError('gateway/bad-request', `Local profile "${profile.id}" already exists.`, {})
+      }
+      const available = await (this.driver.pathAvailable?.(profile.modelId, profile.modality === 'image')
+        ?? isProfilePathAvailable(profile.modelId, profile.modality === 'image'))
+      if (!available) {
+        throw new RemoteError('gateway/bad-request', 'The model path is not available on this Mac.', {})
+      }
+      const engine = profile.modality === 'image' ? 'mflux-qwen21' : 'llama.cpp'
+      const registered: RuntimeProfile = { ...profile, engine, manageable: true, available: true }
+      if (this.driver.registerProfile === undefined) {
+        throw new RemoteError('gateway/internal', 'This Local runtime cannot register additional model profiles.', {})
+      }
+      await this.driver.registerProfile(registered)
+      try {
+        await this.config.onProfileRegistered?.(registered)
+      } catch (error) {
+        try { await this.driver.unregisterProfile?.(registered.id) } catch { /* Preserve the original registration failure. */ }
+        try { await this.config.onProfileRegistrationRollback?.(registered) } catch { /* Preserve the original registration failure. */ }
+        throw error
+      }
+      return this.status()
+    })
+  }
+
   private async startLocked(profile: LocalModelProfileId): Promise<LocalModelRuntimeSnapshot> {
     this.requireEnabled()
-    if (!PROFILE_IDS.includes(profile) || !MANAGEABLE_PROFILES.has(profile)) {
+    if (!PROFILE_ID_PATTERN.test(profile)) {
       throw new RemoteError(
         'gateway/bad-request',
         'Unknown local model profile.',
@@ -214,7 +260,7 @@ export class LocalModelRuntimeController extends TypertRemoteService {
     await this.driver.run('runtime-start', profile)
     probe = await this.driver.waitFor(
       candidate => candidate.managed && candidate.listening && this.servedProfile(candidate.modelIds, profiles) === profile,
-      profile === 'img21' ? 900_000 : 210_000,
+      target.modality === 'image' ? 900_000 : 210_000,
     )
     if (!probe.managed || !probe.listening || this.servedProfile(probe.modelIds, profiles) !== profile) {
       throw new RemoteError('gateway/internal', `The ${target.name} server did not pass its local health check.`, { profile })
@@ -359,9 +405,9 @@ export class SystemLocalModelRuntimeDriver implements LocalModelRuntimeDriver {
   dispose(): Promise<void> { this.lifetime.abort(); return Promise.resolve() }
 
   async profiles(): Promise<RuntimeProfile[]> {
-    const inventory = this.options.inventory().filter(profile => PROFILE_IDS.includes(profile.id as LocalModelProfileId))
+    const inventory = this.options.inventory().filter(profile => PROFILE_ID_PATTERN.test(profile.id))
     return Promise.all(inventory.map(profile => ({ ...profile,
-      id: profile.id as LocalModelProfileId, manageable: true })).map(async (profile) => {
+      engine: profile.engine ?? inferEngine(profile.modality), manageable: true })).map(async (profile) => {
       const image = profile.modality === 'image'
       const available = await this.pathExists(profile.modelId, image)
       return {
@@ -370,6 +416,22 @@ export class SystemLocalModelRuntimeDriver implements LocalModelRuntimeDriver {
         ...(profile.manageable && !available ? { unavailableReason: 'Model files are not present at the registered local path.' } : {}),
       }
     }))
+  }
+
+  pathAvailable(path: string, directory: boolean): Promise<boolean> {
+    return this.pathExists(path, directory)
+  }
+
+  async registerProfile(profile: RuntimeProfile): Promise<void> {
+    if (!PROFILE_ID_PATTERN.test(profile.id) || BUILTIN_PROFILE_IDS.has(profile.id)) throw new TypeError('invalid additional Local profile ID')
+    const manager = join(this.home, '.local', 'bin', 'local-model')
+    const engine = profile.engine ?? inferEngine(profile.modality)
+    await this.execute(manager, ['runtime-register', profile.id, profile.modality, engine, profile.modelId, profile.name], 15_000)
+  }
+
+  async unregisterProfile(id: LocalModelProfileId): Promise<void> {
+    if (!PROFILE_ID_PATTERN.test(id) || BUILTIN_PROFILE_IDS.has(id)) throw new TypeError('invalid additional Local profile ID')
+    await this.execute(join(this.home, '.local', 'bin', 'local-model'), ['runtime-unregister', id], 15_000)
   }
 
   async probe(): Promise<LocalModelRuntimeProbe> {
@@ -425,7 +487,7 @@ export class SystemLocalModelRuntimeDriver implements LocalModelRuntimeDriver {
       ? ['runtime-start', this.assertManageable(profile)]
       : ['stop']
     await this.execute(join(this.home, '.local', 'bin', 'local-model'), args,
-      command === 'runtime-start' && profile === 'img21' ? 960_000 : 240_000)
+      command === 'runtime-start' && this.options.inventory().find(row => row.id === profile)?.modality === 'image' ? 960_000 : 240_000)
   }
 
   async waitFor(predicate: (probe: LocalModelRuntimeProbe) => boolean, timeoutMs: number): Promise<LocalModelRuntimeProbe> {
@@ -440,7 +502,10 @@ export class SystemLocalModelRuntimeDriver implements LocalModelRuntimeDriver {
   }
 
   private assertManageable(profile: LocalModelProfileId | undefined): LocalModelProfileId {
-    if (profile === undefined || !MANAGEABLE_PROFILES.has(profile)) throw new TypeError(`unsupported local model profile: ${String(profile)}`)
+    if (profile === undefined || !PROFILE_ID_PATTERN.test(profile)
+      || !this.options.inventory().some(candidate => candidate.id === profile)) {
+      throw new TypeError(`unsupported local model profile: ${String(profile)}`)
+    }
     return profile
   }
 }
@@ -538,10 +603,27 @@ export default class LocalRuntimePlugin extends LocalModelRuntimeController {
         endpoint: config.endpoint, binary, cwd, args: config.args,
       }, inventory)
     super(ctx, { enabled: () => ctx.customFoundation.snapshot().localModelRuntime, endpoint: config.endpoint,
-      onSelected: profile => ctx.customFoundation.saveSelectedProfile(profile) }, driver)
+      onSelected: profile => ctx.customFoundation.saveSelectedProfile(profile),
+      onProfileRegistered: async (profile) => {
+        await ctx.customFoundation.addLocalProfile(profile)
+        if (profile.modality !== 'text') return
+        const view = ctx.settings.describe({ redactSecrets: true }).find(row => row.ns === 'llm-pi-ai')
+        if (view === undefined || typeof view.value !== 'object' || view.value === null) throw new Error('The local text-model provider is not configured')
+        const root = view.value as { providers?: Record<string, { models?: unknown[] } | undefined> }
+        const route = root.providers?.['dsh-local-huihui']
+        if (route === undefined || !Array.isArray(route.models)) throw new Error('The local text-model catalog is not configured')
+        if (route.models.some(model => typeof model === 'object' && model !== null && Reflect.get(model, 'id') === profile.modelId)) return
+        await ctx.settings.update('llm-pi-ai', { providers: { 'dsh-local-huihui': { models: [
+          ...route.models, { id: profile.modelId, name: profile.name, contextWindow: 32768, maxTokens: 8192 },
+        ] } } }, view.revision)
+      },
+      onProfileRegistrationRollback: profile => ctx.customFoundation.removeLocalProfile(profile.id),
+    }, driver)
     ctx.on('agent/pre-step', async ({ agent }, next) => {
       const selected = agent.ctx.get('agentModelSelection')?.assembled ?? agent.options
-      if (selected.provider !== 'dsh-local-huihui') return next()
+      const legacyLocal = selected.provider === 'local-huihui-qwen'
+        && ctx.get('llm')?.listProviders().some(provider => provider.id === selected.provider && provider.selectable === false)
+      if (selected.provider !== 'dsh-local-huihui' && !legacyLocal) return next()
       const state = await this.status()
       const served = inventory().find(p => p.id === state.profile)
       if (state.state !== 'running' || served?.modelId !== selected.model) {
@@ -550,6 +632,27 @@ export default class LocalRuntimePlugin extends LocalModelRuntimeController {
       return next()
     })
   }
+}
+
+function normalizeProfileDraft(value: unknown): LocalModelProfileDraft {
+  if (typeof value !== 'object' || value === null) throw new RemoteError('gateway/bad-request', 'Local model details are required.', {})
+  const draft = value as Record<string, unknown>
+  if (typeof draft.id !== 'string' || !PROFILE_ID_PATTERN.test(draft.id)) throw new RemoteError('gateway/bad-request', 'Profile ID must use lowercase letters, numbers, underscores, or hyphens.', {})
+  if (typeof draft.name !== 'string') throw new RemoteError('gateway/bad-request', 'Model name must contain 1 to 120 characters.', {})
+  const name = draft.name.trim()
+  if (name.length === 0 || name.length > 120) throw new RemoteError('gateway/bad-request', 'Model name must contain 1 to 120 characters.', {})
+  if (typeof draft.modelId !== 'string' || !isAbsolute(draft.modelId) || draft.modelId.includes('\0')) throw new RemoteError('gateway/bad-request', 'Model path must be an absolute local path.', {})
+  if (draft.modality !== 'text' && draft.modality !== 'image') throw new RemoteError('gateway/bad-request', 'Choose text or image modality.', {})
+  return { id: draft.id, name, modality: draft.modality, modelId: draft.modelId }
+}
+
+async function isProfilePathAvailable(path: string, directory: boolean): Promise<boolean> {
+  try { return directory ? (await stat(path)).isDirectory() : (await stat(path)).isFile() }
+  catch { return false }
+}
+
+function inferEngine(modality: 'text' | 'image'): LocalModelRuntimeEngine {
+  return modality === 'image' ? 'mflux-qwen21' : 'llama.cpp'
 }
 
 import z from '@deepseek-ai/schemastery'

@@ -295,6 +295,7 @@ export const LINK_MAP: Readonly<Record<string, string>> = {
   CompactionBeginInput: '../custom-foundation.md',
   CompactionPolicyTransaction: '../custom-foundation.md',
   ComputerUseStatus: '../custom-foundation.md',
+  LocalModelProfileDraft: '../custom-foundation.md',
   LocalModelRuntimeSnapshot: '../custom-foundation.md',
   LocalModelProfileId: '../custom-foundation.md',
 

@@ -16,3 +16,12 @@
 .profileError { color: var(--dsw-alias-state-warn-label); font-size: 12px; overflow-wrap: anywhere; }
 .actions { display: flex; flex: 0 0 auto; align-items: flex-start; gap: 6px; }
 .card [role="alert"] { color: var(--dsw-alias-state-warn-label); }
+.fieldError { color: var(--dsw-alias-state-warn-label); font-size: 12px; line-height: 1.4; }
+.addForm { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; flex-basis: 100%; padding-top: 12px; border-top: 0.5px solid var(--dsw-alias-settings-card-stroke); }
+.addForm h4, .addForm p { grid-column: 1 / -1; margin: 0; }
+.addForm h4 { font-size: 14px; font-weight: 500; }
+.addField { display: flex; min-width: 0; flex-direction: column; gap: 4px; color: var(--dsw-alias-label-secondary); font-size: 12px; }
+.pathField { grid-column: 1 / -1; }
+.addField :global(input), .select { box-sizing: border-box; width: 100%; min-height: 36px; padding: 7px 9px; border: 0.5px solid var(--dsw-alias-settings-card-stroke); border-radius: 8px; color: var(--dsw-alias-label-primary); background: var(--dsw-alias-settings-card-fill); font: inherit; }
+.addForm button { justify-self: start; }
+@media (max-width: 520px) { .addForm { grid-template-columns: minmax(0, 1fr); } .pathField { grid-column: auto; } }

@@ -114,13 +114,29 @@ describe('the System local-model manager driver', () => {
   it('delegates runtime-only profile starts to the existing manager without a shell', async () => {
     const home = await fakeHome()
     const execute = vi.fn(async () => '')
-    const driver = new SystemLocalModelRuntimeDriver({ inventory: () => localModelProfileCatalog(home), home, platform: 'darwin', execute })
+    const custom = { id: 'custom-gguf', name: 'Custom GGUF', modality: 'text' as const, engine: 'llama.cpp' as const,
+      modelId: join(home, 'Models', 'custom.gguf'), manageable: true }
+    const inventory = () => [...localModelProfileCatalog(home), custom]
+    const driver = new SystemLocalModelRuntimeDriver({ inventory, home, platform: 'darwin', execute })
 
     await driver.run('runtime-start', 'huihui')
     expect(execute).toHaveBeenNthCalledWith(1, join(home, '.local', 'bin', 'local-model'), ['runtime-start', 'huihui'], 240_000)
     await driver.run('runtime-start', '38')
     expect(execute).toHaveBeenNthCalledWith(2, join(home, '.local', 'bin', 'local-model'), ['runtime-start', '38'], 240_000)
-    await expect(driver.run('runtime-start', 'unknown' as never)).rejects.toThrow('unsupported local model profile')
-    expect(execute).toHaveBeenCalledTimes(2)
+    await driver.run('runtime-start', 'custom-gguf')
+    expect(execute).toHaveBeenNthCalledWith(3, join(home, '.local', 'bin', 'local-model'), ['runtime-start', 'custom-gguf'], 240_000)
+    await expect(driver.run('runtime-start', 'unknown')).rejects.toThrow('unsupported local model profile')
+    expect(execute).toHaveBeenCalledTimes(3)
+  })
+
+  it('registers an installed profile through the local manager with argument-safe values', async () => {
+    const home = await fakeHome()
+    const execute = vi.fn(async () => '')
+    const driver = new SystemLocalModelRuntimeDriver({ inventory: () => localModelProfileCatalog(home), home, platform: 'darwin', execute })
+    const modelId = join(home, 'Models', 'image model')
+    await driver.registerProfile({ id: 'qwen-image-q4', name: 'Qwen Image 2.1 Q4', modality: 'image', engine: 'mflux-qwen21',
+      modelId, manageable: true, available: true })
+    expect(execute).toHaveBeenCalledWith(join(home, '.local', 'bin', 'local-model'),
+      ['runtime-register', 'qwen-image-q4', 'image', 'mflux-qwen21', modelId, 'Qwen Image 2.1 Q4'], 15_000)
   })
 })

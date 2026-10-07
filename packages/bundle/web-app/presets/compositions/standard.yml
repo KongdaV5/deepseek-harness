@@ -59,6 +59,12 @@
   config:
     - id: compaction-basic
       name: '@deepseek-ai/dsh-compaction-basic'
+      config:
+        # Keep enough room for the local model's 16K completion budget; the
+        # upstream 65K default leaves no pressure budget in a 65K window.
+        headroomTokens: 8192
+        maxTokens: 2048
+        retainRatio: 0.1
     - id: command-compact
       name: '@deepseek-ai/dsh-command-compact'
     - id: tool-result-pruner

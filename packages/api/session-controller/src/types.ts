@@ -144,6 +144,8 @@ export interface ModelCatalogModel {
 export interface ModelProviderGroup {
   readonly id: string
   readonly name: string
+  /** Whether a new model selection may choose this route; omitted means yes. */
+  readonly selectable?: boolean
   readonly models: readonly ModelCatalogModel[]
 }
 

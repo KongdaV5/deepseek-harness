@@ -715,8 +715,8 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     key: 'conversation.input.activity',
     kind: 'single',
     scope: 'session',
-    summary: 'Compact action after the model selector; it can expand across the toolbar while retaining the editor and submit action.',
-    doc: 'Compact action after the model selector; it can expand across the toolbar while retaining the editor and submit action.',
+    summary: 'Compact action before the model selector; it can expand across the toolbar while retaining the editor and submit action.',
+    doc: 'Compact action before the model selector; it can expand across the toolbar while retaining the editor and submit action.',
     registerOptions: [],
     ownerProps: [
       '/** A toolbar activity hides ordinary accessory controls while expanded; its occupant must release expansion on unmount. */\nexport interface InputActivityOwnerProps extends InputControlOwnerProps {\n  /** @param active - whether the occupant needs the toolbar width before the submit action. */\n  onActiveChange: (active: boolean) => void\n}',
@@ -747,6 +747,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     slotInject: '',
     declaredBy: 'an entry in \'conversation.composer.bar\' (client-ui-conversation), so it exists while that entry is mounted',
     occupants: [
+      'client-ui-custom-computer-use ComputerUseActivity',
       'experimental-client-ui-voice-input VoiceInput',
     ],
     replaceRisk: 'shadows-shipped-ui',
@@ -853,7 +854,6 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     occupants: [
       'client-ui-conversation QueueDock id \'queue\'',
       'client-ui-conversation TodoDock id \'todo\'',
-      'client-ui-custom-computer-use ComputerUseStop id \'computer-use-stop\'',
       'client-ui-goal GoalDock id \'goal\'',
       'client-ui-run-details RunDetailsDock id \'run-details\'',
     ],

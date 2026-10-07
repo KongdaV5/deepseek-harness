@@ -13,6 +13,8 @@ export interface LocalProfile {
   name: string
   /** Model modality, without runtime availability inference. */
   modality: 'text' | 'image'
+  /** Loader for newly registered profiles; built-in legacy rows infer it. */
+  engine?: 'llama.cpp' | 'mflux-qwen21'
   /** Exact provider model identity. */
   modelId: string
 }
@@ -33,7 +35,7 @@ export interface Config {
 export class CustomFoundation extends Service {
   static inject = ['configEditor']
   static Config = z.object({
-    localProfiles: z.array(z.object({ id: z.string().required(), name: z.string().required(), modality: z.union(['text', 'image']).required(), modelId: z.string().required() })).default([]).volatile(),
+    localProfiles: z.array(z.object({ id: z.string().required(), name: z.string().required(), modality: z.union(['text', 'image']).required(), modelId: z.string().required(), engine: z.union(['llama.cpp', 'mflux-qwen21']) })).default([]).volatile(),
     selectedLocalProfile: z.string().default('huihui').volatile(),
     localModelRuntime: z.boolean().default(true).volatile(),
     codexSubscription: z.boolean().default(true).volatile(),
@@ -53,6 +55,32 @@ export class CustomFoundation extends Service {
     const entry = this.ownerContext.fiber.entry
     if (entry === undefined) throw new Error('Local intent requires a profile-owned entry')
     await this.ownerContext.configEditor.edit(entry, current => ({ ...current, selectedLocalProfile: profile }))
+  }
+  /** Register one user-installed model with the active Custom profile.
+   * @param profile Exact local model identity and supported runtime.
+   */
+  async addLocalProfile(profile: LocalProfile): Promise<void> {
+    const entry = this.ownerContext.fiber.entry
+    if (entry === undefined) throw new Error('Local profile requires a profile-owned entry')
+    await this.ownerContext.configEditor.edit(entry, (current) => {
+      const profiles = Array.isArray(current.localProfiles) ? current.localProfiles as LocalProfile[] : []
+      if (profiles.some(row => row.id === profile.id)) throw new Error(`Local profile "${profile.id}" already exists`)
+      return { ...current, localProfiles: [...profiles, {
+        id: profile.id, name: profile.name, modality: profile.modality, modelId: profile.modelId,
+        ...(profile.engine === undefined ? {} : { engine: profile.engine }),
+      }] }
+    })
+  }
+  /** Remove a user-installed model from the active Custom profile.
+   * @param id Exact local profile identity.
+   */
+  async removeLocalProfile(id: string): Promise<void> {
+    const entry = this.ownerContext.fiber.entry
+    if (entry === undefined) throw new Error('Local profile requires a profile-owned entry')
+    await this.ownerContext.configEditor.edit(entry, (current) => {
+      const profiles = Array.isArray(current.localProfiles) ? current.localProfiles as LocalProfile[] : []
+      return { ...current, localProfiles: profiles.filter(row => row.id !== id) }
+    })
   }
   /** Read persistent Local profile intent without inspecting user files or starting runtime work.
    * @returns Detached inventory and user preferences.

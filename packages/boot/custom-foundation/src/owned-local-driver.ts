@@ -47,7 +47,7 @@ export class OwnedLocalProcessDriver implements LocalModelRuntimeDriver {
     return Promise.all(this.inventory().filter(p => p.id === 'huihui' || p.id === '38').map(async (p) => {
       let available = false
       try { available = (await stat(p.modelId)).isFile() } catch { /* Missing files are unavailable inventory. */ }
-      return { ...p, id: p.id as LocalModelProfileId, manageable: true, available }
+      return { ...p, manageable: true, available }
     }))
   }
   /** Probe endpoint and recheck the same process owner after awaiting HTTP.

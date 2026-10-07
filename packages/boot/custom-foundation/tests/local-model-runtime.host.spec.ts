@@ -1,6 +1,10 @@
 import { localModelProfileCatalog } from './local-fixtures.ts'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
+import Llm from '@deepseek-ai/dsh-llm'
+import type { Agent } from '@deepseek-ai/dsh-agent'
+import CustomFoundation from '../src/index.ts'
+import LocalRuntimePlugin from '../src/local-runtime.ts'
 import { remoteMethods } from '@deepseek-ai/dsh-typert-protocol'
 import {
   LocalModelRuntimeController,
@@ -9,6 +13,7 @@ import {
 
 class MemoryDriver implements LocalModelRuntimeDriver {
   readonly profilesValue = localModelProfileCatalog('/models')
+  readonly registered: RuntimeProfile[] = []
   readonly commands: Array<{ command: 'runtime-start' | 'stop'; profile?: string }> = []
   probeValue: LocalModelRuntimeProbe = {
     available: true, managed: false, listening: false, modelIds: [],
@@ -17,6 +22,20 @@ class MemoryDriver implements LocalModelRuntimeDriver {
 
   profiles(): Promise<RuntimeProfile[]> {
     return Promise.resolve(this.profilesValue.map(profile => ({ ...profile, available: true })))
+  }
+
+  pathAvailable(): Promise<boolean> { return Promise.resolve(true) }
+
+  registerProfile(profile: RuntimeProfile): Promise<void> {
+    this.registered.push(profile)
+    this.profilesValue.push(profile)
+    return Promise.resolve()
+  }
+
+  unregisterProfile(id: string): Promise<void> {
+    const index = this.profilesValue.findIndex(profile => profile.id === id)
+    if (index >= 0) this.profilesValue.splice(index, 1)
+    return Promise.resolve()
   }
 
   probe(): Promise<LocalModelRuntimeProbe> {
@@ -42,6 +61,31 @@ class MemoryDriver implements LocalModelRuntimeDriver {
   }
 }
 
+it('checks hidden generated Local aliases while preserving independent visible routes', async () => {
+  const ctx = new Context()
+  onTestFinished(() => ctx.fiber.dispose())
+  class FixtureFoundation extends CustomFoundation {
+    static override inject = []
+  }
+  await ctx.plugin(FixtureFoundation, { localProfiles: localModelProfileCatalog('/models') })
+  await ctx.plugin(Llm)
+  const fiber = ctx.plugin(LocalRuntimePlugin, { driver: 'owned-process', endpoint: 'http://127.0.0.1:1/v1', binary: '/fixture/llama', cwd: '/fixture', args: [] })
+  await fiber.await()
+  const providers = vi.spyOn(ctx.llm, 'listProviders').mockReturnValue([{ id: 'local-huihui-qwen', name: 'Local', selectable: false }])
+  const status = vi.spyOn(ctx.localModelRuntimeController, 'status').mockResolvedValue({ enabled: true, available: true, state: 'running', canStop: true, profile: 'img21', endpoint: 'http://127.0.0.1:1/v1', profiles: [] })
+  const agent = { ctx, options: { provider: 'local-huihui-qwen', model: localModelProfileCatalog('/models')[0]!.modelId } } as Agent
+  const next = vi.fn(async () => ({ kind: 'enter' as const, messages: [] }))
+  const run = () => ctx.waterfall('agent/pre-step', { agent, messages: [], turn: 1, step: 1, signal: new AbortController().signal }, next)
+  await expect(run()).rejects.toThrow('Selected Local model is unavailable')
+  expect(next).not.toHaveBeenCalled()
+  status.mockResolvedValue({ enabled: true, available: true, state: 'running', canStop: true, profile: 'huihui', endpoint: 'http://127.0.0.1:1/v1', profiles: [] })
+  await expect(run()).resolves.toEqual({ kind: 'enter', messages: [] })
+  providers.mockReturnValue([{ id: 'local-huihui-qwen', name: 'Custom endpoint' }])
+  status.mockClear()
+  await run()
+  expect(status).not.toHaveBeenCalled()
+})
+
 async function boot(driver: MemoryDriver): Promise<{
   readonly controller: LocalModelRuntimeController
   readonly fiber: Context['fiber']
@@ -58,7 +102,7 @@ async function boot(driver: MemoryDriver): Promise<{
 }
 
 describe('the existing local-model manager control', () => {
-  it('publishes its own Remote namespace with only lifecycle operations', async () => {
+  it('publishes its own Remote namespace with lifecycle and profile-registration operations', async () => {
     const driver = new MemoryDriver()
     const bench = await boot(driver)
     expect(bench.controller.typertRemote.namespace).toBe('localModels')
@@ -67,7 +111,22 @@ describe('the existing local-model manager control', () => {
       { method: 'start', invocation: { kind: 'direct' } },
       { method: 'stop', invocation: { kind: 'direct' } },
       { method: 'restart', invocation: { kind: 'direct' } },
+      { method: 'addProfile', invocation: { kind: 'direct' } },
     ])
+    await bench.fiber.dispose()
+  })
+
+  it('registers installed GGUF and image profiles without starting a model', async () => {
+    const driver = new MemoryDriver()
+    const bench = await boot(driver)
+    const next = await bench.controller.addProfile({ id: 'qwen-image-q4', name: 'Qwen Image 2.1 Q4', modality: 'image', modelId: '/models/qwen-image-q4' })
+    expect(driver.registered).toEqual([expect.objectContaining({ id: 'qwen-image-q4', engine: 'mflux-qwen21', manageable: true })])
+    expect(driver.commands).toEqual([])
+    expect(next.profiles).toEqual(expect.arrayContaining([expect.objectContaining({ id: 'qwen-image-q4', modality: 'image' })]))
+    await expect(bench.controller.addProfile({ id: 'huihui', name: 'Alias', modality: 'text', modelId: '/models/alias.gguf' }))
+      .rejects.toThrow('built-in profiles cannot be replaced')
+    await expect(bench.controller.addProfile({ id: 'bad id', name: 'Invalid', modality: 'text', modelId: '/models/invalid.gguf' }))
+      .rejects.toThrow('Profile ID')
     await bench.fiber.dispose()
   })
 

@@ -27,6 +27,10 @@ kind: package-reference
 
 通过 Custom profile 的 bundle 组合使用；本包不拥有另一套应用启动入口。
 
+要在输出上限结束后启用有界的进程内续跑，可将插件的 `maxAutoContinuations` 设为 `0` 到 `5`。默认值为 `0`；Custom 桌面 profile 设为 `5`。只有 `max-tokens` 结束原因会触发 follow-up，等待中的用户输入优先。每次 follow-up 都会作为单独的 user message 记录，其 chain 和 attempt 次数由 Session 投影校验。
+
+启用后，系统提示会要求模型在工作区维护简洁的 Markdown 进度文件、每完成一个阶段就更新，并在继续前读取和核对文件。提示会优先复用已有进度文件；否则仅当 `.tmp/` 已存在时才使用 `.tmp/dsh-task-progress.md`，其他情况使用工作区根目录下的 `.dsh-task-progress.md`。进度更新应为一句简短的话，最终答复也应简洁。这是由有界轮次支持的模型指引，不保证模型一定能成功写入文件。
+
 -----
 
 <a id="understand-the-implementation"></a>

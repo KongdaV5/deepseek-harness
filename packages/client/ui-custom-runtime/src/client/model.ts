@@ -1,6 +1,6 @@
 /** Object-layer join of redacted runtime snapshots and explicit operations. */
 import type { CodexSubscriptionStatus, CodexRuntimePreference } from '@deepseek-ai/dsh-agent-codex/types'
-import type { LocalModelRuntimeSnapshot, LocalModelProfileId } from '@deepseek-ai/dsh-custom-foundation/local-runtime-types'
+import type { LocalModelProfileDraft, LocalModelRuntimeSnapshot, LocalModelProfileId } from '@deepseek-ai/dsh-custom-foundation/local-runtime-types'
 /** Complete observed facts; failure replaces stale status. */
 export interface RuntimeSnapshot { local?: LocalModelRuntimeSnapshot; codex?: CodexSubscriptionStatus; loading: boolean; error?: string }
 /** Explicit Host verbs; no auth or process ownership resides in this layer. */
@@ -9,6 +9,7 @@ export interface RuntimeOperations {
   codexStatus(this: void): Promise<CodexSubscriptionStatus>
   start(this: void, profile: LocalModelProfileId): Promise<unknown>
   restart(this: void, profile: LocalModelProfileId): Promise<unknown>
+  addProfile(this: void, profile: LocalModelProfileDraft): Promise<unknown>
   stop(this: void): Promise<unknown>
   select(this: void, preference: CodexRuntimePreference): Promise<unknown>
   reconnect(this: void): Promise<unknown>

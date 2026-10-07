@@ -1,6 +1,6 @@
 /** View-only runtime controls inside the canonical Models footer. */
-import { useEffect } from 'react'
-import { Button, SegmentedControl } from '@deepseek-ai/dsh-client-ui-primitives'
+import { useEffect, useState, type FormEvent } from 'react'
+import { Button, Input, SegmentedControl } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { InjectFace } from '@deepseek-ai/dsh-client-ui-slots'
 import type { RuntimeSettingsModel } from './model.ts'
 import type { CopyKey } from './locales.ts'
@@ -17,9 +17,45 @@ export interface RuntimeCardsInjected {
  */
 export function RuntimeCards({ useRuntime, model, t }: InjectFace<RuntimeCardsInjected>) {
   const state = useRuntime(value => value)
+  const [draft, setDraft] = useState({ id: '', name: '', modelId: '', modality: 'text' as 'text' | 'image' })
+  const [touched, setTouched] = useState({ id: false, name: false, modelId: false })
+  const [isAdding, setIsAdding] = useState(false)
+  const [profileError, setProfileError] = useState<string>()
+  const [profileAdded, setProfileAdded] = useState(false)
+  const local = state.local
   useEffect(() => { void model.refresh() }, [model])
   const action = (operation: () => Promise<unknown>) => { void model.run(operation) }
-  const local = state.local
+  const id = draft.id.trim()
+  const name = draft.name.trim()
+  const modelId = draft.modelId.trim()
+  const idIsValid = /^[a-z0-9][a-z0-9_-]{0,63}$/u.test(id)
+  const idIsDuplicate = local?.profiles.some(profile => profile.id === id) ?? false
+  const nameIsValid = name.length > 0 && name.length <= 120
+  const pathIsValid = modelId.startsWith('/')
+  const idHasError = touched.id && (!idIsValid || idIsDuplicate)
+  const nameHasError = touched.name && !nameIsValid
+  const pathHasError = touched.modelId && !pathIsValid
+  const submitProfile = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    setTouched({ id: true, name: true, modelId: true })
+    if (!idIsValid || !nameIsValid || !pathIsValid) return
+    if (local?.profiles.some(profile => profile.id === id)) return
+    action(async () => {
+      setIsAdding(true)
+      setProfileError(undefined)
+      setProfileAdded(false)
+      try {
+        await model.operations.addProfile({ id, name, modality: draft.modality, modelId })
+        setDraft({ id: '', name: '', modelId: '', modality: 'text' })
+        setTouched({ id: false, name: false, modelId: false })
+        setProfileAdded(true)
+      } catch (error: unknown) {
+        setProfileError(error instanceof Error ? error.message : String(error))
+      } finally {
+        setIsAdding(false)
+      }
+    })
+  }
   const localState = local === undefined
     ? state.loading ? 'checking' : 'unavailable'
     : !local.enabled ? 'disabled'
@@ -70,6 +106,59 @@ export function RuntimeCards({ useRuntime, model, t }: InjectFace<RuntimeCardsIn
           </li>
         })}
       </ul>
+      <form className={css.addForm} onSubmit={submitProfile} aria-busy={isAdding}>
+        <h4>{t('addModel')}</h4>
+        <p className={css.hint}>{t('addModelHint')}</p>
+        {profileError === undefined ? null : <p className={css.fieldError} role="alert">{profileError}</p>}
+        {profileAdded && <p role="status">{t('modelAdded')}</p>}
+        <label className={css.addField}>{t('profileId')}
+          <Input autoComplete="off" required maxLength={64} value={draft.id} aria-invalid={idHasError}
+            aria-describedby={idHasError ? 'custom-local-profile-id-error' : undefined}
+            onBlur={() => { setTouched(value => ({ ...value, id: true })) }}
+            onChange={(event) => {
+              const value = event.currentTarget.value
+              setProfileError(undefined)
+              setProfileAdded(false)
+              setDraft(current => ({ ...current, id: value }))
+            }} />
+          {idHasError && <span className={css.fieldError} id="custom-local-profile-id-error">
+            {t(idIsDuplicate ? 'duplicateProfileId' : 'invalidProfileId')}
+          </span>}
+        </label>
+        <label className={css.addField}>{t('modelName')}
+          <Input autoComplete="off" required maxLength={120} value={draft.name} aria-invalid={nameHasError}
+            aria-describedby={nameHasError ? 'custom-local-profile-name-error' : undefined}
+            onBlur={() => { setTouched(value => ({ ...value, name: true })) }}
+            onChange={(event) => {
+              const value = event.currentTarget.value
+              setProfileError(undefined)
+              setProfileAdded(false)
+              setDraft(current => ({ ...current, name: value }))
+            }} />
+          {nameHasError && <span className={css.fieldError} id="custom-local-profile-name-error">{t('invalidModelName')}</span>}
+        </label>
+        <label className={`${css.addField} ${css.pathField}`}>{t('modelPath')}
+          <Input autoComplete="off" required spellCheck={false} placeholder="/Users/you/Models/model.gguf" value={draft.modelId}
+            aria-invalid={pathHasError} aria-describedby={pathHasError ? 'custom-local-profile-path-error' : undefined}
+            onBlur={() => { setTouched(value => ({ ...value, modelId: true })) }}
+            onChange={(event) => {
+              const value = event.currentTarget.value
+              setProfileError(undefined)
+              setProfileAdded(false)
+              setDraft(current => ({ ...current, modelId: value }))
+            }} />
+          {pathHasError && <span className={css.fieldError} id="custom-local-profile-path-error">{t('invalidModelPath')}</span>}
+        </label>
+        <label className={css.addField}>{t('modality')}
+          <select className={css.select} value={draft.modality}
+            onChange={(event) => { const modality = event.currentTarget.value as 'text' | 'image'; setProfileError(undefined); setProfileAdded(false); setDraft(value => ({ ...value, modality })) }}>
+            <option value="text">{t('text')}</option>
+            <option value="image">{t('image')}</option>
+          </select>
+        </label>
+        <Button variant="primary" disabled={state.loading || isAdding || !idIsValid || !nameIsValid || !pathIsValid
+          || idIsDuplicate} type="submit">{t(isAdding ? 'addingModel' : 'addModel')}</Button>
+      </form>
     </fieldset>
     <fieldset className={css.card} disabled={state.loading || state.codex?.enabled !== true}><legend>{t('codex')}</legend>
       <p className={css.hint}>{t('codexHint')}</p>

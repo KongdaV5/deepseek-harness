@@ -62,6 +62,13 @@ it('has one Config owner for Local inventory and updates it live', async () => {
   await ctx.settings.update('custom-foundation', { localProfiles: [{ id: 'huihui', name: 'Huihui', modality: 'text', modelId: '/fixture/model' }], selectedLocalProfile: 'huihui' })
   expect(ctx.customFoundation.snapshot()).toEqual(owner.snapshot())
   expect(owner.snapshot().profiles[0]?.modelId).toBe('/fixture/model')
+  await owner.addLocalProfile({ id: 'qwen-image-q4', name: 'Qwen Image 2.1 Q4', modality: 'image', engine: 'mflux-qwen21',
+    modelId: '/fixture/qwen-image-q4' })
+  expect(owner.snapshot().profiles).toEqual(expect.arrayContaining([
+    expect.objectContaining({ id: 'qwen-image-q4', engine: 'mflux-qwen21', modelId: '/fixture/qwen-image-q4' }),
+  ]))
+  await owner.removeLocalProfile('qwen-image-q4')
+  expect(owner.snapshot().profiles.some(profile => profile.id === 'qwen-image-q4')).toBe(false)
 })
 
 it('imports valid Custom values once and retains exact non-secret auth transaction', async () => {
@@ -127,7 +134,10 @@ it('initializes Local Huihui and excludes the inherited hosted default without p
   const choice = rows.find(row => row.id === 'agent-default-model')!
   expect(choice.config['provider']).toBe('dsh-local-huihui')
   expect(choice.config['model']).toContain('Huihui-Qwen')
-  expect(customLocalPatches(f.home)).toEqual(customLocalPatches(f.home))
+  expect(rows.find(row => row.id === 'custom-foundation')?.config['localProfiles']).toEqual([
+    expect.objectContaining({ id: 'huihui', modality: 'text' }),
+    expect.objectContaining({ id: '38', modality: 'text' }),
+  ])
 })
 
 it('refreshes the launcher resource home while preserving explicitly configured Local model identities', async () => {
@@ -177,7 +187,8 @@ it('retains imported providers while supplying the exact Local-first route and r
 
 it('composes the explicit official Schedule bundle with Custom while keeping cloud defaults and Computer Use off', () => {
   const layers = ['bundle/base', 'bundle/web-app', 'experimental/schedule-bundle', 'bundle/desktop-custom'].map(name => loadOptionalPatches('test', fileURLToPath(new URL(`../../../../packages/${name}/cordis.patch.yml`, import.meta.url))) ?? [])
-  const entries = composeEntries([...layers, customLocalPatches('/fixture')])
+  const businessPresets = loadOptionalPatches('test', fileURLToPath(new URL('../../../../packages/bundle/web-app/presets/business.patch.yml', import.meta.url))) ?? []
+  const entries = composeEntries([...layers.slice(0, 2), businessPresets, ...layers.slice(2), customLocalPatches('/fixture')])
   const enabled = entries.filter(entry => entry.disabled !== true)
   for (const id of ['deepseek-account', 'llm-deepseek', 'timer', 'session-title-llm']) expect(enabled.some(entry => entry.id === id)).toBe(false)
   for (const name of ['@deepseek-ai/dsh-time-context', '@deepseek-ai/dsh-schedule', '@deepseek-ai/dsh-client-ui-schedule']) {
@@ -186,6 +197,8 @@ it('composes the explicit official Schedule bundle with Custom while keeping clo
   expect(enabled.map(entry => entry.name).some(name => /computer-use|cua-driver/i.test(name ?? ''))).toBe(false)
   expect(enabled.find(entry => entry.id === 'agent-default-model')?.config).toMatchObject({ provider: 'dsh-local-huihui' })
   for (const id of ['custom-foundation', 'agent-codex', 'task-checkpoint', 'config-editor']) expect(enabled.some(entry => entry.id === id)).toBe(true)
+  const development = entries.find(entry => entry.id === 'preset-development')?.config as { plugins?: Array<{ id: string; config?: { path?: string } }> } | undefined
+  expect(development?.plugins?.find(entry => entry.id === 'development-composition')?.config?.path).toContain('/presets/compositions/standard.yml')
 })
 
 
@@ -242,7 +255,7 @@ it('upgrades only the exact M1 text catalog while preserving Local-first routing
 it('normalizes only the generated legacy Local alias and preserves stored route identity', async () => {
   const f = await fixture()
   const rows = customLocalPatches(f.home)
-  const llm = rows.find(row => row.id === 'llm-pi-ai')!.config as { providers: Record<string, { displayName: string; api: string; baseURL: string; models: { id: string; name: string }[]; headers?: Record<string, string> }> }
+  const llm = rows.find(row => row.id === 'llm-pi-ai')!.config as { providers: Record<string, { displayName: string; api: string; baseURL: string; models: { id: string; name: string }[]; headers?: Record<string, string>; selectable?: boolean }> }
   const canonical = llm.providers['dsh-local-huihui']!
   llm.providers['local-huihui-qwen'] = { displayName: 'Local Huihui Qwen', api: canonical.api, baseURL: canonical.baseURL,
     models: canonical.models.map((model, index) => ({ id: model.id, name: index === 0 ? 'Huihui Qwen3.8 27B (Local)' : 'Qwen3.8 27B IQ3_S (Original, Local profile 38)' })) }
@@ -251,11 +264,20 @@ it('normalizes only the generated legacy Local alias and preserves stored route 
   await initializeCustomProfile(f.home, f.home)
   const output = parse(await readFile(f.patch, 'utf8')) as typeof rows
   const actual = output.find(row => row.id === 'llm-pi-ai')!.config as typeof llm
-  expect(actual.providers['local-huihui-qwen']).toEqual(actual.providers['dsh-local-huihui'])
+  expect(actual.providers['local-huihui-qwen']).toMatchObject({ ...actual.providers['dsh-local-huihui'], selectable: false })
   expect(actual.providers['local-huihui-qwen']?.headers).toEqual({ Authorization: 'Bearer local' })
   expect(output[0]!.config).toEqual({ provider: 'dsh-local-huihui', model: canonical.models[0]!.id })
   const once = await readFile(f.patch, 'utf8'); await initializeCustomProfile(f.home, f.home)
   expect(await readFile(f.patch, 'utf8')).toBe(once)
+  const normalizedRows = customLocalPatches(f.home)
+  const normalizedLlm = normalizedRows.find(row => row.id === 'llm-pi-ai')!.config as typeof llm
+  normalizedLlm.providers['local-huihui-qwen'] = structuredClone(normalizedLlm.providers['dsh-local-huihui']!)
+  normalizedRows.find(row => row.id === 'agent-default-model')!.config = { provider: 'local-huihui-qwen', model: canonical.models[0]!.id }
+  await writeFile(f.patch, stringify(normalizedRows)); await initializeCustomProfile(f.home, f.home)
+  const normalizedOutput = parse(await readFile(f.patch, 'utf8')) as typeof rows
+  const normalizedActual = normalizedOutput.find(row => row.id === 'llm-pi-ai')!.config as typeof llm
+  expect(normalizedActual.providers['local-huihui-qwen']).toMatchObject({ ...normalizedActual.providers['dsh-local-huihui'], selectable: false })
+  expect(normalizedOutput.find(row => row.id === 'agent-default-model')!.config).toEqual({ provider: 'dsh-local-huihui', model: canonical.models[0]!.id })
   // A separately customized canonical route cannot capture the legacy loopback default.
   const customRows = customLocalPatches(f.home)
   const customLlm = customRows.find(row => row.id === 'llm-pi-ai')!.config as typeof llm
@@ -295,6 +317,7 @@ it('upgrades only the unchanged Huihui capacity and configures existing Local co
   const rows = await readRows()
   const provider = readLocal(rows)
   provider.models[0]!.contextWindow = 32768
+  provider.models[0]!.name = 'Huihui Qwen3.8 27B'
   delete provider.llamaCppContextAdmission
   rows.find(row => row.id === 'llm-pi-ai')!.config['providers'] = { 'dsh-local-huihui': provider }
   await writeFile(f.patch, stringify(rows))

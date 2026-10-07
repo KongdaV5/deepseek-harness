@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import * as yaml from 'js-yaml'
 import { applyEntryPatches, entryListSchema } from '@deepseek-ai/cordis-plugin-include'
+import type { EntryOptions } from '@deepseek-ai/cordis-plugin-loader'
 
 interface PluginRow {
   id?: string
@@ -29,8 +30,8 @@ interface PresetConfig {
 
 const presetsDir = fileURLToPath(new URL('../../../bundle/web-app/presets/', import.meta.url))
 
-function readList(path: string): PluginRow[] {
-  return yaml.load(readFileSync(join(presetsDir, path), 'utf8'), { schema: entryListSchema }) as PluginRow[]
+function readList<Row = PluginRow>(path: string): Row[] {
+  return yaml.load(readFileSync(join(presetsDir, path), 'utf8'), { schema: entryListSchema }) as Row[]
 }
 
 function declaredPresets(path: string): PluginRow[] {
@@ -53,8 +54,8 @@ function effectiveStandardRows(presetRow: PluginRow): PluginRow[] {
   const includeConfig = configOf(include)
   expect(includeConfig?.path).toBe('compositions/standard.yml')
   return applyEntryPatches(
-    readList('compositions/standard.yml') as never,
-    (includeConfig?.patches ?? []) as never,
+    readList<EntryOptions>('compositions/standard.yml'),
+    includeConfig?.patches ?? [],
     () => {},
   ) as PluginRow[]
 }
@@ -110,12 +111,15 @@ describe('shipped business AgentPreset compositions', () => {
 
     for (const id of Object.keys(expected)) {
       const composed = effectiveStandardRows(preset('business.patch.yml', id))
+      expect(rowById(composed, 'compaction-basic')).toMatchObject({
+        config: { headroomTokens: 8192, maxTokens: 2048, retainRatio: 0.1 },
+      })
       const skillSource = rowById(composed, 'skill-filesystem')
       expect(configOf(skillSource)?.includeDefaultRoots).toBe(false)
       const paths = (configOf(skillSource)?.customSkillDirs ?? []).map(value => value.__jsExpr)
       expect(paths).toHaveLength(expected[id]!.length)
       expect(paths.every(path => path.includes("process.getBuiltinModule('node:os').userInfo().homedir"))).toBe(true)
-      expected[id]!.forEach(path => expect(paths.join('\n')).toContain(path))
+      expected[id]!.forEach((path) => { expect(paths.join('\n')).toContain(path) })
 
       const ptc = id === 'development' || id === 'github-cloudflare'
       expect(findById(composed, 'tool-presentation')?.disabled).toBe(!ptc)

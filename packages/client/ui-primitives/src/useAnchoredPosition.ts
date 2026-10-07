@@ -6,7 +6,8 @@
  * one concern: measure the anchor, offset the panel below or above it, clamp
  * the result inside the viewport, and re-run on scroll (capture phase, so
  * scrollers nested inside the page are caught too), on resize, and on the
- * panel's own size changes while the element is open.
+ * panel's own size changes while the element is open. The fixed coordinates
+ * are converted through the panel's cumulative CSS zoom.
  * @module @deepseek-ai/dsh-client-ui-primitives/useAnchoredPosition
  */
 
@@ -91,8 +92,12 @@ export function useAnchoredPosition(options: AnchoredPositionOptions): CSSProper
   return position
 }
 
-/** Product of CSS zoom factors from a portal panel through its ancestors. */
-function effectiveZoom(element: HTMLElement): number {
+/**
+ * Read the cumulative CSS zoom applied to an element through its ancestors.
+ * @param element - the positioned panel whose fixed coordinates need conversion.
+ * @returns the multiplier from its CSS coordinate space to viewport pixels.
+ */
+export function effectiveZoom(element: HTMLElement): number {
   let zoom = 1
   for (let ancestor: HTMLElement | null = element; ancestor !== null; ancestor = ancestor.parentElement) {
     const value = Number.parseFloat(window.getComputedStyle(ancestor).zoom)

@@ -486,6 +486,26 @@ describe('Web session model selection', () => {
     await ctx.fiber.dispose()
   })
 
+  it('retains hidden compatibility routes in the catalog without offering them for new selections', async () => {
+    const { ctx } = await harness()
+    ctx.llm.registerAdapter(['legacy-local'], new class extends CatalogAdapter {
+      override providerInfo(provider: string): LlmProviderInfo {
+        return { id: provider, name: 'Local Huihui Qwen', selectable: false }
+      }
+    }('Local Huihui Qwen', [{ provider: 'legacy-local', id: 'huihui-qwen', name: 'Huihui Qwen3.8 27B' }]))
+    createSessionTestRemote(ctx, {
+      defaultModelSelection: () => ({ provider: 'deepseek-official', model: 'deepseek-chat' }),
+      cwd: '/tmp',
+    })
+
+    const catalog = await buildModelCatalog(ctx)
+    expect(catalog.groups).toContainEqual({
+      id: 'legacy-local', name: 'Local Huihui Qwen', selectable: false,
+      models: [{ id: 'huihui-qwen', name: 'Huihui Qwen3.8 27B' }],
+    })
+    expect(catalog.routableProviders).toContain('legacy-local')
+  })
+
   it('rejects unlisted models and switches available models only after the next assembly', async () => {
     const { ctx, agent, sessionId } = await harness()
     const remote = createSessionTestRemote(ctx, { defaultModelSelection: () => ({ provider: 'deepseek-official', model: 'deepseek-chat' }), cwd: '/tmp' })

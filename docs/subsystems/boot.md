@@ -66,6 +66,16 @@ Read-only foundation used by M2 Local and Desktop consumers.
  */
 async saveSelectedProfile(profile: string): Promise<void>
 
+/** Register one user-installed model with the active Custom profile.
+ * @param profile Exact local model identity and supported runtime.
+ */
+async addLocalProfile(profile: LocalProfile): Promise<void>
+
+/** Remove a user-installed model from the active Custom profile.
+ * @param id Exact local profile identity.
+ */
+async removeLocalProfile(id: string): Promise<void>
+
 /** Read persistent Local profile intent without inspecting user files or starting runtime work.
  * @returns Detached inventory and user preferences.
  */

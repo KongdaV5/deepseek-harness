@@ -8,6 +8,7 @@
     "src"
   ],
   "references": [
+    { "path": "../../attachment/attachment" },
     {
       "path": "../../../vendor/cordis"
     },
@@ -40,6 +41,9 @@
     },
     {
       "path": "../config-editor"
+    },
+    {
+      "path": "../../llm/llm"
     }
   ]
 }

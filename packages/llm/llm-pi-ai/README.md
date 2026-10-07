@@ -76,6 +76,7 @@ Each profile may set a `retryPolicy`; omission uses normal mode with five retrie
 |---|---|---|
 | `apiKeyEnv` | absent | Credential reference resolved per request; omission defers to pi-ai ambient discovery |
 | `displayName` | provider name | Label shown by selector surfaces |
+| `selectable` | `true` | Set `false` to keep saved routes callable while hiding them from new model and settings choices |
 | `api` | catalog protocol | Wire protocol; only needed for routes the catalog does not supply |
 | `baseURL` | catalog endpoint | Endpoint of every model on the route |
 | `models` | installed catalog | Replaces the route's catalog wholesale; each entry defaults from the installed model |

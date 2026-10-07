@@ -823,7 +823,7 @@ export interface Config {
 ## `@deepseek-ai/dsh-custom-computer-use-safety`
 
 - `inject`: `tools` · `systemPrompt` · `commands` · `agents`
-- `source`: [`packages/computer-use/custom-computer-use-safety/src/index.ts:54`](../packages/computer-use/custom-computer-use-safety/src/index.ts)
+- `source`: [`packages/computer-use/custom-computer-use-safety/src/index.ts:55`](../packages/computer-use/custom-computer-use-safety/src/index.ts)
 
 ```ts config-catalog
 /** Driver tool-name prefixes and the conservative classification overrides. */
@@ -1708,7 +1708,7 @@ export interface Config extends ProtocolConfig {
 
 - `inject`: `llm`
 - `refs`: `Api` (`@earendil-works/pi-ai`) · `CacheRetention` (`@earendil-works/pi-ai`) · `Model` (`@earendil-works/pi-ai`) · `ModelThinkingLevel` (`@earendil-works/pi-ai`) · `OpenAICompletionsCompat` (`@earendil-works/pi-ai`) · [`RetryPolicyConfig`](../packages/llm/llm/src/index.ts) · `ThinkingBudgets` (`@earendil-works/pi-ai`) · `Transport` (`@earendil-works/pi-ai`) · `Volatile` (`@deepseek-ai/cordis`)
-- `source`: [`packages/llm/llm-pi-ai/src/config.ts:222`](../packages/llm/llm-pi-ai/src/config.ts)
+- `source`: [`packages/llm/llm-pi-ai/src/config.ts:231`](../packages/llm/llm-pi-ai/src/config.ts)
 
 ```ts config-catalog
 /** Plugin configuration: the provider routes this instance owns. */
@@ -1723,10 +1723,19 @@ export interface Config {
 
 /** Configuration for one pi-ai provider route; the `providers` dict key IS the route. */
 export interface PiAiProviderProfile {
+  /** Exact text-request admission through this llama.cpp endpoint's template, tokenizer, and live context size. */
+  llamaCppContextAdmission?: {
+    /** Tokens reserved beyond the complete prompt and generated output. */
+    safetyMarginTokens: number
+    /** Refuse inference when the available generated-output budget is below this value. */
+    minimumOutputTokens: number
+  }
   /** Credential reference (environment-variable name) resolved per request through `ctx.credentials`. */
   apiKeyEnv?: string
   /** Name shown by configuration surfaces; defaults to the route key. */
   displayName?: string
+  /** Keep a route callable for stored selections without offering it to new selections. */
+  selectable?: boolean
   /**
    * Wire protocol every model on this route speaks. Omission keeps each
    * installed catalog model's own protocol, which is why a catalog route needs

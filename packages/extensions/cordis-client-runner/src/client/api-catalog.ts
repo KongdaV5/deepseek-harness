@@ -277,7 +277,7 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
       {
         signature: 'setFontSize(px: number): void',
         description: 'Change the global interface font-size reference. Any positive finite value is accepted and written through the settings scope.',
-        parameters: [{ name: 'px', description: 'positive finite reference size in CSS px; zero, negative, and non-finite values throw.' }],
+        parameters: [{ name: 'px', description: 'positive finite reference size in CSS px.' }],
       },
       {
         signature: 'register(definition: ThemeDefinition): () => void',
@@ -972,6 +972,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export type SlotSpec<E extends SlotEntryDef> = {\n    kind: E[\'kind\'];\n    scope: E[\'scope\'];\n} & (\'inject\' extends keyof E ? E extends {\n    inject: infer Injected extends object;\n} ? {\n    inject: Injected;\n} : {\n    inject?: object;\n} : {\n    inject?: never;\n});',
   },
   {
+    name: 'Snapshot',
+    declaration: 'export interface Snapshot {\n    status?: ComputerUseStatus;\n    error?: string;\n}',
+  },
+  {
     name: 'SnapshotSelectorHook',
     declaration: 'export type SnapshotSelectorHook<T> = <S>(sel: (s: T) => S, eq?: (a: S, b: S) => boolean) => S;',
   },
@@ -1017,7 +1021,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'ThemeSnapshot',
-    declaration: 'export interface ThemeSnapshot {\n    preference: ThemePreference;\n    fontSize: number;\n    active: ThemeDefinition;\n    themes: readonly ThemeDefinition[];\n    revision: number;\n}',
+    declaration: 'export interface ThemeSnapshot {\n    preference: ThemePreference;\n    fontSize: number;\n    fontScale: number;\n    active: ThemeDefinition;\n    themes: readonly ThemeDefinition[];\n    revision: number;\n}',
   },
   {
     name: 'ThemeTokenModes',

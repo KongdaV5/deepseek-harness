@@ -1,5 +1,5 @@
 ---
-description: "初始化以 Local Huihui Qwen 为默认模型的 Custom profile。在显式数据目录中，把旧 Custom settings 翻译到插件拥有的 profile patch。读取 Local inventory 时不检查模型文件或启动 driver。"
+description: "初始化以 Huihui Qwen 27B 为默认模型的 Custom profile。在显式数据目录中，把旧 Custom settings 翻译到插件拥有的 profile patch。读取 Local inventory 时不检查模型文件或启动 driver。"
 kind: package-reference
 ---
 
@@ -9,7 +9,7 @@ kind: package-reference
 
 ## 概述
 
-初始化以 Local Huihui Qwen 为默认模型的 Custom profile。在显式数据目录中，把旧 Custom settings 翻译到插件拥有的 profile patch。读取 Local inventory 时不检查模型文件或启动 driver。
+初始化以 Huihui Qwen 27B 为默认模型的 Custom profile。在显式数据目录中，把旧 Custom settings 翻译到插件拥有的 profile patch。读取 Local inventory 时不检查模型文件或启动 driver。
 
 ## 目录
 
@@ -38,9 +38,15 @@ Desktop 在隔离 Harness 数据之前取得 OS 账户 home，通过 `DSH_DESKTO
 
 生成的 Huihui 元数据声明 65,536 token 总上下文；Local 适配器按该声明和运行中服务容量共同准入每个序列化文本请求。profile 初始化只升级未修改的生成式 32k Huihui 条目，保留用户显式容量。Local 精确目标 policy 复用现有 compaction 引擎，预留 4,096 token 余量并限制摘要为 8,192 token。profile 仍是唯一配置 owner；不会为了容纳请求移除工具。
 
+新建 Custom profile 只预置文本模型；图像模型需要在设置中明确登记。
+
+本地生图适配器会把 CustomFoundation 中的图像模型放入与聊天模型共用的 Session 模型目录。它将文本提示词和可选的一张参考图发送到回环地址上的 OpenAI Images `generations` 接口，先确认对应图像 profile 正在运行，再通过附件存储验证并保存返回的 PNG 字节，并经正常助手消息流发送持久化图片块。图像模型不会被发送到 Chat Completions 接口。
+
+生图请求使用原生回环 HTTP，完整操作由可配置的 `timeoutMs` 约束（默认 3,600,000 毫秒），覆盖生成和响应读取，避开 fetch 的五分钟响应头期限。Session 取消仍会中止请求；返回图片继续使用现有附件和 Session owner。 提示词和参考图取自最近一条用户本人消息（`source.kind = user`）；Harness 注入上下文也可能使用 user role，不能替换真实用户输入。
+
 未发布 runtime invariant companion，因为所有持久写入经过既有 Session 或 ConfigEditor 校验，且本包没有可独立分歧的状态副本。
 
-完全匹配旧版生成值的 `local-huihui-qwen` 路由会升级为同一 Local 部署 headers 和容量。新默认选择转向 `dsh-local-huihui`；旧路由 ID 保留供已持久化的 Session 选择解析。用户修改过的路由保持不变。只有受支持的持久化选择不再引用它时，才能移除该别名。
+完全匹配旧版生成值的 `local-huihui-qwen` 路由会升级为同一 Local 部署 headers 和容量，并从新选择中隐藏。新默认选择转向 `dsh-local-huihui`；旧路由 ID 保留供已持久化的 Session 选择解析。runtime 在每一步前检查规范路由和隐藏的生成式别名是否匹配当前服务的精确模型。用户修改过的可见路由保持不变。只有受支持的持久化选择不再引用它时，才能移除该别名。
 
 -----
 
@@ -72,7 +78,7 @@ Desktop 在隔离 Harness 数据之前取得 OS 账户 home，通过 `DSH_DESKTO
 
 <a id="known-limitations-and-deferred-work"></a>
 
-- 旧配置导入是单向兼容模块，不是第二套 Settings store。仅在受支持的 Custom V3 profiles 与 settings 归档退役后移除。Local runtime controller 串行处理 start/stop/switch，只持久化实际成功服务的精确 profile 意图，并拒绝外来或过时的健康状态。LaunchAgent driver 不拥有外部服务生命周期；可选 owned-process driver 仅在官方 subprocess 范围退出后释放句柄。
+- 旧配置导入是单向兼容模块，不是第二套 Settings store。仅在受支持的 Custom V3 profiles 与 settings 归档退役后移除。Local runtime controller 串行处理 start/stop/switch，只持久化实际成功服务的精确 profile 意图，并拒绝外来或过时的健康状态。LaunchAgent driver 不拥有外部服务生命周期；可选 owned-process driver 仅在官方 subprocess 范围退出后释放句柄。Settings 可登记已安装的 llama.cpp GGUF 文本模型和 MFlux Qwen Image 2.1 模型目录；它们共用同一个一次运行一个模型的 runtime。其他生图模型系列和加载引擎仍需明确添加运行时支持。
 
 -----
 

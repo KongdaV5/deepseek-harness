@@ -43,9 +43,11 @@ export function joinProviderDirectory(
   registered: readonly LlmProviderInfo[],
   directory: readonly LlmConfigurableProvider[],
 ): ProviderDirectoryEntry[] {
-  const active = new Set(registered.map(provider => provider.id))
-  const declared = new Set(directory.map(entry => entry.provider))
-  const rows: ProviderDirectoryEntry[] = directory.map(entry => ({
+  const hidden = new Set(registered.filter(provider => provider.selectable === false).map(provider => provider.id))
+  const visibleDirectory = directory.filter(entry => entry.selectable !== false && !hidden.has(entry.provider))
+  const active = new Set(registered.filter(provider => provider.selectable !== false).map(provider => provider.id))
+  const declared = new Set(visibleDirectory.map(entry => entry.provider))
+  const rows: ProviderDirectoryEntry[] = visibleDirectory.map(entry => ({
     provider: entry.provider,
     displayName: entry.displayName,
     settingsNs: entry.settingsNs,
@@ -55,6 +57,7 @@ export function joinProviderDirectory(
     ...entry.error === undefined ? {} : { error: entry.error },
   }))
   for (const provider of registered) {
+    if (provider.selectable === false) continue
     if (declared.has(provider.id)) continue
     rows.push({
       provider: provider.id,

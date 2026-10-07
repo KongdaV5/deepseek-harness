@@ -101,6 +101,8 @@ export interface PiAiProviderProfile {
   apiKeyEnv?: string
   /** Name shown by configuration surfaces; defaults to the route key. */
   displayName?: string
+  /** Keep a route callable for stored selections without offering it to new selections. */
+  selectable?: boolean
   /**
    * Wire protocol every model on this route speaks. Omission keeps each
    * installed catalog model's own protocol, which is why a catalog route needs
@@ -337,6 +339,7 @@ const profile = z.object({
   })]),
   apiKeyEnv: z.string().role('credential-ref'),
   displayName: z.string(),
+  selectable: z.boolean(),
   api: z.union(supportedProtocols()),
   baseURL: z.string(),
   models: z.array(modelProfile),

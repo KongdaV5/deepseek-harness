@@ -21,7 +21,8 @@ it('shares menu transparency and blur across palettes and follows native menu bo
   const scaffold = await launchWebScaffold({})
   onTestFinished(() => scaffold.close())
   await seedSession(scaffold, await readFile(seed, 'utf8'), 'menu-material-session')
-  const browser = await chromium.launch()
+  const executablePath = process.env.DSH_PLAYWRIGHT_EXECUTABLE_PATH
+  const browser = await chromium.launch(executablePath === undefined ? {} : { executablePath })
   onTestFinished(() => browser.close())
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 }, locale: 'en-US' })
   await page.addInitScript(() => {

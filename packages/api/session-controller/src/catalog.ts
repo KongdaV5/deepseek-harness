@@ -51,9 +51,15 @@ export async function buildModelCatalog(
           ...(reasoning === undefined ? {} : { reasoning }),
         }
       }))
+      const selectable: unknown = (provider as { selectable?: unknown }).selectable
       return {
         kind: 'group' as const,
-        group: { id: provider.id, name: provider.name, models: entries },
+        group: {
+          id: provider.id,
+          name: provider.name,
+          ...(selectable === false ? { selectable: false } : {}),
+          models: entries,
+        },
       }
     } catch (error) {
       return {

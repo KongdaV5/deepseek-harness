@@ -26,6 +26,7 @@ export function apply(ctx: Context): void {
     localStatus: () => readResult(ctx.remote.localModels.status()), codexStatus: () => readResult(ctx.remote.codexSubscription.status()),
     start: profile => readResult(ctx.remote.localModels.start(profile)),
     restart: profile => readResult(ctx.remote.localModels.restart(profile)),
+    addProfile: profile => readResult(ctx.remote.localModels.addProfile(profile)),
     stop: () => readResult(ctx.remote.localModels.stop()),
     select: preference => readResult(ctx.remote.codexSubscription.selectRuntime(preference)),
     reconnect: () => readResult(ctx.remote.codexSubscription.reconnect()),

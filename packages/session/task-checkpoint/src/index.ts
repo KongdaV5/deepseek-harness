@@ -33,6 +33,7 @@ export type {
 } from './resume.ts'
 
 export { default } from './service.ts'
+export type { Config as TaskCheckpointConfig } from './service.ts'
 export type { TaskDiagnostics, TaskResumeAdmission, TaskResumeRequest } from './service.ts'
 
 export {
@@ -54,6 +55,8 @@ export type {
   ResultChecksum,
   ResultManifest,
   ResultManifestProjectionState,
+  TaskAutoContinuationProjectionState,
+  TaskAutoContinuationSource,
   ResultManifestStatus,
   ResultValidation,
   ResultValidationCheck,
@@ -86,6 +89,8 @@ export {
   resultManifestCollectionSchema,
   resultManifestEventDataSchema,
   resultManifestProjectionStateSchema,
+  taskAutoContinuationProjectionStateSchema,
+  taskAutoContinuationSourceSchema,
   resultManifestSchema,
   taskCheckpointEventDataSchema,
   taskCheckpointProjectionSchema,
@@ -95,12 +100,14 @@ export {
 
 export {
   applyResultManifestProjection,
+  applyTaskAutoContinuationProjection,
   applyTaskCheckpointProjection,
   assertResultManifestTransition,
   assertTaskCheckpointTransition,
   emptyResultManifestProjection,
   emptyTaskCheckpointProjection,
   resultManifestProjectionDefinition,
+  taskAutoContinuationProjectionDefinition,
   taskCheckpointProjectionDefinition,
 } from './projection.ts'
 

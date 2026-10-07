@@ -18,6 +18,7 @@ import { RemoteError, TestRemote } from '@deepseek-ai/dsh-client-test-runtime'
 import type { ModelSelection, ModelSelectionProjection } from '@deepseek-ai/dsh-api-session-controller/types'
 import type { CommandContribution, PopupSelectSpec, SelectOption } from '@deepseek-ai/dsh-client-ui-commands/client'
 import type { ModelSelectInjected } from '../src/client/slots.ts'
+import type { ModelDirectoryState } from '../src/client/directory.ts'
 import { apply, inject } from '../src/client/index.ts'
 import { zh } from '../src/client/locales.ts'
 
@@ -74,7 +75,7 @@ async function bench(locale: 'zh' | 'en' = 'zh') {
   // Whether the Host advertises available models for the current route.
   let routable = true
   let catalogFailure = false
-  let groups = GROUPS
+  let groups: ModelDirectoryState['groups'] = GROUPS
   let selectionFailure: RemoteError<'session/writer-held'> | undefined
   const sessionRemote = {
     modelCatalog: () => {
@@ -194,7 +195,7 @@ async function bench(locale: 'zh' | 'en' = 'zh') {
     setHostCurrent: (selection: ModelSelection) => { defaultSelection = selection },
     setProjected: (id: SessionId, value: ModelSelectionProjection) => { projections.get(id)?.set(value) },
     address: (id: SessionId) => { addressed.add(id) },
-    setGroups: (next: typeof GROUPS) => { groups = next },
+    setGroups: (next: ModelDirectoryState['groups']) => { groups = next },
     setCatalogFailure: (next: boolean) => { catalogFailure = next },
     setRoutable: (next: boolean) => { routable = next },
     blockOf: (key: string) => blocks.get(sid(key)),
@@ -240,6 +241,24 @@ describe('ui-model-selection dual entry', () => {
     expect(b.popup().searchLabels?.()).toEqual(locale === 'zh'
       ? { placeholder: '搜索模型…', empty: '没有可用的模型。', noResults: '没有匹配的模型。' }
       : { placeholder: 'Search models…', empty: 'No models available.', noResults: 'No matching models.' })
+  })
+
+  it('omits compatibility routes from the /model popup without duplicating their model', async () => {
+    const b = await bench()
+    try {
+      b.setGroups([...GROUPS, {
+        ...GROUPS[1]!, id: 'external-legacy', name: 'External Provider', selectable: false,
+      }])
+      b.remote.emit('llm/adapters-updated', [])
+      b.mint('s1')
+
+      const options = await b.popup().options(projection('s1'), new AbortController().signal)
+      expect(options.map(option => option.label)).toEqual([
+        'DeepSeek-V4-Flash', 'DeepSeek-V4-Pro', 'External Flash',
+      ])
+    } finally {
+      await b.ctx.fiber.dispose()
+    }
   })
 
   it('orders popup provider groups account-first while retaining third-party catalog order', async () => {

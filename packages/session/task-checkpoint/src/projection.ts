@@ -19,6 +19,8 @@ import {
   resultManifestCollectionSchema,
   resultManifestEventDataSchema,
   resultManifestProjectionStateSchema,
+  taskAutoContinuationProjectionStateSchema,
+  taskAutoContinuationSourceSchema,
   taskCheckpointEventDataSchema,
   taskCheckpointProjectionSchema,
   taskCheckpointProjectionStateSchema,
@@ -29,6 +31,7 @@ import type {
   TaskCheckpoint,
   TaskCheckpointProjectionState,
   TaskRepairHazard,
+  TaskAutoContinuationProjectionState,
 } from './types.ts'
 
 const EMPTY_TASKS: TaskCheckpointProjectionState = {
@@ -38,6 +41,47 @@ const EMPTY_TASKS: TaskCheckpointProjectionState = {
   failure: null,
 }
 const EMPTY_RESULTS: ResultManifestProjectionState = { manifests: [], failure: null }
+const EMPTY_AUTO_CONTINUATION: TaskAutoContinuationProjectionState = {
+  chainId: null,
+  attempt: 0,
+  maxAttempts: 0,
+  failure: null,
+}
+
+/** Fold the latest direct request and its validated continuation count. */
+export function applyTaskAutoContinuationProjection(
+  state: TaskAutoContinuationProjectionState,
+  event: SessionEvent,
+): TaskAutoContinuationProjectionState {
+  if (state.failure !== null || event.type !== 'user/message') return state
+  const message = event.data
+  if (message.source.kind === 'user') {
+    return { chainId: message.id, attempt: 0, maxAttempts: 0, failure: null }
+  }
+  if (message.source.kind !== 'task-auto-continuation') return state
+  const parsed = taskAutoContinuationSourceSchema.safeParse(message.source)
+  if (!parsed.success) {
+    return {
+      ...state,
+      failure: `automatic continuation replay failed at session event ${event.seq}: malformed continuation source`,
+    }
+  }
+  const source = parsed.data
+  const invalid = (detail: string): TaskAutoContinuationProjectionState => ({
+    ...state,
+    failure: `automatic continuation replay failed at session event ${event.seq}: ${detail}`,
+  })
+  if (state.chainId === null || source.chainId !== state.chainId) return invalid('continuation chain does not match the active user request')
+  if (source.attempt !== state.attempt + 1) return invalid('continuation attempt is not the next bounded attempt')
+  if (source.attempt > source.maxAttempts) return invalid('continuation exceeds its declared limit')
+  if (state.maxAttempts !== 0 && source.maxAttempts !== state.maxAttempts) return invalid('continuation limit changed within one chain')
+  return {
+    chainId: state.chainId,
+    attempt: source.attempt,
+    maxAttempts: source.maxAttempts,
+    failure: null,
+  }
+}
 
 function sameExecution(left: TaskCheckpoint['originalExecution'], right: TaskCheckpoint['originalExecution']): boolean {
   return JSON.stringify(left) === JSON.stringify(right)
@@ -192,6 +236,15 @@ export const resultManifestProjectionDefinition = {
     view: state => state.manifests,
   },
 } satisfies ProjectionDefinition<'taskResults', ResultManifestProjectionState>
+
+/** Host-only fold for durable automatic-continuation bounds. */
+export const taskAutoContinuationProjectionDefinition = {
+  key: 'taskAutoContinuation',
+  stateVersion: 1,
+  stateSchema: taskAutoContinuationProjectionStateSchema,
+  init: () => EMPTY_AUTO_CONTINUATION,
+  apply: applyTaskAutoContinuationProjection,
+} satisfies ProjectionDefinition<'taskAutoContinuation', TaskAutoContinuationProjectionState>
 
 /**
  * Assert that a candidate task revision advances a known fold without poisoning it.

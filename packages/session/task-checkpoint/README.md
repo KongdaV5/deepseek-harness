@@ -27,6 +27,10 @@ Persist task checkpoints and result manifests through the canonical Session writ
 
 Use through the Custom profile bundle composition; this package owns no additional application launcher.
 
+For bounded in-process continuation after an output-limit end, set `maxAutoContinuations` on the plugin from `0` to `5`. It defaults to `0`; the Custom desktop profile sets it to `5`. Only `max-tokens` turn endings trigger a follow-up, and pending user input takes precedence. Each follow-up is a separately recorded user message whose chain and attempt number are validated by a Session projection.
+
+When enabled, the system prompt asks the model to keep a concise Markdown progress file in the workspace, update it after each completed phase, and read and verify it before continuing. The prompt reuses an existing progress file when possible; otherwise it selects `.tmp/dsh-task-progress.md` only if `.tmp/` already exists, or `.dsh-task-progress.md` at the workspace root. Progress updates should be one short sentence, with a concise final response. This is model guidance backed by bounded turns; it does not guarantee that a model will successfully write the file.
+
 -----
 
 <a id="understand-the-implementation"></a>

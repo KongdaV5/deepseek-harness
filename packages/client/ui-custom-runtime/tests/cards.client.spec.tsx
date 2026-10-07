@@ -16,7 +16,7 @@ function fixture() {
         { id: 'img21', name: 'Image inventory', modality: 'image', manageable: false, available: true }] }),
     codexStatus: async () => ({ enabled: true, runtime: 'stopped', runtimePreference: 'auto', systemRuntimeAvailable: false,
       bundledRuntimeVersion: 'fixture', account: 'not-connected', login: 'idle', modelCount: 0, usage: { state: 'unavailable' } }),
-    start: vi.fn(done), restart: vi.fn(done), stop: vi.fn(done), select: vi.fn(done),
+    start: vi.fn(done), restart: vi.fn(done), stop: vi.fn(done), addProfile: vi.fn(done), select: vi.fn(done),
     reconnect: done, connect: vi.fn(done), disconnect: vi.fn(done), cancelLogin: done,
   }
   const model = new RuntimeSettingsModel(operations)
@@ -26,6 +26,32 @@ function fixture() {
   render(<RuntimeCards model={model} useRuntime={useRuntime} t={key => en[key]} />)
   return { operations, model }
 }
+
+it('registers a local model from its profile id, display name, local path, and modality', async () => {
+  const { operations, model } = fixture()
+  await screen.findByRole('button', { name: 'Add local model' })
+  fireEvent.change(screen.getByLabelText('Profile ID'), { target: { value: 'qwen-image-q4' } })
+  fireEvent.change(screen.getByLabelText('Model name'), { target: { value: 'Qwen Image 2.1 Q4' } })
+  fireEvent.change(screen.getByLabelText('GGUF file or MFlux model directory'), { target: { value: '/Users/you/Models/qwen-image-q4' } })
+  fireEvent.change(screen.getByLabelText('Model type'), { target: { value: 'image' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Add local model' }))
+  await waitFor(() => { expect(operations.addProfile).toHaveBeenCalledWith({ id: 'qwen-image-q4', name: 'Qwen Image 2.1 Q4', modality: 'image', modelId: '/Users/you/Models/qwen-image-q4' }) })
+  expect(await screen.findByText('Model added. Use Start to load it.')).toBeTruthy()
+  expect(operations.start).not.toHaveBeenCalled()
+  model.dispose()
+})
+
+it('shows an inline profile ID error and disables registration for an unsupported ID', async () => {
+  const { operations, model } = fixture()
+  await screen.findByRole('button', { name: 'Add local model' })
+  const id = screen.getByLabelText('Profile ID')
+  fireEvent.change(id, { target: { value: 'Bad ID' } })
+  fireEvent.blur(id)
+  expect(await screen.findByText('Use 1–64 lowercase letters, numbers, underscores, or hyphens.')).toBeTruthy()
+  expect(screen.getByRole('button', { name: 'Add local model' }).hasAttribute('disabled')).toBe(true)
+  expect(operations.addProfile).not.toHaveBeenCalled()
+  model.dispose()
+})
 
 it('admits only exact available Local profiles and explicit runtime choices without starting an auth operation', async () => {
   const { operations, model } = fixture()

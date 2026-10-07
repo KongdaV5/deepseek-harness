@@ -1,0 +1,13 @@
+version: 1
+scenario: automatic-continuation
+profile: headless
+composition: automatic-continuation
+recording: authored
+header:
+  class: automatic-continuation
+  pin: true
+replay:
+  override: true
+permission: danger-full-access
+workspace:
+  final: true

@@ -72,6 +72,26 @@ function deferred<T>() {
 }
 
 describe('SubagentModelSelectionCardController', () => {
+  it('omits non-selectable provider aliases but retains a previously stored alias as removable', () => {
+    const candidates = subagentModelCandidates(
+      [
+        { id: 'dsh-local-huihui', name: 'Local Huihui Qwen', models: [{ id: 'huihui-qwen', name: 'Huihui Qwen3.8 27B' }] },
+        { id: 'local-huihui-qwen', name: 'Local Huihui Qwen', selectable: false,
+          models: [{ id: 'huihui-qwen', name: 'Huihui Qwen3.8 27B' }] },
+      ],
+      [{ provider: 'local-huihui-qwen', model: 'huihui-qwen' }],
+      new Set(['local-huihui-qwen\0huihui-qwen']),
+    )
+
+    expect(candidates).toEqual([{
+      key: 'dsh-local-huihui\0huihui-qwen', provider: 'dsh-local-huihui', model: 'huihui-qwen',
+      providerName: 'Local Huihui Qwen', modelName: 'Huihui Qwen3.8 27B', available: true, selected: false,
+    }, {
+      key: 'local-huihui-qwen\0huihui-qwen', provider: 'local-huihui-qwen', model: 'huihui-qwen',
+      providerName: 'local-huihui-qwen', modelName: 'huihui-qwen', available: false, selected: true,
+    }])
+  })
+
   it('joins stored routes with the live catalog without dropping unavailable choices', () => {
     const candidates = subagentModelCandidates(
       [{ id: 'alpha', name: 'Alpha API', models: [{ id: 'fast', name: 'Fast' }] }],

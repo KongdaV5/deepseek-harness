@@ -21,6 +21,10 @@
       "types": "./lib/types/local-runtime.d.ts",
       "default": "./lib/types/local-runtime.js"
     },
+    "./local-image-generation": {
+      "types": "./lib/types/local-image-generation.d.ts",
+      "default": "./lib/types/local-image-generation.js"
+    },
     "./local-runtime-types": {
       "types": "./lib/types/local-runtime-types.d.ts",
       "default": "./lib/types/local-runtime-types.js"
@@ -54,12 +58,16 @@
     "@deepseek-ai/dsh-subprocess": "workspace:*",
     "@deepseek-ai/dsh-typert-protocol": "workspace:*",
     "@deepseek-ai/cordis-plugin-include": "workspace:~",
-    "@deepseek-ai/dsh-config-editor": "workspace:*"
+    "@deepseek-ai/dsh-config-editor": "workspace:*",
+    "@deepseek-ai/dsh-llm": "workspace:*",
+    "@deepseek-ai/dsh-settings": "workspace:*"
   },
   "peerDependencies": {
+    "@deepseek-ai/dsh-attachment": "workspace:*",
     "@deepseek-ai/cordis": "workspace:~"
   },
   "devDependencies": {
+    "@deepseek-ai/dsh-attachment": "workspace:*",
     "@deepseek-ai/cordis": "workspace:~"
   },
   "publishConfig": {

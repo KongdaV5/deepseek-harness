@@ -946,6 +946,16 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: 'Atomic profile publication and live reconciliation completion.',
       },
       {
+        signature: 'async addLocalProfile(profile: LocalProfile): Promise<void>',
+        description: 'Register one user-installed model with the active Custom profile.',
+        parameters: [{ name: 'profile', description: 'Exact local model identity and supported runtime.' }],
+      },
+      {
+        signature: 'async removeLocalProfile(id: string): Promise<void>',
+        description: 'Remove a user-installed model from the active Custom profile.',
+        parameters: [{ name: 'id', description: 'Exact local profile identity.' }],
+      },
+      {
         signature: 'snapshot(): { profiles: readonly LocalProfile[]; selectedProfile: string; localModelRuntime: boolean; codexSubscription: boolean }',
         description: 'Read persistent Local profile intent without inspecting user files or starting runtime work.',
         parameters: [],
@@ -1584,7 +1594,7 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
       },
       {
         signature: '@Remote start(profile: LocalModelProfileId): Promise<LocalModelRuntimeSnapshot>',
-        description: 'Start one allowlisted local profile after releasing the shared port.',
+        description: 'Start one registered local profile after releasing the shared port.',
         parameters: [{ name: 'profile', description: 'local-model manager profile to activate.' }],
         returns: 'the profile state after its loopback health check succeeds.',
         throws: ['RemoteError when disabled, unavailable, unsafe, or not healthy after start.'],
@@ -1602,6 +1612,13 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         parameters: [{ name: 'profile', description: 'local-model manager profile to activate after shutdown.' }],
         returns: 'the profile state after its loopback health check succeeds.',
         throws: ['RemoteError when shutdown cannot be verified or the new profile is not healthy.'],
+      },
+      {
+        signature: '@Remote addProfile(draft: LocalModelProfileDraft): Promise<LocalModelRuntimeSnapshot>',
+        description: 'Register an installed model profile without starting it.',
+        parameters: [{ name: 'draft', description: 'User-entered id, name, modality, and exact local model path.' }],
+        returns: 'Fresh manager and health observation after the profile is saved.',
+        throws: ['RemoteError for invalid, duplicate, unavailable, or unsupported profiles.'],
       },
     ],
   },
@@ -4108,10 +4125,10 @@ export const EVENT_API: readonly EventApiEntry[] = [
   {
     name: 'agent/turn-stopping',
     mode: 'serial',
-    signature: '\'agent/turn-stopping\'(this: Scoped<Agent>, payload: { agent: Agent; turn: number; signal: AbortSignal }): Promise<void> | void',
+    signature: '\'agent/turn-stopping\'(this: Scoped<Agent>, payload: { agent: Agent; turn: number; reason: TurnEndReason; signal: AbortSignal }): Promise<void> | void',
     summary: 'The turn is about to close: the model owes no response (no live tool calls, no fresh steering).',
     description: 'The turn is about to close: the model owes no response (no live tool calls, no fresh steering). Awaited before the boundary commits — a listener that objects steers (`agent.steer(...)`) and the machine re-reads its inbox: fresh steering runs another step, none closes the turn. Data decides, so listener order cannot change the outcome. The inverse control (stop a tool loop early) is data too: a tool result carrying `concludesTurn` ends the turn at its step. The conclusion never short-circuits already-submitted next-step work: same-step `additionalContexts` or racing steering still runs, and the turn closes only when that inbox drains.',
-    parameters: [{ name: 'payload', description: '.signal - the current turn\'s explicit abort signal. Scope-filtered dispatch (`@deepseek-ai/dsh-scope`): agent-scoped listeners receive only that agent.' }],
+    parameters: [{ name: 'payload', description: '.signal - the current turn\'s explicit abort signal; the payload also carries why the turn ended. Scope-filtered dispatch (`@deepseek-ai/dsh-scope`): agent-scoped listeners receive only that agent.' }],
   },
   {
     name: 'api-session/activity',
@@ -5955,7 +5972,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'LlmConfigurableProvider',
-    declaration: 'export interface LlmConfigurableProvider {\n    provider: string;\n    displayName: string;\n    settingsNs: string;\n    settingsPath: readonly string[];\n    declared?: boolean;\n    error?: string;\n}',
+    declaration: 'export interface LlmConfigurableProvider {\n    provider: string;\n    displayName: string;\n    settingsNs: string;\n    settingsPath: readonly string[];\n    selectable?: boolean;\n    declared?: boolean;\n    error?: string;\n}',
   },
   {
     name: 'LlmDiscoveredModel',
@@ -5991,7 +6008,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'LlmProviderInfo',
-    declaration: 'export interface LlmProviderInfo {\n    id: string;\n    name: string;\n}',
+    declaration: 'export interface LlmProviderInfo {\n    id: string;\n    name: string;\n    selectable?: boolean;\n}',
   },
   {
     name: 'LlmReasoningEffortInfo',
@@ -6018,12 +6035,20 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export type LocalModelModality = \'text\' | \'image\';',
   },
   {
+    name: 'LocalModelProfileDraft',
+    declaration: 'export interface LocalModelProfileDraft {\n    readonly id: string;\n    readonly name: string;\n    readonly modality: LocalModelModality;\n    readonly modelId: string;\n}',
+  },
+  {
     name: 'LocalModelProfileId',
-    declaration: 'export type LocalModelProfileId = \'huihui\' | \'img21\' | \'38\';',
+    declaration: 'export type LocalModelProfileId = string;',
+  },
+  {
+    name: 'LocalModelRuntimeEngine',
+    declaration: 'export type LocalModelRuntimeEngine = \'llama.cpp\' | \'mflux-qwen21\';',
   },
   {
     name: 'LocalModelRuntimeProfile',
-    declaration: 'export interface LocalModelRuntimeProfile {\n    readonly id: LocalModelProfileId;\n    readonly name: string;\n    readonly modality: LocalModelModality;\n    readonly manageable: boolean;\n    readonly available?: boolean;\n    readonly unavailableReason?: string;\n}',
+    declaration: 'export interface LocalModelRuntimeProfile {\n    readonly id: LocalModelProfileId;\n    readonly name: string;\n    readonly modality: LocalModelModality;\n    readonly engine?: LocalModelRuntimeEngine;\n    readonly manageable: boolean;\n    readonly available?: boolean;\n    readonly unavailableReason?: string;\n}',
   },
   {
     name: 'LocalModelRuntimeSnapshot',
@@ -6035,7 +6060,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'LocalProfile',
-    declaration: 'export interface LocalProfile {\n    id: string;\n    name: string;\n    modality: \'text\' | \'image\';\n    modelId: string;\n}',
+    declaration: 'export interface LocalProfile {\n    id: string;\n    name: string;\n    modality: \'text\' | \'image\';\n    engine?: \'llama.cpp\' | \'mflux-qwen21\';\n    modelId: string;\n}',
   },
   {
     name: 'LspHover',
@@ -6211,7 +6236,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'ModelProviderGroup',
-    declaration: 'export interface ModelProviderGroup {\n    readonly id: string;\n    readonly name: string;\n    readonly models: readonly ModelCatalogModel[];\n}',
+    declaration: 'export interface ModelProviderGroup {\n    readonly id: string;\n    readonly name: string;\n    readonly selectable?: boolean;\n    readonly models: readonly ModelCatalogModel[];\n}',
   },
   {
     name: 'ModelReasoning',

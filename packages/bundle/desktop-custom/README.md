@@ -34,7 +34,7 @@ The Custom Desktop profile includes `@deepseek-ai/dsh-experimental-schedule-bund
 <a id="understand-the-implementation"></a>
 ## Understand the implementation
 
-The layer mounts Local/Codex runtime owners, task/checkpoint and compaction policy, diagnostic transport, Models controls and Run Details. Its Custom composition adds the official Schedule bundle, while disabling DeepSeek account/controller/UI onboarding, hosted DeepSeek/search, the unrelated timer bundle, HMR and model-generated titles; native credential onboarding is disabled through its existing Config seam. Bootstrap sets provider configuration and Local Huihui as the default in the official profile patch; an uninitialized composition keeps an unregistered sentinel and fails closed. Schedule uses Host-owned task storage, the Session Controller and the official Schedule runtime. Computer Use is not included.
+The layer mounts Local/Codex runtime owners, task/checkpoint and compaction policy, diagnostic transport, Models controls and Run Details. Its Custom composition adds the official Schedule bundle, while disabling DeepSeek account/controller/UI onboarding, hosted DeepSeek/search, the unrelated timer bundle, HMR and model-generated titles; native credential onboarding is disabled through its existing Config seam. Bootstrap sets provider configuration and Local Huihui as the default in the official profile patch; an uninitialized composition keeps an unregistered sentinel and fails closed. The Development/Script preset uses the shared Standard composition, which sets 8,192 tokens of compaction headroom, caps summaries at 2,048 tokens and retains a 10% recent tail. This gives the bundled 65,536-token Local model a compaction threshold before its completion reserve is consumed. Automatic continuation is bounded to five extra turns. Schedule uses Host-owned task storage, the Session Controller and the official Schedule runtime. Computer Use is not included.
 
 No runtime invariant companion is published because persistence writes use the existing Session or ConfigEditor validation and this package owns no independently diverging state copy.
 
@@ -54,15 +54,15 @@ No runtime invariant companion is published because persistence writes use the e
 
 #### What the model sees
 
-This layer contributes no prompt bytes. The composed `agent-default-model` selects Local Huihui; existing Web and Agent plugins own model context.
+The composed `agent-default-model` selects Local Huihui. When automatic continuation is enabled, task-checkpoint adds a short instruction to maintain and read `.dsh-task-progress.md`; compaction can replace older conversation ranges with a summary before a follow-up turn.
 
 #### Token effect
 
-Zero direct tokens.
+One short continuation-instruction section; compaction summary size is capped at 2,048 tokens.
 
 #### KV Cache effect
 
-No direct effect; this layer executes no model request.
+Compaction replaces part of the prior message surface, so the next request can reuse cached history only where the retained prefix still matches.
 
 ## Known Limitations and Deferred Work
 

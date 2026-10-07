@@ -17,8 +17,8 @@ export function customLocalPatches(userHome: string): PatchOptions[] {
   const model = join(userHome, 'Models', 'Huihui-Qwen3.8-27B-abliterated-GGUF', 'Huihui-Qwen3.8-27B-abliterated-GSQ-RCO-IQ3_S.gguf')
   return [
     { id: 'agent-default-model', config: { provider: 'dsh-local-huihui', model } },
-    { id: 'llm-pi-ai', config: { providers: { 'dsh-local-huihui': { displayName: 'Local Huihui Qwen', api: 'openai-completions', baseURL: 'http://127.0.0.1:8080/v1', headers: { Authorization: 'Bearer local' }, llamaCppContextAdmission: { safetyMarginTokens: 4096, minimumOutputTokens: 1024 }, models: [{ id: model, name: 'Huihui Qwen3.8 27B', contextWindow: 65536, maxTokens: 8192 }, { id: join(userHome, 'Models', 'Qwen3.8-27B-GSQ-RCO-GGUF', 'Qwen3.8-27B-GSQ-RCO-IQ3_S.gguf'), name: 'Original Qwen3.8 27B', contextWindow: 32768, maxTokens: 8192 }] } } } },
-    { id: 'custom-foundation', config: { localProfiles: [{ id: 'huihui', name: 'Huihui Qwen3.8 27B', modality: 'text', modelId: model }, { id: 'img21', name: 'Qwen Image 2.1', modality: 'image', modelId: join(userHome, 'Models', 'Qwen-Image-2.1-mflux-8bit') }, { id: '38', name: 'Original Qwen3.8 27B', modality: 'text', modelId: join(userHome, 'Models', 'Qwen3.8-27B-GSQ-RCO-GGUF', 'Qwen3.8-27B-GSQ-RCO-IQ3_S.gguf') }], selectedLocalProfile: 'huihui', localModelRuntime: true, codexSubscription: true } },
+    { id: 'llm-pi-ai', config: { providers: { 'dsh-local-huihui': { displayName: '本地文本', api: 'openai-completions', baseURL: 'http://127.0.0.1:8080/v1', headers: { Authorization: 'Bearer local' }, llamaCppContextAdmission: { safetyMarginTokens: 4096, minimumOutputTokens: 1024 }, models: [{ id: model, name: 'Huihui Qwen 27B', contextWindow: 65536, maxTokens: 8192 }, { id: join(userHome, 'Models', 'Qwen3.8-27B-GSQ-RCO-GGUF', 'Qwen3.8-27B-GSQ-RCO-IQ3_S.gguf'), name: 'Qwen 27B IQ3', contextWindow: 32768, maxTokens: 8192 }] } } } },
+    { id: 'custom-foundation', config: { localProfiles: [{ id: 'huihui', name: 'Huihui Qwen 27B', modality: 'text', engine: 'llama.cpp', modelId: model }, { id: '38', name: 'Qwen 27B IQ3', modality: 'text', engine: 'llama.cpp', modelId: join(userHome, 'Models', 'Qwen3.8-27B-GSQ-RCO-GGUF', 'Qwen3.8-27B-GSQ-RCO-IQ3_S.gguf') }], selectedLocalProfile: 'huihui', localModelRuntime: true, codexSubscription: true } },
     { id: 'local-model-runtime', config: { machineResourceHome: userHome } },
     { id: 'compaction-basic', config: { modelPolicies: [model, join(userHome, 'Models', 'Qwen3.8-27B-GSQ-RCO-GGUF', 'Qwen3.8-27B-GSQ-RCO-IQ3_S.gguf')].map(model => ({ provider: 'dsh-local-huihui', model, headroomTokens: 4096, maxTokens: 8192 })) } },
   ]
@@ -74,9 +74,19 @@ export async function initializeCustomProfile(home: string, userHome: string): P
             models: target.models.map((model, index) => ({ id: model.id,
               name: index === 0 ? 'Huihui Qwen3.8 27B (Local)' : 'Qwen3.8 27B IQ3_S (Original, Local profile 38)' })),
           }
-          if (isDeepStrictEqual(providers['local-huihui-qwen'], legacy)) {
-            // Retain the alias for stored Session selections; new Sessions use the canonical owner.
-            providers['local-huihui-qwen'] = { ...target }
+          const localAlias = providers['local-huihui-qwen']
+          const localAliasConfig = typeof localAlias === 'object' && localAlias !== null
+            ? localAlias as Record<string, unknown>
+            : undefined
+          const localAliasWithoutVisibility: unknown = localAliasConfig === undefined
+            ? localAlias
+            : Object.fromEntries(Object.entries(localAliasConfig).filter(([key]) => key !== 'selectable'))
+          const generatedLegacyAlias = isDeepStrictEqual(localAlias, legacy)
+          const generatedCanonicalAlias = isDeepStrictEqual(localAliasWithoutVisibility, target)
+            && localAliasConfig?.['selectable'] !== true
+          if (generatedLegacyAlias || generatedCanonicalAlias) {
+            // Retain the alias for stored Session routes, but do not offer it as a second new choice.
+            providers['local-huihui-qwen'] = { ...target, selectable: false }
             const selection = imported.findLast(value => value.id === 'agent-default-model')
             if (selection?.config?.['provider'] === 'local-huihui-qwen'
               && isDeepStrictEqual(local, standard)
@@ -98,7 +108,7 @@ export async function initializeCustomProfile(home: string, userHome: string): P
                   const standard = target.models[index]
                   // Upgrade the unchanged generated Huihui declaration; explicit user capacities retain ownership.
                   if (standard !== undefined && Object.keys(value).length === 4 && index === 0 && value['contextWindow'] === 32768 && value['maxTokens'] === 8192
-                    && value['name'] === standard['name']) return { ...value, contextWindow: standard['contextWindow'] }
+                    && (value['name'] === standard['name'] || value['name'] === 'Huihui Qwen3.8 27B')) return { ...value, contextWindow: standard['contextWindow'] }
                   return value
                 }),
               }

@@ -26,6 +26,18 @@ it('places account and official before third-party providers', () => {
   expect(directory.map(row => row.provider)).toEqual(providers)
 })
 
+it('hides compatibility routes from new settings choices when the Host marks them non-selectable', () => {
+  const registered = [
+    { id: 'dsh-local-huihui', name: 'Local Huihui Qwen' },
+    { id: 'local-huihui-qwen', name: 'Local Huihui Qwen', selectable: false },
+  ]
+  const directory = registered.map(({ id, name, ...metadata }) => ({
+    provider: id, displayName: name, settingsNs: 'llm-pi-ai', settingsPath: ['providers', id], ...metadata,
+  }))
+
+  expect(joinProviderDirectory(registered, directory).map(row => row.provider)).toEqual(['dsh-local-huihui'])
+})
+
 let nextRpc = 0
 function ok<T>(value: T): RpcResponse<T> {
   return { rpcId: `r-${nextRpc++}` as never, result: { ok: true, value } }

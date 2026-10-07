@@ -2,7 +2,7 @@
 import { SessionFormatError, isSessionFormatJsonObject, sessionFormatCount } from '@deepseek-ai/dsh-session-format'
 import type { SessionFormatEvent, SessionFormatJsonObject, SessionFormatJsonValue } from '@deepseek-ai/dsh-session-format'
 import { mappingSchema } from '@deepseek-ai/dsh-agent-codex/state'
-import { taskCheckpointEventDataSchema, resultManifestEventDataSchema } from '@deepseek-ai/dsh-task-checkpoint'
+import { taskCheckpointEventDataSchema, resultManifestEventDataSchema } from '@deepseek-ai/dsh-task-checkpoint/schema'
 
 /** Required historical Custom events admitted only by the incoming V3 conversion. */
 export const CUSTOM_V3_EVENT_TYPES = ['codex/subscription-state', 'task/checkpoint', 'task/result-manifest'] as const

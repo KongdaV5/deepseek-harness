@@ -1,0 +1,52 @@
+[
+  {
+    "kind": "chunks",
+    "chunks": [
+      { "type": "block-start", "index": 0, "blockType": "tool-call" },
+      { "type": "tool-call-delta", "index": 0, "id": "checkpoint-phase-one", "name": "write", "argumentsDelta": "{\"file_path\":\".dsh-task-progress.md\",\"content\":\"# Task progress\\n\\nObjective: complete the multi-stage task.\\n\\nCompleted phases:\\n- Stage 1 checkpoint written and persisted through the workspace write tool.\\n\\nCurrent phase: continue the remaining task.\\n\\nExact next action: read this checkpoint, verify the workspace, and complete the remaining phase.\\n\"}" },
+      { "type": "block-end", "index": 0, "block": { "type": "tool-call", "id": "checkpoint-phase-one", "name": "write", "arguments": "{\"file_path\":\".dsh-task-progress.md\",\"content\":\"# Task progress\\n\\nObjective: complete the multi-stage task.\\n\\nCompleted phases:\\n- Stage 1 checkpoint written and persisted through the workspace write tool.\\n\\nCurrent phase: continue the remaining task.\\n\\nExact next action: read this checkpoint, verify the workspace, and complete the remaining phase.\\n\"}" } },
+      { "type": "usage", "usage": { "inputTokens": 20, "outputTokens": 8 } },
+      { "type": "finish", "reason": { "kind": "tool-calls" } }
+    ]
+  },
+  {
+    "kind": "chunks",
+    "chunks": [
+      { "type": "block-start", "index": 0, "blockType": "text" },
+      { "type": "text-delta", "index": 0, "text": "第一阶段已保存，正在继续剩余工作。" },
+      { "type": "block-end", "index": 0, "block": { "type": "text", "text": "第一阶段已保存，正在继续剩余工作。" } },
+      { "type": "usage", "usage": { "inputTokens": 30, "outputTokens": 8 } },
+      { "type": "finish", "reason": { "kind": "max-tokens" } }
+    ]
+  },
+  {
+    "kind": "chunks",
+    "chunks": [
+      { "type": "block-start", "index": 0, "blockType": "tool-call" },
+      { "type": "tool-call-delta", "index": 0, "id": "checkpoint-resume-read", "name": "read", "argumentsDelta": "{\"file_path\":\".dsh-task-progress.md\"}" },
+      { "type": "block-end", "index": 0, "block": { "type": "tool-call", "id": "checkpoint-resume-read", "name": "read", "arguments": "{\"file_path\":\".dsh-task-progress.md\"}" } },
+      { "type": "usage", "usage": { "inputTokens": 35, "outputTokens": 5 } },
+      { "type": "finish", "reason": { "kind": "tool-calls" } }
+    ]
+  },
+  {
+    "kind": "chunks",
+    "chunks": [
+      { "type": "block-start", "index": 0, "blockType": "tool-call" },
+      { "type": "tool-call-delta", "index": 0, "id": "checkpoint-phase-two", "name": "write", "argumentsDelta": "{\"file_path\":\".dsh-task-progress.md\",\"content\":\"# Task progress\\n\\nObjective: complete the multi-stage task.\\n\\nCompleted phases:\\n- Stage 1 checkpoint written and persisted through the workspace write tool.\\n- Stage 2 resumed from the saved checkpoint and completed.\\n\\nCurrent phase: complete.\\n\\nExact next action: none; report the concise result.\\n\"}" },
+      { "type": "block-end", "index": 0, "block": { "type": "tool-call", "id": "checkpoint-phase-two", "name": "write", "arguments": "{\"file_path\":\".dsh-task-progress.md\",\"content\":\"# Task progress\\n\\nObjective: complete the multi-stage task.\\n\\nCompleted phases:\\n- Stage 1 checkpoint written and persisted through the workspace write tool.\\n- Stage 2 resumed from the saved checkpoint and completed.\\n\\nCurrent phase: complete.\\n\\nExact next action: none; report the concise result.\\n\"}" } },
+      { "type": "usage", "usage": { "inputTokens": 40, "outputTokens": 10 } },
+      { "type": "finish", "reason": { "kind": "tool-calls" } }
+    ]
+  },
+  {
+    "kind": "chunks",
+    "chunks": [
+      { "type": "block-start", "index": 0, "blockType": "text" },
+      { "type": "text-delta", "index": 0, "text": "已依据保存的进度完成续跑。" },
+      { "type": "block-end", "index": 0, "block": { "type": "text", "text": "已依据保存的进度完成续跑。" } },
+      { "type": "usage", "usage": { "inputTokens": 45, "outputTokens": 7 } },
+      { "type": "finish", "reason": { "kind": "stop" } }
+    ]
+  }
+]

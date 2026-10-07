@@ -387,7 +387,11 @@ describe('admission at the MCP seam', () => {
 
     // The refusal is a refusal, not a queue: once the owning turn ends, the
     // second session acts on the same desktop with no parked work to flush.
-    agentEvents(h.ctx, first.agent).emit('agent/turn-stopping', { turn: 1, signal: new AbortController().signal })
+    agentEvents(h.ctx, first.agent).emit('agent/turn-stopping', {
+      turn: 1,
+      reason: { kind: 'completed' },
+      signal: new AbortController().signal,
+    })
     await vi.waitFor(() => { expect(h.ctx.desktopLease.snapshot().state).toBe('released') })
     expect((await h.call('click', second.agent, { x: 2, y: 2 })).isError).toBe(false)
     expect(await h.calls('click')).toHaveLength(2)

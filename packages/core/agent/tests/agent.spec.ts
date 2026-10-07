@@ -1,6 +1,7 @@
 import { describe, expect, expectTypeOf, it } from 'vitest'
 import { Context, Service, symbols } from '@deepseek-ai/cordis'
 import { Session, SessionId } from '@deepseek-ai/dsh-session'
+import type { TurnEndReason } from '@deepseek-ai/dsh-session'
 import AgentRegistry, { agentEvents } from '@deepseek-ai/dsh-agent'
 import TypertRegistry from '@deepseek-ai/dsh-typert-registry'
 
@@ -248,15 +249,16 @@ describe('agentEvents()', () => {
     const ctx = new Context()
     const agent = stubAgent('serial-event')
     const signal = new AbortController().signal
-    const heard: Array<{ agent: Agent; turn: number; signal: AbortSignal }> = []
-    ctx.on('agent/turn-stopping', async ({ agent: subject, turn, signal: receivedSignal }) => {
+    const heard: Array<{ agent: Agent; turn: number; reason: TurnEndReason; signal: AbortSignal }> = []
+    ctx.on('agent/turn-stopping', async ({ agent: subject, turn, reason, signal: receivedSignal }) => {
       await Promise.resolve()
-      heard.push({ agent: subject, turn, signal: receivedSignal })
+      heard.push({ agent: subject, turn, reason, signal: receivedSignal })
     })
 
-    await agentEvents(ctx, agent).serial('agent/turn-stopping', { turn: 3, signal })
+    const reason = { kind: 'completed' } as const
+    await agentEvents(ctx, agent).serial('agent/turn-stopping', { turn: 3, reason, signal })
 
-    expect(heard).toEqual([{ agent, turn: 3, signal }])
+    expect(heard).toEqual([{ agent, turn: 3, reason, signal }])
   })
 
   it('injects the fused subject even when the payload carries a conflicting agent field', async () => {

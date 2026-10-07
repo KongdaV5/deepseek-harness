@@ -28,12 +28,20 @@
 
 import { FiberState, Service } from '@deepseek-ai/cordis'
 import type { Context } from '@deepseek-ai/cordis'
+import z from '@deepseek-ai/schemastery'
+import { createUserMessage } from '@deepseek-ai/dsh-llm'
+import type { MessageId } from '@deepseek-ai/dsh-llm'
 import type { Session } from '@deepseek-ai/dsh-session'
-import type {} from '@deepseek-ai/dsh-agent'
+import type { Agent } from '@deepseek-ai/dsh-agent'
+import type {} from '@deepseek-ai/dsh-system-prompt'
 import { TaskContinuityError } from './errors.ts'
 import { readableTaskAuthority, taskAuthoritySnapshot } from './authority.ts'
 import type { TaskAuthoritySnapshot, TaskAuthoritySnapshotOptions } from './authority.ts'
-import { resultManifestProjectionDefinition, taskCheckpointProjectionDefinition } from './projection.ts'
+import {
+  resultManifestProjectionDefinition,
+  taskAutoContinuationProjectionDefinition,
+  taskCheckpointProjectionDefinition,
+} from './projection.ts'
 import {
   appendTaskCheckpointUpdate,
   createTaskCheckpoint,
@@ -58,6 +66,31 @@ import type {
   TaskResumeContextBudget,
   TaskStepId,
 } from './types.ts'
+
+const MAX_AUTO_CONTINUATIONS = 5
+
+/** Optional bounded auto-resume behavior for Custom desktop deployments. */
+export interface Config {
+  /** Additional turns to queue after a max-token end; zero disables automatic continuation. */
+  readonly maxAutoContinuations: number
+}
+
+const AUTO_CONTINUATION_GUIDANCE = [
+  'For multi-step workspace tasks, keep one concise Markdown checkpoint in the workspace. Reuse an existing task-progress file when available; otherwise use `.tmp/dsh-task-progress.md` only when `.tmp/` already exists, and use `.dsh-task-progress.md` at the workspace root otherwise. Do not create a directory solely for the checkpoint.',
+  'Record the objective, constraints, decisions, completed phases with evidence, the current phase, and the exact next action. Update the file after each completed phase and before a long response or likely output limit. Do not create a checkpoint for a trivial one-step request.',
+  'When an automatic continuation arrives, read the checkpoint and verify its claims against the current workspace. Continue from the first unfinished phase without repeating completed work. Save the checkpoint again after each phase. If the work is blocked or needs user input, stop and say so.',
+  'Keep user-facing progress to one short sentence at a time. Avoid large progress dumps; keep the final response concise and in the user’s language.',
+].join('\n')
+
+function automaticContinuationMessage(chainId: string, attempt: number, maxAttempts: number, turn: number) {
+  return createUserMessage({
+    content: [{
+      type: 'text',
+      text: `[Automatic continuation ${attempt}/${maxAttempts} after turn ${turn} reached its output limit] Read the existing task checkpoint, verify it against the workspace, continue only the next unfinished phase, save the checkpoint after that phase, and report one short progress sentence. Stop if blocked or user input is needed.`,
+    }],
+    source: { kind: 'task-auto-continuation', chainId: chainId as MessageId, attempt, maxAttempts },
+  })
+}
 
 /** One process-local admission of a guarded resume, awaiting the Run it owns. */
 interface PendingResume {
@@ -112,6 +145,9 @@ export default class TaskCheckpointService extends Service {
   static override readonly name = 'taskCheckpoints'
   /** The projection registry owns the durable folds this writer validates against. */
   static readonly inject = ['sessionProjections']
+  static Config: z<Config> = z.object({
+    maxAutoContinuations: z.number().step(1).min(0).max(MAX_AUTO_CONTINUATIONS).default(0),
+  })
 
   /** Instance disposal permanently invalidates this admission seam. */
   private closed = false
@@ -121,12 +157,30 @@ export default class TaskCheckpointService extends Service {
   /**
    * @param ownerContext - the owning context; its fiber owns the projections and the seam.
    */
-  constructor(private readonly ownerContext: Context) {
+  constructor(private readonly ownerContext: Context, private readonly config: Config) {
     const ctx = ownerContext
     super(ctx, 'taskCheckpoints')
     ctx.effect(() => () => { this.closed = true })
     ctx.sessionProjections.register(taskCheckpointProjectionDefinition)
     ctx.sessionProjections.register(resultManifestProjectionDefinition)
+    ctx.sessionProjections.register(taskAutoContinuationProjectionDefinition)
+    if (config.maxAutoContinuations > 0) {
+      const systemPrompt = ctx.get('systemPrompt')
+      if (systemPrompt === undefined) {
+        throw new Error('task checkpoint automatic continuation requires the systemPrompt service')
+      }
+      const disposeSection = systemPrompt.section({
+        name: 'task-checkpoint:auto-continuation',
+        order: systemPrompt.getSectionOrder('HARNESS_SOURCE'),
+        text: AUTO_CONTINUATION_GUIDANCE,
+      })
+      ctx.effect(() => () => { disposeSection() }, 'taskCheckpoints.autoContinuationPrompt')
+      ctx.on('agent/turn-stopping', ({ agent, turn, reason, signal }) => {
+        if (reason.kind === 'max-tokens') {
+          this.queueAutomaticContinuation(agent, turn, signal)
+        }
+      })
+    }
     ctx.on('session/event', (session, event) => {
       if (event.type !== 'turn/start') return
       if (!this.pending.has(session)) return
@@ -135,6 +189,21 @@ export default class TaskCheckpointService extends Service {
       // return, so one microtask reaches a fresh, legal append.
       queueMicrotask(() => { this.settleResume(session, event.data.turn) })
     })
+  }
+
+  /** Queue one durable, separately bounded turn after a max-token end. */
+  private queueAutomaticContinuation(agent: Agent, turn: number, signal: AbortSignal): void {
+    if (signal.aborted || agent.inbox.nextTurn.length > 0) return
+    const state = this.ctx.sessionProjections.stateOf(agent.session, 'taskAutoContinuation')
+    if (state === undefined || state.failure !== null || state.chainId === null) return
+    const maxAttempts = state.maxAttempts === 0 ? this.config.maxAutoContinuations : state.maxAttempts
+    const attempt = state.attempt + 1
+    if (attempt > maxAttempts) return
+    try {
+      agent.followup(automaticContinuationMessage(state.chainId, attempt, maxAttempts, turn))
+    } catch (error: unknown) {
+      this.ctx.logger.warn(`session "${agent.session.id}": automatic continuation was not queued: ${String(error)}`)
+    }
   }
 
   /** The durable facts one write validates against, or a fail-closed rejection. */

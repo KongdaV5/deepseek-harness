@@ -12,7 +12,7 @@
  */
 
 import type { Branded } from '@deepseek-ai/dsh-brand'
-import type { ProviderRequestId } from '@deepseek-ai/dsh-llm/brand'
+import type { MessageId, ProviderRequestId } from '@deepseek-ai/dsh-llm/brand'
 import type { SessionId, SessionSeq } from '@deepseek-ai/dsh-session/types'
 import type { AttemptId, RunId } from './legacy-identity.ts'
 
@@ -247,10 +247,37 @@ export interface ResultManifestProjectionState {
   readonly failure: string | null
 }
 
+/** Durable per-session budget for automatic continuation after max-token turns. */
+export interface TaskAutoContinuationProjectionState {
+  /** Original direct user message that owns the current bounded continuation chain. */
+  readonly chainId: string | null
+  /** Automatic continuation turns already admitted for this user request. */
+  readonly attempt: number
+  /** Fixed maximum captured when the first automatic continuation is admitted. */
+  readonly maxAttempts: number
+  /** First malformed continuation source retained for fail-closed behavior. */
+  readonly failure: string | null
+}
+
+/** Provenance for one automatically queued, bounded continuation turn. */
+export interface TaskAutoContinuationSource {
+  readonly kind: 'task-auto-continuation'
+  readonly chainId: MessageId
+  readonly attempt: number
+  readonly maxAttempts: number
+}
+
+declare module '@deepseek-ai/dsh-llm' {
+  interface MessageSourceMap {
+    'task-auto-continuation': TaskAutoContinuationSource
+  }
+}
+
 declare module '@deepseek-ai/dsh-session-projection/types' {
   interface SessionProjectionStateMap {
     taskCheckpoint: TaskCheckpointProjectionState
     taskResults: ResultManifestProjectionState
+    taskAutoContinuation: TaskAutoContinuationProjectionState
   }
   interface SessionProjectionMap {
     /** Durable task progress and crash-repair hazards, kept for later resume orchestration. */

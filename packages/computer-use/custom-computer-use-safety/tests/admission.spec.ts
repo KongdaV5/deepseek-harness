@@ -315,6 +315,7 @@ describe('admission through the real tool pipeline', () => {
     expect((await h.call('click')).isError).toBe(false)
     await agentEvents(h.ctx, h.agent).serial('agent/turn-stopping', {
       turn: 1,
+      reason: { kind: 'completed' },
       signal: new AbortController().signal,
     })
 
@@ -345,6 +346,7 @@ describe('desktop ownership across sessions', () => {
 
     await agentEvents(h.ctx, h.agent).serial('agent/turn-stopping', {
       turn: 1,
+      reason: { kind: 'completed' },
       signal: new AbortController().signal,
     })
 
@@ -435,6 +437,7 @@ describe('refused turn origins', () => {
 
     await agentEvents(h.ctx, h.agent).serial('agent/turn-stopping', {
       turn: 1,
+      reason: { kind: 'completed' },
       signal: new AbortController().signal,
     })
     await beginTurn(h.ctx, h, 2, 'user')
@@ -850,7 +853,9 @@ it('verified delegated work shares the live root owner and loses authority when 
   const delegated = await h.call('click', {}, child)
   expect(delegated, JSON.stringify(delegated)).toMatchObject({ isError: false })
   expect(h.ctx.desktopLease.snapshot().owner?.sessionId).toBe(String(h.agent.id))
-  await agentEvents(h.ctx, h.agent).serial('agent/turn-stopping', { turn: 1, signal: new AbortController().signal })
+  await agentEvents(h.ctx, h.agent).serial('agent/turn-stopping', {
+    turn: 1, reason: { kind: 'completed' }, signal: new AbortController().signal,
+  })
   expect((await h.call('click', {}, child)).isError).toBe(true)
   expect(h.runs).toEqual(['click'])
 })

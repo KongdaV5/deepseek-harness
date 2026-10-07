@@ -12,6 +12,7 @@ import type {
   TaskCheckpoint,
   TaskCheckpointProjection,
   TaskCheckpointProjectionState,
+  TaskAutoContinuationProjectionState,
 } from './types.ts'
 import type { ResultManifestEventData, TaskCheckpointEventData } from './domain.ts'
 
@@ -282,6 +283,22 @@ export const taskCheckpointProjectionStateSchema
 export const resultManifestProjectionStateSchema: ZodType<ResultManifestProjectionState> = z.object({
   manifests: z.array(resultManifestSchema),
   failure: z.string().nullable(),
+}).strict()
+
+/** Projection-cache schema for the bounded automatic-continuation state. */
+export const taskAutoContinuationProjectionStateSchema: ZodType<TaskAutoContinuationProjectionState> = z.object({
+  chainId: z.string().nullable(),
+  attempt: z.number().int().min(0).max(5),
+  maxAttempts: z.number().int().min(0).max(5),
+  failure: z.string().nullable(),
+}).strict()
+
+/** Validates the provenance embedded in an automatic continuation user message. */
+export const taskAutoContinuationSourceSchema = z.object({
+  kind: z.literal('task-auto-continuation'),
+  chainId: z.string().min(1),
+  attempt: z.number().int().min(1).max(5),
+  maxAttempts: z.number().int().min(1).max(5),
 }).strict()
 
 /** Client wire schema for task checkpoints and hazards. */

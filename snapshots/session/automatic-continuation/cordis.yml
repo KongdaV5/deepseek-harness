@@ -1,0 +1,6 @@
+# Composition owner for the bounded automatic-continuation snapshot.
+- insert:
+    - id: task-checkpoint
+      name: '@deepseek-ai/dsh-task-checkpoint'
+      config:
+        maxAutoContinuations: 1

@@ -471,6 +471,12 @@ interface LlmProviderInfo {
   id: string
   /** Human-readable provider name for selectors and diagnostics. */
   name: string
+  /**
+   * Whether new user-facing model selections may choose this route. Omission
+   * means yes; false keeps it available to stored selections while hiding it
+   * from new model choices.
+   */
+  selectable?: boolean
 }
 ```
 
@@ -495,6 +501,8 @@ interface LlmConfigurableProvider {
    * object; empty when the whole section is the profile.
    */
   settingsPath: readonly string[]
+  /** Whether configuration surfaces should offer this route for new selections. */
+  selectable?: boolean
   /**
    * Whether the owning adapter knows this route only because configuration
    * declared it — a gateway or self-hosted server it ships nothing about.
@@ -1099,7 +1107,7 @@ One controller and its one-child operation queue. Start/restart always wait for 
 @Remote async status(): Promise<LocalModelRuntimeSnapshot>
 
 /**
- * Start one allowlisted local profile after releasing the shared port.
+ * Start one registered local profile after releasing the shared port.
  * @param profile - local-model manager profile to activate.
  * @returns the profile state after its loopback health check succeeds.
  * @throws RemoteError when disabled, unavailable, unsafe, or not healthy after start.
@@ -1120,9 +1128,16 @@ One controller and its one-child operation queue. Start/restart always wait for 
  * @throws RemoteError when shutdown cannot be verified or the new profile is not healthy.
  */
 @Remote restart(profile: LocalModelProfileId): Promise<LocalModelRuntimeSnapshot>
+
+/** Register an installed model profile without starting it.
+ * @param draft User-entered id, name, modality, and exact local model path.
+ * @returns Fresh manager and health observation after the profile is saved.
+ * @throws RemoteError for invalid, duplicate, unavailable, or unsupported profiles.
+ */
+@Remote addProfile(draft: LocalModelProfileDraft): Promise<LocalModelRuntimeSnapshot>
 ```
 
-Types: [LocalModelProfileId](../custom-foundation.zh.md) · [LocalModelRuntimeSnapshot](../custom-foundation.zh.md)
+Types: [LocalModelProfileDraft](../custom-foundation.zh.md) · [LocalModelProfileId](../custom-foundation.zh.md) · [LocalModelRuntimeSnapshot](../custom-foundation.zh.md)
 
 Source: [`packages/boot/custom-foundation/src/local-runtime.ts`](../../packages/boot/custom-foundation/src/local-runtime.ts)
 

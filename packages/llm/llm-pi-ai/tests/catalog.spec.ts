@@ -70,6 +70,21 @@ async function harness(config: LlmPiAi.Options): Promise<Context> {
 }
 
 describe('hand-declared providers', () => {
+  it('keeps a compatibility route callable while marking it as unavailable to new selections', async () => {
+    const server = await mockServer([])
+    const ctx = await harness(gateway(`${server.url}/v1`, { selectable: false }))
+
+    expect(ctx.llm.listProviders()).toContainEqual(expect.objectContaining({
+      id: 'acme-gateway', name: 'Acme Gateway', selectable: false,
+    }))
+    expect(ctx.llm.listConfigurableProviders()).toContainEqual(expect.objectContaining({
+      provider: 'acme-gateway', selectable: false,
+    }))
+    expect(await ctx.llm.listModels('acme-gateway')).toEqual([
+      { provider: 'acme-gateway', id: 'acme-large', name: 'Acme Large', inputModalities: ['text'] },
+    ])
+  })
+
   it('serves a route pi-ai has never heard of from its own declaration', async () => {
     const server = await mockServer([{ events: textEvents }])
     const ctx = await harness(gateway(`${server.url}/v1`))

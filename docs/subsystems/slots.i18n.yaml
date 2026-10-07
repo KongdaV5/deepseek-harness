@@ -3,7 +3,7 @@
 # After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write docs/subsystems/slots.md
 /web-client-slots:
-  en: bda026282132e290
+  en: c52b320d034f189e
   zh: 3e3faf96c72420d6
 /web-client-slots/declaration-and-lifecycle:
   en: f2d2c0d3b8f14ec7

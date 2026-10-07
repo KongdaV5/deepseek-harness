@@ -579,6 +579,37 @@ describe('Menu', () => {
     expect(menu.style.bottom).toBe('')
   })
 
+  it('converts portalled fixed offsets through inherited CSS zoom', () => {
+    const previousZoom = document.body.style.zoom
+    document.body.style.zoom = '0.8'
+    const rectSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      return this.getAttribute('role') === 'menu'
+        ? new DOMRect(0, 0, 120, 80)
+        : new DOMRect()
+    })
+    try {
+      render(<Menu
+        portal
+        open
+        align="end"
+        side="top"
+        getAnchorRect={() => new DOMRect(160, 200, 40, 20)}
+        anchor={<span>trigger</span>}
+        items={items}
+        onSelect={() => {}}
+        onClose={() => {}}
+      />)
+      const menu = screen.getByRole('menu')
+      // Viewport position is x=80/y=116; body zoom scales fixed offsets,
+      // so the assigned CSS coordinates need to be divided by 0.8.
+      expect(menu.style.left).toBe('100px')
+      expect(menu.style.top).toBe('145px')
+    } finally {
+      rectSpy.mockRestore()
+      document.body.style.zoom = previousZoom
+    }
+  })
+
   it('renders footer rows in a pinned section below the items; they still select', () => {
     const onSelect = vi.fn()
     render(

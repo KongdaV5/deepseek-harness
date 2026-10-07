@@ -90,19 +90,21 @@ export function subagentModelCandidates(
   selected: ReadonlySet<string>,
 ): SubagentModelCandidate[] {
   const storedByKey = new Map(stored.map(route => [subagentModelKey(route), route]))
-  const candidates = groups.flatMap(group => group.models.map((model): SubagentModelCandidate => {
-    const route = { provider: group.id, model: model.id }
-    const key = subagentModelKey(route)
-    storedByKey.delete(key)
-    return {
-      ...route,
-      key,
-      providerName: group.name,
-      modelName: model.name,
-      available: true,
-      selected: selected.has(key),
-    }
-  }))
+  const candidates = groups
+    .filter(group => group.selectable !== false)
+    .flatMap(group => group.models.map((model): SubagentModelCandidate => {
+      const route = { provider: group.id, model: model.id }
+      const key = subagentModelKey(route)
+      storedByKey.delete(key)
+      return {
+        ...route,
+        key,
+        providerName: group.name,
+        modelName: model.name,
+        available: true,
+        selected: selected.has(key),
+      }
+    }))
   for (const route of storedByKey.values()) {
     const key = subagentModelKey(route)
     candidates.push({

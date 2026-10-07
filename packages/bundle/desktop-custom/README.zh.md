@@ -34,7 +34,7 @@ Custom Desktop profile 已包含 `@deepseek-ai/dsh-experimental-schedule-bundle`
 <a id="understand-the-implementation"></a>
 ## 理解实现
 
-此层挂载 Local/Codex runtime owner、task/checkpoint 与 compaction policy、diagnostic transport、Models 控件及 Run Details。Custom composition 加入官方 Schedule bundle，同时禁用 DeepSeek account/controller/UI onboarding、hosted DeepSeek/search、不相关的 timer bundle、HMR 和模型生成标题；通过既有 Config seam 禁用 native credential onboarding。Bootstrap 在官方 profile patch 中设置 provider 配置，并将 Local Huihui 设为默认；未初始化的组合保留未注册 sentinel，拒绝隐式执行。Schedule 使用 Host 所有的任务存储、Session Controller 与官方 Schedule runtime。Computer Use 不在组合中。
+此层挂载 Local/Codex runtime owner、task/checkpoint 与 compaction policy、diagnostic transport、Models 控件及 Run Details。Custom composition 加入官方 Schedule bundle，同时禁用 DeepSeek account/controller/UI onboarding、hosted DeepSeek/search、不相关的 timer bundle、HMR 和模型生成标题；通过既有 Config seam 禁用 native credential onboarding。Bootstrap 在官方 profile patch 中设置 provider 配置，并将 Local Huihui 设为默认；未初始化的组合保留未注册 sentinel，拒绝隐式执行。Development/Script 预设使用共享 Standard composition：compaction 预留 8,192 token headroom、摘要最多输出 2,048 token、保留最近 10% 上下文，从而让随附的 65,536-token Local 模型在 completion reserve 被耗尽前触发压缩。自动续跑最多额外执行 5 轮。Schedule 使用 Host 所有的任务存储、Session Controller 与官方 Schedule runtime。Computer Use 不在组合中。
 
 未发布 runtime invariant companion，因为所有持久写入经过既有 Session 或 ConfigEditor 校验，且本包没有可独立分歧的状态副本。
 
@@ -54,15 +54,15 @@ Custom Desktop profile 已包含 `@deepseek-ai/dsh-experimental-schedule-bundle`
 
 #### 模型可见内容
 
-此层不产生提示词字节。组合中的 `agent-default-model` 选择 Local Huihui；既有 Web 与 Agent 插件管理模型上下文。
+组合中的 `agent-default-model` 选择 Local Huihui。启用自动续跑后，task-checkpoint 会增加一段简短指引，要求维护并在续跑前读取 `.dsh-task-progress.md`；上下文达到压缩阈值时，会用摘要替换较早的对话范围。
 
 #### Token 效应
 
-零直接 token。
+一段简短的续跑指引；compaction 摘要最多输出 2,048 token。
 
 #### KV Cache 影响
 
-无直接影响；此层不执行模型请求。
+Compaction 会替换部分旧消息，因此后续请求只能在保留的前缀仍匹配时复用 KV cache。
 
 ## 已知限制与后续工作
 
