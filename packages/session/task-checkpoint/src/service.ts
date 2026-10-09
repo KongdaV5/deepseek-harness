@@ -76,9 +76,22 @@ export interface Config {
 }
 
 const AUTO_CONTINUATION_GUIDANCE = [
-  'For multi-step workspace tasks, keep one concise Markdown checkpoint in the workspace. Reuse an existing task-progress file when available; otherwise use `.tmp/dsh-task-progress.md` only when `.tmp/` already exists, and use `.dsh-task-progress.md` at the workspace root otherwise. Do not create a directory solely for the checkpoint.',
-  'Record the objective, constraints, decisions, completed phases with evidence, the current phase, and the exact next action. Update the file after each completed phase and before a long response or likely output limit. Do not create a checkpoint for a trivial one-step request.',
-  'When an automatic continuation arrives, read the checkpoint and verify its claims against the current workspace. Continue from the first unfinished phase without repeating completed work. Save the checkpoint again after each phase. If the work is blocked or needs user input, stop and say so.',
+  'For multi-step workspace tasks, create or reuse one concise Markdown checkpoint before broad codebase exploration.',
+  '',
+  'Reuse an existing task-progress file when available. Otherwise use `.tmp/dsh-task-progress.md` only when `.tmp/` already exists, or `.dsh-task-progress.md` at the workspace root. Do not create a directory solely for the checkpoint.',
+  '',
+  'Record the objective, constraints, decisions, completed phases with evidence, the current phase, and the exact next action.',
+  '',
+  'At the end of each discovery phase, note the important files and exact line ranges already inspected. Distinguish read-only inspection from edits.',
+  '',
+  'Update the file after each completed phase and before a likely context compaction, a long response, or an output limit. Do not create a checkpoint for a trivial one-step request.',
+  '',
+  'After a compacted summary appears or an automatic continuation arrives, read and verify the checkpoint against the current workspace.',
+  '',
+  'Continue from the first unfinished phase without repeating completed discovery or rereading unchanged ranges. Reread only if the file changed or required evidence is missing.',
+  '',
+  'Never describe planned edits as completed work. Save the checkpoint again after each phase. If blocked or user input is needed, stop and say so.',
+  '',
   'Keep user-facing progress to one short sentence at a time. Avoid large progress dumps; keep the final response concise and in the user’s language.',
 ].join('\n')
 

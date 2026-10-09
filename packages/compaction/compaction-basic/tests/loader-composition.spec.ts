@@ -3,11 +3,14 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { afterEach, describe, expect, it } from 'vitest'
-import { Context } from '@deepseek-ai/cordis'
+import { Context, Service } from '@deepseek-ai/cordis'
 import Loader from '@deepseek-ai/cordis-plugin-loader'
 import Include from '@deepseek-ai/cordis-plugin-include'
-import LlmRuntime from '@deepseek-ai/dsh-llm'
-import SessionStore from '@deepseek-ai/dsh-session'
+import LlmRuntime, { LlmAdapter, createUserMessage, CONTEXT_WINDOW_EXCEEDED_CODE } from '@deepseek-ai/dsh-llm'
+import type { LlmResolvedModelInfo, StreamChunk } from '@deepseek-ai/dsh-llm'
+import SessionStore, { Session, SessionId } from '@deepseek-ai/dsh-session'
+import { agentEvents, type Agent } from '@deepseek-ai/dsh-agent'
+import type { CompactionCandidatePolicy, CompactionBeginInput, CompactionPolicyTransaction } from '@deepseek-ai/dsh-compaction'
 import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import TokenMeter from '@deepseek-ai/dsh-token-meter'
 import BasicCompactionEngine from '@deepseek-ai/dsh-compaction-basic'
@@ -15,6 +18,38 @@ import ToolResultPruner from '@deepseek-ai/dsh-compaction-tool-result-pruner'
 
 let root: string | undefined
 let context: Context | undefined
+
+class SiblingPolicy extends Service implements CompactionCandidatePolicy {
+  readonly id = 'loader-policy'
+  readonly version = '1'
+
+  constructor(ctx: Context) {
+    super(ctx, 'compactionCandidatePolicy')
+  }
+
+  assess() { return { admitted: true } as const }
+
+  begin(input: CompactionBeginInput): CompactionPolicyTransaction {
+    return {
+      decorateRequest: () => ({}),
+      validateCandidate: () => ({ kind: 'accept' }),
+      rebaseAfterOwnedRecovery: () => {},
+      assertPublishable: () => {},
+      audit: () => ({ policyId: this.id, policyVersion: this.version, trigger: input.trigger, candidateAttempts: 1 }),
+    }
+  }
+}
+
+class SummaryAdapter extends LlmAdapter {
+  override resolveModel(provider: string, model: string): Promise<LlmResolvedModelInfo> {
+    return Promise.resolve({ provider, id: model, name: model, context: { contextWindow: 1024 } })
+  }
+
+  async *stream(): AsyncIterable<StreamChunk> {
+    yield { type: 'text-delta', index: 0, text: 'Saved checkpoint.' }
+    yield { type: 'finish', reason: { kind: 'stop' } }
+  }
+}
 
 afterEach(async () => {
   await context?.fiber.dispose()
@@ -39,6 +74,7 @@ async function loadYaml(lines: readonly string[]): Promise<Context> {
     ['@deepseek-ai/dsh-token-meter', TokenMeter],
     ['@deepseek-ai/dsh-compaction-tool-result-pruner', ToolResultPruner],
     ['@deepseek-ai/dsh-compaction-basic', BasicCompactionEngine],
+    ['test:sibling-policy', SiblingPolicy],
   ])
   context.loader.internal = {
     version: 'v2',
@@ -56,6 +92,58 @@ async function loadYaml(lines: readonly string[]): Promise<Context> {
 }
 
 describe('real Loader composition', () => {
+  it.each(['pressure', 'context-overflow'] as const)('publishes a %s summary through a policy mounted in a sibling plugin fiber', async (trigger) => {
+    const loaded = await loadYaml([
+      "- name: '@deepseek-ai/dsh-llm'",
+      "- name: '@deepseek-ai/dsh-session'",
+      "- name: '@deepseek-ai/dsh-session-projection'",
+      "- name: '@deepseek-ai/dsh-token-meter'",
+      "- name: 'test:sibling-policy'",
+      "- name: '@deepseek-ai/dsh-compaction-basic'",
+      '  config:',
+      '    auto: true',
+      '    headroomTokens: 0',
+      '    maxTokens: 256',
+      '    retainTokens: 0',
+    ])
+    loaded.llm.registerAdapter(['test'], new SummaryAdapter())
+    const session = Session.create(SessionId('sibling-policy-compaction'))
+    session.append('turn/start', { turn: 1 })
+    const first = session.append('user/message', createUserMessage({
+      content: [{ type: 'text', text: 'Keep the work already completed. '.repeat(500) }],
+      source: { kind: 'user' },
+    }), { surfaceOp: 'append' })
+    session.append('request/header', {
+      header: { config: { provider: 'test', model: 'summary' } },
+      reason: 'initial',
+    })
+    session.append('user/message', createUserMessage({
+      content: [{ type: 'text', text: 'Continue from that work.' }],
+      source: { kind: 'user' },
+    }), { surfaceOp: 'append' })
+    const owner = { session, options: { provider: 'test', model: 'summary' } } as Agent
+    const signal = new AbortController().signal
+    if (trigger === 'pressure') {
+      await agentEvents(loaded, owner).waterfall('agent/pre-step', {
+        turn: 1, step: 1, messages: [], signal,
+      }, async () => ({ kind: 'enter', messages: [] }))
+    } else {
+      const result = await agentEvents(loaded, owner).waterfall('agent/request-error', {
+        turn: 1, step: 1, provider: 'test', retryPolicy: undefined, signal,
+        failure: { code: CONTEXT_WINDOW_EXCEEDED_CODE, message: 'context full' },
+      }, async () => undefined)
+      expect(result).toEqual({ kind: 'retry' })
+    }
+    expect(session.ownEvents().map(event => event.type)).toEqual(expect.arrayContaining([
+      'compaction/start', 'compaction/summary', 'compaction/end',
+    ]))
+    const summary = session.ownEvents().find(event => event.type === 'compaction/summary')
+    expect(summary?.data.shadowedSeqs).toContain(first.seq)
+    expect(summary?.data['plugin:task-compaction-audit']).toMatchObject({
+      audit: { policyId: 'loader-policy', trigger },
+    })
+  })
+
   it('loads the shipped token-meter, pruning, and compaction-basic YAML order', async () => {
     const loaded = await loadYaml([
       "- name: '@deepseek-ai/dsh-llm'",

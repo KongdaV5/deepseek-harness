@@ -11,6 +11,8 @@ English | [中文](README.zh.md)
 
 This package keeps long agent conversations working near the model's context limit. As token pressure builds, it condenses the oldest history into a summary while preserving recent messages; after a context-overflow error, it condenses and retries. You can also request condensation with `/compact` and optionally trim oversized tool outputs first. Condensation uses one extra model request and retains only its summary text. It cannot reduce the system prompt, tools, or session prefix, or split one indivisible unit such as a single huge tool call.
 
+An optional `compactionCandidatePolicy` may be mounted as a sibling plugin. The backend resolves it through `ctx.get()` for admission and the summary transaction; deployments without a policy retain the same compaction behavior.
+
 ## Table of Contents
 
 - [Use this package](#use-this-package)

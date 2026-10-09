@@ -1,0 +1,22 @@
+# Bilingual-pair consistency record for 2026-10-08-long-task-compaction-checkpoints.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write .agents/notes/implemented/feature/2026-10-08-long-task-compaction-checkpoints.md
+/agent-note-checkpoint-long-tasks-across-compaction:
+  en: de2879559b241c93
+  zh: f2f9c5fcafa00532
+/agent-note-checkpoint-long-tasks-across-compaction/problem:
+  en: 26d3432bfe37755a
+  zh: 12928f544522f7a0
+/agent-note-checkpoint-long-tasks-across-compaction/decision:
+  en: 9df14d406f2589a1
+  zh: 263351a71cb8cd03
+/agent-note-checkpoint-long-tasks-across-compaction/alternatives-considered:
+  en: 8fe0b95d161c436f
+  zh: 65eed00b170e1823
+/agent-note-checkpoint-long-tasks-across-compaction/consequences:
+  en: 1df5aeda42b3e471
+  zh: 21cc772e9b598ff0
+/agent-note-checkpoint-long-tasks-across-compaction/verification:
+  en: 93fd7d55247ce67b
+  zh: 3f8a4d7a9b33205b

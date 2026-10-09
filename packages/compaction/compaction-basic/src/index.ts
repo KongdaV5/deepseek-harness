@@ -455,9 +455,10 @@ export class BasicCompactionEngine extends CompactionEngine {
   /** Bind the effective token meter and dynamically dispatched summarizer hook. */
   private regionDependencies(agent: Agent,
     trigger: import('@deepseek-ai/dsh-compaction').CompactionPolicyTrigger): Parameters<typeof compactSurfaceRegion>[0] {
+    const policy = this.ctx.get('compactionCandidatePolicy')
     return {
       meter: this.ctx.tokenMeter,
-      ...this.ctx.get('compactionCandidatePolicy') === undefined ? {} : { policy: this.ctx.compactionCandidatePolicy },
+      ...policy === undefined ? {} : { policy },
       trigger, maxTokens: this.config.maxTokens,
       target: () => {
         const header = agent.session.requestHeader()?.config

@@ -48,7 +48,11 @@ describe('bounded automatic continuation', () => {
     const prompt = await ctx.systemPrompt.assemble()
     const guidance = prompt.sections.find(section => section.name === 'task-checkpoint:auto-continuation')?.text ?? ''
     expect(guidance).toContain('.tmp/dsh-task-progress.md')
+    expect(guidance).toContain('before broad codebase exploration')
     expect(guidance).toContain('Update the file after each completed phase')
+    expect(guidance).toContain('before a likely context compaction')
+    expect(guidance).toContain('exact line ranges already inspected')
+    expect(guidance).toContain('without repeating completed discovery')
     expect(guidance).toContain('Keep user-facing progress to one short sentence')
 
     await stopAtLimit(ctx, agent, 1)
