@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { IconCloseOutlineRegular } from './icons/index.tsx'
+import { IconCloseOutlineRegular, IconDownloadOutlineRegular } from './icons/index.tsx'
 import css from './ImageLightbox.module.css'
 
 /** Lightbox strings the owner resolves from its own locale namespace. */
@@ -9,6 +9,8 @@ export interface ImageLightboxLabels {
   dialog: string
   /** Accessible label of the close control. */
   close: string
+  /** Visible label of the image download control. */
+  save?: string
 }
 
 /**
@@ -24,13 +26,15 @@ export interface ImageLightboxLabels {
  * @param props.onClose - dismiss callback owned by the opener.
  * @returns the modal preview dialog.
  */
-export function ImageLightbox({ src, alt, labels, onClose }: {
+export function ImageLightbox({ src, alt, labels, downloadName = 'image.png', onClose }: {
   src: string
   alt: string
   labels: ImageLightboxLabels
+  downloadName?: string
   onClose: () => void
 }) {
   const closeRef = useRef<HTMLButtonElement | null>(null)
+  const saveRef = useRef<HTMLAnchorElement | null>(null)
   const restoreRef = useRef<HTMLElement | null>(null)
 
   useEffect(() => {
@@ -38,7 +42,16 @@ export function ImageLightbox({ src, alt, labels, onClose }: {
     closeRef.current?.focus()
     const onKeyDown = (event: globalThis.KeyboardEvent): void => {
       if (event.key === 'Escape') { event.stopPropagation(); onClose() }
-      if (event.key === 'Tab') { event.preventDefault(); closeRef.current?.focus() }
+      if (event.key === 'Tab') {
+        const controls: HTMLElement[] = []
+        if (closeRef.current !== null) controls.push(closeRef.current)
+        if (saveRef.current !== null) controls.push(saveRef.current)
+        if (controls.length < 2) { event.preventDefault(); controls[0]?.focus(); return }
+        const current = controls.indexOf(document.activeElement as HTMLElement)
+        const step = event.shiftKey ? -1 : 1
+        controls[(current + step + controls.length) % controls.length]?.focus()
+        event.preventDefault()
+      }
     }
     window.addEventListener('keydown', onKeyDown, true)
     return () => {
@@ -56,6 +69,20 @@ export function ImageLightbox({ src, alt, labels, onClose }: {
     >
       <div className={css.mask} aria-hidden="true" onMouseDown={onClose} />
       <img className={css.image} src={src} alt={alt} />
+      {labels.save !== undefined && (
+        <a
+          ref={saveRef}
+          className={css.save}
+          href={src}
+          download={downloadName}
+          aria-label={labels.save}
+          title={labels.save}
+          onMouseDown={(event) => { event.stopPropagation() }}
+        >
+          <IconDownloadOutlineRegular size={16} />
+          <span>{labels.save}</span>
+        </a>
+      )}
       <button ref={closeRef} type="button" className={css.close} aria-label={labels.close} onClick={onClose}>
         <IconCloseOutlineRegular size={16} />
       </button>

@@ -1,7 +1,10 @@
 /** OpenAI Images-compatible local image generation through the model router. */
 
 import { Buffer } from 'node:buffer'
+import { randomUUID } from 'node:crypto'
+import { lstat, mkdir, open, realpath, unlink } from 'node:fs/promises'
 import { request } from 'node:http'
+import { isAbsolute, join, relative } from 'node:path'
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import { LlmAdapter } from '@deepseek-ai/dsh-llm'
@@ -28,6 +31,8 @@ export interface LocalImageGenerationDependencies {
     readonly profile: string | null
   }>
   readonly saveImage: (data: Uint8Array) => Promise<ImageAttachmentRef>
+  /** Write a generated image to the active session workspace and return its relative path. */
+  readonly saveWorkspaceImage?: (data: Uint8Array, sessionId: GenerateOptions['sessionId'], filename: string) => Promise<string | undefined>
   readonly readImage: (attachment: ImageAttachmentRef) => Promise<{ readonly data: Uint8Array }>
   readonly sendRequest?: (url: string, body: string, signal: AbortSignal) => Promise<{ readonly status: number; readonly text: string }>
 }
@@ -134,9 +139,28 @@ export class LocalImageGenerationAdapter extends LlmAdapter {
     catch (error) { throw new Error(`Local image server returned invalid JSON: ${String(error)}`) }
     const generated = responseSchema.parse(payload).data[0]
     if (generated === undefined) throw new Error('Local image server returned no image.')
-    const attachment = await this.dependencies.saveImage(new Uint8Array(Buffer.from(generated.b64_json, 'base64')))
+    const data = new Uint8Array(Buffer.from(generated.b64_json, 'base64'))
+    const filename = `dsh-image-${new Date().toISOString().replace(/[:.]/g, '-')}-${randomUUID().slice(0, 8)}.png`
+    const attachment = await this.dependencies.saveImage(data)
+    let workspacePath: string | undefined
+    try {
+      workspacePath = await this.dependencies.saveWorkspaceImage?.(data, options.sessionId, filename)
+    } catch {
+      // Keep the durable attachment available in chat even when the workspace is read-only.
+    }
     yield { type: 'block-start', index: 0, blockType: 'image' }
     yield { type: 'block-end', index: 0, block: { type: 'image', attachment } }
+    yield { type: 'block-start', index: 1, blockType: 'text' }
+    yield {
+      type: 'block-end',
+      index: 1,
+      block: {
+        type: 'text',
+        text: workspacePath === undefined
+          ? '图片已生成，但未能自动保存到工作区。点击图片打开原图预览，再点右上角“下载图片”手动保存。'
+          : `图片已自动保存到工作区：${workspacePath}`,
+      },
+    }
     yield { type: 'finish', reason: { kind: 'stop' } }
   }
 
@@ -147,7 +171,7 @@ export class LocalImageGenerationAdapter extends LlmAdapter {
 
 /** Register the image route alongside the ordinary LLM routes. */
 export default class LocalImageGenerationPlugin {
-  static inject = ['attachments', 'customFoundation', 'llm', 'localModelRuntimeController']
+  static inject = ['agents', 'attachments', 'customFoundation', 'llm', 'localModelRuntimeController']
   static Config = z.object({
     endpoint: z.string().default('http://127.0.0.1:8080/v1'),
     timeoutMs: z.number().min(1).step(1).default(3_600_000),
@@ -160,6 +184,37 @@ export default class LocalImageGenerationPlugin {
       profiles: () => ctx.customFoundation.snapshot().profiles,
       status: () => ctx.localModelRuntimeController.status(),
       saveImage: data => ctx.attachments.saveImage({ data, mediaType: 'image/png', name: 'generated-image.png' }),
+      saveWorkspaceImage: async (data, sessionId, filename) => {
+        if (sessionId === undefined) return undefined
+        const cwd = ctx.agents.get(sessionId)?.session.header.cwd
+        if (cwd === undefined || !isAbsolute(cwd)) return undefined
+
+        // Resolve the session root, then create only a real child directory. Refuse
+        // an existing symlink so automatic output cannot escape the workspace.
+        const workspace = await realpath(cwd)
+        const outputDirectory = join(workspace, 'generated')
+        try { await mkdir(outputDirectory) }
+        catch (error) {
+          if (!(error instanceof Error) || !('code' in error) || error.code !== 'EEXIST') throw error
+        }
+        const directoryInfo = await lstat(outputDirectory)
+        if (!directoryInfo.isDirectory() || directoryInfo.isSymbolicLink()) {
+          throw new Error('The generated output path must be a real directory.')
+        }
+
+        const outputPath = join(outputDirectory, filename)
+        const handle = await open(outputPath, 'wx', 0o600)
+        try {
+          await handle.writeFile(data)
+          await handle.sync()
+        } catch (error) {
+          await handle.close().catch(() => undefined)
+          await unlink(outputPath).catch(() => undefined)
+          throw error
+        }
+        await handle.close()
+        return relative(workspace, outputPath)
+      },
       readImage: attachment => ctx.attachments.readImage(attachment),
     })
     ctx.llm.registerAdapter([LOCAL_IMAGE_PROVIDER], adapter)

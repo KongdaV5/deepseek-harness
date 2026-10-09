@@ -74,6 +74,14 @@ describe('LocalImageGenerationAdapter', () => {
     expect(chunks).toEqual([
       { type: 'block-start', index: 0, blockType: 'image' },
       { type: 'block-end', index: 0, block: { type: 'image', attachment: image } },
+      { type: 'block-start', index: 1, blockType: 'text' },
+      {
+        type: 'block-end', index: 1,
+        block: {
+          type: 'text',
+          text: '图片已生成，但未能自动保存到工作区。点击图片打开原图预览，再点右上角“下载图片”手动保存。',
+        },
+      },
       { type: 'finish', reason: { kind: 'stop' } },
     ])
   })
@@ -210,6 +218,7 @@ it('activates through Cordis and registers the configured image provider', async
   const ctx = new Context()
   onTestFinished(() => ctx.fiber.dispose())
   let registered: { providers: string[]; adapter: LocalImageGenerationAdapter } | undefined
+  ctx.provide('agents', { get: () => undefined } as never)
   ctx.provide('attachments', {
     saveImage: async () => image,
     readImage: async () => ({ data: new Uint8Array([0, 1]) }),

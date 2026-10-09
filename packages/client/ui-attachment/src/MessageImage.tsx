@@ -159,7 +159,7 @@ export function MessageImage({ image, load, variant, labels }: {
           )
           : <img src={src} alt={label} style={fit === undefined ? undefined : { objectPosition: fit.objectPosition }} />}
       </button>
-      {open && src !== null && <ImageLightbox src={src} alt={label} labels={labels.lightbox} onClose={close} />}
+      {open && src !== null && <ImageLightbox src={src} alt={label} downloadName={label} labels={labels.lightbox} onClose={close} />}
     </>
   )
 }
