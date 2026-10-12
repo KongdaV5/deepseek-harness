@@ -480,10 +480,13 @@ export function SearchResultItem({ result, currentId, onOpen, onUnarchive, t }: 
   const primaryStatus = statuses[0]
   return (
     <div
-      className={clsx(css.searchResultRow, selected && css.selected, result.archived && css.archived)}
+      className={clsx(
+        css.searchResultRow, selected && css.selected,
+        result.archived && css.archived, result.hidden && css.hidden,
+      )}
       role="treeitem"
       aria-selected={selected}
-      aria-description={result.archived ? t('toast.archivedNotOpenable') : undefined}
+      aria-description={result.archived ? t('toast.archivedNotOpenable') : result.hidden ? t('row.hidden') : undefined}
       onClick={() => { onOpen(result.id) }}
     >
       <span className={css.searchResultHeading}>
@@ -589,12 +592,12 @@ export function SessionNodeItem({
       data-row-key={`session:${node.id}`}
       className={clsx(
         css.sessionRow, selected && css.selected, menuOpen && css.menuOpen,
-        row.archived && css.archived,
+        row.archived && css.archived, row.hidden && css.hidden,
         drag?.marker === 'before' && css.dropBefore, drag?.marker === 'after' && css.dropAfter,
       )}
       role="treeitem"
       aria-selected={selected}
-      aria-description={row.archived ? t('toast.archivedNotOpenable') : undefined}
+      aria-description={row.archived ? t('toast.archivedNotOpenable') : row.hidden ? t('row.hidden') : undefined}
       onClick={() => { onOpen(node.id) }}
       onPointerEnter={marquee.enter}
       onPointerLeave={marquee.leave}

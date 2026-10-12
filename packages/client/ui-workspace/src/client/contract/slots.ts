@@ -256,6 +256,10 @@ export type WorkspaceBrowserInjected = {
   requestSessionRename: (sessionId: SessionId, currentTitle: string) => void
   /** Tell the user an archived row cannot be opened (a click on it). */
   notifyArchivedNotOpenable: () => void
+  /** Hide or restore one Session in local browser state. */
+  setSessionHidden: (sessionId: SessionId, hidden: boolean) => void
+  /** Set whether hidden Sessions appear in lists and search. */
+  setShowHiddenSessions: (visible: boolean) => void
   /** Rename a Host Workspace (rejects on name conflict; resolves on durability). */
   renameWorkspace: (workspaceId: WorkspaceId, title: string) => Promise<void>
   /** Delete only a Host Workspace registration; directory and Session logs remain. */
@@ -285,6 +289,9 @@ export type SessionRowActionProps<Injected extends object = object> =
   PropsRuntime<'sidebar.workspaces.session.row.action'>
   & PropsLocale<'workspace'>
   & InjectFace<Injected>
+
+/** Props of the shipped local Session visibility row. */
+export type HideSessionProps = SessionMenuItemProps<HideSessionInjected>
 
 /** One transient Workspace notice rendered by the overlay toast entry. */
 export type RowToast =
@@ -344,6 +351,16 @@ export interface ArchiveSessionInjected {
   archiveSession: (sessionId: SessionId) => void
   /** Remove a Session from the registry-global archived set. */
   unarchiveSession: (sessionId: SessionId) => void
+}
+
+/** Local display visibility share, intentionally separate from Host archiving. */
+export interface HideSessionInjected {
+  hooks: {
+    /** Session ids hidden from the Workspace browser. */
+    hidden: HostObservable<ReadonlySet<SessionId>>
+  }
+  /** Hide or restore a Session in local browser state. */
+  setSessionHidden: (sessionId: SessionId, hidden: boolean) => void
 }
 
 /**

@@ -31,6 +31,7 @@ import css from './views.module.css'
 
 const EMPTY_TURN_IDS: ReadonlySet<number> = new Set()
 const EMPTY_RECORD_IDS: ReadonlySet<string> = new Set()
+const EMPTY_HIDDEN_MESSAGE_SEQS: readonly number[] = []
 const SEARCH_INDEX_THROTTLE_MS = 3_000
 const HISTORY_PAGE_NODES = 50
 
@@ -131,7 +132,10 @@ function addUsage(
 
 export function TrajectoryView({
   useSession, useTrajectory, useDuration, loadOlder, loadImage, setActualDuration,
-  viewRequest, completeViewRequest, renderSlot, t, jsonStringWrapping,
+  viewRequest, completeViewRequest,
+  hiddenMessageSeqs = EMPTY_HIDDEN_MESSAGE_SEQS,
+  showHiddenMessages = false,
+  setHiddenMessagesVisible, renderSlot, t, jsonStringWrapping,
 }: ConvViewProps
   & PropsRenderSlots<'conversation.trajectory.images'>
   & InjectFace<TrajectoryViewInjected>
@@ -192,12 +196,41 @@ export function TrajectoryView({
   const hasResidentOlderHistory = historyStartIndex > 0
   const hasOlderHistory = hasResidentOlderHistory
     || sessionHasOlderHistory
-  const nodes = inspection.eventNodes
-  const eventLocations = inspection.eventLocations
+  const hiddenMessageSet = useMemo(() => new Set(hiddenMessageSeqs), [hiddenMessageSeqs])
+  const nodes = useMemo(
+    () => showHiddenMessages
+      ? inspection.eventNodes
+      : inspection.eventNodes.filter(node => !hiddenMessageSet.has(node.seq)),
+    [hiddenMessageSet, inspection.eventNodes, showHiddenMessages],
+  )
+  const eventLocations = useMemo(() => showHiddenMessages
+    ? inspection.eventLocations
+    : new Map([...inspection.eventLocations].filter(([seq]) => !hiddenMessageSet.has(seq))),
+  [hiddenMessageSet, inspection.eventLocations, showHiddenMessages])
+  const hiddenAssistantSteps = useMemo(() => {
+    const steps = new Set<string>()
+    if (showHiddenMessages) return steps
+    for (const node of completeInspection.eventNodes) {
+      if (node.kind === 'assistant' && hiddenMessageSet.has(node.seq)) {
+        steps.add(`${node.turn}\u0000${node.step}`)
+      }
+    }
+    return steps
+  }, [completeInspection.eventNodes, hiddenMessageSet, showHiddenMessages])
+  const isHiddenAssistantRequest = (request: TrajectorySnapshot['requests'][number]): boolean =>
+    !showHiddenMessages
+    && request.purpose === 'assistant'
+    && (
+      (request.resultSeq !== undefined && hiddenMessageSet.has(request.resultSeq))
+      || hiddenAssistantSteps.has(`${request.turn}\u0000${request.step}`)
+    )
   const historyBaseSeq = nodes[0]?.seq ?? 0
   const partial = inspection.partial
   const runningCalls = inspection.runningCalls
-  const requests = inspection.requests
+  const requests = useMemo(
+    () => inspection.requests.filter(request => !isHiddenAssistantRequest(request)),
+    [hiddenAssistantSteps, hiddenMessageSet, inspection.requests, showHiddenMessages],
+  )
   const callSchemas = inspection.callSchemas
   const inspectCallId = viewRequest?.view === 'trajectory' ? viewRequest.focus : null
   const inspectNodeIndex = useMemo(() => inspectCallId === null
@@ -526,6 +559,9 @@ export function TrajectoryView({
         onToggleAllAssistants={toggleAllAssistants}
         searchQuery={searchQuery}
         onSearchQueryChange={setSearchQuery}
+        hiddenMessageCount={hiddenMessageSeqs.length}
+        showHiddenMessages={showHiddenMessages}
+        onToggleHiddenMessages={() => { setHiddenMessagesVisible?.(!showHiddenMessages) }}
         t={t}
       />
       <TrajectoryTimeline

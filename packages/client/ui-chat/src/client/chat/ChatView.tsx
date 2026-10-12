@@ -26,6 +26,8 @@ import { useChatScroll } from './use-chat-scroll.ts'
 import { fileMediaUrl, resolveWorkspacePath } from '@deepseek-ai/dsh-util-workspace-path'
 import css from './ChatView.module.css'
 
+const EMPTY_HIDDEN_MESSAGE_SEQS: readonly number[] = []
+
 /** Host/OS refusal text for the file-open dialog; empty throws keep a locale fallback. */
 function openFailureMessage(error: unknown, fallback: string): string {
   const message = error instanceof Error ? error.message : String(error)
@@ -103,7 +105,10 @@ const ChatNodeList = memo(function ChatNodeList({ entries, useChatGroup, pending
 export function ChatView({
   useSession, useChat, useChatNode, useChatNodeProcess, useChatGroup, useConversation, useSessions, useStore, actions, renderSlot,
   sessionId, openFile, openSkill, openExternalLink, loadOlder, loadThrough, loadImage, inspectCall, chatScroll, forkAt, fileMentions,
-  usePresentation, useProjection, t,
+  usePresentation, useProjection,
+  hiddenMessageSeqs = EMPTY_HIDDEN_MESSAGE_SEQS,
+  showHiddenMessages = false,
+  setMessageHidden, setHiddenMessagesVisible, t,
 }: ChatViewSlotProps) {
   const order = useChat(s => s.order)
   const chatNodes = useChat(s => s.nodes.values())
@@ -265,6 +270,18 @@ export function ChatView({
                 </button>
               </div>
             )}
+            {hiddenMessageSeqs.length > 0 && (
+              <div className={css.hiddenMessageNotice} role="status">
+                <span>{t('chat.hiddenMessages', { count: hiddenMessageSeqs.length })}</span>
+                <button
+                  type="button"
+                  aria-pressed={showHiddenMessages}
+                  onClick={() => { setHiddenMessagesVisible?.(!showHiddenMessages) }}
+                >
+                  {t(showHiddenMessages ? 'chat.hideHiddenMessages' : 'chat.showHiddenMessages')}
+                </button>
+              </div>
+            )}
             <MarkdownDelegateProvider openExternalLink={openExternalLink} openFile={requestOpenFile} fileImages={fileImages}>
               <ChatNodeList
                 entries={entries}
@@ -285,6 +302,9 @@ export function ChatView({
                 loadImage={loadImage}
                 renderMessageImages={renderMessageImages}
                 fileMentions={fileMentions}
+                hiddenMessageSeqs={hiddenMessageSeqs}
+                showHiddenMessages={showHiddenMessages}
+                setMessageHidden={setMessageHidden}
                 renderSlot={renderSlot}
                 t={t}
               />

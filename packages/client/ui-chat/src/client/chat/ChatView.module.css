@@ -113,6 +113,35 @@
   line-height: calc(18px + var(--dsh-content-font-delta-secondary, 0px));
 }
 
+.hiddenMessageNotice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--dsw-alias-label-caption);
+  font-size: var(--dsh-content-font-size-secondary, 13px);
+  line-height: calc(18px + var(--dsh-content-font-delta-secondary, 0px));
+}
+
+.hiddenMessageNotice button {
+  flex: none;
+  padding: 2px 6px;
+  border: 0;
+  border-radius: var(--dsw-radius-sm);
+  background: transparent;
+  color: var(--dsw-alias-label-secondary);
+  cursor: pointer;
+}
+
+.hiddenMessageNotice button:hover {
+  color: var(--dsw-alias-label-primary);
+  text-decoration: underline;
+}
+
+.flowItem[data-message-hidden] {
+  display: none;
+}
+
 .running {
   display: flex;
   flex-direction: column;

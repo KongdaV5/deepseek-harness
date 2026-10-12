@@ -28,6 +28,10 @@ type WorkspaceViewState = {
   sessionOrderByAccount: Record<string, string[]>
   /** Archived-row visibility; omitted in pre-filter v5 snapshots and read as 'default'. */
   archivedFilter?: ArchivedFilter
+  /** Session ids hidden from this browser; older persisted views omit the field. */
+  hiddenSessionIds?: SessionId[]
+  /** Whether hidden sessions are temporarily included in the browser list and search. */
+  showHiddenSessions?: boolean
 }
 
 type SessionOrderSource = {
@@ -66,6 +70,8 @@ type WorkspaceViewActions = {
     source: SessionOrderSource,
   ) => void
   setArchivedFilter: (draft: WorkspaceViewState, filter: ArchivedFilter) => void
+  setSessionHidden: (draft: WorkspaceViewState, sessionId: SessionId, hidden: boolean) => void
+  setShowHiddenSessions: (draft: WorkspaceViewState, visible: boolean) => void
 }
 
 /** Copy read-only projections into the persisted mutable store representation. */
@@ -125,6 +131,13 @@ export function createWorkspaceViewStore(): EngineStoreHandle<WorkspaceViewState
         }))
       },
       setArchivedFilter: (d, filter: ArchivedFilter) => { d.archivedFilter = filter },
+      setSessionHidden: (d, sessionId, hidden) => {
+        const hiddenIds = d.hiddenSessionIds ??= []
+        const index = hiddenIds.indexOf(sessionId)
+        if (hidden && index < 0) hiddenIds.push(sessionId)
+        else if (!hidden && index >= 0) hiddenIds.splice(index, 1)
+      },
+      setShowHiddenSessions: (d, visible) => { d.showHiddenSessions = visible },
     },
   })
 }

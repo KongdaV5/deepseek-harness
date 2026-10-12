@@ -320,6 +320,14 @@ export interface ConvViewOwnerProps {
   openView: (view: string, focus: string) => void
   /** Acknowledge the current one-shot focus request. */
   completeViewRequest: () => void
+  /** Session-local message sequences hidden from the current view. */
+  hiddenMessageSeqs?: readonly number[] | undefined
+  /** Whether hidden messages should be temporarily included in the current view. */
+  showHiddenMessages?: boolean | undefined
+  /** Hide or restore one message by its immutable session sequence. */
+  setMessageHidden?: ((seq: number, hidden: boolean) => void) | undefined
+  /** Temporarily include or omit all hidden messages in Conversation views. */
+  setHiddenMessagesVisible?: ((visible: boolean) => void) | undefined
 }
 
 /** Base props of one target-owned Conversation View entry. */

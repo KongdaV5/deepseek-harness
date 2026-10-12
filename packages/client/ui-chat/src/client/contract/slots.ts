@@ -175,6 +175,12 @@ export interface ChatNodeOwnerProps {
   loadImage: MessageImageLoader
   renderMessageImages: RenderMessageImages
   fileMentions: (owner: TurnTailOwnerProps) => MarkdownFileMentions | undefined
+  /** Session-local event sequences hidden from Conversation views. */
+  hiddenMessageSeqs?: readonly number[] | undefined
+  /** Whether hidden message events are temporarily shown. */
+  showHiddenMessages?: boolean | undefined
+  /** Hide or restore one event by its immutable session sequence. */
+  setMessageHidden?: ((seq: number, hidden: boolean) => void) | undefined
   /** Turn-process state when this Node belongs to a projected Turn. */
   turnProcess?: TurnProcessOwnerProps | undefined
 }

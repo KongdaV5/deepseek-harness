@@ -129,6 +129,8 @@ function mount(overrides: Partial<WorkspaceBrowserProps> = {}) {
     searchSessions: vi.fn(async () => ({ items: [], hasMore: false })),
     searchResultLimit: 20,
     notifyArchivedNotOpenable: vi.fn(),
+    setSessionHidden: vi.fn(),
+    setShowHiddenSessions: vi.fn(),
     renameWorkspace: vi.fn(async () => {}),
     deleteWorkspace: vi.fn(async () => {}),
     unarchiveSession: vi.fn(async () => {}),

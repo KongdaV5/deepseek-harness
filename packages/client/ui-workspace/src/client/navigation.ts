@@ -72,6 +72,8 @@ export interface UiWorkspace {
    * @param sessionId - Session to unarchive.
    */
   unarchiveSession(sessionId: SessionId): Promise<void>
+  /** Hide or restore a Session in local browser state without changing Host state. */
+  setSessionHidden(sessionId: SessionId, hidden: boolean): void
   /**
    * Pin a Session on the Host, then lead it in its accounts' saved orders
    * (its Workspace group or Ungrouped, and the flat list). The order write
@@ -145,7 +147,7 @@ class UiWorkspaceService extends Service implements UiWorkspace {
     private readonly directoryPicker: ClientRemote['directoryPicker'],
     private readonly workspaces: IWorkspaces,
     private readonly sessions: ISessions,
-    private readonly view: Pick<WorkspaceViewStoreActions, 'pinSessionOrder'>,
+    private readonly view: Pick<WorkspaceViewStoreActions, 'pinSessionOrder' | 'setSessionHidden'>,
     private readonly notify: (toast: RowToast) => void,
   ) {
     super(ctx, 'uiWorkspace')
@@ -247,6 +249,11 @@ class UiWorkspaceService extends Service implements UiWorkspace {
 
   async unarchiveSession(sessionId: SessionId): Promise<void> {
     await this.workspaces.unarchiveSession(sessionId)
+  }
+
+  setSessionHidden(sessionId: SessionId, hidden: boolean): void {
+    this.view.setSessionHidden(sessionId, hidden)
+    if (hidden && this.mainReference?.sessionId === sessionId) this.clearMain()
   }
 
   async pinSession(sessionId: SessionId): Promise<void> {

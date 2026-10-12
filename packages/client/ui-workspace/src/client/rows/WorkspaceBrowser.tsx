@@ -53,6 +53,7 @@ const SEARCH_DEBOUNCE_MS = 250
 const SEARCH_QUERY_MAX_CODE_UNITS = 500
 /** Idle Session rows visible per Workspace before the local overflow control. */
 const COLLAPSED_SESSION_LIMIT = 5
+const EMPTY_SESSION_IDS: readonly SessionId[] = []
 
 /** Keep provisional and running rows outside the idle-session quota, including parents with running children. */
 function collapsedSessionRows(sessions: readonly SessionNode[], limit = COLLAPSED_SESSION_LIMIT): {
@@ -103,13 +104,18 @@ function useNativeDragAcceptance(active: boolean): void {
 }
 
 /** Grouping, ordering, and archived-filter menu; own open state so it resets with the wide chrome. */
-function ViewOptionsMenu({ groupBy, orderBy, archivedFilter, onGroupPick, onOrderPick, onArchivedFilterPick, t }: {
+function ViewOptionsMenu({
+  groupBy, orderBy, archivedFilter, showHiddenSessions,
+  onGroupPick, onOrderPick, onArchivedFilterPick, onShowHiddenSessionsPick, t,
+}: {
   groupBy: SessionGroupBy
   orderBy: SessionOrderBy
   archivedFilter: ArchivedFilter
+  showHiddenSessions: boolean
   onGroupPick: (mode: SessionGroupBy) => void
   onOrderPick: (mode: SessionOrderBy) => void
   onArchivedFilterPick: (filter: ArchivedFilter) => void
+  onShowHiddenSessionsPick: (visible: boolean) => void
   t: WorkspaceBrowserProps['t']
 }) {
   const [open, setOpen] = useState(false)
@@ -131,11 +137,18 @@ function ViewOptionsMenu({ groupBy, orderBy, archivedFilter, onGroupPick, onOrde
         { id: 'hide-archived', label: t('viewOptions.hideArchived'), icon: <IconArchiveOffOutlineRegular /> },
         { id: 'show-archived', label: t('viewOptions.showArchived'), icon: <IconQueueOutlineRegular /> },
         { id: 'only-archived', label: t('viewOptions.onlyArchived'), icon: <IconArchiveCheckOutlineRegular /> },
+        { type: 'separator' as const, id: 'hidden-filter-separator' },
+        {
+          id: 'toggle-hidden',
+          label: t(showHiddenSessions ? 'viewOptions.hideHidden' : 'viewOptions.showHidden'),
+          icon: <IconQueueOutlineRegular />,
+        },
       ]}
       selectedIds={[
         groupBy,
         orderBy,
         { default: 'hide-archived', show: 'show-archived', only: 'only-archived' }[archivedFilter],
+        ...(showHiddenSessions ? ['toggle-hidden'] : []),
       ]}
       onSelect={(id) => {
         if (id === 'workspace' || id === 'workspace-tree' || id === 'flat') onGroupPick(id)
@@ -143,6 +156,7 @@ function ViewOptionsMenu({ groupBy, orderBy, archivedFilter, onGroupPick, onOrde
         else if (id === 'hide-archived') onArchivedFilterPick('default')
         else if (id === 'show-archived') onArchivedFilterPick('show')
         else if (id === 'only-archived') onArchivedFilterPick('only')
+        else if (id === 'toggle-hidden') onShowHiddenSessionsPick(!showHiddenSessions)
         setOpen(false)
       }}
       align="end"
@@ -744,6 +758,8 @@ function SearchResults({
   workspaces,
   archivedSessionIds,
   archivedFilter,
+  hiddenSessionIds,
+  showHiddenSessions,
   query,
   remote,
   resultLimit,
@@ -754,6 +770,9 @@ function SearchResults({
   archivedSessionIds: readonly SessionNode['id'][]
   /** Search matches follow the archived filter selected for the list. */
   archivedFilter: ArchivedFilter
+  /** Browser-local hidden Session ids and their temporary visibility filter. */
+  hiddenSessionIds: readonly SessionNode['id'][]
+  showHiddenSessions: boolean
   /** Unarchive an archived result row in place. */
   onUnarchive: (id: SessionNode['id']) => void
   query: string
@@ -776,8 +795,11 @@ function SearchResults({
       statuses,
       currentRemote,
       resultLimit,
+      hiddenSessionIds,
+      showHiddenSessions,
     ),
-    [list, workspaces, query, archivedSessionIds, archivedFilter, statuses, currentRemote, resultLimit],
+    [list, workspaces, query, archivedSessionIds, archivedFilter, statuses, currentRemote, resultLimit,
+      hiddenSessionIds, showHiddenSessions],
   )
   const pending = currentRemote.status === 'loading'
   const currentId = panelActive
@@ -846,6 +868,8 @@ export function WorkspaceBrowser({
   open,
   requestSessionRename,
   notifyArchivedNotOpenable,
+  setSessionHidden,
+  setShowHiddenSessions,
   renameWorkspace,
   deleteWorkspace,
   insertWorkspaceBefore,
@@ -895,6 +919,8 @@ export function WorkspaceBrowser({
   // Persisted view blobs written before the archived filter existed rehydrate
   // without the field; they read as the default hide-archived view.
   const archivedFilter = useStore(s => s.archivedFilter ?? 'default')
+  const hiddenSessionIds = useStore(s => s.hiddenSessionIds ?? EMPTY_SESSION_IDS)
+  const showHiddenSessions = useStore(s => s.showHiddenSessions ?? false)
   const groupExpansion = useStore(s => s.groupExpansion)
   const sessionOrderByAccount = useStore(s => s.sessionOrderByAccount)
   // Archived sessions are not openable: the row stays visible under the
@@ -904,6 +930,7 @@ export function WorkspaceBrowser({
       notifyArchivedNotOpenable()
       return
     }
+    if (hiddenSessionIds.includes(sessionId)) setSessionHidden(sessionId, false)
     open(sessionId)
   }
   const leaveArchivedOnly = (): void => { actions.setArchivedFilter('default') }
@@ -921,10 +948,9 @@ export function WorkspaceBrowser({
     () => ({ pinnedSessionIds, archivedSessionIds }),
     [archivedSessionIds, pinnedSessionIds],
   )
-  const rowState = useMemo<SessionRowState>(
-    () => ({ ...orderState, archivedFilter }),
-    [orderState, archivedFilter],
-  )
+  const rowState = useMemo<SessionRowState>(() => ({
+    ...orderState, archivedFilter, hiddenSessionIds, showHiddenSessions,
+  }), [orderState, archivedFilter, hiddenSessionIds, showHiddenSessions])
   const flatMemberIds = useMemo(() => sessionMemberIds(list), [list])
   const orderedWorkspaces = useMemo(() => workspaces.map((workspace) => {
     const memberIds = workspace.sessionIds
@@ -1034,6 +1060,7 @@ export function WorkspaceBrowser({
       notifyArchivedNotOpenable()
       return
     }
+    if (hiddenSessionIds.includes(sessionId)) setSessionHidden(sessionId, false)
     setRevealSessionId(sessionId)
     setQuery('')
     setSearchExpanded(false)
@@ -1275,9 +1302,11 @@ export function WorkspaceBrowser({
               groupBy={groupBy}
               orderBy={orderBy}
               archivedFilter={archivedFilter}
+              showHiddenSessions={showHiddenSessions}
               onGroupPick={actions.setGroupBy}
               onOrderPick={(mode) => { actions.setOrderBy(mode, activeSessionOrders) }}
               onArchivedFilterPick={actions.setArchivedFilter}
+              onShowHiddenSessionsPick={setShowHiddenSessions}
               t={t}
             />
           )}
@@ -1352,6 +1381,8 @@ export function WorkspaceBrowser({
               workspaces={workspaces}
               archivedSessionIds={archivedSessionIds}
               archivedFilter={archivedFilter}
+              hiddenSessionIds={hiddenSessionIds}
+              showHiddenSessions={showHiddenSessions}
               query={normalizedQuery}
               remote={remoteSearch}
               resultLimit={searchResultLimit}
@@ -1367,7 +1398,7 @@ export function WorkspaceBrowser({
                 rowState={rowState}
                 onLeaveArchivedOnly={leaveArchivedOnly}
                 workspaceReady={workspaceReady}
-                animationResetKey={`${groupBy}/${orderBy}/${archivedFilter}`}
+                animationResetKey={`${groupBy}/${orderBy}/${archivedFilter}/${showHiddenSessions}`}
                 useSessionStatus={useSessionStatus}
                 open={guardedOpen}
                 onSessionRenameRequest={requestSessionRename}
@@ -1390,7 +1421,7 @@ export function WorkspaceBrowser({
                 ungroupedSessionIds={orderedUngroupedSessionIds}
                 workspaceReady={workspaceReady}
                 nestWorkspaces={groupBy === 'workspace-tree'}
-                animationResetKey={`${groupBy}/${orderBy}/${archivedFilter}`}
+                animationResetKey={`${groupBy}/${orderBy}/${archivedFilter}/${showHiddenSessions}`}
                 groupExpansion={groupExpansion}
                 setGroupExpanded={actions.setGroupExpanded}
                 setSessionOrder={saveSessionOrder}

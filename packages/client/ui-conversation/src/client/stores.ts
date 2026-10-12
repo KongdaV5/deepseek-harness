@@ -11,6 +11,8 @@ type ConversationActions = {
   setView: (draft: ConversationStoreState, view: string) => void
   openView: (draft: ConversationStoreState, view: string, focus: string) => void
   completeViewRequest: (draft: ConversationStoreState) => void
+  setMessageHidden: (draft: ConversationStoreState, seq: number, hidden: boolean) => void
+  setHiddenMessagesVisible: (draft: ConversationStoreState, visible: boolean) => void
 }
 
 /**
@@ -29,6 +31,13 @@ export function createConversationStore(): EngineStoreHandle<ConversationStoreSt
         d.viewRequest = { view, focus }
       },
       completeViewRequest: (d) => { d.viewRequest = null },
+      setMessageHidden: (d, seq, hidden) => {
+        const sequences = d.hiddenMessageSeqs ??= []
+        const index = sequences.indexOf(seq)
+        if (hidden && index < 0) sequences.push(seq)
+        else if (!hidden && index >= 0) sequences.splice(index, 1)
+      },
+      setHiddenMessagesVisible: (d, visible) => { d.showHiddenMessages = visible },
     },
   })
 }

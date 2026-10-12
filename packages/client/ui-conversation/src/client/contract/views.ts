@@ -22,4 +22,8 @@ export interface ConversationStoreState {
   view: string | null
   /** Focus request consumed and acknowledged by the addressed View. */
   viewRequest: ConversationViewRequest | null
+  /** Session-local event sequences hidden from Conversation views; old snapshots omit this field. */
+  hiddenMessageSeqs?: number[]
+  /** Whether hidden messages are temporarily included in Conversation views. */
+  showHiddenMessages?: boolean
 }

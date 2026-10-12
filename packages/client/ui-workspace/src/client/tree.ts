@@ -58,6 +58,8 @@ export interface SessionNode {
   pinned: boolean
   /** In the registry-global archive set: shown grayed in place and not openable. */
   archived: boolean
+  /** Hidden from the browser unless the local show-hidden filter is enabled. */
+  hidden?: boolean
   updatedAt: number
 }
 
@@ -97,6 +99,8 @@ export interface SearchResultNode {
   completed: boolean
   /** In the registry-global archive set: shown grayed and not openable. */
   archived: boolean
+  /** Hidden from the browser unless the local show-hidden filter is enabled. */
+  hidden?: boolean
   snippet?: string
 }
 
@@ -240,9 +244,12 @@ function sessionVisible(
   current: SessionId | undefined,
   archived: ReadonlySet<SessionId>,
   archivedFilter: ArchivedFilter,
+  hidden: ReadonlySet<SessionId> = EMPTY_SESSION_IDS,
+  showHidden = false,
 ): boolean {
   if (session.origin === 'subagent') return false
   if (session.blank && session.id !== current) return false
+  if (!showHidden && hidden.has(session.id)) return false
   switch (archivedFilter) {
     case 'default':
       return !archived.has(session.id)
@@ -264,7 +271,13 @@ export interface SessionRowState {
   archivedSessionIds: readonly SessionId[]
   /** Archived-row visibility choice applied to lists and search alike. */
   archivedFilter: ArchivedFilter
+  /** Browser-local Session visibility set. */
+  hiddenSessionIds?: readonly SessionId[]
+  /** Whether hidden Sessions are temporarily included in lists and search. */
+  showHiddenSessions?: boolean
 }
+
+const EMPTY_SESSION_IDS: ReadonlySet<SessionId> = new Set()
 
 /**
  * Keep the visible New Session placeholder first, then partition pinned and
@@ -337,6 +350,8 @@ function groupByWorkspace(
   archived: ReadonlySet<SessionId>,
   archivedFilter: ArchivedFilter,
   ungroupedOrder: readonly string[] | undefined,
+  hidden: ReadonlySet<SessionId>,
+  showHidden: boolean,
 ): Group[] {
   const current = mainSessionId(list)
   const groups: Group[] = []
@@ -347,7 +362,7 @@ function groupByWorkspace(
       const summary = list.byId[id]
       if (summary === undefined) continue // account may lead the list pull; the row appears when the summary lands
       accounted.add(id)
-      if (!sessionVisible(summary, current, archived, archivedFilter)) continue
+      if (!sessionVisible(summary, current, archived, archivedFilter, hidden, showHidden)) continue
       members.push(summary)
     }
     // The archived-only view lists archives, not the Workspace inventory, so
@@ -361,7 +376,7 @@ function groupByWorkspace(
   const stray = list.ids
     .map(id => list.byId[id])
     .filter((s): s is SessionSummary =>
-      s !== undefined && !accounted.has(s.id) && sessionVisible(s, current, archived, archivedFilter))
+      s !== undefined && !accounted.has(s.id) && sessionVisible(s, current, archived, archivedFilter, hidden, showHidden))
   if (stray.length > 0) {
     groups.push(buildGroup(
       UNGROUPED_KEY,
@@ -400,6 +415,7 @@ function sessionNode(
   statuses: SessionStatuses,
   pinned: ReadonlySet<SessionId>,
   archived: ReadonlySet<SessionId>,
+  hidden: ReadonlySet<SessionId>,
 ): SessionNode {
   const status = statuses.get(s.id)
   const pendingInteraction = visiblePendingKind(status?.pendingInteraction?.kind)
@@ -412,6 +428,7 @@ function sessionNode(
     completed: status?.completionUnread === true,
     pinned: !archived.has(s.id) && pinned.has(s.id),
     archived: archived.has(s.id),
+    hidden: hidden.has(s.id),
     updatedAt: s.updatedAt,
     ...(pendingInteraction === undefined ? {} : { pendingInteraction }),
   }
@@ -441,6 +458,8 @@ export function deriveGroups(
   view: TreeView,
 ): GroupNode[] {
   const archived = new Set(rowState.archivedSessionIds)
+  const hidden = new Set(rowState.hiddenSessionIds ?? [])
+  const showHidden = rowState.showHiddenSessions ?? false
   const pinned = new Set(rowState.pinnedSessionIds)
   const expandedGroups = new Set(view.expandedGroups)
   const current = mainSessionId(list)
@@ -448,7 +467,9 @@ export function deriveGroups(
     ? undefined
     : owningGroupKey(workspaces, current)
   const groups: GroupNode[] = []
-  for (const g of groupByWorkspace(list, workspaces, archived, rowState.archivedFilter, view.ungroupedOrder)) {
+  for (const g of groupByWorkspace(
+    list, workspaces, archived, rowState.archivedFilter, view.ungroupedOrder, hidden, showHidden,
+  )) {
     const expanded = expandedGroups.has(g.key)
     groups.push({
       key: g.key,
@@ -461,7 +482,7 @@ export function deriveGroups(
       containsCurrent: g.key === currentGroup,
       sessions: expanded
         ? sectionMembers(g.sessions, pinned, archived)
-          .map(session => sessionNode(session, list, statuses, pinned, archived))
+          .map(session => sessionNode(session, list, statuses, pinned, archived, hidden))
         : [],
     })
   }
@@ -488,12 +509,15 @@ export function visibleSessionIds(
   list: SessionListState,
   archivedSessionIds: readonly SessionId[],
   archivedFilter: ArchivedFilter,
+  hiddenSessionIds: readonly SessionId[] = [],
+  showHiddenSessions = false,
 ): SessionId[] {
   const archived = new Set(archivedSessionIds)
+  const hidden = new Set(hiddenSessionIds)
   const current = mainSessionId(list)
   return list.ids.filter((id) => {
     const s = list.byId[id]
-    return s !== undefined && sessionVisible(s, current, archived, archivedFilter)
+    return s !== undefined && sessionVisible(s, current, archived, archivedFilter, hidden, showHiddenSessions)
   })
 }
 
@@ -513,16 +537,20 @@ export function deriveFlat(
   statuses: SessionStatuses,
 ): SessionNode[] {
   const archived = new Set(rowState.archivedSessionIds)
+  const hidden = new Set(rowState.hiddenSessionIds ?? [])
+  const showHidden = rowState.showHiddenSessions ?? false
   const pinned = new Set(rowState.pinnedSessionIds)
   const current = mainSessionId(list)
   const members = sessionIds.flatMap((id) => {
     const session = list.byId[id]
-    return session !== undefined && sessionVisible(session, current, archived, rowState.archivedFilter)
+    return session !== undefined && sessionVisible(
+      session, current, archived, rowState.archivedFilter, hidden, showHidden,
+    )
       ? [session]
       : []
   })
   return sectionMembers(members, pinned, archived)
-    .map(session => sessionNode(session, list, statuses, pinned, archived))
+    .map(session => sessionNode(session, list, statuses, pinned, archived, hidden))
 }
 
 /**
@@ -548,10 +576,13 @@ export function deriveSearchResults(
   statuses: SessionStatuses,
   content: { items: readonly SessionSearchResultItem[]; hasMore: boolean },
   limit: number,
+  hiddenSessionIds: readonly SessionId[] = [],
+  showHiddenSessions = false,
 ): SearchResultSet {
   const q = query.trim().toLowerCase()
   if (q === '') return { items: [], hasMore: false }
   const archived = new Set(archivedSessionIds)
+  const hidden = new Set(hiddenSessionIds)
   const current = mainSessionId(list)
 
   const workspaceBySession = new Map<SessionId, string>()
@@ -572,7 +603,9 @@ export function deriveSearchResults(
     const summary = list.byId[id]
     // Blank placeholders never match a query (their canonical title displays
     // localized, so matching it would tie search to one language).
-    if (summary === undefined || summary.blank || !sessionVisible(summary, current, archived, archivedFilter)) continue
+    if (summary === undefined || summary.blank || !sessionVisible(
+      summary, current, archived, archivedFilter, hidden, showHiddenSessions,
+    )) continue
     if (
       sessionTitle(summary).toLowerCase().includes(q)
       || labelOf(summary).toLowerCase().includes(q)
@@ -594,7 +627,9 @@ export function deriveSearchResults(
   for (const summary of orderedLocal) include(summary)
   for (const item of content.items) {
     const summary = list.byId[item.sessionId]
-    if (summary !== undefined && !summary.blank && sessionVisible(summary, current, archived, archivedFilter)) include(summary)
+    if (summary !== undefined && !summary.blank && sessionVisible(
+      summary, current, archived, archivedFilter, hidden, showHiddenSessions,
+    )) include(summary)
   }
 
   return {
@@ -613,6 +648,7 @@ export function deriveSearchResults(
           : { pendingInteraction }),
         completed: status?.completionUnread === true,
         archived: archived.has(summary.id),
+        hidden: hidden.has(summary.id),
         ...match === undefined ? {} : { snippet: match.snippet },
       }
     }),

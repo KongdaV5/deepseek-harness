@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useCallback, useEffect } from 'react'
 import type { ConversationSessionSlotProps } from '../contract/slots.ts'
 import { conversationPhase } from '../contract/snapshot.ts'
 import { resolveActiveView } from '../view-selection.ts'
@@ -23,6 +23,16 @@ export function DefaultConversationViews({
   const inputState = useInput(s => s)
   const storedDraft = useStore(s => s.draft)
   const viewRequest = useStore(s => s.viewRequest ?? null)
+  const hiddenMessageSeqs = useStore(s => s.hiddenMessageSeqs ?? EMPTY_HIDDEN_MESSAGE_SEQS)
+  const showHiddenMessages = useStore(s => s.showHiddenMessages ?? false)
+  const setMessageHidden = useCallback(
+    (seq: number, hidden: boolean) => { actions.setMessageHidden(seq, hidden) },
+    [actions.setMessageHidden],
+  )
+  const setHiddenMessagesVisible = useCallback(
+    (visible: boolean) => { actions.setHiddenMessagesVisible(visible) },
+    [actions.setHiddenMessagesVisible],
+  )
 
   useEffect(() => {
     if (inputState.draft === '' && storedDraft !== '') inputActions.setDraft(storedDraft)
@@ -41,7 +51,13 @@ export function DefaultConversationViews({
         viewRequest,
         openView,
         completeViewRequest: actions.completeViewRequest,
+        hiddenMessageSeqs,
+        showHiddenMessages,
+        setMessageHidden,
+        setHiddenMessagesVisible,
       }, { only: viewId })}
     </div>
   )
 }
+
+const EMPTY_HIDDEN_MESSAGE_SEQS: readonly number[] = []
