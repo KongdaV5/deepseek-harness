@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
+import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { Context } from '@deepseek-ai/cordis'
+import Loader from '@deepseek-ai/cordis-plugin-loader'
+import Include from '@deepseek-ai/cordis-plugin-include'
 import { createUserMessage, ToolCallId  } from '@deepseek-ai/dsh-llm'
 import type { ContextFormed } from '@deepseek-ai/dsh-llm'
 import { SessionId, type SessionEvent } from '@deepseek-ai/dsh-session'
@@ -28,11 +34,26 @@ const testToolSignal = new AbortController().signal
  */
 
 /** Boot the core spine + the guard; the caller registers adapters and extra listeners. */
-async function harness(config: Config = {}): Promise<Context> {
+async function harness(config: Config = {}, throughLoader = false): Promise<Context> {
   const ctx = new Context()
   await mountAgentLoopTestDependencies(ctx)
   await ctx.plugin(AgentLoop, { agents: [] })
-  await ctx.plugin(RepeatToolGuard, config)
+  if (throughLoader) {
+    const root = await mkdtemp(join(tmpdir(), 'dsh-repeat-guard-loader-'))
+    try {
+      const path = join(root, 'cordis.yml')
+      await writeFile(path, JSON.stringify([{ name: 'cordis:repeat-guard', config }]))
+      await ctx.plugin(Loader)
+      ctx.loader.builtins.include = Include
+      ctx.loader.builtins['repeat-guard'] = RepeatToolGuard
+      await ctx.loader.create({ name: 'cordis:include', config: { path: pathToFileURL(path).href } })
+      await ctx.loader.await()
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  } else {
+    await ctx.plugin(RepeatToolGuard, config)
+  }
   ctx.tools.register(defineContentToolFixture({ name: 'probe', description: 'p', parameters: {}, async execute() { return [{ type: 'text', text: 'ok' }] } }))
   ctx.tools.register(defineContentToolFixture({ name: 'other', description: 'o', parameters: {}, async execute() { return [{ type: 'text', text: 'ok' }] } }))
   return ctx
@@ -58,6 +79,77 @@ const guardSource = (tool: string, count: number) => ({
   kind: 'repeat-tool-reminder',
   form: 'notice',
   summary: `${tool} × ${count}`,
+})
+
+describe('bounded identical-result execution', () => {
+  it('stops a loaded composition before another request and preserves the last tool result', async () => {
+    const ctx = await harness({ stopAfterIdenticalResults: 3 }, true)
+    const adapter = new MockAdapter([
+      ...Array.from({ length: 5 }, (_, i) => toolCallResponse(`c${i}`, 'probe', { q: 'same' })),
+      textResponse('done'),
+    ])
+    ctx.llm.registerAdapter(['mock'], adapter)
+    const agent = await ctx.agentLoop.create(SessionId('guard-stop'), { provider: 'mock', model: 'mock' })
+    try {
+      agent.followup(createUserMessage({ content: [{ type: 'text', text: 'go' }], source: { kind: 'user' } }))
+      await waitForIdle(ctx, agent)
+      expect(adapter.requests).toHaveLength(3)
+      const events = agent.session.snapshotEvents()
+      expect(events.filter(event => event.type === 'tool/result')).toHaveLength(3)
+      const end = events.find(event => event.type === 'turn/end')
+      expect(end?.data).toMatchObject({ reason: { kind: 'aborted', reason: { kind: 'hook', reason: 'Repeated tool execution returned identical results 3 times. Inspect saved results and change approach before resuming.' } } })
+      agent.followup(createUserMessage({ content: [{ type: 'text', text: 'retry with new instruction' }], source: { kind: 'user' } }))
+      await waitForIdle(ctx, agent)
+      expect(adapter.requests).toHaveLength(6)
+    } finally {
+      await ctx.fiber.dispose()
+    }
+  })
+
+  it.each(['changed-results', 'excluded-polling', 'different-arguments'] as const)('allows %s to continue', async (mode) => {
+    const ctx = await harness({ stopAfterIdenticalResults: 2, stopExclude: mode === 'excluded-polling' ? ['probe'] : [] })
+    let count = 0
+    if (mode === 'changed-results') {
+      ctx.tools.register(defineContentToolFixture({ name: 'progress', description: 'p', parameters: {}, async execute() { return [{ type: 'text', text: `progress ${++count}` }] } }))
+    }
+    const adapter = new MockAdapter([
+      ...Array.from({ length: 5 }, (_, i) => toolCallResponse(`c${i}`, mode === 'changed-results' ? 'progress' : 'probe', mode === 'different-arguments' ? { i } : {})),
+      textResponse('done'),
+    ])
+    ctx.llm.registerAdapter(['mock'], adapter)
+    const agent = await ctx.agentLoop.create(SessionId(`guard-${mode}`), { provider: 'mock', model: 'mock' })
+    try {
+      agent.followup(createUserMessage({ content: [{ type: 'text', text: 'go' }], source: { kind: 'user' } }))
+      await waitForIdle(ctx, agent)
+      expect(adapter.requests).toHaveLength(6)
+    } finally {
+      await ctx.fiber.dispose()
+    }
+  })
+
+  it.each([-1, 1, 2.5])('rejects invalid stop count %s', async (stopAfterIdenticalResults) => {
+    await expect(harness({ stopAfterIdenticalResults })).rejects.toThrow('stopAfterIdenticalResults')
+  })
+
+  it('stops repeated failed tool calls without converting them to successful completion', async () => {
+    const ctx = await harness({ stopAfterIdenticalResults: 2 })
+    ctx.tools.register(defineContentToolFixture({ name: 'failure', description: 'f', parameters: {}, async execute() { throw new Error('same blocker') } }))
+    const adapter = new MockAdapter([
+      toolCallResponse('f1', 'failure', {}), toolCallResponse('f2', 'failure', {}), textResponse('must not run'),
+    ])
+    ctx.llm.registerAdapter(['mock'], adapter)
+    const agent = await ctx.agentLoop.create(SessionId('guard-failure'), { provider: 'mock', model: 'mock' })
+    try {
+      agent.followup(createUserMessage({ content: [{ type: 'text', text: 'go' }], source: { kind: 'user' } }))
+      await waitForIdle(ctx, agent)
+      expect(adapter.requests).toHaveLength(2)
+      const results = agent.session.snapshotEvents().filter(event => event.type === 'tool/result')
+      expect(results).toHaveLength(2)
+      expect(results.every(event => event.type === 'tool/result' && event.data.message.isError)).toBe(true)
+    } finally {
+      await ctx.fiber.dispose()
+    }
+  })
 })
 
 describe('threshold escalation', () => {

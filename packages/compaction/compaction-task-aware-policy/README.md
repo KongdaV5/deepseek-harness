@@ -54,7 +54,7 @@ The block is **code-rendered**, never model-authored. `decorateRequest` returns 
 
 ### The auxiliary ladder is bounded and truthful
 
-The auxiliary summarization request asks for `low` reasoning on its first candidate and `medium` on a further one, and never for the main Run's effort. The ladder is a product invariant with exactly two rungs. Before any auxiliary model call, `begin` proves that the executor's declared route can actually honor the first rung; a route that cannot is refused rather than sent an unsupported wire value. A `decorateRequest` for a route other than the one the transaction priced fails closed.
+An auxiliary summary route with an advertised `off` default stays off for both candidates. Other routes ask for `low` reasoning on the first candidate and `medium` on a further one, and never inherit the main Run's effort. The ladder is a product invariant with exactly two rungs. Before any auxiliary model call, `begin` proves that the executor's declared route can actually honor the first rung; a route that cannot is refused rather than sent an unsupported wire value. A `decorateRequest` for a route other than the one the transaction priced fails closed.
 
 ### Nothing here becomes authority
 
@@ -108,7 +108,7 @@ import type {
 | `validateTaskAwareCandidate(candidate, context)` | The deterministic verdict: `accept`, one permitted `retry`, or a `reject` carrying its exact rule code. |
 | `admitTaskAware(input)` | The pure admission decision: obstacle order, the manual exemption, and the task-less fail-open. |
 | `resolveAuxiliaryReasoning(provider, model, capability, attempt)` | Resolve one ladder rung against the exact route's published capability. |
-| `AUXILIARY_REASONING_LADDER` | The `['low', 'medium']` product invariant. |
+| `AUXILIARY_REASONING_LADDER` | The two-rung fallback `['low', 'medium']`; an explicit `off` route stays off. |
 | `taskRepairHazards(snapshot, taskId)` / `unknownOutcomeHazard(hazards)` | The addressed Task's hazards, and the unknown-outcome obstacle among them. |
 | `usableInputTokens(contextWindow, maxTokens)` | The capacity arithmetic, floored at zero. |
 | `textOfContent(content)` | The text projection used by validation and pricing. |
@@ -155,7 +155,7 @@ Replacing rather than appending, exactly as any other compaction checkpoint: reu
 - **A validation failure is asked for once more and then refused** — the Custom policy admits at most two candidates within the native transaction; there is no third attempt, and exhausting the budget is a refusal rather than a degraded publication.
 - **The protection root is only as strong as the projections it reads** — a protected fact that the Task projections do not expose cannot be captured, so the capture fails closed with `TASK_AUTHORITY_UNAVAILABLE` instead of publishing a weaker block.
 - **Capacity is consulted only when the route advertises a window** — an unpriced route means the policy makes no capacity claim at all, and the executor's own capacity error stays the owner of that failure mode.
-- **The auxiliary ladder has exactly two rungs** — `low` then `medium`; a route that cannot advertise `low` refuses the compaction before any auxiliary call rather than substituting an effort it never priced.
+- **The auxiliary ladder has exactly two rungs** — an explicit `off` default stays off, otherwise `low` then `medium`; a route that cannot advertise its requested effort refuses the compaction before any auxiliary call rather than substituting an effort it never priced.
 - **The policy protects the Task the Session is currently tracking** — it never addresses a different Task, and it never decides that a Task should be dropped, so a Task-less Session is fail-open rather than a protected empty case.
 - **No new Session event type is introduced** — the policy's only durable trace is the optional `plugin:task-compaction-audit` field on the executor's existing `compaction/summary` event.
 - **No runtime invariant companion is published because the policy is a reader and a gate over already-folded projection state, it appends no durable fact of its own, and every decision it makes is a pure function of one authority cut plus one candidate** — its contracts are proven by the pure decision matrices and the plugin and executor specs rather than by a runtime observer.

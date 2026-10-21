@@ -54,7 +54,7 @@ ctx.plugin(TaskAwareCompactionPolicy)
 
 ### 辅助阶梯有界且诚实
 
-辅助摘要请求在第一个候选上要求 `low` 推理、在后续候选上要求 `medium`，而从不要求主 Run 的 effort。该阶梯是恰好两级的产物不变量。在任何辅助模型调用之前，`begin` 会证明执行器声明的路由确实能够满足第一级；不能满足的路由会被拒绝，而不是被发送一个不受支持的线上取值。针对非本事务所计价路由的 `decorateRequest` 会 fail closed。
+辅助摘要路由明确公布 `off` 默认值时，两个候选都关闭推理；其他路由在第一个候选上要求 `low` 推理、在后续候选上要求 `medium`，从不继承主 Run 的 effort。该阶梯是恰好两级的产物不变量。在任何辅助模型调用之前，`begin` 会证明执行器声明的路由确实能够满足第一级；不能满足的路由会被拒绝，而不是被发送一个不受支持的线上取值。针对非本事务所计价路由的 `decorateRequest` 会 fail closed。
 
 ### 此处不会成为权威
 
@@ -108,7 +108,7 @@ import type {
 | `validateTaskAwareCandidate(candidate, context)` | 确定性裁决：`accept`、一次被允许的 `retry`，或携带其精确规则码的 `reject`。 |
 | `admitTaskAware(input)` | 纯放行决策：障碍顺序、手动豁免，以及无 Task 时的 fail-open。 |
 | `resolveAuxiliaryReasoning(provider, model, capability, attempt)` | 针对该精确路由已公布的能力解析一级阶梯。 |
-| `AUXILIARY_REASONING_LADDER` | `['low', 'medium']` 这一产物不变量。 |
+| `AUXILIARY_REASONING_LADDER` | 两级回退 `['low', 'medium']`；明确设置 `off` 的路由保持关闭推理。 |
 | `taskRepairHazards(snapshot, taskId)` / `unknownOutcomeHazard(hazards)` | 被寻址 Task 的隐患，以及其中的未知结果障碍。 |
 | `usableInputTokens(contextWindow, maxTokens)` | 容量算术，下界为零。 |
 | `textOfContent(content)` | 校验与计价所用的文本投影。 |
@@ -155,7 +155,7 @@ import type {
 - **校验失败只会再索取一次，随后即拒绝** —— Custom policy 在 native transaction 内最多接纳两个 candidate；不存在第三次尝试，而耗尽预算是拒绝，而不是降级发布。
 - **保护根的强度上限取决于它所读取的投影** —— Task 投影未暴露的受保护事实无法被捕获，因此捕获会以 `TASK_AUTHORITY_UNAVAILABLE` fail closed，而不是发布一个更弱的块。
 - **只有在路由声明了窗口时才查询容量** —— 未计价的路由意味着策略完全不作出容量声明，该失败模式仍归执行器自己的容量错误所有。
-- **辅助阶梯恰好两级** —— `low` 然后 `medium`；无法公布 `low` 的路由会在任何辅助调用之前拒绝压缩，而不是替换成一个它从未计价过的 effort。
+- **辅助阶梯恰好两级** —— 明确设置 `off` 时保持关闭，否则 `low` 然后 `medium`；无法公布所请求 effort 的路由会在任何辅助调用之前拒绝压缩，而不是替换成一个它从未计价过的 effort。
 - **策略保护的是 Session 当前跟踪的那个 Task** —— 它从不寻址其他 Task，也从不决定某个 Task 应被丢弃，因此无 Task 的 Session 是 fail-open 而非受保护的空情形。
 - **不引入新的 Session 事件类型** —— 策略唯一的持久痕迹是执行器既有 `compaction/summary` 事件上的可选 `plugin:task-compaction-audit` 字段。
 - **不发布运行时不变式伴随物，因为该策略只是对已折叠投影状态的读取者与闸门，它不追加任何自己的持久事实，而它做出的每个决策都是「一份权威切面加一个候选」的纯函数** —— 它的契约由纯决策矩阵以及插件与执行器规格来证明，而不是由运行时观察者证明。

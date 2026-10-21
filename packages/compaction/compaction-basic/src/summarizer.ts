@@ -60,6 +60,7 @@ const COMPACTION_INSTRUCTION = [
   '- [decisions and their rationale, constraints, user preferences, open questions, data needed to continue]',
   '',
   'Rules:',
+  '- Keep the complete checkpoint under 350 words where possible. Preserve essential constraints and exact paths; reference durable files instead of repeating their contents or resolved debugging history. Leave room to finish every section within the generation cap.',
   '- Write concise English engineering prose. Preserve exact file paths, commands, error strings, identifiers, numeric values, function signatures, and syntax fragments.',
   '- Capture user feedback and explicit instructions faithfully, especially corrections.',
   '- Do NOT mention this summarization request or that the context was compacted.',

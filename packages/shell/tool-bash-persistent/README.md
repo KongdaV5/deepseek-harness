@@ -86,6 +86,7 @@ This section explains the design decisions behind the tool and points at the cod
 
 A first command spawns the shell through `ctx.terminals.spawn`, disables input echo (`stty -echo`), and waits for readiness. Each command is then wrapped into one physical line — a printf of the start marker, the command body escaped with `$'…'`, and a printf of the end marker plus `$?` — so embedded newlines cannot leak terminal prompts into the result. The tool polls the scrollback in 1,000-line pages until the end marker appears, extracts the span, and renders it with any status marker. A timeout aborts the deadline, captures the partial output, and resets the shell.
 
+The command body uses ASCII-only UTF-8 byte escapes for non-ASCII and control characters, so Readline Meta conversion or Tab completion cannot rewrite the command before Bash decodes it.
 </details>
 
 -----

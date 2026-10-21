@@ -12,6 +12,7 @@ import type { CompactionResult, CompactionTrigger } from '@deepseek-ai/dsh-compa
 import type { Session, SessionSeq } from '@deepseek-ai/dsh-session'
 import { CONTEXT_WINDOW_EXCEEDED_CODE } from '@deepseek-ai/dsh-llm'
 import type { LlmCallConfig } from '@deepseek-ai/dsh-llm'
+import type { TokenMeasurement } from '@deepseek-ai/dsh-token-meter'
 import { assertNever } from '@deepseek-ai/dsh-util-values'
 import type { Agent, PreStepDecision } from '@deepseek-ai/dsh-agent'
 import type { CommandId } from '@deepseek-ai/dsh-commands/brand'
@@ -66,6 +67,30 @@ function routedTarget(
 function reservedCompletionTokens(agent: Agent, defaultMaxTokens: number | undefined): number {
   const configured = agent.session.requestHeader()?.config.maxTokens
   return configured ?? defaultMaxTokens ?? 0
+}
+
+const MIN_OVERFLOW_SUMMARY_HEADROOM_TOKENS = 4096
+
+/**
+ * Keep the replayed prefix inside the summarizer's context, reserving room for
+ * its completion, fixed compaction instruction, hidden request envelope, and
+ * a minimum safety margin. The returned retention budget lets range selection
+ * compact only the oldest prefix that fits; a balanced boundary may retain
+ * more recent history, which is safe.
+ */
+function overflowRetainTokens(
+  measurement: TokenMeasurement,
+  contextWindow: number,
+  summaryMaxTokens: number,
+  headroomTokens: number,
+): number | null {
+  const hiddenEnvelopeTokens = Math.max(0, measurement.totalTokens - measurement.surfaceTokens)
+  const summaryInputBudget = contextWindow
+    - summaryMaxTokens
+    - Math.max(headroomTokens, MIN_OVERFLOW_SUMMARY_HEADROOM_TOKENS)
+    - hiddenEnvelopeTokens
+  if (summaryInputBudget <= 0) return null
+  return Math.max(0, measurement.surfaceTokens - summaryInputBudget)
 }
 
 /** Resolve the conversation target used to select an optional policy override. */
@@ -134,6 +159,7 @@ export class BasicCompactionEngine extends CompactionEngine {
   private readonly warnedPressureConfigTargets = new Set<string>()
   private readonly overflowRetries = new WeakMap<Agent, number>()
   private readonly overflowAgents = new WeakMap<Session, Agent>()
+  private readonly pressureFailures = new WeakSet<Agent>()
 
   constructor(ctx: Context, config: BasicCompactionConfig = {}) {
     super(ctx)
@@ -160,7 +186,7 @@ export class BasicCompactionEngine extends CompactionEngine {
       { agent, signal },
       next,
     ): Promise<PreStepDecision> => {
-      if (!signal.aborted) {
+      if (!signal.aborted && !this.pressureFailures.has(agent)) {
         try {
           const result = await this.compactIfNeeded(agent, 'pressure', signal)
           if (result !== null) logResult(result, 'step pressure')
@@ -170,14 +196,18 @@ export class BasicCompactionEngine extends CompactionEngine {
             this.warnedPressureConfigTargets.add(error.targetKey)
           }
           const message = error instanceof Error ? error.message : String(error)
-          ctx.logger.warn(`step compaction failed: ${message}; continuing the turn`)
+          ctx.logger.warn(`step compaction failed: ${message}; continuing the turn`
+            + (this.pressureFailures.has(agent) ? ' without further pressure summaries until idle' : ''))
         }
       }
       return next()
     })
 
     ctx.on('agent/status', ({ agent, status }) => {
-      if (status === 'idle') this.overflowRetries.delete(agent)
+      if (status === 'idle') {
+        this.overflowRetries.delete(agent)
+        this.pressureFailures.delete(agent)
+      }
     })
 
     // A successful response starts a fresh overflow-recovery sequence even
@@ -260,8 +290,9 @@ export class BasicCompactionEngine extends CompactionEngine {
   /**
    * Compact for replayed step-boundary pressure or one provider-confirmed context
    * overflow. Both triggers price the latest durable routed request envelope;
-   * overflow bypasses the normal threshold and retained-tail policy so it can
-   * force one useful balanced reduction.
+   * overflow bypasses the normal pressure threshold, but sizes the compacted
+   * prefix so the auxiliary summary request fits its own model context while
+   * retaining the newest history.
    * @param agent - agent whose latest durable routed request is measured.
    * @param trigger - normal step-boundary pressure or context-overflow recovery.
    * @param signal - live turn cancellation signal forwarded to summarization.
@@ -298,8 +329,34 @@ export class BasicCompactionEngine extends CompactionEngine {
         prune.pruneSession(agent.session)
         measurement = meter.measure(agent.session)
       }
-      const range = selectCompactableRange(agent.session, measurement, 0)
-      if (range === null) return null
+      const summaryTarget = policy.summarizationProvider.length === 0
+        ? target
+        : { provider: policy.summarizationProvider, model: policy.summarizationModel }
+      const summaryPolicy = resolveTargetPolicy(this.config, summaryTarget)
+      const summaryInfo = await this.ctx.llm.resolveModelInfo(summaryTarget.provider, summaryTarget.model, signal)
+      const contextWindow = summaryInfo.context?.contextWindow
+      if (contextWindow === undefined) {
+        throw new Error(
+          'context-overflow compaction cannot bound the summary request: '
+          + `${summaryTarget.provider}/${summaryTarget.model} has no declared contextWindow`,
+        )
+      }
+      const retainTokens = overflowRetainTokens(
+        measurement,
+        contextWindow,
+        policy.maxTokens,
+        Math.max(policy.headroomTokens, summaryPolicy.headroomTokens),
+      )
+      if (retainTokens === null) {
+        throw new Error(
+          'context-overflow compaction has no safe summary-input budget for '
+          + `${summaryTarget.provider}/${summaryTarget.model} (${contextWindow}-token context)`,
+        )
+      }
+      const range = selectCompactableRange(agent.session, measurement, retainTokens)
+      if (range === null) {
+        throw new Error('context-overflow compaction found no balanced history prefix within the summary budget')
+      }
       return this.compactRegion(range.start, range.end, agent, signal, trigger)
     }
 
@@ -456,18 +513,27 @@ export class BasicCompactionEngine extends CompactionEngine {
   private regionDependencies(agent: Agent,
     trigger: import('@deepseek-ai/dsh-compaction').CompactionPolicyTrigger): Parameters<typeof compactSurfaceRegion>[0] {
     const policy = this.ctx.get('compactionCandidatePolicy')
+    const route = conversationTarget(agent)
+    const config = route === undefined ? this.config : resolveTargetPolicy(this.config, route)
     return {
       meter: this.ctx.tokenMeter,
       ...policy === undefined ? {} : { policy },
-      trigger, maxTokens: this.config.maxTokens,
+      trigger, maxTokens: config.maxTokens,
       target: () => {
         const header = agent.session.requestHeader()?.config
-        const provider = this.config.summarizationProvider || header?.provider || agent.options.provider
-        const model = this.config.summarizationModel || header?.model || agent.options.model
+        const provider = config.summarizationProvider || header?.provider || agent.options.provider
+        const model = config.summarizationModel || header?.model || agent.options.model
         if (!provider || !model) throw new Error('compaction has no explicit summarization route')
         return { provider, model }
       },
-      summarize: (input, owner, abort) => this.summarize(input, owner, abort),
+      summarize: async (input, owner, abort) => {
+        try {
+          return await this.summarize(input, owner, abort)
+        } catch (error: unknown) {
+          if (trigger === 'pressure' && !abort?.aborted) this.pressureFailures.add(owner)
+          throw error
+        }
+      },
       recover: (error, agent, sourceEventSeqs, signal) => this.ctx.waterfall('compaction/summary-error', {
         session: agent.session,
         sourceEventSeqs,

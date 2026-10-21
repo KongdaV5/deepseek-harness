@@ -503,6 +503,28 @@ describe('desktop main startup', () => {
     expect((await handler(new Request('dsh-app://unknown/update-dialog.html'))).status).toBe(404)
   })
 
+  it('forwards application commands through Electron networking in the registered protocol handler', async () => {
+    await readyForUpdate()
+    const web = await import('../src/web-document.ts')
+    const actual = await vi.importActual<typeof import('../src/web-document.ts')>('../src/web-document.ts')
+    const { net } = await import('electron')
+    vi.mocked(web.forwardWebRequest).mockImplementation(actual.forwardWebRequest)
+    vi.mocked(net.fetch).mockResolvedValue(new Response('command completed'))
+    try {
+      const handler = harness.protocolHandle.mock.calls[0]![1]
+      const request = new Request('dsh-app://app/api/commands/execute', { method: 'POST', body: '{}' })
+      expect(await (await handler(request)).text()).toBe('command completed')
+      const [target, init] = vi.mocked(net.fetch).mock.calls.at(-1)!
+      expect(String(target)).toContain('/api/commands/execute')
+      expect(new Headers(init?.headers).get('cookie')).toBe('test-cookie')
+      expect(init?.signal).toBe(request.signal)
+      expect(init?.body).toBe(request.body)
+    } finally {
+      vi.mocked(web.forwardWebRequest).mockReset()
+      vi.mocked(net.fetch).mockReset()
+    }
+  })
+
   it('installs hidden native DevTools shortcuts in the macOS application menu', async () => {
     vi.stubGlobal('process', { ...process, platform: 'darwin' })
     await readyForUpdate()

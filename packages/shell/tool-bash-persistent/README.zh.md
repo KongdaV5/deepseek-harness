@@ -86,6 +86,7 @@ kind: "package-reference"
 
 首条命令通过 `ctx.terminals.spawn` 生成 shell，禁用输入回显（`stty -echo`），并等待就绪。随后每条命令都包装成一行物理文本——printf 起始标记、用 `$'…'` 转义的命令体、printf 结束标记加 `$?`——因此内嵌换行无法把终端提示符泄漏进结果。工具以 1,000 行一页轮询 scrollback，直到出现结束标记，提取区间并连同任何状态标记一起渲染。超时会中止截止时间、捕获部分输出并重置 shell。
 
+命令体将非 ASCII 字符和控制字符转换为仅含 ASCII 的 UTF-8 字节转义，由 Bash 还原，因此 Readline 的 Meta 转换或 Tab 补全不会在执行前改写命令。
 </details>
 
 -----

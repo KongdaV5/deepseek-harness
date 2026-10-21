@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-This package helps a model escape loops in which it calls the same tool with identical arguments without making progress. At configured repeat counts, it asks the model to inspect the previous result and change approach or finish. The reminder is advisory: it never blocks or delays a legitimate repeated call. Repeats are tracked separately for each agent and cleared by a new user message. The `dsh` base bundle enables the package with reminders at 3, 5, and 8 repeats.
+This package helps a model escape loops in which it calls the same tool with identical arguments without making progress. At configured repeat counts, it asks the model to inspect the previous result and change approach or finish. Reminders are advisory by default. An optional identical-result limit stops the turn before another model request, after the preceding tool results have been saved. Repeats are tracked separately for each agent and cleared by a new user message. The `dsh` base bundle enables the package with reminders at 3, 5, and 8 repeats.
 
 ## Table of Contents
 
@@ -50,8 +50,12 @@ When you want to change when reminders fire or which tools they cover, mount the
 | `include` | `[]` | Only these tools are tracked; empty means every tool |
 | `exclude` | `[]` | These tools are never tracked; calls to them neither count nor reset |
 | `argumentsPreviewChars` | `500` | How many characters of the repeated arguments the detailed reminder shows |
+| `stopAfterIdenticalResults` | `0` | Stop after this many identical calls and results; zero disables forced stops, otherwise an integer of at least 2 |
+| `stopExclude` | `[]` | Tool patterns exempt from forced stops; exempt calls reset the result chain |
 
 Invalid configuration fails at startup with a clear error — an empty `thresholds` list, a repeat count below 2, or a duplicate — never a silent change of behavior. The generated [configuration catalog](../../../docs/config-catalog.md#deepseek-aidsh-repeat-tool-reminder) documents every accepted value.
+
+When forced stops are enabled, the same tool, canonical arguments, error status, content, and successful value must repeat without change. Changed results reset the count. Put legitimate polling tools such as `job_output` and `job_list` in `stopExclude`. A stop is durably recorded as a hook cancellation, preserves files and tool results, and resets at idle or a new user instruction. It does not declare the task complete; inspect the saved result and revise the approach before resuming.
 
 ### What you get
 
@@ -71,7 +75,7 @@ This section explains how the guard detects repeats and delivers reminders, and 
 
 The guard is built on four commitments:
 
-- **Advisory, not veto.** The guard enriches post-execute decisions with model context; it never blocks or rewrites a call, so `PostToolDecision` blocking stays a later listener's job.
+- **Default advice, optional forced stop.** Reminders enrich post-execute decisions without rewriting a call. The optional result counter requests canonical Agent cancellation at the next pre-step, after the prior result batch is durable.
 - **Count in post-execute.** Detection runs on `tools/post-execute`, which also fires for denied calls; counting there lets one listener cover every attempt with no cross-event state.
 - **Exact-match canonicalization.** Arguments reach the guard as the loop's `JSON.parse` output (or its raw-string fallback), so JSON's value domain is the whole input domain and a deep key-sort plus `JSON.stringify` is a complete, deterministic identity — no bigint, cycle, or `undefined` handling exists because no input path can produce them.
 - **Fail loud at load.** `thresholds` and `argumentsPreviewChars` validate in `apply` and throw, never falling back to defaults.
@@ -168,7 +172,7 @@ These limits define when the guard is a poor fit. They are current package const
 
 - **Exact-match detection only** — canonicalization is a deep key-sort, so near-identical variants (a tweaked path, extra whitespace inside a value) evade the chain; fuzzy matching is rejected pending evidence of need.
 - **Compaction does not reset chains** — a chain spanning a compaction checkpoint keeps counting.
-- **Advisory only** — escalating to a blocking form at a high threshold is not implemented, though `PostToolDecision` already supports blocking.
+- **Exact outcomes are a heuristic** — changed arguments or output evade the forced-stop chain; identical successful reads can also trigger it. Exclude legitimate polling. The stop occurs between model steps, not inside one composite tool execution.
 - **No subagent chain-sharing** — chains stay isolated per agent; a parent and its subagent repeating the same call never combine.
 - **Legitimate idempotent polling still draws nudges** past the thresholds — the pressure valves are the `thresholds`/`exclude` config.
 - **Past the highest threshold a chain goes silent** — reminders fire only at exact configured counts, never beyond them.

@@ -695,7 +695,8 @@ async function main(): Promise<void> {
       if (backend.host === undefined || hostUrl === undefined || hostCookie === undefined) {
         return Promise.resolve(new Response(null, { status: 503 }))
       }
-      return forwardWebRequest(request, hostUrl, hostCookie)
+      return forwardWebRequest(request, hostUrl, hostCookie,
+        (input, init) => net.fetch(input instanceof URL ? input.href : input, init))
     }
     return Promise.resolve(new Response(null, { status: 404 }))
   })

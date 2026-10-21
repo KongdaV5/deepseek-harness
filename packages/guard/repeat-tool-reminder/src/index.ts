@@ -1,11 +1,12 @@
 /**
- * Advisory per-agent repeat-call detector. It enriches post-execute decisions
- * with logged model context without vetoing or rewriting calls. Configuration
+ * Per-agent repeat-call detector. It adds logged reminders and optionally stops
+ * identical-result loops before another model request. Configuration
  * and chain semantics live in the package README; rationale lives in the
  * repeat-tool-reminder Agent Note.
  * @module @deepseek-ai/dsh-repeat-tool-reminder
  */
 
+import { createHash } from 'node:crypto'
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import type { Agent, PreStepDecision } from '@deepseek-ai/dsh-agent'
@@ -19,7 +20,7 @@ declare module '@deepseek-ai/dsh-llm' {
 
 import type { MessageSource } from '@deepseek-ai/dsh-llm'
 import type { UserMessage } from '@deepseek-ai/dsh-session'
-import type { PostToolDecision, ToolExecution } from '@deepseek-ai/dsh-tools'
+import type { PostToolDecision, ToolExecution, ToolExecutionResult } from '@deepseek-ai/dsh-tools'
 
 export const name = 'repeat-tool-reminder'
 
@@ -47,6 +48,10 @@ export interface Config {
    * always compares the FULL canonical string).
    */
   argumentsPreviewChars?: number
+  /** Identical call-and-result count that stops the turn; zero keeps advisory-only behavior. */
+  stopAfterIdenticalResults?: number
+  /** Tool patterns exempt from forced stops, such as legitimate background-job polling. */
+  stopExclude?: string[]
 }
 
 export const Config: z<Config> = z.object({
@@ -54,6 +59,8 @@ export const Config: z<Config> = z.object({
   include: z.array(z.string()).default([]),
   exclude: z.array(z.string()).default([]),
   argumentsPreviewChars: z.number().default(500),
+  stopAfterIdenticalResults: z.number().default(0),
+  stopExclude: z.array(z.string()).default([]),
 })
 
 /**
@@ -178,6 +185,27 @@ export function apply(ctx: Context, config: Config): void {
   }
 
   const chains = new WeakMap<Agent, Chain>()
+  const resultChains = new WeakMap<Agent, Chain>()
+  const stopAfterIdenticalResults = config.stopAfterIdenticalResults as number
+  if (!Number.isInteger(stopAfterIdenticalResults) || stopAfterIdenticalResults < 0 || stopAfterIdenticalResults === 1) {
+    throw new Error('repeat-tool-reminder: stopAfterIdenticalResults must be zero or an integer >= 2')
+  }
+  const stopExclude = (config.stopExclude as string[]).map(wildcardToRegExp)
+
+  /** Track exact execution outcomes; polling exemptions interrupt this forced-stop chain. */
+  function observeResult(exec: ToolExecution, result: Readonly<ToolExecutionResult>): void {
+    if (!exec.agent || stopAfterIdenticalResults === 0) return
+    if (!tracked(exec.name) || stopExclude.some(pattern => pattern.test(exec.name))) {
+      resultChains.delete(exec.agent)
+      return
+    }
+    const key = createHash('sha256').update(canonicalize([
+      exec.name, exec.arguments, result.isError, result.content,
+      result.isError ? null : result.value,
+    ])).digest('hex')
+    const previous = resultChains.get(exec.agent)
+    resultChains.set(exec.agent, { key, count: previous?.key === key ? previous.count + 1 : 1 })
+  }
 
   /** Whether a tool participates in the chain (untracked calls are transparent: they neither count nor reset). */
   function tracked(toolName: string): boolean {
@@ -217,9 +245,10 @@ export function apply(ctx: Context, config: Config): void {
   // the downstream outcome), DELEGATE so a later listener can still block or
   // replace, then fold the reminder onto whatever came back — additionalContexts
   // rides both decision variants, so a blocked call still gets the nudge.
-  ctx.on('tools/post-execute', async (exec, _result, next): Promise<PostToolDecision> => {
+  ctx.on('tools/post-execute', async (exec, result, next): Promise<PostToolDecision> => {
     const reminder = observe(exec)
     const downstream = await next()
+    observeResult(exec, result)
     if (!reminder) return downstream
     if (downstream.kind === 'block') {
       return { kind: 'block', feedback: downstream.feedback, additionalContexts: prependContext(reminder, downstream.additionalContexts) }
@@ -230,11 +259,22 @@ export function apply(ctx: Context, config: Config): void {
     }
   })
 
-  // A user interjection changes the context; repetition across it is not a
-  // loop. Pure reset hook: always delegates (attaching nothing, vetoing
-  // nothing).
-  ctx.on('agent/pre-step', ({ agent, messages }, next): Promise<PreStepDecision> => {
-    if (messages.some(message => message.source.kind === 'user')) chains.delete(agent)
-    return next()
+  // Stop only at the next step so the entire preceding tool batch is durable.
+  // A new user instruction or an idle transition resets the forced-stop chain.
+  ctx.on('agent/pre-step', async ({ agent, messages }, next): Promise<PreStepDecision> => {
+    if (messages.some(message => message.source.kind === 'user')) {
+      chains.delete(agent)
+      resultChains.delete(agent)
+    }
+    const decision = await next()
+    const resultChain = resultChains.get(agent)
+    if (decision.kind === 'enter' && stopAfterIdenticalResults > 0 && resultChain && resultChain.count >= stopAfterIdenticalResults) {
+      agent.cancel({ kind: 'hook', reason: `Repeated tool execution returned identical results ${resultChain.count} times. Inspect saved results and change approach before resuming.` })
+    }
+    return decision
+  })
+
+  ctx.on('agent/status', ({ agent, status }) => {
+    if (status === 'idle') resultChains.delete(agent)
   })
 }

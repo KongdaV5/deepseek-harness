@@ -4,13 +4,13 @@ DeepSeek Harness is an all-plugin Cordis agent harness. Read [docs/architecture.
 
 ## Pre-stable APIs and released Session data
 
-Public APIs are pre-stable; update every consumer. Follow [version/status](docs/session-format-status.md) and [type acknowledgements](docs/cookbook/reviewing-persistence-type-changes.md). [Adjacent migration](.agents/notes/implemented/architecture/2026-08-31-released-session-format-migrations.md) may add a version-named successor but never move, overwrite, or delete committed generations; predecessors imply neither fallback nor downgrade support. SQLite uses monotonic `SCHEMA_VERSION`.
-
-Acknowledge [declared persistence-type changes](docs/cookbook/reviewing-persistence-type-changes.md).
+Public APIs are pre-stable; update all consumers and acknowledge [declared persistence-type changes](docs/cookbook/reviewing-persistence-type-changes.md). Follow [version/status](docs/session-format-status.md). [Adjacent migration](.agents/notes/implemented/architecture/2026-08-31-released-session-format-migrations.md) may add a versioned successor but never move, overwrite, or delete committed generations; predecessors imply no fallback or downgrade. SQLite schema versions increase monotonically.
 
 Record each externally perceptible breaking change immediately in an [upgrade guide](.agents/skills/dsh-create-upgrade-guide/SKILL.md).
 
 **Application launch.** Only `dsh` profiles launch supported Node apps; package bins, demos, and public SDK argv escapes are forbidden ([rule](docs/architecture.md#application-launch)).
+
+**Formal App rollback.** Keep only the latest verified rollback in `/Applications`; after installed smoke passes, move older bundles to Trash ([Source-and-Data-Recovery](</Users/kongda/Documents/Obsidian/obsidian-vault/Projects/DeepSeek-Harness/Runbooks/Source-and-Data-Recovery.md>)).
 
 ## Repository layout
 
@@ -109,7 +109,7 @@ make web|dev-web|desktop|dev-desktop|build  # the same commands; ARGS='--no-open
 
 ### Host sandbox failures
 
-If a required `gh`, `pnpm`, build, test, or generator command fails because the sandbox blocks credentials, network, IPC, watching, or nested `sandbox-exec`, retry unchanged with the narrowest host escalation. Require sandbox evidence; never bypass test failures or the product sandbox.
+When required commands fail because the sandbox blocks credentials, network, IPC, watching, or nested `sandbox-exec`, retry unchanged with narrow host escalation; keep sandbox evidence and never bypass tests or product-sandbox failures.
 
 ### Run relevant checks locally
 
@@ -169,7 +169,7 @@ Read [docs/defensive-patterns.md](docs/defensive-patterns.md) before lifecycle, 
 
 ## Type safety and documentation
 
-Everything compiles under `strict: true` with `noImplicitAny`; every remaining `any` explains why narrowing is infeasible. Every module and export has concise JSDoc for its non-obvious contract; function-like exports include `@param`/`@returns`, as enforced by `verify-export-jsdoc`. Heritage-declared members, plugin-protocol slots, and constructors keep their docs at the declaring Service Definition, protocol, or class.
+Compile with `strict: true` and `noImplicitAny`; justify every remaining `any`. Document every module, export, and callable parameter/return in JSDoc, as enforced by `verify-export-jsdoc`. Put heritage-declared members, protocol slots, and constructor docs on their declaring Service Definition, protocol, or class.
 
 Comments and docs state complete contracts and context, not reasoning transcripts. Use direct, concrete terms. Do not use metaphors. Before writing `contract`, `boundary`, or `shape`, ask whether a more exact term names the subject: write `response fields`, `JSON validation`, or `ESM exports` instead of `response shape`, `validation boundary`, or `module shape`. Keep `contract` for preconditions, postconditions, invariants, compatibility promises, and other obligations that callers, callees, implementers, providers, producers, or consumers rely on. Keep a literal process, wire, security, transaction, or lifecycle boundary. Do not narrate control flow or tests, preserve review history, or restate code. Keep behavior, failure, timing, ownership, and safe-use facts; link the rationale. Use [dsh-prose-standard](.agents/skills/dsh-prose-standard/SKILL.md) for decisions. Wire mechanically checkable invariants into an executed top-level gate and prove each changed acceptance path rejects an invalid case. Use narrow, justified exceptions instead of disabling a rule globally.
 

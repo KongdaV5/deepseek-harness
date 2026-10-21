@@ -132,10 +132,11 @@ describe('Local pre-dispatch context admission', () => {
     expect(result.assembler.message({ provider: 'local', model: 'model' }).content).toEqual([{ type: 'text', text: 'hello' }])
   })
 
-  it('pulses only when the newly dispatched llama.cpp task advances prompt evaluation', async () => {
+  it.each([false, true])('pulses only for new task progress with a fresh idle slot=%s', async (fresh) => {
     const samples = [
-      [{ id: 0, id_task: 10, is_processing: false, n_prompt_tokens: 24, n_prompt_tokens_processed: 0 }],
-      [{ id: 0, id_task: 10, is_processing: true, n_prompt_tokens: 24, n_prompt_tokens_processed: 900 }],
+      [fresh ? { id: 0, n_ctx: 65536, speculative: false, is_processing: false }
+        : { id: 0, id_task: 10, is_processing: false, n_prompt_tokens: 24, n_prompt_tokens_processed: 0 }],
+      [{ id: 0, id_task: 10, is_processing: true, n_prompt_tokens: fresh ? 25 : 24, n_prompt_tokens_processed: 900 }],
       [{ id: 0, id_task: 11, is_processing: true, n_prompt_tokens: 6, n_prompt_tokens_processed: 6 }],
       [{ id: 0, id_task: 11, is_processing: true, n_prompt_tokens: 18, n_prompt_tokens_processed: 18 }],
       [{ id: 0, id_task: 11, is_processing: true, n_prompt_tokens: 24, n_prompt_tokens_processed: 24 }],

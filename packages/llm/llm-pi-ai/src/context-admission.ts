@@ -4,11 +4,11 @@ import type { Api, Model } from '@earendil-works/pi-ai'
 import type { ResolvedPiAiProviderProfile } from './config.ts'
 
 const LLAMA_PROGRESS_POLL_MS = 1_000
-const LLAMA_PROGRESS_FETCH_TIMEOUT_MS = 1_000
+const LLAMA_PROGRESS_FETCH_TIMEOUT_MS = 60_000
 
 interface LlamaSlotProgress {
   readonly id: number
-  readonly task: number
+  readonly task: number | undefined
   readonly processing: boolean
   readonly promptLength: number
   readonly promptTokens: number
@@ -35,8 +35,13 @@ function slotProgress(value: unknown): readonly LlamaSlotProgress[] | undefined 
   for (const slot of value) {
     if (!record(slot)
       || typeof slot['id'] !== 'number' || !Number.isSafeInteger(slot['id'])
-      || typeof slot['id_task'] !== 'number' || !Number.isSafeInteger(slot['id_task'])
-      || typeof slot['is_processing'] !== 'boolean'
+      || typeof slot['is_processing'] !== 'boolean') return undefined
+    if (!slot['is_processing']) {
+      slots.push({ id: slot['id'], task: typeof slot['id_task'] === 'number' ? slot['id_task'] : undefined,
+        processing: false, promptLength: 0, promptTokens: 0 })
+      continue
+    }
+    if (typeof slot['id_task'] !== 'number' || !Number.isSafeInteger(slot['id_task'])
       || typeof slot['n_prompt_tokens'] !== 'number' || !Number.isSafeInteger(slot['n_prompt_tokens'])
       || typeof slot['n_prompt_tokens_processed'] !== 'number'
       || !Number.isSafeInteger(slot['n_prompt_tokens_processed'])) return undefined
@@ -115,7 +120,7 @@ export async function startLlamaCppProgressMonitor(
       const slots = await readSlotProgress(endpoint, options.profile.headers ?? {}, signal, fetcher)
       if (slots === undefined) continue
       for (const slot of slots) {
-        if (!slot.processing || slot.promptLength > options.expectedPromptTokens) continue
+        if (!slot.processing || slot.task === undefined || slot.promptLength > options.expectedPromptTokens) continue
         let observedTask = observedTasks.get(slot.id)
         if (observedTask === undefined) {
           if (originalTasks.get(slot.id) === slot.task) continue

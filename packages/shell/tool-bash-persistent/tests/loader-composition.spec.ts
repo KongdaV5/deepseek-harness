@@ -152,6 +152,18 @@ suite('persistent Bash through a real cordis.yml Loader composition', () => {
     expect(multiline).toBe("line one:it's fine\n[Command finished with exit code 0]")
     expect(multiline).not.toContain('DSH_PERSISTENT_BASH')
 
+    const unicode = text(await execute(
+      'unicode',
+      "printf '%s\\n' '甲：ACOS 47.93%。' > unicode.txt; echo OK1; sed -n 1p unicode.txt",
+    ))
+    expect(unicode).toBe('OK1\n甲：ACOS 47.93%。\n[Command finished with exit code 0]')
+
+    const unicodeHeredoc = text(await execute(
+      'unicode-heredoc',
+      "cat <<'EOF'\n中文内容\nEOF",
+    ))
+    expect(unicodeHeredoc).toBe('中文内容\n[Command finished with exit code 0]')
+
     const heredoc = text(await execute(
       'heredoc',
       "cat <<'EOF'\nalpha\nbeta\nEOF",
@@ -174,6 +186,12 @@ suite('persistent Bash through a real cordis.yml Loader composition', () => {
     expect(large.startsWith('1\n2\n3\n')).toBe(true)
     expect(large).toContain('<response clipped>')
     expect(large).not.toContain('beginning of this command output was dropped')
+
+    await execute('readline-meta', "export LC_ALL=C; bind 'set convert-meta on'; bind 'set input-meta on'")
+    const metaUnicode = text(await execute('unicode-readline-meta', "cat <<'EOF'\n中文内容：甲乙丙\nEOF"))
+    expect(metaUnicode).toBe('中文内容：甲乙丙\n[Command finished with exit code 0]')
+    const literalTab = text(await execute('literal-tab', "printf '%s' 'a\tb'"))
+    expect(literalTab).toBe('a\tb\n[Command finished with exit code 0]')
 
     // `exec` replaces the wrapper before its end marker prints; the seam's
     // stdin_read readiness is what returns the replacement shell's prompt

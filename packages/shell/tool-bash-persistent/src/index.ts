@@ -71,11 +71,16 @@ function markers(): CommandMarkers {
 }
 
 function quoteForBash(value: string): string {
-  return `$'${value
-    .replaceAll('\\', '\\\\')
-    .replaceAll("'", "\\'")
-    .replaceAll('\r', '\\r')
-    .replaceAll('\n', '\\n')}'`
+  // Readline can interpret UTF-8 high bytes as Meta keys, and literal control
+  // bytes as editing commands. Send ASCII only; Bash decodes the original bytes.
+  let quoted = ''
+  for (const byte of Buffer.from(value, 'utf8')) {
+    if (byte === 0x27) quoted += "\\'"
+    else if (byte === 0x5c) quoted += '\\\\'
+    else if (byte >= 0x20 && byte <= 0x7e) quoted += String.fromCharCode(byte)
+    else quoted += `\\x${byte.toString(16).padStart(2, '0')}`
+  }
+  return `$'${quoted}'`
 }
 
 function wrapCommand(command: string, marker: CommandMarkers): string {

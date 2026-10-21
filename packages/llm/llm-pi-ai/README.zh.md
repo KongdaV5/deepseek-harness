@@ -101,13 +101,13 @@ profile 的 `models` 列表会替换而非扩展路由的已安装目录；每�
 
 ### 带推理（reasoning）与协议兼容运行
 
-`reasoningEfforts` 声明模型可选择的 thinking 等级：每个键都是选择器提供的等级，其值是分派时在协议中发送的拼写，因此 `max: ultra` 可以为拥有自有词汇的网关重命名等级。省略该字段时保留已安装目录条目的能力；`false` 声明非推理模型。对于 pi-ai 无法识别的端点，`compat` 开关重塑请求——哪个角色携带系统提示词、哪个字段限制输出、thinking 等级如何传递——可逐路由、逐模型配置。条目与已安装目录都没有尺寸的模型，会采用路由的 `defaultContextWindow` 与 `defaultMaxTokens` 回退值。
+`reasoningEfforts` 声明模型可选择的 thinking 等级：每个键都是选择器提供的等级，其值是分派时在协议中发送的拼写，因此 `max: ultra` 可以为拥有自有词汇的网关重命名等级。省略该字段时保留已安装目录条目的能力；`false` 声明非推理模型。对于 pi-ai 无法识别的端点，`compat` 开关重塑请求——哪个角色携带系统提示词、哪个字段限制输出、thinking 等级如何传递——可逐路由、逐模型配置。条目与已安装目录都没有尺寸的模型，会采用路由的 `defaultContextWindow` 与 `defaultMaxTokens` 回退值。 控制 llama.cpp 的模板思考参数时，必须同时设置 `thinkingFormat: chat-template` 和 `chatTemplateKwargs`；单独填写 kwargs 不会发送。将 `enable_thinking` 映射为 `$var: thinking.enabled`，将 `reasoning_effort` 映射为 `$var: thinking.effort`；缺少协议格式时，界面选择 Off 仍可能沿用服务端默认推理。
 
 对于自托管 Chat Completions 端点，`thinkingTokenBudgetField` 选择推理预算参数，`vllmPriority` 在服务端启用优先级调度时设置整数调度优先级。模板参数接受 `$var: thinking.budget`。`openai-responses` 网关可设置 `supportsMaxOutputTokens: false` 来省略 `max_output_tokens`；Azure 与 Codex 传输会忽略这个共享兼容字段。这些控制均需显式启用；目录拥有的 Anthropic effort 和回退能力不是可配置开关。
 
 ### 推理前准入 Local 请求
 
-回环地址上的 llama.cpp 路由可配置 `llamaCppContextAdmission`，显式指定 `safetyMarginTokens` 与 `minimumOutputTokens`。pi-ai 序列化完整文本请求后，适配器读取实时 `/props`，通过 `/apply-template` 渲染，再调用 `/tokenize`；这些操作不执行推理。有效输出上限取请求上限、模型输出能力、以及完整提示和安全余量之后剩余总上下文的最小值。声明容量与实时 `n_ctx` 中较小者生效。缓存命中仍占据同一逻辑上下文，只计一次。回答空间不足时，在发送前抛出 `CONTEXT_WINDOW_EXCEEDED`，由现有 compaction 处理器缩减符合条件的历史；固定指令或工具已经超窗的新会话会直接失败，不重放。元数据或 tokenization 缺失，以及不支持的图像内容都会拒绝发送。推理期间，适配器尽力观察 `/slots`；只有 slot 上新分派任务的提示长度与本次精确 tokenization 结果一致，且其 prompt-evaluation 计数前进时，才刷新现有 stream idle watchdog。它在分派前读取本次请求的任务基线，绑定到首个匹配任务后忽略该 slot 上的后续任务；不改变超时或重试策略，也不会被其他 slot 的活动续期。若 `/slots` 不可用，仍由现有 stream timeout 生效。其他路由保留现有 pi-ai 序列化行为。
+回环地址上的 llama.cpp 路由可配置 `llamaCppContextAdmission`，显式指定 `safetyMarginTokens` 与 `minimumOutputTokens`。pi-ai 序列化完整文本请求后，适配器读取实时 `/props`，通过 `/apply-template` 渲染，再调用 `/tokenize`；这些操作不执行推理。有效输出上限取请求上限、模型输出能力、以及完整提示和安全余量之后剩余总上下文的最小值。声明容量与实时 `n_ctx` 中较小者生效。缓存命中仍占据同一逻辑上下文，只计一次。回答空间不足时，在发送前抛出 `CONTEXT_WINDOW_EXCEEDED`，由现有 compaction 处理器缩减符合条件的历史；固定指令或工具已经超窗的新会话会直接失败，不重放。元数据或 tokenization 缺失，以及不支持的图像内容都会拒绝发送。推理期间，适配器尽力观察 `/slots`；只有 slot 上新分派任务的提示长度不超过本次精确 tokenization 结果，且其 prompt-evaluation 计数前进时，才刷新现有 stream idle watchdog。刚启动的空闲 slot 可以省略任务计数；监控请求最多等待 60 秒，因为服务可能在预填充批次之间才响应。它在分派前读取本次请求的任务基线，绑定到首个匹配任务后忽略该 slot 上的后续任务；不改变超时或重试策略，也不会被其他 slot 的活动续期。若 `/slots` 不可用，仍由现有 stream timeout 生效。其他路由保留现有 pi-ai 序列化行为。
 
 ### 运行时更改配置
 

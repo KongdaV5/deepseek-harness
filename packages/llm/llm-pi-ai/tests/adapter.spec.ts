@@ -676,6 +676,38 @@ describe('provider profile lifecycle', () => {
     expect(server.requests[1]).not.toHaveProperty('reasoning_effort')
   })
 
+  it.each(['off', 'low', 'medium', 'xhigh'])('sends explicit llama.cpp template controls for %s', async (effort) => {
+    const server = await mockServer([{ events: textEvents }])
+    const ctx = await harness(`${server.url}/v1`, {
+      api: 'openai-completions',
+      models: [{
+        id: 'local-qwen', contextWindow: 65536, maxTokens: 24576,
+        reasoningEfforts: { off: null, low: 'low', medium: 'medium', xhigh: 'xhigh' },
+        compat: {
+          supportsDeveloperRole: false, supportsReasoningEffort: true,
+          thinkingFormat: 'chat-template',
+          chatTemplateKwargs: {
+            enable_thinking: { $var: 'thinking.enabled' }, preserve_thinking: true,
+            reasoning_effort: { $var: 'thinking.effort' },
+          },
+        },
+      }],
+    })
+    await assemble(ctx, {
+      provider: 'deepseek', model: 'local-qwen',
+      reasoningEffort: ReasoningEffortId(effort), messages: [],
+    })
+    expect(server.requests[0]).toMatchObject({
+      chat_template_kwargs: {
+        enable_thinking: effort !== 'off', preserve_thinking: true,
+        ...effort === 'off' ? {} : { reasoning_effort: effort },
+      },
+    })
+    if (effort === 'off') {
+      expect(server.requests[0]).not.toHaveProperty('chat_template_kwargs.reasoning_effort')
+    }
+  })
+
   it('keeps the system role on a declared route whose gateway rejects the developer one', async () => {
     vi.stubEnv('PI_TEST_KEY', 'test-key')
     const server = await mockServer([{ events: textEvents }, { events: textEvents }])

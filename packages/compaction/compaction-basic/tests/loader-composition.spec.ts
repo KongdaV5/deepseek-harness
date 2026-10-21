@@ -22,6 +22,7 @@ let context: Context | undefined
 class SiblingPolicy extends Service implements CompactionCandidatePolicy {
   readonly id = 'loader-policy'
   readonly version = '1'
+  readonly inputs: CompactionBeginInput[] = []
 
   constructor(ctx: Context) {
     super(ctx, 'compactionCandidatePolicy')
@@ -30,6 +31,7 @@ class SiblingPolicy extends Service implements CompactionCandidatePolicy {
   assess() { return { admitted: true } as const }
 
   begin(input: CompactionBeginInput): CompactionPolicyTransaction {
+    this.inputs.push(input)
     return {
       decorateRequest: () => ({}),
       validateCandidate: () => ({ kind: 'accept' }),
@@ -42,7 +44,7 @@ class SiblingPolicy extends Service implements CompactionCandidatePolicy {
 
 class SummaryAdapter extends LlmAdapter {
   override resolveModel(provider: string, model: string): Promise<LlmResolvedModelInfo> {
-    return Promise.resolve({ provider, id: model, name: model, context: { contextWindow: 1024 } })
+    return Promise.resolve({ provider, id: model, name: model, context: { contextWindow: 65536 } })
   }
 
   async *stream(): AsyncIterable<StreamChunk> {
@@ -103,10 +105,17 @@ describe('real Loader composition', () => {
       '  config:',
       '    auto: true',
       '    headroomTokens: 0',
+      '    thresholdRatio: 0.01',
       '    maxTokens: 256',
       '    retainTokens: 0',
+      '    modelPolicies:',
+      '      - provider: test',
+      '        model: summary',
+      '        summarizationProvider: auxiliary',
+      '        summarizationModel: small-summary',
+      '        maxTokens: 128',
     ])
-    loaded.llm.registerAdapter(['test'], new SummaryAdapter())
+    loaded.llm.registerAdapter(['test', 'auxiliary'], new SummaryAdapter())
     const session = Session.create(SessionId('sibling-policy-compaction'))
     session.append('turn/start', { turn: 1 })
     const first = session.append('user/message', createUserMessage({
@@ -138,6 +147,11 @@ describe('real Loader composition', () => {
       'compaction/start', 'compaction/summary', 'compaction/end',
     ]))
     const summary = session.ownEvents().find(event => event.type === 'compaction/summary')
+    expect(summary?.data).toMatchObject({ provider: 'auxiliary', model: 'small-summary', maxTokens: 128 })
+    const policy = loaded.get('compactionCandidatePolicy') as unknown as SiblingPolicy
+    expect(policy.inputs[0]).toMatchObject({
+      summarizationTarget: { provider: 'auxiliary', model: 'small-summary' }, maxTokens: 128,
+    })
     expect(summary?.data.shadowedSeqs).toContain(first.seq)
     expect(summary?.data['plugin:task-compaction-audit']).toMatchObject({
       audit: { policyId: 'loader-policy', trigger },

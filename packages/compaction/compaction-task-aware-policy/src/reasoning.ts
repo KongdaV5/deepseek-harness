@@ -8,7 +8,8 @@
  * cheap candidate is rejected and a second, slightly stronger one is asked for,
  * and neither outcome reaches the main Run's own reasoning state.
  *
- * The ladder is exactly `low` then `medium`, and it stops there. There is no
+ * A summary route explicitly defaulting to `off` stays off for both candidates.
+ * Other routes use exactly `low` then `medium`, and stop there. There is no
  * third rung and no fallback to the main Run's effort: a compaction that needs
  * the main Run's reasoning to succeed is a compaction whose result nobody could
  * distinguish from a task answer, which is precisely the confusion the
@@ -38,7 +39,7 @@ export const AUXILIARY_REASONING_LADDER: readonly string[] = ['low', 'medium']
 export interface AuxiliaryReasoningStep {
   /** Zero-based rung index, which is also the candidate ordinal it serves. */
   readonly attempt: number
-  /** The ladder label requested, `low` or `medium`. */
+  /** The requested label: `off` for a disabled route, otherwise `low` or `medium`. */
   readonly label: string
   /** The truthful resolution, including whether the route supplied a default. */
   readonly resolution: ResolvedReasoning
@@ -61,13 +62,14 @@ export function resolveAuxiliaryReasoning(
   capability: ReasoningCapability | undefined,
   attempt: number,
 ): AuxiliaryReasoningStep {
-  const label = AUXILIARY_REASONING_LADDER[attempt]
-  if (label === undefined) {
+  const rung = AUXILIARY_REASONING_LADDER[attempt]
+  if (rung === undefined) {
     throw new TaskAwarePolicyError(
       'TASK_AUXILIARY_REASONING_UNSUPPORTED',
       `compaction auxiliary reasoning has no rung ${String(attempt)}; the ladder is ${AUXILIARY_REASONING_LADDER.join(' -> ')}`,
     )
   }
+  const label = capability?.defaultEffort === ReasoningEffortId('off') ? 'off' : rung
   const resolution = resolveReasoning({
     provider,
     model,

@@ -21,6 +21,23 @@ function capability(efforts: readonly string[], defaultEffort?: string): Reasoni
 const FULL = capability(['none', 'low', 'medium', 'high', 'xhigh'], 'xhigh')
 
 describe('the ladder', () => {
+  it('keeps an explicitly disabled summary route off for both candidates', () => {
+    const disabled = capability(['off', 'low', 'medium', 'xhigh'], 'off')
+    for (const attempt of [0, 1]) {
+      expect(resolveAuxiliaryReasoning('summary', 'local', disabled, attempt)).toMatchObject({
+        attempt,
+        label: 'off',
+        resolution: { kind: 'resolved', requested: 'off', resolved: 'off' },
+      })
+    }
+    expect(() => resolveAuxiliaryReasoning('summary', 'local', disabled, 2)).toThrow(TaskAwarePolicyError)
+  })
+
+  it('refuses an off default that the summary route does not advertise', () => {
+    expect(() => resolveAuxiliaryReasoning('summary', 'local', capability(['low'], 'off'), 0))
+      .toThrow(/default reasoning effort "off"/)
+  })
+
   it('is exactly two rungs, cheapest first', () => {
     expect(AUXILIARY_REASONING_LADDER).toEqual(['low', 'medium'])
   })
