@@ -6,6 +6,7 @@
  * font-size axis (`--dsh-content-font-size`), the code and terminal sizes
  * (`--dsh-code-font-size`, `--dsh-terminal-font-size`), the user font lists
  * (`--dsh-font-family-<role>`), `html[data-ds-theme-source]`
+ * plus the global interface scale (`--dsh-ui-font-*`) as inline CSS variables on body,
  * for native-chrome mirroring, and one presenter-owned
  * `meta[name="theme-color"]` for surrounding browser UI. Pure DOM writes, no
  * React involvement; the presenter only ever retracts what it wrote itself,
@@ -27,12 +28,15 @@ export const DARK_ATTRIBUTE = 'data-ds-dark-theme'
  */
 export const THEME_SOURCE_ATTRIBUTE = 'data-ds-theme-source'
 
-/** Body variable carrying the user's content font size in px. */
-export const CONTENT_FONT_SIZE_VARIABLE = '--dsh-content-font-size'
+/** Body variable carrying the user's global interface font-size reference. */
+export const UI_FONT_SIZE_VARIABLE = '--dsh-ui-font-size'
+
+/** Body zoom factor applied to the complete client surface. */
+export const UI_FONT_SCALE_VARIABLE = '--dsh-ui-font-scale'
 
 /** Body variables carrying the user's font sizes in px by role. */
 const FONT_SIZE_VARIABLES = {
-  text: CONTENT_FONT_SIZE_VARIABLE,
+  text: '--dsh-content-font-size',
   code: '--dsh-code-font-size',
   terminal: '--dsh-terminal-font-size',
 } as const satisfies Record<FontRole, string>
@@ -60,7 +64,8 @@ export class ThemePresenter {
   /**
    * Project a snapshot onto the document: set root `color-scheme` and the body
    * palette attribute from `active.colorScheme` (never the id — `system` is
-   * resolved upstream), publish the font sizes and font lists, then replace the
+   * resolved upstream), publish the global interface scale and font sizes and
+   * font lists, then replace the
    * previously applied token variables with `active.tokens`. Browser
    * theme-color metadata follows the computed body background after those
    * writes, so the rendered palette remains the color authority.
@@ -74,6 +79,9 @@ export class ThemePresenter {
     const body = document.body
     if (scheme === 'dark') body.setAttribute(DARK_ATTRIBUTE, '')
     else body.removeAttribute(DARK_ATTRIBUTE)
+    body.style.setProperty(UI_FONT_SIZE_VARIABLE, `${snapshot.fontSize}px`)
+    const scale = snapshot.fontScale
+    body.style.setProperty(UI_FONT_SCALE_VARIABLE, String(scale > 0 ? scale : Number.MIN_VALUE))
     for (const [role, name] of Object.entries(FONT_SIZE_VARIABLES)) {
       body.style.setProperty(name, `${snapshot.fontSizes[role as FontRole]}px`)
     }
@@ -94,13 +102,16 @@ export class ThemePresenter {
 
   /**
    * Retract root color-scheme, the theme-source attribute, the palette
-   * attribute, token variables, the font sizes, font lists, and the owned metadata node.
+   * attribute, token variables, the global scale, font sizes, font lists, and
+   * the owned metadata node.
    */
   dispose(): void {
     document.documentElement.style.removeProperty('color-scheme')
     document.documentElement.removeAttribute(THEME_SOURCE_ATTRIBUTE)
     const body = document.body
     body.removeAttribute(DARK_ATTRIBUTE)
+    body.style.removeProperty(UI_FONT_SIZE_VARIABLE)
+    body.style.removeProperty(UI_FONT_SCALE_VARIABLE)
     for (const name of Object.values(FONT_SIZE_VARIABLES)) body.style.removeProperty(name)
     for (const name of Object.values(FONT_FAMILY_VARIABLES)) body.style.removeProperty(name)
     for (const name of this.appliedTokens) body.style.removeProperty(name)

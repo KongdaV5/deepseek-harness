@@ -3,7 +3,8 @@
 
 import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import {
-  IconBranchOutlineRegular, IconCheckOutlineRegular, IconCopyOutlineRegular, Tooltip, writeClipboard,
+  IconBranchOutlineRegular, IconCheckOutlineRegular, IconCloseOutlineRegular, IconCopyOutlineRegular,
+  IconRefreshOutlineRegular, Tooltip, writeClipboard,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ChatViewSlotProps } from '../contract/slots.ts'
 import { formatMessageClock } from './message-chrome.ts'
@@ -19,6 +20,10 @@ export interface MessageIconActionsProps {
   clock: 'start' | 'end'
   /** Fork the session at this message; omission hides the branch action. */
   onBranch?: (() => void) | undefined
+  /** Whether the message is currently hidden from the normal transcript. */
+  hidden?: boolean | undefined
+  /** Hide or restore this message in local view state. */
+  onToggleHidden?: (() => void) | undefined
   /** The message is not a completed transcript tail, so branch stays visible but unavailable. */
   branchUnavailable?: boolean | undefined
   /** Parent layout class composed onto the actions row. */
@@ -44,7 +49,7 @@ export interface MessageIconActionsProps {
  */
 export function MessageIconActions({
   text, time, clock, onBranch, branchUnavailable = false, className,
-  extraActions, usageAction, t,
+  hidden = false, onToggleHidden, extraActions, usageAction, t,
 }: MessageIconActionsProps) {
   const day = useCalendarDay()
   const reasonId = useId()
@@ -88,6 +93,18 @@ export function MessageIconActions({
         </button>
       </Tooltip>
       {extraActions}
+      {onToggleHidden !== undefined && (
+        <Tooltip label={t(hidden ? 'message.restore' : 'message.hide')} side="bottom">
+          <button
+            type="button"
+            className={css.action}
+            aria-label={t(hidden ? 'message.restore' : 'message.hide')}
+            onClick={onToggleHidden}
+          >
+            {hidden ? <IconRefreshOutlineRegular /> : <IconCloseOutlineRegular />}
+          </button>
+        </Tooltip>
+      )}
       {onBranch !== undefined && (
         <Tooltip label={branchUnavailable ? t('message.branchUnavailable') : t('message.branch')} side="bottom">
           {/* Native disabled buttons do not deliver the hover/focus events Tooltip needs. */}

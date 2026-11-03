@@ -21,8 +21,8 @@
   en: 41bdda1ac32df558
   zh: aa5d0e325924066b
 /session-controller/session-media-references:
-  en: 266ab2b1e2fec542
-  zh: b3450ae28a1e0baf
+  en: fd890f577a9c7ebf
+  zh: 566ea33b89595738
 /session-controller/configuration:
   en: 5ae2b340c630897f
   zh: 1ffbd61ecf302ec2
@@ -36,5 +36,5 @@
   en: 5db0f9f69a8be926
   zh: 6ba1cc4a3850fcbc
 /session-controller/known-limitations-and-deferred-work/dev-note:
-  en: e67f633dc6fe7773
-  zh: e88aeb617ffb74ea
+  en: 0a077ce1bc306bcb
+  zh: f1d7d86f2d753111

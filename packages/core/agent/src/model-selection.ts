@@ -36,6 +36,13 @@ export interface ModelSelectionRef {
   assembled: ModelSelection | undefined
 }
 
+declare module '@deepseek-ai/cordis' {
+  interface Context {
+    /** Session selection captured at the turn boundary for external execution. */
+    agentModelSelection?: ModelSelectionRef
+  }
+}
+
 function sameRoute(left: ModelSelection, right: ModelSelection): boolean {
   return left.provider === right.provider && left.model === right.model
 }
@@ -79,6 +86,7 @@ function modelSwitchNotice(previous: ModelSelection, selected: ModelSelection) {
  * @returns Disposer for all scoped waterfall listeners.
  */
 export function installModelSelection(agentCtx: Context, selection: ModelSelectionRef): () => void {
+  agentCtx.provide('agentModelSelection', selection)
   const disposeAssembly = agentCtx.on('system-prompt/assemble', async (_assembly, _context, next) => {
     const selected = selection.current
     const assembled = await next()

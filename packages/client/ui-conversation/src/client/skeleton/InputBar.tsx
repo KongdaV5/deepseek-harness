@@ -469,20 +469,21 @@ export const InputBar = memo(function InputBar({
               : renderSlot('conversation.input.left', {})}
           </div>
           <div className={clsx(css.trailing, activity && css.trailingActive)}>
+            {input === undefined || sessionId === undefined ? null : <div className={activity ? css.activityExpanded : css.activity}>
+              {renderSlot('conversation.input.activity', { locked, onActiveChange: setActivity })}
+            </div>}
             <div className={css.standardControls} hidden={activity}>
               {input === undefined || sessionId === undefined
                 ? null
                 : renderSlot('conversation.input.right', {})}
               {sessionId === undefined ? null : renderSlot('conversation.input.model', { locked: modelSeatLocked })}
             </div>
-            {input === undefined || sessionId === undefined ? null : <div className={activity ? css.activityExpanded : css.activity}>
-              {renderSlot('conversation.input.activity', { locked, onActiveChange: setActivity })}
-            </div>}
             {interruptible && (
               <Tooltip label={t('input.stop')} shortcutKeys={stopKeys} side="top" delayMs={500} disabled={stop === undefined}>
                 <button
                   type="button"
                   className={css.primary}
+                  data-dsh-mascot-action="stop"
                   aria-label={t('input.stop')}
                   disabled={stop === undefined}
                   onMouseDown={keepFocus}
@@ -498,6 +499,7 @@ export const InputBar = memo(function InputBar({
               <button
                 type="button"
                 className={css.primary}
+                data-dsh-mascot-action={primaryStops ? 'stop' : 'send'}
                 aria-label={primaryLabel}
                 disabled={primaryDisabled}
                 onMouseDown={keepFocus}

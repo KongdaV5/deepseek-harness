@@ -487,7 +487,7 @@ describe('Definition-owned Chat process groups', () => {
     expect(store.groupSource(groups[2]!.key).getSnapshot()?.members.map(member => member.key)).toEqual(['b'])
   })
 
-  it('updates live detail without replacing roots or members and closes on the first reply', () => {
+  it('updates a non-disclosing thinking summary without replacing roots or members', () => {
     const h = harness([assistant('first thought')])
     const first = h.store.entries[0]!
     if (first.kind !== 'group') throw new Error('expected group')
@@ -498,7 +498,7 @@ describe('Definition-owned Chat process groups', () => {
     expect(h.commit()?.entries).toBeUndefined()
     expect(h.store.entries).toBe(entries)
     expect(source.getSnapshot()!.members).toBe(members)
-    expect(source.getSnapshot()!.data.summary.runningDetail).toBe('second thought')
+    expect(source.getSnapshot()!.data.summary.runningDetail).toBe('')
     h.builder.apply({ upserts: [assistant('second thought', 'reply')], timeline })
     h.commit()
     expect(h.store.entries[0]).toEqual(first)
@@ -509,6 +509,30 @@ describe('Definition-owned Chat process groups', () => {
     h.builder.apply({ upserts: [{ ...completed, data: { ...completed.data, status: 'settled' } }], timeline })
     expect(h.commit()).toBeNull()
     expect(source.getSnapshot()).toBe(closed)
+  })
+
+  it('keeps the live Tool activity until its result even when reasoning updates arrive', () => {
+    const h = harness([assistant('first thought'), tool('read-call', 3, 'read')])
+    const entry = h.store.entries[0]
+    if (entry?.kind !== 'group') throw new Error('expected one open process group')
+    const source = h.store.groupSource(entry.key)
+    expect(source.getSnapshot()?.data.summary.running).toBe('read')
+
+    h.builder.apply({ upserts: [assistant('later thought')], timeline })
+    h.commit()
+    expect(source.getSnapshot()?.data.summary.running).toBe('read')
+
+    const settled: ChatNode<'tool-call'> = {
+      ...tool('read-call', 3, 'read'),
+      data: { root: {
+        kind: 'tool-result', callId: 'read-call', seq: 4, time: 4, callTime: 3,
+        name: 'read', args: PartialArguments.fromText('{}'), call: { name: 'read', argsRaw: '{}' },
+        content: [], isError: false, subCalls: [],
+      } },
+    }
+    h.builder.apply({ upserts: [settled], timeline })
+    h.commit()
+    expect(source.getSnapshot()?.data.summary.running).toBeUndefined()
   })
 
   it('keeps a no-Turn row between groups and repairs membership on replacement', () => {

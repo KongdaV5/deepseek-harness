@@ -41,6 +41,20 @@ function turnOf(node: ChatNode | undefined): number | undefined {
   return location?.kind === 'turn' || location?.kind === 'step' ? location.turn.turn : undefined
 }
 
+function messageSeqOf(node: ChatNode | undefined): number | undefined {
+  switch (node?.kind) {
+    case 'user':
+    case 'steering':
+      return node.data.seq
+    case 'assistant-step':
+      return node.data.finalNode?.seq
+    case 'turn-tail':
+      return node.data.closing?.finalNode.seq
+    default:
+      return undefined
+  }
+}
+
 /**
  * Subscribe, apply Turn-process visibility, and dispatch one stable Context key.
  * Policy reads select this seat's own conclusion, so a mode change re-renders
@@ -49,11 +63,16 @@ function turnOf(node: ChatNode | undefined): number | undefined {
 export const ChatNodeSeat = memo(function ChatNodeSeat({
   nodeKey, groupPart, useChatNode, useChatNodeProcess, usePresentation,
   cwd, openFile, inspectCall, forkAt,
-  loadImage, fileMentions, useStore, actions, renderSlot, t, useChatNodeBottom, deferCollapse, useGroupAction,
+  loadImage, fileMentions, hiddenMessageSeqs, showHiddenMessages, setMessageHidden,
+  useStore, actions, renderSlot, t, useChatNodeBottom, deferCollapse, useGroupAction,
 }: ChatNodeSeatProps) {
   const bottom = useChatNodeBottom(nodeKey)
   const node = useChatNode(nodeKey)
   const routedNode = node as ChatNode | undefined
+  const messageSeq = messageSeqOf(routedNode)
+  const messageHidden = messageSeq !== undefined
+    && hiddenMessageSeqs?.includes(messageSeq) === true
+    && !showHiddenMessages
   const turn = turnOf(routedNode)
   const processPresentation = useChatNodeProcess(nodeKey)
   const processSpec = processPresentation?.spec
@@ -132,10 +151,13 @@ export const ChatNodeSeat = memo(function ChatNodeSeat({
       forkAt,
       loadImage,
       fileMentions,
+      hiddenMessageSeqs,
+      showHiddenMessages,
+      setMessageHidden,
       turnProcess,
     }, [
     node, groupPart, cwd, openFile, inspectCall, forkAt,
-    loadImage, fileMentions, turnProcess,
+    loadImage, fileMentions, hiddenMessageSeqs, showHiddenMessages, setMessageHidden, turnProcess,
   ])
   if (routedNode === undefined || owner === null) return null
   // Runtime dispatch owns the correlation: every Node's discriminant is the
@@ -157,6 +179,7 @@ export const ChatNodeSeat = memo(function ChatNodeSeat({
       data-turn-process-member={processMember || undefined}
       data-turn-process-hidden={processHidden || undefined}
       data-turn-process-answer={compactAnswer || undefined}
+      data-message-hidden={messageHidden || undefined}
     >
       {renderSlot('conversation.chat.node', routedOwner, {
         entryKey: routedNode.kind,

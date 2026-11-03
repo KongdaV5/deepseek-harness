@@ -35,7 +35,7 @@ async function bench(isLoopback = true) {
   const locale = new LocaleRuntime(ctx)
   locale.setLocale('zh')
   ctx.provide('locale', locale)
-  const section: Record<string, unknown> = { preference: 'system', fontSize: 14, codeFontSize: 11, terminalFontSize: 13, textFontFamily: '', codeFontFamily: '', terminalFontFamily: '' }
+  const section: Record<string, unknown> = { preference: 'system', fontSize: 14, contentFontSize: 14, codeFontSize: 11, terminalFontSize: 13, textFontFamily: '', codeFontFamily: '', terminalFontFamily: '' }
   const namespace = () => ({
     ns: THEME_SETTINGS_NAMESPACE,
     schema: ThemeSettingsSchema.toJSON(),
@@ -140,7 +140,7 @@ describe('ui-theme apply', () => {
     keyboard.press()
     expect(theme.getTheme().fontSizes).toEqual({ text: 15, code: 12, terminal: 14 })
     expect(host.mutate).toHaveBeenCalledExactlyOnceWith([
-      { op: 'set', path: ['fontSize'], value: 15 },
+      { op: 'set', path: ['contentFontSize'], value: 15 },
       { op: 'set', path: ['codeFontSize'], value: 12 },
       { op: 'set', path: ['terminalFontSize'], value: 14 },
     ])
@@ -164,14 +164,14 @@ describe('ui-theme apply', () => {
     keyboard.press({ code: 'Minus' })
     expect(theme.getTheme().fontSizes).toEqual({ text: 20, code: 10, terminal: 18 })
     expect(host.mutate).toHaveBeenLastCalledWith([
-      { op: 'set', path: ['fontSize'], value: 20 },
+      { op: 'set', path: ['contentFontSize'], value: 20 },
       { op: 'set', path: ['terminalFontSize'], value: 18 },
     ])
   })
 
   it('adopts all durable font sizes together after a refused batch settles', async () => {
     const host = stubConfigForm<ThemeSettings>()
-    const section: ThemeSettings = { preference: 'system', fontSize: 14, codeFontSize: 11, terminalFontSize: 13,
+    const section: ThemeSettings = { preference: 'system', fontSize: 14, contentFontSize: 14, codeFontSize: 11, terminalFontSize: 13,
       textFontFamily: '', codeFontFamily: '', terminalFontFamily: '' }
     host.publish({ status: 'ready', value: section, revision: 1, writable: true })
     const { theme, keyboard } = await keyboardTheme(host)
@@ -204,7 +204,7 @@ describe('ui-theme apply', () => {
     expect(theme.getTheme().fontSizes).toEqual({ text: 21, code: 13, terminal: 15 })
     await vi.waitFor(() => { expect(b.mutate).toHaveBeenCalledTimes(5) })
     expect(b.mutate.mock.calls.at(-1)?.[1]).toEqual([
-      { op: 'set', path: ['fontSize'], value: 21 },
+      { op: 'set', path: ['contentFontSize'], value: 21 },
       { op: 'set', path: ['codeFontSize'], value: 13 },
       { op: 'set', path: ['terminalFontSize'], value: 15 },
     ])
@@ -387,7 +387,8 @@ describe('ui-theme apply', () => {
     await b.ctx.plugin({ inject: [...inject], apply }).await()
     const theme = b.ctx.get('theme') as ThemeRuntime
     await vi.waitFor(() => { expect(theme.getTheme().preference).toBe('dark') })
-    expect(theme.getTheme().fontSizes.text).toBe(17)
+    expect(theme.getTheme().fontSize).toBe(17)
+    expect(theme.getTheme().fontSizes.text).toBe(14)
     // The mirror refreshes on every document commit (ns-agnostic); the scope's
     // derived value only moves when its own namespace changed.
     b.events.emit('settings/document-updated', ['unrelated', 0])

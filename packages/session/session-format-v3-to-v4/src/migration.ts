@@ -26,15 +26,23 @@ export const sessionFormatV3ToV4 = defineSessionFormatMigration({
   validateTargetHeader: assertReleasedV4Header,
 })
 
+/** Pure incoming plugin conversion using the official target sequence map. */
+export type SessionFormatV3Extension = (
+  event: SessionFormatEvent, seq: number, mapping: readonly number[],
+) => SessionFormatEvent | undefined
+
 /**
  * Bind one parent's historical child evidence to its V3→V4 migration.
  * @param children - complete child evidence retained unchanged for the lifetime of this declaration; an empty array declares no children.
+ * @param extension - optional explicit conversion for installed historical plugin payloads.
  * @returns an adjacent migration that creates independent stages with the supplied evidence.
  */
-export function createSessionFormatV3ToV4(children: readonly SessionFormatJsonValue[]): SessionFormatMigration {
+export function createSessionFormatV3ToV4(
+  children: readonly SessionFormatJsonValue[], extension?: SessionFormatV3Extension,
+): SessionFormatMigration {
   return defineSessionFormatMigration({
     ...sessionFormatV3ToV4,
-    createStage: input => new ReleasedV3ToV4Stage(input, children),
+    createStage: input => new ReleasedV3ToV4Stage(input, children, extension),
   })
 }
 
@@ -52,7 +60,10 @@ class ReleasedV3ToV4Stage implements SessionFormatMigrationStage {
   private time: number
   private foreignDeliverySeq: number | undefined
 
-  constructor(private readonly input: SessionFormatMigrationStageInput, children: readonly SessionFormatJsonValue[]) {
+  constructor(
+    private readonly input: SessionFormatMigrationStageInput, children: readonly SessionFormatJsonValue[],
+    private readonly extension?: SessionFormatV3Extension,
+  ) {
     this.candidates = children.map(childCatalogSource).sort((left, right) =>
       (left['childCreatedAt'] as number) - (right['childCreatedAt'] as number)
       || (left['childId'] === right['childId'] ? 0 : (left['childId'] as string) < (right['childId'] as string) ? -1 : 1))
@@ -85,6 +96,12 @@ class ReleasedV3ToV4Stage implements SessionFormatMigrationStage {
         throw new SessionFormatUnsupportedMigrationError('format v3 delivery marker claims target format v4')
       }
       if (deliveryId !== undefined && deliveryId !== this.input.sourceHeader.id) this.foreignDeliverySeq = event.seq
+    }
+    const custom = this.extension?.(event, targetSeq, this.mapping)
+    if (custom !== undefined) {
+      this.mapping.push(targetSeq)
+      context.emitEvent(custom)
+      return
     }
     const opaque = namespaceV3OpaqueEvent(event)
     if (opaque !== event) {

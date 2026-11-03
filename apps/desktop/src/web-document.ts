@@ -52,8 +52,8 @@ export async function authenticateWebHost(url: string): Promise<string> {
 /**
  * Response headers not relayed to the renderer. `set-cookie` would hand the
  * Host's authentication cookie to the page's cookie jar, which the shell owns
- * instead; the rest describe the Node `fetch` connection (its encoding, length,
- * and hop-by-hop transport), which Chromium never sees.
+ * instead; the rest describe the Host connection (its encoding, length,
+ * and hop-by-hop transport), which the application document never sees.
  */
 const WITHHELD_RESPONSE_HEADERS = [
   'set-cookie',
@@ -72,9 +72,16 @@ const PLUGIN_BUNDLE_PATH = /^\/plugins\//u
  * @param request - Request from the application origin.
  * @param host - Owned Host URL.
  * @param cookie - Host-issued authentication cookie.
+ * @param transport - Desktop supplies Electron's network transport so long-running Host commands
+ * do not inherit Node fetch's five-minute response-header timeout. Cancellation remains caller-owned.
  * @returns Host response without connection-level headers.
  */
-export async function forwardWebRequest(request: Request, host: string, cookie: string): Promise<Response> {
+export async function forwardWebRequest(
+  request: Request,
+  host: string,
+  cookie: string,
+  transport: typeof fetch = fetch,
+): Promise<Response> {
   const source = new URL(request.url)
   const origin = request.headers.get('origin')
   if (origin !== null && origin !== 'dsh-app://app') return new Response(null, { status: 403 })
@@ -85,7 +92,7 @@ export async function forwardWebRequest(request: Request, host: string, cookie: 
   for (const name of ['host', 'origin', 'cookie', 'sec-fetch-site']) headers.delete(name)
   headers.set('cookie', cookie)
   const init = { method: request.method, headers, body: request.body, signal: request.signal, duplex: 'half', redirect: 'manual' as const }
-  const response = await fetch(target, init)
+  const response = await transport(target, init)
   const outgoing = new Headers(response.headers)
   for (const name of WITHHELD_RESPONSE_HEADERS) outgoing.delete(name)
   if (PLUGIN_BUNDLE_PATH.test(source.pathname)) outgoing.set('cache-control', 'no-store')

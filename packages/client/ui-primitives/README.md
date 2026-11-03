@@ -76,6 +76,8 @@ Check this table before writing a control in a feature package. A plugin cannot 
 | `FileTypeIcon`, `classifyFileType`, `fileExtension` | A category-colored 28px file or folder glyph and the shared case-insensitive filename mapping behind it. Code and configuration files use detailed full-color technology glyphs; use `LinkIconMedium` for link-leading glyphs and image previews for image content. |
 | `languageForPath`, `CODE_HIGHLIGHT_EXTENSIONS`, `useCodeHighlighter` | The lazy line-token highlighter shared by code preview and diff review. The filename grammar selection is re-exported from `@deepseek-ai/dsh-util-code-language`, the single extension table also behind the read card's persisted short-id `lang` hint. |
 
+`DshMascotMark` is the shared original DSH assistant mark. Its body breathes continuously and its eyes blink while idle; after about 2.1–4.2 seconds without input, it picks a short blink, glance, nod, peek, stretch, wiggle, squash, bounce, dance, wave, or yawn. Squash, bounce, and stretch change the body silhouette. Hovering makes its eyes follow the pointer within the mark; direct presses, composer focus and typing, message submission, New Session, stop, and navigation trigger distinct reactions. Random gestures pause while the page is hidden, and animation stops when reduced motion is requested; none of this affects model requests.
+
 Four pairs are easy to confuse:
 
 - **`Tag` against `Pill`.** Reach for `Tag` for a read-only badge at the 11px capsule size, and for `Pill` when the capsule is selectable (`active` and `onClick`, as view switchers and filters use) or when it must sit on a 24px text line — `TerminalBlock` renders its exit status as a static `Pill` for exactly that reason. Size decides as much as interactivity here; the two are not interchangeable.
@@ -150,7 +152,7 @@ The package enforces one separation: presentational React atoms with zero Cordis
 | [`src/code-highlighting.ts`](src/code-highlighting.ts) | Shared filename grammar selection and lazy line highlighting |
 | [`src/input-modality.ts`](src/input-modality.ts) | Document-wide input modality published on `<html>` |
 | [`src/plugin-artwork.tsx`](src/plugin-artwork.tsx) | Fixed-palette plugin artwork with per-instance SVG def ids |
-| [`src/useAnchoredPosition.ts`](src/useAnchoredPosition.ts) / [`src/useAnchoredMaxHeight.ts`](src/useAnchoredMaxHeight.ts) | Floating-panel and overlay geometry hooks |
+| [`src/useAnchoredPosition.ts`](src/useAnchoredPosition.ts) / [`src/useAnchoredMaxHeight.ts`](src/useAnchoredMaxHeight.ts) | Floating-panel and overlay geometry hooks; fixed offsets account for cumulative CSS zoom |
 | [`src/settings-form/`](src/settings-form/) | The settings page kit: the staged form model over a settings scope, the value and secret fields, and the form frame |
 
 <a id="input-modality"></a>

@@ -33,7 +33,16 @@
       "path": "../session-format-v3-to-v4"
     },
     {
+      "path": "../session-format-v4-to-v5"
+    },
+    {
       "path": "../../compaction/compaction-image-offload"
+    },
+    {
+      "path": "../../core/agent-codex/tsconfig.state.json"
+    },
+    {
+      "path": "../task-checkpoint"
     }
   ]
 }

@@ -26,6 +26,12 @@ export interface TrajectoryToolbarProps {
   searchQuery: string
   /** Update the live ledger search query. */
   onSearchQueryChange: (query: string) => void
+  /** Number of session-local messages hidden from the default view. */
+  hiddenMessageCount: number
+  /** Whether hidden messages are temporarily visible. */
+  showHiddenMessages: boolean
+  /** Temporarily show or hide individually hidden messages. */
+  onToggleHiddenMessages: () => void
   /** Translate a toolbar dictionary key. */
   t: TranslateNS<typeof NS>
 }
@@ -46,6 +52,9 @@ export function TrajectoryToolbar({
   onToggleAllAssistants,
   searchQuery,
   onSearchQueryChange,
+  hiddenMessageCount,
+  showHiddenMessages,
+  onToggleHiddenMessages,
   t,
 }: TrajectoryToolbarProps) {
   return (
@@ -110,6 +119,19 @@ export function TrajectoryToolbar({
             </span>
             {t('toolbar.calls')}
           </button>
+          {hiddenMessageCount > 0 && (
+            <button
+              type="button"
+              className={css.action}
+              aria-label={t(showHiddenMessages ? 'toolbar.hideHiddenMessages' : 'toolbar.showHiddenMessages')}
+              aria-pressed={showHiddenMessages}
+              title={t(showHiddenMessages ? 'toolbar.hideHiddenMessages' : 'toolbar.showHiddenMessages')}
+              onClick={onToggleHiddenMessages}
+            >
+              {t(showHiddenMessages ? 'toolbar.hideHiddenMessages' : 'toolbar.showHiddenMessages')}
+              <span aria-hidden="true"> · {hiddenMessageCount}</span>
+            </button>
+          )}
         </div>
         <div className={css.search}>
           <IconSearchOutlineRegular size={11} className={css.searchIcon} />

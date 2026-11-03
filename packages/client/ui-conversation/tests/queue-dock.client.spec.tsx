@@ -29,6 +29,7 @@ import { createUserTextFixture } from './user-text-component-fixture.client.tsx'
 
 // Every session-scope fixture carries the resource hook the resources plugin merges into GlobalStandardProps.
 const useResource = (() => ({ status: 'none' as const, value: undefined, failure: undefined })) as GlobalStandardProps['useResource']
+const useExternalActivities: QueueDockProps['useExternalActivities'] = select => select([])
 
 afterEach(cleanup)
 
@@ -86,6 +87,7 @@ function liveSession(initial: TestSnapshot) {
   )) as UseProjection
   return {
     useSession,
+    useExternalActivities: (): never => { throw new Error('Fixture does not consume external activity') },
     useProjection,
     push(next: TestSnapshot): void {
       snapshot = next
@@ -118,6 +120,7 @@ function kitFor(snapshot: SessionSnapshot, injected: Partial<QueueDockInjected> 
     ),
     useWorkspaces: (() => { throw new Error('unused') }) as never,
     ...allowAllAccess,
+    useExternalActivities,
     useProjection: (() => undefined) as never,
     useConversation: bindSnapshotSelector(createSnapshotStore(conversationSnapshot())),
     useChat: (() => { throw new Error('unused') }) as QueueDockProps['useChat'],

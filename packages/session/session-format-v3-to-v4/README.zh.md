@@ -300,6 +300,8 @@ Fork 种子构造归核心 Session 所有，不属于此迁移。原生 V4 接�
 
 -----
 
+`createSessionFormatV3ToV4()` 接受纯粹的入站扩展转换器，并传入官方插入映射。Custom catalog 验证插件载荷并转换 checkpoint 的事件引用。历史任务压缩审计捕获仍归属于保留的 V3 代次；它们不授予 V4 继续执行的权限。
+
 <a id="further-exploration"></a>
 ## 进一步探索
 

@@ -351,6 +351,12 @@ describe('loadProfile', () => {
     expect(PROFILE_TEMPLATES['sdk-minimal']).toEqual({
       bundles: ['@deepseek-ai/dsh-sdk-minimal'],
     })
+    expect(PROFILE_TEMPLATES['desktop-custom']).toEqual({
+      bundles: [
+        '@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app',
+        '@deepseek-ai/dsh-experimental-schedule-bundle', '@deepseek-ai/dsh-desktop-custom',
+      ],
+    })
     loadProfile('t', 'web', anchor, home)
     expect(readProfileManifest('t', resolveProfileDir('web', home)).dsh?.profile?.bundles)
       .toEqual([...PROFILE_TEMPLATES.web?.bundles ?? []])

@@ -22,6 +22,7 @@ import type {
   SessionAssistantStreamFrame,
   SessionControlFrame,
   SessionEventEntry,
+  SessionExternalActivity,
   SessionFollowFrame,
   SessionFollowRequest,
   SessionHistoryRecord,
@@ -326,7 +327,7 @@ describe('Session Client stream adapters', () => {
     await stream.open({})
     await vi.waitFor(() => { expect(changes).toHaveLength(2) })
 
-    expect(remote.followRequests).toEqual([{ address: ADDRESS, assistantStream: true }])
+    expect(remote.followRequests).toEqual([{ address: ADDRESS, assistantStream: true, externalActivities: true }])
     expect(changes).toMatchObject([
       { type: 'replace', page: { assistantStream: baseline } },
       { type: 'assistant-stream', frame },
@@ -382,7 +383,7 @@ describe('Session Client stream adapters', () => {
         code: 'gateway/internal',
         message: 'session event stream emitted an entry before its opening cursor',
       })
-      expect(remote.followRequests).toEqual([{ address: ADDRESS, assistantStream: true }])
+      expect(remote.followRequests).toEqual([{ address: ADDRESS, assistantStream: true, externalActivities: true }])
     } finally {
       await stream.dispose()
     }
@@ -435,6 +436,42 @@ describe('Session Client stream adapters', () => {
     expect(remote.pageRequests).toEqual([])
     expect(carrierFailed).toHaveBeenCalledWith(expect.objectContaining({
       message: 'session assistant stream skipped revision 2',
+    }))
+    await stream.dispose()
+  })
+
+  it('rebaselines an external activity gap while preserving the durable cursor', async () => {
+    const activity: SessionExternalActivity = {
+      id: 'command-1', sessionId: ADDRESS.sessionId,
+      dshTurn: 1, dshStep: 1, provider: 'codex-subscription', runtimeSource: 'system',
+      runtimeVersion: 'fixture', codexThreadId: 'thread-1', codexTurnId: 'turn-1', codexItemId: 'item-1',
+      eventId: 'event-1', eventKind: 'command', terminalState: 'active', kind: 'command',
+      status: 'started', label: 'git', time: 1,
+    }
+    const opening = snapshot(0, [entry(0)])
+    if (opening.type !== 'snapshot') throw new Error('expected snapshot fixture')
+    const replacement = { revision: 10, activities: [{ ...activity, status: 'completed' as const }] }
+    const remote = new ScriptedSessionRemote([
+      { frames: [
+        { ...opening, externalActivities: { revision: 7, activities: [activity] } },
+        { type: 'external-activity', frame: { revision: 8, activity } },
+        { type: 'external-activity', frame: { revision: 10, activity } },
+      ] },
+      { frames: [{ ...opening, externalActivities: replacement }], hold: true },
+    ], [])
+    const changes: SessionJournalChange[] = []
+    const carrierFailed = vi.fn()
+    const stream = new SessionEventStream(sessionClient(remote), ADDRESS, {
+      publish: (change) => { changes.push(change) }, carrierFailed, failed: vi.fn(),
+    })
+    await stream.open({})
+    await vi.waitFor(() => { expect(remote.followRequests).toHaveLength(2) })
+    expect(changes.map(change => change.type)).toEqual(['replace', 'external-activity', 'replace'])
+    expect(changes.at(-1)).toMatchObject({ type: 'replace', page: { externalActivities: replacement } })
+    expect(remote.followRequests.every(request => request.externalActivities === true)).toBe(true)
+    expect(remote.pageRequests).toEqual([])
+    expect(carrierFailed).toHaveBeenCalledWith(expect.objectContaining({
+      message: 'session external activity stream skipped revision 9',
     }))
     await stream.dispose()
   })
@@ -547,7 +584,7 @@ describe('Session Client stream adapters', () => {
     await stream.prepend({ beforeSeq: 2, maxMessages: 500, turnWindow: { minMessages: 50, minTurns: 2 } })
 
     expect(remote.followRequests).toEqual([{
-      address: ADDRESS, assistantStream: true, maxMessages: 500, turnWindow: { minMessages: 50, minTurns: 2 },
+      address: ADDRESS, assistantStream: true, externalActivities: true, maxMessages: 500, turnWindow: { minMessages: 50, minTurns: 2 },
     }])
     expect(remote.pageRequests).toEqual([
       { address: ADDRESS, throughSeq: 4, beforeSeq: 2, maxMessages: 500, turnWindow: { minMessages: 50, minTurns: 2 } },
@@ -585,8 +622,8 @@ describe('Session Client stream adapters', () => {
     await vi.waitFor(() => { expect(remote.followRequests).toHaveLength(2) })
 
     expect(remote.followRequests).toEqual([
-      { address: ADDRESS, assistantStream: true, maxMessages: 500, turnWindow: { minMessages: 50, minTurns: 2 } },
-      { address: ADDRESS, assistantStream: true, maxMessages: 500, turnWindow: { minMessages: 50, minTurns: 2 } },
+      { address: ADDRESS, assistantStream: true, externalActivities: true, maxMessages: 500, turnWindow: { minMessages: 50, minTurns: 2 } },
+      { address: ADDRESS, assistantStream: true, externalActivities: true, maxMessages: 500, turnWindow: { minMessages: 50, minTurns: 2 } },
     ])
     expect(remote.pageRequests).toEqual([])
     expect(changes.map(change => change.type)).toEqual(['replace', 'append', 'replace'])
@@ -616,8 +653,8 @@ describe('Session Client stream adapters', () => {
     finish.resolve(undefined)
     await vi.waitFor(() => { expect(remote.followRequests).toHaveLength(2) })
     expect(remote.followRequests).toEqual([
-      { address: ADDRESS, assistantStream: true },
-      { address: ADDRESS, assistantStream: true },
+      { address: ADDRESS, assistantStream: true, externalActivities: true },
+      { address: ADDRESS, assistantStream: true, externalActivities: true },
     ])
     expect(remote.pageRequests).toEqual([])
     await stream.dispose()

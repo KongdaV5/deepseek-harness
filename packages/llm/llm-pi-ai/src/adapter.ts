@@ -60,6 +60,7 @@ import type { AttachmentStore, ImageAttachmentRef } from '@deepseek-ai/dsh-attac
 import { idleWatchdog, timeoutOf } from '@deepseek-ai/dsh-timeout'
 import type { ResolvedPiAiProviderProfile } from './config.ts'
 import { requestImageTarget, toPiContext } from './context.ts'
+import { admitLlamaCppRequest, startLlamaCppProgressMonitor } from './context-admission.ts'
 import { conversationUpdates, createModels, getSupportedThinkingLevels } from './models.ts'
 import { toStreamChunks } from './stream.ts'
 
@@ -285,7 +286,12 @@ export class PiAiAdapter extends LlmAdapter {
     // The configured name, not the route key: `displayName` exists so a
     // deployment can label a route, and a label only the configuration surface
     // reads would leave every selector showing the raw key.
-    return { id: provider, name: this.current().profiles.get(provider)?.displayName ?? provider }
+    const profile = this.current().profiles.get(provider)
+    return {
+      id: provider,
+      name: profile?.displayName ?? provider,
+      ...profile?.selectable === false ? { selectable: false } : {},
+    }
   }
 
   override providerRetryPolicy(provider: string): ResolvedRetryPolicy | undefined {
@@ -389,6 +395,9 @@ export class PiAiAdapter extends LlmAdapter {
       : AbortSignal.any([options.signal, consumer.signal])
     const streamIdleTimeoutMs = profile.streamIdleTimeoutMs
     using watchdog = idleWatchdog(upstream, streamIdleTimeoutMs, 'LLM_STREAM_IDLE_TIMEOUT')
+    // pi-ai serializes callback exceptions; preserve the canonical admission failure for agent recovery.
+    let admissionFailure: Error | undefined
+    const progressMonitor: { current: Awaited<ReturnType<typeof startLlamaCppProgressMonitor>> } = { current: undefined }
 
     try {
       const containsImage = options.messages.some(message => contentHasImage(message.content))
@@ -422,12 +431,38 @@ export class PiAiAdapter extends LlmAdapter {
         // Profile headers are deployment-owned; attribution names are
         // Harness-owned and therefore win collisions.
         headers: requestHeaders(profile.headers),
+        ...profile.llamaCppContextAdmission === undefined ? {} : {
+          onPayload: async (payload: unknown, requestModel: Model<Api>) => {
+            try {
+              let admittedInputTokens: number | undefined
+              const admitted = await admitLlamaCppRequest(
+                payload, requestModel, profile, options.maxTokens ?? model.maxTokens, watchdog.signal,
+                (inputTokens) => { admittedInputTokens = inputTokens },
+              )
+              await progressMonitor.current?.stop()
+              progressMonitor.current = admittedInputTokens === undefined ? undefined : await startLlamaCppProgressMonitor({
+                model: requestModel,
+                profile,
+                signal: watchdog.signal,
+                expectedPromptTokens: admittedInputTokens,
+                pulse: () => { watchdog.pulse() },
+              })
+              return admitted
+            } catch (error) {
+              admissionFailure = error instanceof Error ? error : new Error(String(error))
+              throw error
+            }
+          },
+        },
       })
       const iterator = toStreamChunks(events, model.contextWindow, options.signal, model.id)[Symbol.asyncIterator]()
       let exhausted = false
       try {
         while (true) {
           const result = await watchdog.next(iterator)
+          if (admissionFailure !== undefined) throw admissionFailure
+          const timeout = timeoutOf(watchdog.signal, 'LLM_STREAM_IDLE_TIMEOUT')
+          if (timeout !== undefined) throw timeout
           if (result.done) {
             exhausted = true
             return
@@ -453,6 +488,7 @@ export class PiAiAdapter extends LlmAdapter {
       throw error
     } finally {
       consumer.abort('pi-ai stream consumer stopped')
+      await progressMonitor.current?.stop()
     }
   }
 }

@@ -199,6 +199,10 @@ interface DesktopPackageInvocation {
   readonly unsigned: boolean
   readonly skipNotarization: boolean
   readonly check: boolean
+  /** Local Custom directory artifact; ad-hoc signed without upload or notarization. */
+  readonly candidate?: boolean
+  /** Explicit local installation eligibility; otherwise candidate startup requires isolation. */
+  readonly promotable?: boolean
   /** Build identifier to publish under, when this build does not publish the product version. */
   readonly requestedBuildVersion: string | undefined
 }
@@ -232,11 +236,19 @@ export function parseDesktopPackageInvocation(
       unsigned: { type: 'boolean', default: false },
       'skip-notarization': { type: 'boolean', default: false },
       check: { type: 'boolean', default: false },
+      candidate: { type: 'boolean', default: false },
+      promotable: { type: 'boolean', default: false },
       'build-version': { type: 'string' },
     },
   })
   if (positionals.length > 1) throw new Error('desktop package: expected at most one target')
   const name = positionals[0] ?? hostTargetName(hostPlatform, hostArch)
+  if (values.candidate && (!values.dir || !name.startsWith('mac-') || values.unsigned || values['prepare-only'])) {
+    throw new Error('desktop package: --candidate requires a macOS --dir build')
+  }
+  if (values.promotable && !values.candidate) {
+    throw new Error('desktop package: --promotable requires --candidate')
+  }
   if (values.unsigned && values['prepare-only']) throw new Error('desktop package: --unsigned cannot use --prepare-only')
   if (values['skip-notarization'] && (name === 'win-x64' || values.unsigned || values['prepare-only'])) {
     throw new Error('desktop package: --skip-notarization requires a signed macOS build, without --prepare-only')
@@ -252,6 +264,8 @@ export function parseDesktopPackageInvocation(
     unsigned: values.unsigned,
     skipNotarization: values['skip-notarization'],
     check: values.check,
+    ...(values.candidate ? { candidate: true } : {}),
+    ...(values.promotable ? { promotable: true } : {}),
     requestedBuildVersion,
   }
 }
@@ -343,7 +357,11 @@ async function main(): Promise<void> {
   if (invocation.skipNotarization) {
     process.stdout.write('desktop package: skipping notarization and stapling; internal debugging only, not qualified for distribution or update publishing\n')
   }
-  const environment = target.platform === 'darwin' && invocation.unsigned
+  const environment: NodeJS.ProcessEnv = invocation.candidate ? {
+    ...Object.fromEntries(Object.entries(process.env).filter(([name]) => !/KEY|SECRET|TOKEN|PASSWORD|APPLE_|CSC_|DOWNLOAD_/iu.test(name))),
+    DSH_DESKTOP_PRODUCT_FLAVOR: 'ds-harness', DSH_DESKTOP_CANDIDATE: '1',
+    DSH_DESKTOP_CANDIDATE_PROMOTABLE: invocation.promotable ? '1' : '0',
+  } : target.platform === 'darwin' && invocation.unsigned
     ? localMacOSPackageEnvironment()
     : loadDesktopPackageEnvironment(target.platform, process.env, APP_ROOT, {
       unsigned: invocation.unsigned, prepareOnly: invocation.prepareOnly,
@@ -382,7 +400,7 @@ async function main(): Promise<void> {
       recordPackagingEvent(run.directory, { type: 'macos-settings', packConcurrency: settings.packConcurrency,
         downloadProxyConfigured: settings.downloadProxy !== undefined,
         notarizationProxyConfigured: settings.notarizationProxy !== undefined })
-      await packagingStep(run.directory, 'macos-package', () => invocation.unsigned
+      await packagingStep(run.directory, 'macos-package', () => invocation.unsigned || invocation.candidate
         ? packageTarget(invocation, environment, run)
         : withMacOSSigningKeychain(environment, signingEnvironment => packageTarget(invocation, signingEnvironment, run)), secrets)
     } else {
@@ -426,7 +444,7 @@ export async function packageTarget(
   const packArguments = mac === undefined ? [] : ['--concurrency', String(mac.packConcurrency)]
   const buildPaths = desktopTargetBuildPaths(target.name)
   const releaseRecordPath = join(buildPaths.artifacts, desktopBuildRecordFilename(target.name))
-  if (!invocation.prepareOnly && !invocation.unsigned && !invocation.skipNotarization) {
+  if (!invocation.prepareOnly && !invocation.unsigned && !invocation.candidate && !invocation.skipNotarization) {
     rmSync(releaseRecordPath, { force: true })
     rmSync(`${releaseRecordPath}.tmp`, { force: true })
   }
@@ -514,10 +532,13 @@ export async function packageTarget(
     }, artifact => execute(desktopElectronBuilderArguments(target, false, artifact), electronBuilderEnv)), undefined, undefined, proxyEvent)
   } else if (target.platform === 'darwin' && !invocation.unsigned && !invocation.skipNotarization) {
     await execute([...desktopElectronBuilderArguments(target, true), '--config.mac.notarize=false'], electronBuilderEnv)
-    await execute(['exec', 'tsx', 'scripts/smoke-packaged-runtime.ts'], targetEnv)
-    const appPath = join(buildPaths.artifacts, target.arch === 'arm64' ? 'mac-arm64' : 'mac', 'DeepSeek Harness.app')
-    await withMacOSNotarizationProxy(mac?.notarizationProxy,
-      () => notarizeMacOS({ appPath, ...resolveMacOSNotarizationEnvironment(environment) }), undefined, undefined, proxyEvent)
+    await execute(['exec', 'tsx', 'scripts/smoke-packaged-runtime.ts', ...(invocation.candidate ? ['--candidate'] : [])], targetEnv)
+    if (!invocation.candidate) {
+      const { resolveDesktopBuildProduct } = await import('./desktop-release-environment.mjs')
+      const appPath = join(buildPaths.artifacts, target.arch === 'arm64' ? 'mac-arm64' : 'mac', `${resolveDesktopBuildProduct(environment).productName}.app`)
+      await withMacOSNotarizationProxy(mac?.notarizationProxy,
+        () => notarizeMacOS({ appPath, ...resolveMacOSNotarizationEnvironment(environment) }), undefined, undefined, proxyEvent)
+    }
   } else {
     await signedStage('artifacts', () => execute(desktopElectronBuilderArguments(target, invocation.directory), electronBuilderEnv))
     await execute(['exec', 'tsx', 'scripts/smoke-packaged-runtime.ts',

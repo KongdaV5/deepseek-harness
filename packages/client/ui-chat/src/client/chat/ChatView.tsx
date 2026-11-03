@@ -14,10 +14,13 @@ import { isAtOrOutside } from '../contract/group-tree.ts'
 import type { ChatFlowHookContext, ChatViewSlotProps, OpenFileOptions } from '../contract/slots.ts'
 import type { ChatSnapshot } from '../contract/snapshot.ts'
 import { TurnNavigator } from './TurnNavigator.tsx'
+import { executionFeedback } from '../conversation-nodes/execution-feedback.ts'
 import { mergeTurnRailItems } from './turn-rail-items.ts'
 import { useChatScroll } from './use-chat-scroll.ts'
 import { fileMediaUrl, resolveWorkspacePath } from '@deepseek-ai/dsh-util-workspace-path'
 import css from './ChatView.module.css'
+
+const EMPTY_HIDDEN_MESSAGE_SEQS: readonly number[] = []
 
 /** Host/OS refusal text for the file-open dialog; empty throws keep a locale fallback. */
 function openFailureMessage(error: unknown, fallback: string): string {
@@ -60,9 +63,13 @@ const MOTION_TAIL_MS = 800
 export function ChatView({
   useSession, useChat, useConversation, useSessions, renderSlot,
   sessionId, openFile, openExternalLink, loadOlder, loadThrough, loadImage, inspectCall, chatScroll, forkAt, fileMentions,
-  usePresentation, useProjection, t,
+  usePresentation, useProjection,
+  hiddenMessageSeqs = EMPTY_HIDDEN_MESSAGE_SEQS,
+  showHiddenMessages = false,
+  setMessageHidden, setHiddenMessagesVisible, t,
 }: ChatViewSlotProps) {
   const order = useChat(s => s.order)
+  const chatNodes = useChat(s => s.nodes.values())
   const groupedEntries = useConversation(snapshot => snapshot.views.grouped('chat')?.entries)
   const entries = useMemo<readonly RenderEntry[]>(() => groupedEntries
     ?? order.map(key => ({ kind: 'node', key: key as NodeKey })), [groupedEntries, order])
@@ -73,6 +80,15 @@ export function ChatView({
   // both the data and its change signal: the array identity moves only when a
   // Turn enters, leaves, or changes its preview.
   const turnNavigationItems = useChat(s => s.navigation.items())
+  const activeExecution = useChat((snapshot) => {
+    const turn = [...snapshot.timeline.turns.values()].findLast(candidate => candidate.status === 'open')
+    if (turn === undefined) return undefined
+    return { turn: turn.turn, assistant: turn.steps.at(-1)?.data.get('assistant-step') }
+  })
+  const runningFeedback = useMemo(
+    () => executionFeedback(chatNodes, activeExecution),
+    [activeExecution, chatNodes],
+  )
   // Host-computed whole-log outline; the merge is view-layer only (the
   // conversation snapshot never carries projection values).
   const turnOutline = useProjection('turnOutline')
@@ -223,10 +239,23 @@ export function ChatView({
                 </button>
               </div>
             )}
+            {hiddenMessageSeqs.length > 0 && (
+              <div className={css.hiddenMessageNotice} role="status">
+                <span>{t('chat.hiddenMessages', { count: hiddenMessageSeqs.length })}</span>
+                <button
+                  type="button"
+                  aria-pressed={showHiddenMessages}
+                  onClick={() => { setHiddenMessagesVisible?.(!showHiddenMessages) }}
+                >
+                  {t(showHiddenMessages ? 'chat.hideHiddenMessages' : 'chat.showHiddenMessages')}
+                </button>
+              </div>
+            )}
             <MarkdownDelegateProvider openFile={requestOpenFile} openExternalLink={openExternalLink} fileImages={fileImages}>
               {renderSlot('conversation.chat.flow', {
                 entries, pendingInputs, lastInputTurn, deferCollapse,
                 cwd, openFile: requestOpenFile, inspectCall, forkAt, loadImage, fileMentions,
+                hiddenMessageSeqs, showHiddenMessages, setMessageHidden, runningFeedback,
               }, { hookContext: flowContext })}
             </MarkdownDelegateProvider>
             {/* No pending placeholders: questions (ui-user-questions) and approvals

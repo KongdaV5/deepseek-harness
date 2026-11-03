@@ -47,9 +47,10 @@ const useSessionStatus: FontSettingsGroupProps['useSessionStatus'] = selector =>
 
 function mount() {
   const store = createFontRowStore().create()
-  store.actions.sync({ text: 14, code: 11, terminal: 13 }, { text: '', code: '"Iosevka"', terminal: '' }, 0)
+  store.actions.sync(14, { text: 14, code: 11, terminal: 13 }, { text: '', code: '"Iosevka"', terminal: '' }, 0)
   const setFontFamily = vi.fn()
   const setFontSize = vi.fn()
+  const setInterfaceFontSize = vi.fn()
   const props: FontSettingsGroupProps = {
     useSessions: emptySessions(),
     useSessionStatus,
@@ -61,6 +62,7 @@ function mount() {
     t: (key: string) => COPY[key] ?? key,
     setFontFamily,
     setFontSize,
+    setInterfaceFontSize,
   }
   render(<FontSettingsGroup {...props} />)
   return { setFontFamily, setFontSize, header: screen.getByRole('button', { name: 'More font settings' }) }

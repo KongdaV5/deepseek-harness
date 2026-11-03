@@ -27,7 +27,7 @@ import { createAppearanceRowStore, createFontRowStore } from './settings-store.t
 import { installThemeStyles } from './styles.ts'
 import { en, zh, type ThemeKey } from './locales.ts'
 import {
-  DEFAULT_FONT_SIZES, DEFAULT_PREFERENCE, FONT_FAMILY_FIELDS, FONT_ROLES, FONT_SIZE_SPECS,
+  DEFAULT_FONT_SIZE, DEFAULT_FONT_SIZES, DEFAULT_PREFERENCE, FONT_FAMILY_FIELDS, FONT_ROLES, FONT_SIZE_FIELD, FONT_SIZE_SPECS,
   fontFamilyVariable, isFontSize, isThemePreference, normalizeFontFamily, sectionFontSizes,
   THEME_PREFERENCE_FIELD, THEME_SETTINGS_NAMESPACE,
   type FontFamilies, type FontRole, type FontSizes, type ThemePreference, type ThemeSettings,
@@ -38,6 +38,7 @@ export type { FontSettingsGroupProps, FontSettingsInjected } from './FontSetting
 export type { AppearanceRowState, FontRowState } from './settings-store.ts'
 export type { ThemeKey } from './locales.ts'
 export type { FontFamilies, FontRole, FontSizes, ThemePreference, ThemeSettings } from '../theme-settings.ts'
+export { DEFAULT_FONT_SIZE } from '../theme-settings.ts'
 
 /** Namespace owning this feature's settings-row copy. */
 export const SETTINGS_NS = 'settings.theme'
@@ -84,6 +85,10 @@ export interface ThemeDefinition {
 export interface ThemeSnapshot {
   /** The persisted preference (may be `system`). */
   preference: ThemePreference
+  /** Global interface font-size reference in px. */
+  fontSize: number
+  /** Global body-scale ratio against the 14px reference. */
+  fontScale: number
   /** Integer px font sizes by role, each within its `FONT_SIZE_SPECS` range (`text` is the conversation content size). */
   fontSizes: FontSizes
   /** Normalized user font lists by role; `''` selects the role's built-in stack. */
@@ -167,6 +172,7 @@ export class ThemeRuntime {
   private readonly host: ConfigForm<ThemeSettings>
   private themes: ThemeDefinition[] = [...BUILTIN_THEMES]
   private preference: ThemePreference
+  private fontSize = bootstrapInterfaceFontSize()
   private fontSizes: FontSizes = bootstrapFontSizes()
   private fontFamilies: FontFamilies = bootstrapFontFamilies()
   private revision = 0
@@ -250,12 +256,25 @@ export class ThemeRuntime {
   }
 
   /**
-   * Change one role's font size. Accepted
-   * values are written through the settings scope and emit `theme/change`.
-   * @param role - font role.
-   * @param px - integer px within the role's `FONT_SIZE_SPECS` range; out-of-range or fractional values throw.
+   * Change the global interface size, or the font size for one role.
+   * Global size accepts any positive finite value. Role sizes use their
+   * configured range and the text role is stored independently of global zoom.
+   * @param roleOrPx - global size in px, or a font role.
+   * @param rolePx - integer px for the selected role.
    */
-  setFontSize(role: FontRole, px: number): void {
+  setFontSize(roleOrPx: number | FontRole, rolePx?: number): void {
+    if (typeof roleOrPx === 'number') {
+      const px = roleOrPx
+      if (!Number.isFinite(px) || px <= 0) throw new Error(`font size ${px} must be a positive finite number`)
+      if (this.fontSize === px) return
+      this.fontSize = px
+      this.write(() => this.host.set(FONT_SIZE_FIELD, px))
+      this.publish()
+      return
+    }
+    const role = roleOrPx
+    const px = rolePx
+    if (px === undefined) throw new Error(`font size for ${role} is required`)
     const spec = FONT_SIZE_SPECS[role]
     if (!isFontSize(role, px)) throw new Error(`${role} font size ${px} is outside ${spec.min}..${spec.max}`)
     if (this.fontSizes[role] === px) return
@@ -263,6 +282,11 @@ export class ThemeRuntime {
     this.write(() => this.host.set(spec.field, px))
     this.publish()
   }
+
+  /** Update the global interface zoom using the existing durable font-size setting.
+   * @param px - any positive finite interface-size reference in CSS pixels.
+   */
+  setInterfaceFontSize(px: number): void { this.setFontSize(px) }
 
   /**
    * Step all font sizes within their own ranges and save changed fields in one mutation.
@@ -317,9 +341,10 @@ export class ThemeRuntime {
     if (section === undefined) return
     const fontFamilies = durableFontFamilies(section)
     const fontSizes = sectionFontSizes(section)
-    if (this.preference === section.preference
+    if (this.preference === section.preference && this.fontSize === section.fontSize
       && FONT_ROLES.every(role => this.fontSizes[role] === fontSizes[role] && this.fontFamilies[role] === fontFamilies[role])) return
     this.preference = section.preference
+    this.fontSize = section.fontSize
     this.fontSizes = fontSizes
     this.fontFamilies = fontFamilies
     this.publish()
@@ -388,6 +413,8 @@ export class ThemeRuntime {
     if (active === undefined) throw new Error(`theme registry lost "${resolvedId}"`)
     return Object.freeze({
       preference: this.preference,
+      fontSize: this.fontSize,
+      fontScale: scaleForFontSize(this.fontSize),
       fontSizes: this.fontSizes,
       fontFamilies: this.fontFamilies,
       active: this.composeActive(active),
@@ -456,6 +483,20 @@ function durableFontFamilies(section: ThemeSettings): FontFamilies {
     code: normalizeFontFamily(section.codeFontFamily),
     terminal: normalizeFontFamily(section.terminalFontFamily),
   })
+}
+
+/** Read the globally applied interface zoom reference before plugin mount. */
+function bootstrapInterfaceFontSize(): number {
+  /* v8 ignore next -- needs a documentless run (node e2e booting the client tree), not constructible under jsdom */
+  if (typeof document === 'undefined') return DEFAULT_FONT_SIZE
+  const parsed = Number.parseFloat(document.body.style.getPropertyValue('--dsh-ui-font-size'))
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_FONT_SIZE
+}
+
+/** Preserve a positive CSS zoom for the smallest representable user value. */
+function scaleForFontSize(fontSize: number): number {
+  const scale = fontSize / DEFAULT_FONT_SIZE
+  return scale > 0 ? scale : Number.MIN_VALUE
 }
 
 /**
@@ -555,7 +596,7 @@ export function apply(ctx: ClientContext): void {
   let fontBound: BoundActions<typeof fontStore> | undefined
   const sync = (snapshot: ThemeSnapshot): void => {
     bound?.sync(snapshot.preference, snapshot.revision)
-    fontBound?.sync(snapshot.fontSizes, snapshot.fontFamilies, snapshot.revision)
+    fontBound?.sync(snapshot.fontSize, snapshot.fontSizes, snapshot.fontFamilies, snapshot.revision)
   }
   ctx.on('theme/change', sync)
   const injected = (actions: BoundActions<typeof store>): AppearanceRowInjected => {
@@ -588,6 +629,7 @@ export function apply(ctx: ClientContext): void {
       return {
         setFontFamily: (role, value) => { theme.setFontFamily(role, value) },
         setFontSize: (role, px) => { theme.setFontSize(role, px) },
+        setInterfaceFontSize: (px) => { theme.setInterfaceFontSize(px) },
       }
     },
   }, FontSettingsGroup))

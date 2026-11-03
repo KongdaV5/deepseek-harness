@@ -3,8 +3,9 @@ import { Context, Service } from '@deepseek-ai/cordis'
 import AgentRegistry, { type Agent } from '@deepseek-ai/dsh-agent'
 import { unsupportedInbox } from '@deepseek-ai/dsh-agent-loop-testkit'
 import type { UserMessage } from '@deepseek-ai/dsh-llm'
+import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import SessionStore, { SessionId } from '@deepseek-ai/dsh-session'
-import type { CreateSessionOptions } from '@deepseek-ai/dsh-session'
+import type { CreateSessionOptions, SessionEvent } from '@deepseek-ai/dsh-session'
 import Storage, { type KvUnit, type KvUnitDescriptor, type StorageBackend } from '@deepseek-ai/dsh-storage'
 import { DomainFacility } from '@deepseek-ai/dsh-storage-domain'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
@@ -72,6 +73,7 @@ export async function harness(options: {
   const ctx = new Context()
   options.onContext?.(ctx)
   await ctx.plugin(SessionStore)
+  await ctx.plugin(SessionProjectionRegistry)
   await ctx.plugin(AgentRegistry)
   await ctx.plugin(SystemPrompt, {})
   await ctx.plugin(ToolRuntime)
@@ -120,10 +122,15 @@ export interface HarnessAgent extends Agent {
  * @param ctx - Services owning the Session.
  * @param id - Unique Session identity within the test Context.
  * @param meta - Optional Session creation metadata, such as subagent lineage.
+ * @param seed - Optional persisted events to restore into the Session.
  * @returns Agent whose follow-up entry is a spy.
  */
-export function agentFor(ctx: Context, id = 'original', meta?: CreateSessionOptions['meta']): HarnessAgent {
-  const session = ctx.sessions.create(SessionId(id), meta === undefined ? undefined : { meta })
+export function agentFor(ctx: Context, id = 'original', meta?: CreateSessionOptions['meta'], seed?: readonly SessionEvent[]): HarnessAgent {
+  const options: CreateSessionOptions = {
+    ...(meta === undefined ? {} : { meta }),
+    ...(seed === undefined ? {} : { seed }),
+  }
+  const session = ctx.sessions.create(SessionId(id), options)
   return {
     id: session.id, session, ctx: ctx.extend(), options: {}, status: 'idle', inbox: unsupportedInbox(),
     send() {}, followup: vi.fn<(message: UserMessage) => void>(), steer() {}, inject() {}, cancel() {},

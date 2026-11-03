@@ -11,8 +11,10 @@ export const THEME_SETTINGS_NAMESPACE = 'ui-theme'
 /** Field carrying the selected built-in theme preference. */
 export const THEME_PREFERENCE_FIELD = 'preference'
 
-/** Field carrying the conversation content font size. */
+/** Field carrying the global interface font-size reference. */
 export const FONT_SIZE_FIELD = 'fontSize'
+/** Durable field carrying the independent conversation-content font size. */
+export const CONTENT_FONT_SIZE_FIELD = 'contentFontSize'
 
 /** Theme preference persisted by the product Appearance row. */
 export type ThemePreference = typeof THEME_PREFERENCES[number]
@@ -20,13 +22,13 @@ export type ThemePreference = typeof THEME_PREFERENCES[number]
 /** Default preference when the user-settings document has no override. */
 export const DEFAULT_PREFERENCE: ThemePreference = 'system'
 
-/** Smallest accepted content font size (px). */
+/** Smallest accepted conversation-content font size (px). */
 export const FONT_SIZE_MIN = 10
 
-/** Largest accepted content font size (px). */
+/** Largest accepted conversation-content font size (px). */
 export const FONT_SIZE_MAX = 22
 
-/** Content font size when the user-settings document has no override (px). */
+/** Reference interface size when the user-settings document has no override (px). */
 export const DEFAULT_FONT_SIZE = 14
 
 /** Independently configurable font roles. */
@@ -55,7 +57,7 @@ export interface FontSizeSpec {
  * terminal cell font size.
  */
 export const FONT_SIZE_SPECS = {
-  text: { field: FONT_SIZE_FIELD, variable: '--dsh-content-font-size', min: FONT_SIZE_MIN, max: FONT_SIZE_MAX, default: DEFAULT_FONT_SIZE },
+  text: { field: CONTENT_FONT_SIZE_FIELD, variable: '--dsh-content-font-size', min: FONT_SIZE_MIN, max: FONT_SIZE_MAX, default: DEFAULT_FONT_SIZE },
   code: { field: 'codeFontSize', variable: '--dsh-code-font-size', min: 10, max: 16, default: 11 },
   terminal: { field: 'terminalFontSize', variable: '--dsh-terminal-font-size', min: 10, max: 20, default: 13 },
 } as const satisfies Record<FontRole, FontSizeSpec>
@@ -92,8 +94,10 @@ export type FontFamilies = Readonly<Record<FontRole, string>>
 export interface ThemeSettings {
   /** Selected built-in preference. */
   preference: ThemePreference
-  /** Conversation content font size in px (integer within {@link FONT_SIZE_MIN}..{@link FONT_SIZE_MAX}). */
+  /** Global interface font-size reference in px; any positive finite value is accepted. */
   fontSize: number
+  /** Conversation content font size in px. */
+  contentFontSize: number
   /** Code-block font size in px (integer within the {@link FONT_SIZE_SPECS} `code` range). */
   codeFontSize: number
   /** Sidebar terminal font size in px (integer within the {@link FONT_SIZE_SPECS} `terminal` range). */
@@ -121,7 +125,7 @@ export function fontSizeSchema(spec: FontSizeSpec): z<number> {
  * @returns integer px sizes by role.
  */
 export function sectionFontSizes(section: ThemeSettings): FontSizes {
-  return Object.freeze({ text: section.fontSize, code: section.codeFontSize, terminal: section.terminalFontSize })
+  return Object.freeze({ text: section.contentFontSize, code: section.codeFontSize, terminal: section.terminalFontSize })
 }
 
 /**
@@ -138,7 +142,8 @@ export function isFontSize(role: FontRole, px: number): boolean {
 /** Durable theme schema; also the wire envelope the browser scope validates against. */
 export const ThemeSettingsSchema: z<ThemeSettings> = z.object({
   [THEME_PREFERENCE_FIELD]: z.union([...THEME_PREFERENCES]).default(DEFAULT_PREFERENCE),
-  [FONT_SIZE_FIELD]: fontSizeSchema(FONT_SIZE_SPECS.text),
+  [FONT_SIZE_FIELD]: z.number().min(Number.MIN_VALUE).max(Number.MAX_VALUE).default(DEFAULT_FONT_SIZE),
+  [CONTENT_FONT_SIZE_FIELD]: fontSizeSchema(FONT_SIZE_SPECS.text),
   [FONT_SIZE_SPECS.code.field]: fontSizeSchema(FONT_SIZE_SPECS.code),
   [FONT_SIZE_SPECS.terminal.field]: fontSizeSchema(FONT_SIZE_SPECS.terminal),
   [FONT_FAMILY_FIELDS.text]: z.string().default(''),

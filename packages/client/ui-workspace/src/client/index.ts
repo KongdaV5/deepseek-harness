@@ -39,6 +39,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
 import type {} from '@deepseek-ai/dsh-client-ui-session/client'
 import {
   type ArchiveSessionInjected, type ForkSessionInjected, menuOpenStateFactory, type PinSessionInjected,
+  type HideSessionInjected,
   type SessionArchiveConfirmInjected, type SessionArchiveConfirmRequest,
   type RenameSessionInjected, type RowToast, type RowToastInjected, type RowToastState, type SessionRenameDialogInjected,
   type SessionIdInjected, type WorkspaceBrowserInjected, type WorkspacePickerInjected,
@@ -48,6 +49,7 @@ import { UiWorkspaceService } from './navigation.ts'
 import { createWorkspaceViewStore } from './stores.ts'
 import { WorkspaceBrowser } from './rows/WorkspaceBrowser.tsx'
 import { ArchiveSessionMenuItem, ArchiveSessionRowButton, SessionArchiveConfirmDialog } from './session-actions/ArchiveSession.tsx'
+import { HideSessionMenuItem } from './session-actions/HideSession.tsx'
 import { derive } from './session-actions/derived.ts'
 import { ForkSessionMenuItem } from './session-actions/ForkSession.tsx'
 import { PinSessionMenuItem, PinSessionRowButton } from './session-actions/PinSession.tsx'
@@ -62,6 +64,7 @@ export type { StartSessionOptions, UiWorkspace } from './navigation.ts'
 export type {
   DirectoryFlowOwnerProps, DirectoryFlowSlotName, DirectoryPickingHooks, DirectoryPickingInjected,
   MenuOpenState, RowToast, SessionRenameTarget, SessionRowOwnerProps, UseMenuOpenState, WorkspaceBrowserInjected,
+  HideSessionInjected, HideSessionProps,
   SessionRowScheduleOwnerProps,
   WorkspaceBrowserProps,
   WorkspacePickerInjected, WorkspacePickerProps,
@@ -118,6 +121,7 @@ export function apply(ctx: Context): void {
   const viewHandle = createWorkspaceViewStore()
   const viewInstance = viewHandle.create()
   const viewStore: typeof viewHandle = { ...viewHandle, create: () => viewInstance }
+  const hiddenSessions = derive(viewInstance, state => new Set<SessionId>(state.hiddenSessionIds ?? []))
   const rowToast = createSnapshotStore<RowToastState | null>(null)
   let toastSeq = 0
   const notify = (toast: RowToast): void => { rowToast.set({ ...toast, seq: ++toastSeq }) }
@@ -211,6 +215,10 @@ export function apply(ctx: Context): void {
     },
     unarchiveSession,
   })
+  const hideInjected = (): HideSessionInjected => ({
+    hooks: { hidden: hiddenSessions },
+    setSessionHidden: (sessionId, hidden) => { uiWorkspace.setSessionHidden(sessionId, hidden) },
+  })
   installWorkspaceShortcuts(ctx, uiWorkspace, shortcutControls, archiveInjected().archiveSession,
     (reason) => { notify({ kind: 'shortcutForkFailed', reason }) })
   const archiveConfirmInjected = (): SessionArchiveConfirmInjected => ({
@@ -270,6 +278,8 @@ export function apply(ctx: Context): void {
     searchResultLimit: sessions.searchResultLimit,
     requestSessionRename,
     notifyArchivedNotOpenable: () => { notify({ kind: 'archivedNotOpenable' }) },
+    setSessionHidden: (sessionId, hidden) => { uiWorkspace.setSessionHidden(sessionId, hidden) },
+    setShowHiddenSessions: (visible) => { viewInstance.actions.setShowHiddenSessions(visible) },
     renameWorkspace: async (workspaceId, title) => { await workspaces.rename(workspaceId, title) },
     deleteWorkspace: async (workspaceId) => { await workspaces.delete(workspaceId) },
     insertWorkspaceBefore: async (workspaceId, beforeWorkspaceId) => {
@@ -318,6 +328,7 @@ export function apply(ctx: Context): void {
     yield ctx.slots.register({ name: 'sidebar.workspaces.session.menu.item', id: 'rename', order: 200, locale: NS, inject: renameInjected }, RenameSessionMenuItem)
     yield ctx.slots.register({ name: 'sidebar.workspaces.session.menu.item', id: 'fork', order: 300, locale: NS, inject: forkInjected }, ForkSessionMenuItem)
     yield ctx.slots.register({ name: 'sidebar.workspaces.session.menu.item', id: 'archive', order: 400, locale: NS, inject: archiveInjected }, ArchiveSessionMenuItem)
+    yield ctx.slots.register({ name: 'sidebar.workspaces.session.menu.item', id: 'hide', order: 500, locale: NS, inject: hideInjected }, HideSessionMenuItem)
     yield ctx.slots.register({ name: 'sidebar.workspaces.session.menu.item', id: 'session-id', order: 450, locale: NS, inject: sessionIdInjected }, SessionIdMenuItem)
   })
   ctx.slots.inject('sidebar.workspaces.session.row.action', function* () {

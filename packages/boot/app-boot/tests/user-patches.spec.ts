@@ -115,6 +115,16 @@ describe('loadOptionalPatches', () => {
       '      config:',
       '        - id: child',
       '          name: ../child.mjs',
+      '- insert:',
+      '    - id: preset-general',
+      "      name: '@deepseek-ai/dsh-agent-preset'",
+      '      config:',
+      '        id: general',
+      '        plugins:',
+      '          - id: standard-composition',
+      '            name: cordis:include',
+      '            config:',
+      '              path: compositions/standard.yml',
       '',
     ].join('\n'))
 
@@ -123,6 +133,8 @@ describe('loadOptionalPatches', () => {
     expect(patches?.[1]?.insert?.[0]?.name).toBe(pathToFileURL(join(dir, 'rule.mjs')).href)
     expect((patches?.[1]?.insert?.[1]?.config as { name: string }[])[0]?.name)
       .toBe(pathToFileURL(join(dir, '..', 'child.mjs')).href)
+    expect(((patches?.[2]?.insert?.[0]?.config as { plugins: { config: { path: string } }[] })
+      .plugins[0]?.config.path)).toBe(pathToFileURL(join(dir, 'compositions/standard.yml')).href)
   })
 
   it('fails loud on an unreadable file (a present user patch layer is never skipped)', () => {

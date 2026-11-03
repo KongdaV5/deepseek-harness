@@ -3,6 +3,7 @@
 import { createSessionFormatCatalog } from '@deepseek-ai/dsh-session-format'
 import type { SessionFormatCatalog, SessionFormatJsonValue } from '@deepseek-ai/dsh-session-format'
 import { createSessionFormatV3ToV4, sessionFormatV3ToV4 } from '@deepseek-ai/dsh-session-format-v3-to-v4'
+import { convertCustomV3Event } from './custom.ts'
 import { sessionFormatCatalogOptions } from './generated.ts'
 
 /**
@@ -11,7 +12,7 @@ import { sessionFormatCatalogOptions } from './generated.ts'
  * @returns a catalog with independent restore state per artifact and unchanged current-format readers.
  */
 export function createSessionFormatCatalogWithChildren(children: readonly SessionFormatJsonValue[]): SessionFormatCatalog {
-  const migration = createSessionFormatV3ToV4(children)
+  const migration = createSessionFormatV3ToV4(children, convertCustomV3Event)
   return createSessionFormatCatalog({
     ...sessionFormatCatalogOptions,
     migrations: sessionFormatCatalogOptions.migrations.map(edge => edge === sessionFormatV3ToV4 ? migration : edge),

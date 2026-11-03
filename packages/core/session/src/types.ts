@@ -87,7 +87,7 @@ export type OptionalSessionSeq = SessionSeq | null
  * Compatibility review and the retained migration obligations are recorded in
  * `.agents/notes/implemented/process/2026-10-08-session-reader-compatibility-review.md`.
  */
-export const SESSION_FORMAT_VERSION = 4
+export const SESSION_FORMAT_VERSION = 5
 
 /**
  * Immutable validated storage metadata, kept outside the conversation event log.
@@ -430,6 +430,12 @@ export interface SessionEventMap {
 
 /** The appendable event-type keys of {@link SessionEventMap}, plugin-merged extensions included. */
 export type SessionEventType = keyof SessionEventMap
+
+/** Plugin-owned metadata safe for readers without its optional domain. */
+export interface IgnorableSessionEventMap {}
+
+/** Declared optional types accepted by the Session single writer. */
+export type IgnorableSessionEventType = Extract<SessionEventType, keyof IgnorableSessionEventMap>
 
 /**
  * The subset of {@link SessionEventType} values whose events produce LLM

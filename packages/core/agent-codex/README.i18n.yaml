@@ -1,0 +1,46 @@
+# Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write packages/core/agent-codex/README.md
+/:
+  en: 5372e8675b76879c
+  zh: 3392b9ac2798804b
+/deepseek-ai-dsh-agent-codex:
+  en: 4b3a4ff2806114c5
+  zh: bd8aed166cc6710d
+/deepseek-ai-dsh-agent-codex/summary:
+  en: ee2ed25ea6948777
+  zh: 0a5b128aae4d6374
+/deepseek-ai-dsh-agent-codex/table-of-contents:
+  en: d152484eb41ac6b4
+  zh: 1db86285abf6c499
+/deepseek-ai-dsh-agent-codex/use-this-package:
+  en: 9b8b5e3f98071c52
+  zh: bb3c2edc7a0260a6
+/deepseek-ai-dsh-agent-codex/understand-the-implementation:
+  en: c456fc360f8f5282
+  zh: 75672ecd9ad5a03b
+/deepseek-ai-dsh-agent-codex/further-exploration:
+  en: 7cd9ad69aca7e161
+  zh: d7a11a51c46aec2e
+/deepseek-ai-dsh-agent-codex/model-experience:
+  en: 215e7ba838619b7b
+  zh: a311da3843709f90
+/deepseek-ai-dsh-agent-codex/model-experience/runtime-integration:
+  en: db9a1add82d49892
+  zh: 0ed2c7c2a4dfdafd
+/deepseek-ai-dsh-agent-codex/model-experience/runtime-integration/what-the-model-sees:
+  en: 53807a6fc1aca75f
+  zh: 32f0ea14012c12ea
+/deepseek-ai-dsh-agent-codex/model-experience/runtime-integration/token-effect:
+  en: 70eb986d6580242e
+  zh: 10a8b43995b49d10
+/deepseek-ai-dsh-agent-codex/model-experience/runtime-integration/kv-cache-effect:
+  en: 58125e56cc405f59
+  zh: 1eac0aa94410c398
+/deepseek-ai-dsh-agent-codex/known-limitations-and-deferred-work:
+  en: 3bb6019aaab030a4
+  zh: b07d55f904fa002a
+/deepseek-ai-dsh-agent-codex/known-limitations-and-deferred-work/dev-note:
+  en: a132d1db245d6b39
+  zh: 333426a7c6708ed7

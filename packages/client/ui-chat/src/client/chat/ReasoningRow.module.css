@@ -9,6 +9,10 @@
 }
 
 .row {
+  display: flex;
+  min-height: calc(24px + var(--dsh-content-font-delta, 0px));
+  align-items: center;
+  gap: 6px;
   overflow: hidden;
 }
 
@@ -22,6 +26,8 @@
 }
 
 .leading {
+  display: inline-flex;
+  align-items: center;
   flex-shrink: 0;
 }
 

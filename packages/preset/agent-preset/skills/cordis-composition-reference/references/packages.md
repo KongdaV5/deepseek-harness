@@ -19,6 +19,7 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 | `@deepseek-ai/dsh-api-job-controller` | yes | Job Remote observation stream and the reference-counted client job-output service |
 | `@deepseek-ai/dsh-api-remote-access` | no | Method-level Remote access control for non-owner Peers and the per-Peer access snapshot |
 | `@deepseek-ai/dsh-api-remotes` | no | Remote BFF assembly for application-selected Host capabilities |
+| `@deepseek-ai/dsh-api-runtime-diagnostics-controller` | no | Domain-neutral transient diagnostics transport: one topic-keyed provider registry, a typed Remote stream opening with a synchronous snapshot and delivering ordered full replacements, and a Client resource provider |
 | `@deepseek-ai/dsh-api-session-controller` | yes | Session Remote commands, cold reads, and live control transport |
 | `@deepseek-ai/dsh-api-settings-controller` | yes | Remote owner for the configuration surfaces over the settings-domain seams |
 | `@deepseek-ai/dsh-api-terminal-controller` | yes | Session-owned interactive terminals with shell discovery, screen recovery and typed Remote control |
@@ -36,6 +37,7 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 | Package | Config | Description |
 |---|---|---|
 | `@deepseek-ai/dsh-config-editor` | no | Persist plugin configuration through profile patches and Loader reconciliation |
+| `@deepseek-ai/dsh-custom-foundation` | yes | Custom Local profile configuration and isolated legacy settings translation |
 | `@deepseek-ai/dsh-hmr` | yes | Coordinated module and profile configuration hot reload |
 | `@deepseek-ai/dsh-plugin-manager` | yes | Current-profile plugin and bundle management shared by dsh CLI, Web and agent tools |
 | `@deepseek-ai/dsh-plugin-market` | yes | Configured plugin market indexes for the Web Discover page and the plugin_market agent tool |
@@ -92,6 +94,7 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 | `@deepseek-ai/dsh-client-ui-plugin-market` | no | Discover tab of the dsh web Plugins page: browse configured plugin market indexes and install their bundles |
 | `@deepseek-ai/dsh-client-ui-reference` | no | Unified Web @file and @session reference source |
 | `@deepseek-ai/dsh-client-ui-renderer` | no | Browser UI renderer: React slot bindings, ctx.uiRenderer, and the assembled application root |
+| `@deepseek-ai/dsh-client-ui-run-details` | no | Run Details surface: a read-only strip docked above the composer, rendered from the runDetails and taskCheckpoint session projections |
 | `@deepseek-ai/dsh-client-ui-schedule` | no | Host task management page and Session reminder catalog |
 | `@deepseek-ai/dsh-client-ui-secret-mask` | no | Web display masking for recognized credentials in sent user text |
 | `@deepseek-ai/dsh-client-ui-session` | no | Session Controller adapter for React and session-scoped slots |
@@ -129,6 +132,7 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 | `@deepseek-ai/dsh-command-compact` | no | Human-facing slash command for explicit session compaction |
 | `@deepseek-ai/dsh-compaction-basic` | yes | Token-meter-driven compaction policy and LLM summarization backend for the DeepSeek Harness |
 | `@deepseek-ai/dsh-compaction-image-offload` | no | Durable image offload for image-capable routes: replace over-budget request images with placeholders and retry |
+| `@deepseek-ai/dsh-compaction-task-aware-policy` | no | Task-aware compaction policy for DS Harness: a fail-closed candidate policy that protects durable Task authority across the existing compaction executor |
 | `@deepseek-ai/dsh-compaction-tool-result-pruner` | yes | Replay-safe model-free head/middle/tail pruning for tool-result surface nodes |
 
 ## computer-use
@@ -136,6 +140,7 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 | Package | Config | Description |
 |---|---|---|
 | `@deepseek-ai/dsh-computer-use` | no | Exclusive named computer-use provider registration |
+| `@deepseek-ai/dsh-custom-computer-use-safety` | yes | Custom desktop ownership, admission, and stop layer over the official Computer Use provider |
 
 ## context
 
@@ -153,6 +158,7 @@ Every package below exports a Cordis plugin that a bundle patch can name in a Lo
 | Package | Config | Description |
 |---|---|---|
 | `@deepseek-ai/dsh-agent` | no | Agent interface, registry, initiator scope, and event vocabulary for the DeepSeek Harness |
+| `@deepseek-ai/dsh-agent-codex` | yes | Custom agent-codex foundation for the RC.2 profile and persisted Session data |
 | `@deepseek-ai/dsh-agent-default-model` | yes | Default model selection shared by Agent entry points |
 | `@deepseek-ai/dsh-agent-loop` | yes | The concrete agent loop plugin for the DeepSeek Harness |
 | `@deepseek-ai/dsh-agent-tool-presentation` | yes | Agent-plane presentation selector: composes one agent's tools as PTC mode or native tool calls |

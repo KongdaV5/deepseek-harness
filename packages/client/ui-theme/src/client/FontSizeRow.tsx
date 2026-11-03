@@ -9,6 +9,7 @@
 import {
   IconChevronDownOutlineRegular, IconChevronUpOutlineRegular,
 } from '@deepseek-ai/dsh-client-ui-primitives'
+import { useState } from 'react'
 import type { PropsLocale, PropsRuntime, PropsStore } from '@deepseek-ai/dsh-client-ui-slots'
 import { FONT_SIZE_SPECS, type FontRole } from '../theme-settings.ts'
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
@@ -41,6 +42,59 @@ export interface FontSizeRowExpander {
   onToggle: () => void
 }
 
+/** Local interface zoom row retained alongside the new independent font roles. */
+export function InterfaceScaleRow({ t, setInterfaceFontSize, useStore }:
+PropsRuntime<'settings.general.item'> & PropsStore<ReturnType<typeof createFontRowStore>>
+  & PropsLocale<'settings.theme'> & { setInterfaceFontSize: (px: number) => void }) {
+  const fontSize = useStore(s => s.interfaceFontSize)
+  const [draft, setDraft] = useState<string | null>(null)
+  const increase = fontSize < 1 ? fontSize * 2 : fontSize + 1
+  const decrease = fontSize > 1 ? fontSize - 1 : fontSize / 2
+  return (
+    <div className={css.row}>
+      <div className={css.rowText}>
+        <div className={css.title}>{t('fontSize.title')}</div>
+        <div className={css.desc}>{t('fontSize.description')}</div>
+      </div>
+      <div className={css.control}>
+        <div className={css.stepper}>
+          <input
+            className={css.value}
+            type="number"
+            inputMode="decimal"
+            step="any"
+            aria-label={t('fontSize.inputLabel')}
+            value={draft ?? String(fontSize)}
+            onFocus={() => { setDraft(current => current ?? String(fontSize)) }}
+            onChange={(event) => { setDraft(event.currentTarget.value) }}
+            onBlur={() => {
+              if (draft !== null) {
+                const value = Number(draft)
+                if (Number.isFinite(value) && value > 0) setInterfaceFontSize(value)
+                setDraft(null)
+              }
+            }}
+            onKeyDown={(event) => { if (event.key === 'Enter') event.currentTarget.blur() }}
+          />
+          <span className={css.arrows}>
+            <button type="button" className={css.arrow} aria-label={t('fontSize.increase')}
+              disabled={!Number.isFinite(increase) || increase <= fontSize}
+              onClick={() => { setInterfaceFontSize(increase) }}>
+              <IconChevronUpOutlineRegular size={9} />
+            </button>
+            <button type="button" className={css.arrow} aria-label={t('fontSize.decrease')}
+              disabled={!Number.isFinite(decrease) || decrease <= 0 || decrease >= fontSize}
+              onClick={() => { setInterfaceFontSize(decrease) }}>
+              <IconChevronDownOutlineRegular size={9} />
+            </button>
+          </span>
+        </div>
+        <span className={css.unit}>{t('fontSize.unit')}</span>
+      </div>
+    </div>
+  )
+}
+
 /**
  * Render the font-size row.
  * @param props - composed slot props.
@@ -49,6 +103,7 @@ export interface FontSizeRowExpander {
 export function FontSizeRow({ t, role, setFontSize, useStore, expander }: FontSizeRowComponentProps) {
   const fontSize = useStore(s => s.fontSizes[role])
   const { min, max } = FONT_SIZE_SPECS[role]
+  const [draft, setDraft] = useState<string | null>(null)
   return (
     <div className={css.row}>
       <div className={css.rowText}>
@@ -57,7 +112,25 @@ export function FontSizeRow({ t, role, setFontSize, useStore, expander }: FontSi
       </div>
       <div className={css.control}>
         <div className={css.stepper}>
-          <span className={css.value}>{fontSize}</span>
+          <input
+            className={css.value}
+            type="number"
+            inputMode="decimal"
+            step="any"
+            aria-label={t('fontSize.inputLabel')}
+            value={draft ?? String(fontSize)}
+            onFocus={() => { setDraft(current => current ?? String(fontSize)) }}
+            onChange={(event) => {
+              setDraft(event.currentTarget.value)
+            }}
+            onBlur={() => {
+              if (draft === null) return
+              const value = Number(draft)
+              if (Number.isFinite(value) && value > 0) setFontSize(value)
+              setDraft(null)
+            }}
+            onKeyDown={(event) => { if (event.key === 'Enter') event.currentTarget.blur() }}
+          />
           <span className={css.arrows}>
             <button
               type="button"

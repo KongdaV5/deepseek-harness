@@ -296,9 +296,10 @@ export function PendingSubmissionBubble({ submission, loadImage, renderFactorySl
 
 /** User and admitted-steering keyed Chat renderer. */
 export const UserMessageNodeView = memo(function UserMessageNodeView({
-  node, renderFactorySlot, loadImage, t,
+  node, renderFactorySlot, loadImage, hiddenMessageSeqs, setMessageHidden, t,
 }: ChatNodeViewProps<'user' | 'steering'>) {
   const data = node.data
+  const hidden = hiddenMessageSeqs?.includes(data.seq) ?? false
   return (
     <UserStyleBubble
       content={data.content}
@@ -313,6 +314,10 @@ export const UserMessageNodeView = memo(function UserMessageNodeView({
           time={data.time}
           clock="start"
           className={css.actions}
+          hidden={hidden}
+          onToggleHidden={setMessageHidden === undefined
+            ? undefined
+            : () => { setMessageHidden(data.seq, !hidden) }}
           t={t}
         />
       )}

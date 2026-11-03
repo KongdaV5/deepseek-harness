@@ -48,10 +48,10 @@ function rowId(providerId: string, modelId: string): string {
   return `${providerId}/${modelId}`
 }
 
-/** Flatten the directory into popup rows; failure rows are listed for visibility but never selectable. */
+/** Flatten selectable routes into popup rows; failure rows are visible but never selectable. */
 function optionsOf(directory: ModelDirectoryState, t: TranslateNS<'model'>): SelectOption[] {
   const rows: SelectOption[] = []
-  for (const group of orderModelProviders(directory.groups)) {
+  for (const group of orderModelProviders(directory.groups.filter(candidate => candidate.selectable !== false))) {
     const name = group.id === 'deepseek-account' ? t('provider.account') : group.name
     for (const model of group.models) {
       rows.push({
@@ -84,6 +84,7 @@ function optionsOf(directory: ModelDirectoryState, t: TranslateNS<'model'>): Sel
  */
 function selectionOf(state: ModelDirectoryState, id: string): ModelSelection | undefined {
   for (const group of state.groups) {
+    if (group.selectable === false) continue
     for (const model of group.models) {
       if (rowId(group.id, model.id) !== id) continue
       const sameRoute = state.current?.provider === group.id && state.current.model === model.id

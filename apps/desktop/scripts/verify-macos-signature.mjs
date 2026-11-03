@@ -24,10 +24,16 @@ export function assertMacOSSignatureDetails(details, expected) {
 /**
  * Require the signature properties Apple validates for executable runtime content.
  * @param {string} details - Output from `codesign --display --verbose=4`.
- * @param {{ signingIdentity: string, teamId: string }} expected - Public release identity.
+ * @param {{ signingIdentity: string, teamId: string } | 'ad-hoc'} expected - Release identity or explicit local candidate signing.
  * @returns {void}
  */
 export function assertMacOSRuntimeSignatureDetails(details, expected) {
+  if (expected === 'ad-hoc') {
+    if (!/^Signature=adhoc$/mu.test(details) || !/flags=0x[a-f0-9]+\([^)]*\badhoc\b[^)]*\)/u.test(details)) {
+      throw new Error('desktop candidate: runtime requires an ad-hoc signature')
+    }
+    return
+  }
   assertMacOSSignatureDetails(details, expected)
   const fields = details.split(/\r?\n/u).map(line => line.trim())
   if (!fields.some(line => /^Timestamp=.+/u.test(line))) {
@@ -107,23 +113,24 @@ function runCodeSign(args) {
 }
 
 /**
- * Sign one Mach-O file using the packaging-owned CSC_KEYCHAIN; missing setup rejects before signing.
+ * Sign one Mach-O file with the release keychain or explicit local ad-hoc mode.
  * @param {string} path - Writable standalone Mach-O file.
  * @param {string} identifier - Stable code-signing identifier derived from the release app ID and CAS digest.
- * @param {{ signingIdentity: string, teamId: string }} expected - Public release identity.
+ * @param {{ signingIdentity: string, teamId: string } | 'ad-hoc'} expected - Release identity or explicit local candidate signing.
  * @param {string | undefined} entitlements - Optional entitlement plist for this executable.
  * @returns {Promise<void>} Resolves after codesign exits successfully.
  */
 export async function signMacOSRuntimeCode(path, identifier, expected, entitlements) {
+  const candidate = expected === 'ad-hoc'
   const keychain = process.env.CSC_KEYCHAIN
-  if (!keychain) throw new Error('desktop macOS signing: run through the package command to prepare the signing keychain')
+  if (!candidate && !keychain) throw new Error('desktop macOS signing: run through the package command to prepare the signing keychain')
   await runAppleCommandAsync('/usr/bin/codesign', [
     '--force',
-    '--sign', expected.signingIdentity,
-    '--keychain', keychain,
+    '--sign', candidate ? '-' : expected.signingIdentity,
+    ...(candidate ? [] : ['--keychain', keychain]),
     '--identifier', identifier,
-    '--timestamp',
-    '--options', 'runtime',
+    ...(candidate ? [] : ['--timestamp']),
+    ...(candidate ? [] : ['--options', 'runtime']),
     ...(entitlements === undefined ? [] : ['--entitlements', entitlements]),
     path,
   ], 'codesign')
@@ -132,7 +139,7 @@ export async function signMacOSRuntimeCode(path, identifier, expected, entitleme
 /**
  * Verify one Mach-O file embedded in the runtime tree.
  * @param {string} path - Mach-O file to inspect.
- * @param {{ signingIdentity: string, teamId: string }} expected - Public release identity.
+ * @param {{ signingIdentity: string, teamId: string } | 'ad-hoc'} expected - Release identity or explicit local candidate signing.
  * @returns {void}
  */
 export function verifyMacOSRuntimeCode(path, expected) {

@@ -1,0 +1,5 @@
+# The canonical request-error compaction seam has no history to shrink on a fresh turn.
+- id: compaction-basic
+  config:
+    headroomTokens: 4096
+    maxTokens: 8192

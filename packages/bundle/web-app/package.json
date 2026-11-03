@@ -37,9 +37,11 @@
     "cordis.patch.yml",
     "presets/standard.patch.yml",
     "presets/ptc.patch.yml",
+    "presets/business.patch.yml",
     "presets/minimal.patch.yml",
     "presets/cordis.patch.yml",
     "lib/public-url-*.js",
+    "presets/compositions/standard.yml",
     "lib/types/**/*.d.ts"
   ],
   "license": "MIT",
@@ -49,6 +51,7 @@
         "./cordis.patch.yml",
         "./presets/standard.patch.yml",
         "./presets/ptc.patch.yml",
+        "./presets/business.patch.yml",
         "./presets/minimal.patch.yml",
         "./presets/cordis.patch.yml"
       ]

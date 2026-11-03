@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-/** FontSizeRow behavior: value display, arrow clicks drive setFontSize,
- * bound-value arrows disable, display follows the store mirror. */
+/** FontSizeRow behavior: editable value display, direct entry, arrow clicks
+ * drive setFontSize, display follows the store mirror. */
 import type { GlobalStandardProps } from '@deepseek-ai/dsh-client-ui-slots'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
@@ -8,7 +8,7 @@ import type { SessionListState } from '@deepseek-ai/dsh-api-session-controller/c
 import type { WorkspaceSnapshot } from '@deepseek-ai/dsh-api-workspace-controller/client'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import { allowAllAccess, bindSnapshotSelector } from '@deepseek-ai/dsh-client-test-runtime'
-import { FontSizeRow } from '../src/client/FontSizeRow.tsx'
+import { FontSizeRow, InterfaceScaleRow } from '../src/client/FontSizeRow.tsx'
 import type { FontSizeRowComponentProps } from '../src/client/FontSizeRow.tsx'
 import { createFontRowStore } from '../src/client/settings-store.ts'
 import type { FontRole } from '../src/theme-settings.ts'
@@ -20,6 +20,12 @@ const usePanelInfo: GlobalStandardProps['usePanelInfo'] = selector => selector({
 afterEach(cleanup)
 
 const COPY: Record<string, string> = {
+  'fontSize.title': 'Global interface size',
+  'fontSize.description': 'Scales text and layout throughout the client; enter any value greater than 0',
+  'fontSize.increase': 'Increase font size',
+  'fontSize.decrease': 'Decrease font size',
+  'fontSize.inputLabel': 'Font size in pixels',
+  'fontSize.unit': 'px',
   'fontSize.text.title': 'Font size',
   'fontSize.text.description': 'Only affects conversation content',
   'fontSize.text.increase': 'Increase font size',
@@ -48,7 +54,7 @@ const useSessionStatus: FontSizeRowComponentProps['useSessionStatus'] = selector
 function mount(fontSize = 14, role: FontRole = 'text') {
   // Real store instance — the sanctioned zero-machinery path for tests.
   const store = createFontRowStore().create()
-  store.actions.sync({ text: 14, code: 11, terminal: 13, [role]: fontSize }, { text: '', code: '', terminal: '' }, 0)
+  store.actions.sync(14, { text: 14, code: 11, terminal: 13, [role]: fontSize }, { text: '', code: '', terminal: '' }, 0)
   const setFontSize = vi.fn()
   const props: FontSizeRowComponentProps = {
     useSessions: emptySessions(),
@@ -66,15 +72,37 @@ function mount(fontSize = 14, role: FontRole = 'text') {
   return { store, setFontSize }
 }
 
+function mountInterfaceScale(fontSize = 14) {
+  const store = createFontRowStore().create()
+  store.actions.sync(fontSize, { text: 14, code: 11, terminal: 13 }, { text: '', code: '', terminal: '' }, 0)
+  const setInterfaceFontSize = vi.fn()
+  render(<InterfaceScaleRow
+    useSessions={emptySessions()}
+    useSessionStatus={useSessionStatus}
+    usePanelInfo={usePanelInfo}
+    useSessionRetainInfo={() => undefined}
+    useResource={useResource}
+    useWorkspaces={emptyWorkspaces()}
+    {...allowAllAccess}
+    useStore={bindSnapshotSelector(store)}
+    actions={store.actions}
+    t={(key: string) => COPY[key] ?? key}
+    setInterfaceFontSize={setInterfaceFontSize}
+  />)
+  return { store, setInterfaceFontSize }
+}
+
 const arrow = (name: string): HTMLButtonElement =>
   screen.getByRole('button', { name }) as HTMLButtonElement
 
+const sizeInput = (): HTMLInputElement => screen.getByLabelText('Font size in pixels') as HTMLInputElement
+
 describe('FontSizeRow', () => {
-  it('renders the title and the current size with both arrows enabled mid-range', () => {
+  it('renders the title, the description, and the current size with both arrows enabled', () => {
     mount(14)
     expect(screen.getByText('Font size')).toBeDefined()
     expect(screen.getByText('Only affects conversation content')).toBeDefined()
-    expect(screen.getByText('14')).toBeDefined()
+    expect(sizeInput().value).toBe('14')
     expect(arrow('Increase font size').disabled).toBe(false)
     expect(arrow('Decrease font size').disabled).toBe(false)
   })
@@ -84,9 +112,9 @@ describe('FontSizeRow', () => {
     fireEvent.click(arrow('Increase font size'))
     expect(b.setFontSize).toHaveBeenCalledWith(15)
     // No store write yet: the display is unchanged.
-    expect(screen.getByText('14')).toBeDefined()
-    act(() => { b.store.actions.sync({ text: 15, code: 11, terminal: 13 }, { text: '', code: '', terminal: '' }, 1) })
-    expect(screen.getByText('15')).toBeDefined()
+    expect(sizeInput().value).toBe('14')
+    act(() => { b.store.actions.sync(14, { text: 15, code: 11, terminal: 13 }, { text: '', code: '', terminal: '' }, 1) })
+    expect(sizeInput().value).toBe('15')
     fireEvent.click(arrow('Decrease font size'))
     expect(b.setFontSize).toHaveBeenCalledWith(14)
   })
@@ -95,25 +123,36 @@ describe('FontSizeRow', () => {
     const b = mount(21)
     fireEvent.click(arrow('Increase font size'))
     expect(b.setFontSize).toHaveBeenCalledWith(22)
-    act(() => { b.store.actions.sync({ text: 22, code: 11, terminal: 13 }, { text: '', code: '', terminal: '' }, 1) })
-    expect(screen.getByText('22')).toBeDefined()
+    act(() => { b.store.actions.sync(14, { text: 22, code: 11, terminal: 13 }, { text: '', code: '', terminal: '' }, 1) })
+    expect(sizeInput().value).toBe('22')
     expect(arrow('Increase font size').disabled).toBe(true)
     expect(arrow('Decrease font size').disabled).toBe(false)
     cleanup()
     const c = mount(11)
     fireEvent.click(arrow('Decrease font size'))
     expect(c.setFontSize).toHaveBeenCalledWith(10)
-    act(() => { c.store.actions.sync({ text: 10, code: 11, terminal: 13 }, { text: '', code: '', terminal: '' }, 1) })
-    expect(screen.getByText('10')).toBeDefined()
+    act(() => { c.store.actions.sync(14, { text: 10, code: 11, terminal: 13 }, { text: '', code: '', terminal: '' }, 1) })
+    expect(sizeInput().value).toBe('10')
     expect(arrow('Increase font size').disabled).toBe(false)
     expect(arrow('Decrease font size').disabled).toBe(true)
   })
 
   it('reads its own role and bounds from the shared store', () => {
     const b = mount(20, 'terminal')
-    expect(screen.getByText('20')).toBeDefined()
+    expect(sizeInput().value).toBe('20')
     expect(arrow('Increase terminal font size').disabled).toBe(true)
     fireEvent.click(arrow('Decrease terminal font size'))
     expect(b.setFontSize).toHaveBeenCalledWith(19)
+  })
+
+  it('keeps the legacy global interface scale editable independently from content size', () => {
+    const b = mountInterfaceScale(12)
+    expect(screen.getByText('Global interface size')).toBeDefined()
+    expect(sizeInput().value).toBe('12')
+    fireEvent.change(sizeInput(), { target: { value: '12.5' } })
+    fireEvent.blur(sizeInput())
+    expect(b.setInterfaceFontSize).toHaveBeenCalledOnce()
+    expect(b.setInterfaceFontSize).toHaveBeenCalledWith(12.5)
+    expect(b.store.getSnapshot().fontSizes.text).toBe(14)
   })
 })

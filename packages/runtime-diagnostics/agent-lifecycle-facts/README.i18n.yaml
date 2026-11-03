@@ -1,0 +1,46 @@
+# Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write packages/runtime-diagnostics/agent-lifecycle-facts/README.md
+/:
+  en: 7568572cd93718ef
+  zh: de87c5f2e1b9a68a
+/deepseek-ai-dsh-agent-lifecycle-facts:
+  en: 5a244dedd69dc99d
+  zh: 8dbfe039be85d0dd
+/deepseek-ai-dsh-agent-lifecycle-facts/summary:
+  en: 8b2ee795abf8b58a
+  zh: 3cc5232af0e19d56
+/deepseek-ai-dsh-agent-lifecycle-facts/table-of-contents:
+  en: d152484eb41ac6b4
+  zh: f0420ffe0b1d1a61
+/deepseek-ai-dsh-agent-lifecycle-facts/use-this-package:
+  en: 740c744b0a99146c
+  zh: a5a5ec5e9062dfd1
+/deepseek-ai-dsh-agent-lifecycle-facts/understand-the-implementation:
+  en: 4cb1eba69282a050
+  zh: bae3f67b59652fd8
+/deepseek-ai-dsh-agent-lifecycle-facts/further-exploration:
+  en: b30fed0c7693f960
+  zh: fe6a7749dda00f24
+/deepseek-ai-dsh-agent-lifecycle-facts/model-experience:
+  en: 215e7ba838619b7b
+  zh: a311da3843709f90
+/deepseek-ai-dsh-agent-lifecycle-facts/model-experience/persistence-foundation:
+  en: 91e856b0bcf2e7b5
+  zh: a48e96d075c3bf9b
+/deepseek-ai-dsh-agent-lifecycle-facts/model-experience/persistence-foundation/what-the-model-sees:
+  en: 3e900b57a8601824
+  zh: c4b86b400019fa29
+/deepseek-ai-dsh-agent-lifecycle-facts/model-experience/persistence-foundation/token-effect:
+  en: f7d1eb359afe1932
+  zh: 70ec0006556eb29f
+/deepseek-ai-dsh-agent-lifecycle-facts/model-experience/persistence-foundation/kv-cache-effect:
+  en: 27d5520dd8af9e74
+  zh: 1874591cdf46c35a
+/deepseek-ai-dsh-agent-lifecycle-facts/known-limitations-and-deferred-work:
+  en: 3add8dbe58757719
+  zh: c53a04d64bbe082e
+/deepseek-ai-dsh-agent-lifecycle-facts/known-limitations-and-deferred-work/dev-note:
+  en: b0499e81e3e75bf5
+  zh: 68528e3e481844eb

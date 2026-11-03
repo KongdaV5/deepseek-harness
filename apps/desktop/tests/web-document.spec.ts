@@ -67,6 +67,27 @@ it('drops connection-level headers the Host wrote for its own transport', async 
   expect(response.headers.get('etag')).toBe('"1"')
 })
 
+it('uses the desktop transport for a Host command pending beyond five minutes and preserves cancellation', async () => {
+  vi.useFakeTimers()
+  const fallback = vi.fn(() => { throw new Error('Node fetch must not own desktop commands') })
+  vi.stubGlobal('fetch', fallback)
+  const transport = vi.fn(async (_input: unknown, init?: RequestInit) => {
+    expect(init?.signal).toBe(request.signal)
+    await new Promise(resolve => setTimeout(resolve, 360_000))
+    return new Response('compacted')
+  })
+  const request = new Request('dsh-app://app/api/commands/execute', { method: 'POST', body: '{}' })
+  try {
+    const pending = forwardWebRequest(request, 'http://127.0.0.1:1234/', 'session=owned', transport)
+    await vi.advanceTimersByTimeAsync(360_000)
+    expect(await (await pending).text()).toBe('compacted')
+    expect(fallback).not.toHaveBeenCalled()
+    expect(transport).toHaveBeenCalledOnce()
+  } finally {
+    vi.useRealTimers()
+  }
+})
+
 it('replaces the immutable cache header of plugin bundles with no-store and leaves other routes alone', async () => {
   const immutable = 'public, max-age=31536000, immutable'
   const fetch = vi.fn().mockImplementation(async () => new Response('js', { headers: { 'cache-control': immutable } }))

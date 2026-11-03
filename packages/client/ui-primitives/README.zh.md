@@ -76,6 +76,8 @@ kind: "package-library"
 | `FileTypeIcon`、`classifyFileType`、`fileExtension` | 按类别着色的 28px 文件或文件夹图形，以及它背后共享的不区分大小写文件名映射。代码与配置文件使用细分的全彩技术图形；链接前置图形使用 `LinkIconMedium`，图片内容使用图片预览。 |
 | `languageForPath`、`CODE_HIGHLIGHT_EXTENSIONS`、`useCodeHighlighter` | 代码预览与 diff review 共用的惰性逐行 token 高亮。文件名 grammar 选择再导出自 `@deepseek-ai/dsh-util-code-language`，即 read 卡片持久化短 id `lang` 提示背后的同一张扩展名表。 |
 
+`DshMascotMark` 是 DSH 共用的原创助手形象。空闲时身体会持续呼吸、眼睛会眨动；无操作约 2.1–4.2 秒后，会随机做眨眼、张望、点头、探身、伸展、摇摆、压缩、弹跳、跳舞、挥手或打哈欠等短动作。压缩、弹跳和伸展会改变身体轮廓。指针悬停时，眼睛会在形象范围内跟随指针；直接点按、输入框聚焦与打字、发送、新建会话、停止和导航都会触发不同反应。页面隐藏时暂停随机动作；用户请求减少动态效果时停止动画。这些行为不会影响模型请求。
+
 有四组容易混淆：
 
 - **`Tag` 与 `Pill`。** 11px 胶囊尺寸的只读徽章用 `Tag`；胶囊可选中（`active` 与 `onClick`，视图切换与筛选器就是这样用的），或者必须落在 24px 文本行上时用 `Pill`——`TerminalBlock` 把退出状态渲染成静态 `Pill` 正是后一种情况。这里尺寸和是否可交互同样是判据，两者不可互换。
@@ -150,7 +152,7 @@ kind: "package-library"
 | [`src/code-highlighting.ts`](src/code-highlighting.ts) | 共享的文件名 grammar 选择与惰性逐行高亮 |
 | [`src/input-modality.ts`](src/input-modality.ts) | 全文档输入模态，发布到 `<html>` |
 | [`src/plugin-artwork.tsx`](src/plugin-artwork.tsx) | 固定配色插件插画，SVG def id 按实例生成 |
-| [`src/useAnchoredPosition.ts`](src/useAnchoredPosition.ts) / [`src/useAnchoredMaxHeight.ts`](src/useAnchoredMaxHeight.ts) | 浮动面板与浮层几何钩子 |
+| [`src/useAnchoredPosition.ts`](src/useAnchoredPosition.ts) / [`src/useAnchoredMaxHeight.ts`](src/useAnchoredMaxHeight.ts) | 浮动面板与浮层几何钩子；fixed 偏移会考虑祖先累计 CSS zoom |
 | [`src/settings-form/`](src/settings-form/) | 设置页套件：基于设置 scope 的暂存表单模型、值字段与密文字段、表单框架 |
 
 <a id="input-modality"></a>

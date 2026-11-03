@@ -1,0 +1,60 @@
+# Custom runtime composition over the canonical RC.2 application.
+- insert:
+    - id: custom-foundation
+      name: '@deepseek-ai/dsh-custom-foundation'
+    - id: local-model-runtime
+      name: '@deepseek-ai/dsh-custom-foundation/local-runtime'
+    - id: local-image-generation
+      name: '@deepseek-ai/dsh-custom-foundation/local-image-generation'
+    - id: agent-codex
+      name: '@deepseek-ai/dsh-agent-codex'
+    - id: run-details
+      name: '@deepseek-ai/dsh-run-details'
+    - id: runtime-diagnostics
+      name: '@deepseek-ai/dsh-api-runtime-diagnostics-controller'
+    - id: task-aware-diagnostics
+      name: '@deepseek-ai/dsh-compaction-task-aware-policy/diagnostics-transport'
+    - id: ui-custom-runtime
+      name: '@deepseek-ai/dsh-client-ui-custom-runtime'
+    - id: ui-run-details
+      name: '@deepseek-ai/dsh-client-ui-run-details'
+    - id: task-aware-compaction
+      name: '@deepseek-ai/dsh-compaction-task-aware-policy'
+    - id: task-checkpoint
+      name: '@deepseek-ai/dsh-task-checkpoint'
+      config:
+        maxAutoContinuations: 5
+
+# Boot prepares the exact Huihui model path; an uninitialized profile refuses cloud routing.
+- id: agent-default-model
+  config:
+    provider: dsh-local-unconfigured
+    model: select-local-huihui
+- id: deepseek-account
+  disabled: true
+- id: account-controller
+  disabled: true
+- id: llm-deepseek
+  disabled: true
+- id: web-search-deepseek
+  disabled: true
+- id: timer
+  disabled: true
+- id: hmr
+  disabled: true
+- id: session-title-llm
+  disabled: true
+- id: web
+  config:
+    fetchProvider: http
+- id: tool-web
+  config:
+    search: false
+    fetch: true
+    searchTimeoutMs: 60000
+
+- id: ui-settings-account
+  disabled: true
+- id: ui-settings-models
+  config:
+    credentialOnboarding: false

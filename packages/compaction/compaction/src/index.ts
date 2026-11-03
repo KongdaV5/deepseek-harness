@@ -193,3 +193,5 @@ export abstract class CompactionEngine extends Service {
 }
 
 export default CompactionEngine
+
+export * from './candidate-policy.ts'

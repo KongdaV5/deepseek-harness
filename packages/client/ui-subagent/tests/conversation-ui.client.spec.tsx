@@ -117,6 +117,7 @@ function props(
     useSessions,
     useSessionStatus: <T,>(select: (snapshot: SessionStatusSnapshot) => T): T => select(statuses),
     useSession: <T,>(select: (snapshot: SessionSnapshot) => T): T => select(snapshot),
+    useExternalActivities: select => select([]),
     openChild: vi.fn(),
     openChildAside: vi.fn(),
     refreshProjection: vi.fn(),

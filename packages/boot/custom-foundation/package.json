@@ -1,0 +1,81 @@
+{
+  "name": "@deepseek-ai/dsh-custom-foundation",
+  "description": "Custom Local profile configuration and isolated legacy settings translation",
+  "version": "0.2.1-rc.5",
+  "type": "module",
+  "main": "lib/index.js",
+  "types": "lib/types/index.d.ts",
+  "license": "MIT",
+  "exports": {
+    ".": {
+      "types": "./lib/types/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./types": {
+      "types": "./lib/types/types.d.ts",
+      "default": "./lib/types/types.js"
+    },
+    "./src/*": "./src/*",
+    "./package.json": "./package.json",
+    "./local-runtime": {
+      "types": "./lib/types/local-runtime.d.ts",
+      "default": "./lib/types/local-runtime.js"
+    },
+    "./local-image-generation": {
+      "types": "./lib/types/local-image-generation.d.ts",
+      "default": "./lib/types/local-image-generation.js"
+    },
+    "./local-runtime-types": {
+      "types": "./lib/types/local-runtime-types.d.ts",
+      "default": "./lib/types/local-runtime-types.js"
+    },
+    "./typert": {
+      "types": "./lib/typert.host.d.ts",
+      "default": "./lib/typert.host.js"
+    },
+    "./remote": {
+      "types": "./lib/typert.remote-client.d.ts",
+      "default": "./lib/typert.remote-client.js"
+    }
+  },
+  "files": [
+    "lib/index.js",
+    "lib/types/**/*.js",
+    "lib/types/**/*.d.ts",
+    "lib/typert.host.js",
+    "lib/typert.host.d.ts",
+    "lib/typert.remote-client.js",
+    "lib/typert.remote-client.d.ts"
+  ],
+  "dependencies": {
+    "@deepseek-ai/dsh-app-boot": "workspace:*",
+    "@deepseek-ai/dsh-atomic-write": "workspace:*",
+    "@deepseek-ai/dsh-llm-pi-ai": "workspace:*",
+    "@deepseek-ai/schemastery": "workspace:~",
+    "yaml": "^2.8.3",
+    "zod": "^4.4.3",
+    "@deepseek-ai/dsh-agent": "workspace:*",
+    "@deepseek-ai/dsh-subprocess": "workspace:*",
+    "@deepseek-ai/dsh-typert-protocol": "workspace:*",
+    "@deepseek-ai/cordis-plugin-include": "workspace:~",
+    "@deepseek-ai/dsh-config-editor": "workspace:*",
+    "@deepseek-ai/dsh-llm": "workspace:*",
+    "@deepseek-ai/dsh-settings": "workspace:*"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/dsh-attachment": "workspace:*",
+    "@deepseek-ai/cordis": "workspace:~"
+  },
+  "devDependencies": {
+    "@deepseek-ai/dsh-attachment": "workspace:*",
+    "@deepseek-ai/cordis": "workspace:~"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/deepseek-ai/deepseek-harness.git",
+    "directory": "packages/boot/custom-foundation"
+  }
+}

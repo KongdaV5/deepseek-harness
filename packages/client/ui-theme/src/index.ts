@@ -8,10 +8,12 @@ import z from '@deepseek-ai/schemastery'
 import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-host-webserver'
 import { bootThemeInjections } from './boot-theme.ts'
-import { DEFAULT_PREFERENCE, FONT_SIZE_SPECS, fontSizeSchema, THEME_PREFERENCES } from './theme-settings.ts'
+import {
+  DEFAULT_FONT_SIZE, DEFAULT_PREFERENCE, FONT_SIZE_SPECS, fontSizeSchema, THEME_PREFERENCES,
+} from './theme-settings.ts'
 
 export {
-  DEFAULT_FONT_SIZE, DEFAULT_PREFERENCE, FONT_SIZE_FIELD, FONT_SIZE_MAX, FONT_SIZE_MIN,
+  DEFAULT_FONT_SIZE, DEFAULT_PREFERENCE, FONT_SIZE_FIELD,
   THEME_PREFERENCE_FIELD, THEME_PREFERENCES, THEME_SETTINGS_NAMESPACE,
   type ThemePreference, type ThemeSettings,
 } from './theme-settings.ts'
@@ -20,8 +22,10 @@ export {
 export interface Config {
   /** Browser palette preference. */
   preference: Volatile<ThemePreference>
-  /** Browser font size in pixels. */
+  /** Browser global interface font-size reference in pixels. */
   fontSize: Volatile<number>
+  /** Conversation content font size in pixels. */
+  contentFontSize: Volatile<number>
   /** Code-block font size in pixels. */
   codeFontSize: Volatile<number>
   /** Sidebar terminal font size in pixels. */
@@ -37,7 +41,8 @@ export interface Config {
 /** Live theme and typography preferences. */
 export const Config = z.object({
   preference: z.union([...THEME_PREFERENCES]).default(DEFAULT_PREFERENCE).volatile(),
-  fontSize: fontSizeSchema(FONT_SIZE_SPECS.text).volatile(),
+  fontSize: z.number().min(Number.MIN_VALUE).max(Number.MAX_VALUE).default(DEFAULT_FONT_SIZE).volatile(),
+  contentFontSize: fontSizeSchema(FONT_SIZE_SPECS.text).volatile(),
   codeFontSize: fontSizeSchema(FONT_SIZE_SPECS.code).volatile(),
   terminalFontSize: fontSizeSchema(FONT_SIZE_SPECS.terminal).volatile(),
   textFontFamily: z.string().default('').volatile(),
@@ -53,13 +58,13 @@ export function apply(ctx: Context, config: Config): void {
   ctx.inject(['settings'], (child) => { child.effect(() => child.settings.configure({ auto: false }, ctx.fiber)) })
   ctx.on('webserver/index-inject', (table) => {
     table.push(...bootThemeInjections(config.preference.get(), {
-      text: config.fontSize.get(),
+      text: config.contentFontSize.get(),
       code: config.codeFontSize.get(),
       terminal: config.terminalFontSize.get(),
     }, {
       text: config.textFontFamily.get(),
       code: config.codeFontFamily.get(),
       terminal: config.terminalFontFamily.get(),
-    }))
+    }, config.fontSize.get()))
   }, { prepend: true })
 }

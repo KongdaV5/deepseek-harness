@@ -228,6 +228,27 @@ describe('experimental workspace constraints', () => {
     ])
   })
 
+  it('allows an installed optional bundle to carry its experimental provider dependency', () => {
+    const provider = { '@deepseek-ai/dsh-experimental-prototype': 'workspace:*' }
+    const bundle: WorkspaceManifest = {
+      dir: 'packages/computer-use/computer-use-bundle',
+      manifest: {
+        name: '@deepseek-ai/dsh-computer-use-bundle',
+        dependencies: provider,
+      },
+    }
+    expect(checkExperimentalDependencyIsolation([experimental, bundle], [bundle.manifest.name!])).toEqual([])
+    expect(checkExperimentalDependencyIsolation([experimental, bundle], [])).toEqual([
+      '@deepseek-ai/dsh-computer-use-bundle: dependencies.@deepseek-ai/dsh-experimental-prototype must not reference an experimental package',
+    ])
+    expect(checkExperimentalDependencyIsolation([experimental, {
+      ...bundle,
+      manifest: { ...bundle.manifest, peerDependencies: provider },
+    }], [bundle.manifest.name!])).toEqual([
+      '@deepseek-ai/dsh-computer-use-bundle: peerDependencies.@deepseek-ai/dsh-experimental-prototype must not reference an experimental package',
+    ])
+  })
+
   it('allows development and experimental consumers but rejects the Python release runtime', () => {
     const manifests: WorkspaceManifest[] = [experimental, {
       dir: 'packages/core/test-only',

@@ -1,0 +1,85 @@
+# Bilingual-pair consistency record for custom-foundation.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write docs/custom-foundation.md
+/custom-foundation-migration-ledger:
+  en: 90509b0d8d5c02f5
+  zh: 42a0c5e9b99f7438
+/custom-foundation-migration-ledger/foundation-and-validation-scope:
+  en: e7161575c9a762d1
+  zh: 8f4b4f645767eb32
+/custom-foundation-migration-ledger/continuous-ownership-ledger:
+  en: 72c9a44077fdd34d
+  zh: 9d046083f97009e4
+/custom-foundation-migration-ledger/persisted-custom-event-inventory:
+  en: 15c710bb69ec7454
+  zh: 29408897d554c495
+/custom-foundation-migration-ledger/failure-and-no-replay-obligations:
+  en: 2c1c43bfe12cc24b
+  zh: 858cb436336f9061
+/custom-foundation-migration-ledger/composition-and-deferred-integration:
+  en: 1ed39915e2528a2a
+  zh: 1ddb8688378b58d2
+/custom-foundation-migration-ledger/focused-qualification:
+  en: c23bf06e8fa34685
+  zh: 3ecdd6680d2a05dc
+/custom-foundation-migration-ledger/m2-runtime-and-desktop-ownership:
+  en: 4ebbe441639903fd
+  zh: 68f4ee1cfc980201
+/custom-foundation-migration-ledger/m2-source-integration-evidence-and-limitations:
+  en: 7c04858c8ff7a53f
+  zh: fea496c23cf79368
+/custom-foundation-migration-ledger/m2-consolidation-and-m3-handoff:
+  en: b169f90df1ffdad2
+  zh: 2c9666ded7564e58
+/custom-foundation-migration-ledger/desktop-candidate-ownership:
+  en: 1f33ec501da51d77
+  zh: d306dae0544caf2c
+/custom-foundation-migration-ledger/p-automation-schedule-i1:
+  en: b92980e93cf80a82
+  zh: 11f8be2556c41e73
+/custom-foundation-migration-ledger/m3-release-qualification-and-rollback:
+  en: d3c7f530be365b32
+  zh: e01e4282cb8cfab1
+/custom-foundation-migration-ledger/launch-entry-closure:
+  en: 3ae7a66c0ea355c7
+  zh: 344b3c85dcca9382
+/custom-foundation-migration-ledger/foreground-computer-use-v1:
+  en: ef1e940b3b873bc0
+  zh: 440480f24134456c
+/custom-foundation-migration-ledger/local-context-admission-closeout:
+  en: 4a3cdd9e6deaf74e
+  zh: db1a34654647f896
+/custom-foundation-migration-ledger/local-v1-computer-use-presentation:
+  en: 0b03c36a9a6c9564
+  zh: 0908c1e185c86b6a
+/custom-foundation-migration-ledger/local-computer-use-cold-start-qualification:
+  en: 1a4a0416b2b4fabf
+  zh: 7bd0307a149185db
+/custom-foundation-migration-ledger/local-computer-use-cold-start-qualification/recovery-and-release-boundary:
+  en: 2bf421a0084fce4a
+  zh: 25bce8196ddd6e90
+/custom-foundation-migration-ledger/p-core-release:
+  en: e8743e575456dfd0
+  zh: 6384a5faecaaf3ec
+/custom-foundation-migration-ledger/p-project-slim-cleanup-manifest:
+  en: c99ca50061d12f3d
+  zh: a0ed676c7fbf6bad
+/custom-foundation-migration-ledger/computer-use-i1-final-resume-qualification:
+  en: 099e97a906c93e0b
+  zh: 9fd521993c0ec080
+/custom-foundation-migration-ledger/local-model-suitability-follow-up:
+  en: 79e91ec8c26d328b
+  zh: 32ba50f2d0ccc441
+/custom-foundation-migration-ledger/p-ui-polish-execution-presets-final-2026-10-05:
+  en: e1ec42575b45d5aa
+  zh: 6ec1471733666bdf
+/custom-foundation-migration-ledger/p-ui-polish-presets-release-final-2026-10-05:
+  en: 1742a6391d08b4d8
+  zh: 407d725689c5fb98
+/custom-foundation-migration-ledger/p-ui-presets-final-release-2026-10-05:
+  en: 3ae67d911b6f055d
+  zh: b459ab5bd3515a21
+/custom-foundation-migration-ledger/p-local-latency-execution-feedback-final-2026-10-05:
+  en: 0ef3bf6917b219e4
+  zh: f467f516e82ca9ea

@@ -7,11 +7,39 @@ import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { MessageId } from '@deepseek-ai/dsh-llm/brand'
 import type { Branded } from '@deepseek-ai/dsh-brand'
 import type {} from '@deepseek-ai/dsh-session/types'
+import type {} from '@deepseek-ai/dsh-session-projection/types'
 // Type-only: the Workspace registry's archive-admission family map this plugin merges `schedule` into.
 import type {} from '@deepseek-ai/dsh-workspace/types'
 
 /** Stable globally unique reminder identity. */
 export type ScheduleId = Branded<'ScheduleId'>
+
+/** One occurrence admitted into the original Session inbox. */
+export interface ScheduleAdmission {
+  /** Stable task identity from the model-visible reminder framing. */
+  readonly id: ScheduleId
+  /** Exact canonical target of this occurrence. */
+  readonly occurrenceAt: string
+  /** Durable Session message identity, or null when conflicting admissions were observed. */
+  readonly messageId: MessageId | null
+  /** Session event time for the inbox splice that admitted this occurrence. */
+  readonly admittedAt: number
+}
+
+/** Host-only reconstruction of Schedule occurrence admissions from canonical Agent inbox events. */
+export interface ScheduleAdmissionProjectionState {
+  /** Latest observed admission for each globally unique Schedule task id. */
+  entries: ScheduleAdmission[]
+  /** A Schedule message could not be interpreted, so retrying a due occurrence is unsafe. */
+  uncertain: boolean
+}
+
+declare module '@deepseek-ai/dsh-session-projection/types' {
+  interface SessionProjectionStateMap {
+    /** Occurrences already admitted to this Session's durable Agent inbox. */
+    scheduleAdmissions: ScheduleAdmissionProjectionState
+  }
+}
 
 /** Durable one-shot reminder created from a positive delay. */
 export interface AfterScheduleRecord {

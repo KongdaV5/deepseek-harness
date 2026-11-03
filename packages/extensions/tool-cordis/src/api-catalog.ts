@@ -637,6 +637,31 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
+    key: 'codexFoundation',
+    summary: 'M1 owner of Codex Config and Session projection, without a process or dispatch capability.',
+    description: 'M1 owner of Codex Config and Session projection, without a process or dispatch capability.',
+    methods: [
+      {
+        signature: 'snapshot(): { preference: CodexRuntimePreference; authGeneration?: string; authTransition?: AuthTransitionRecord | null }',
+        description: 'Read non-secret persisted facts without starting auth or creating a generation.',
+        parameters: [],
+        returns: 'Detached configuration for the M2 runtime owner.',
+      },
+      {
+        signature: 'async writeLifecycle(patch: { preference?: CodexRuntimePreference authGeneration?: string authTransition?: AuthTransitionRecord | null }): Promise<void>',
+        description: 'Persist auth transaction facts through the same canonical profile owner.',
+        parameters: [{ name: 'patch', description: 'Non-secret lifecycle values whose transaction is owned by the runtime.' }],
+        returns: 'Fulfillment after atomic profile publication and live reconciliation.',
+      },
+      {
+        signature: 'async savePreference(preference: CodexRuntimePreference): Promise<void>',
+        description: 'Save a runtime preference through the profile editor, preserving lifecycle facts.',
+        parameters: [{ name: 'preference', description: 'Explicit runtime selection.' }],
+        returns: 'Fulfillment after the profile patch is reconciled.',
+      },
+    ],
+  },
+  {
     key: 'commands',
     summary: 'Human-command registry.',
     description: 'Human-command registry. Plain-context definitions are global; definitions registered through a command-injected child of an agent context shadow globals for that agent.',
@@ -701,6 +726,36 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
+    key: 'compactionCandidatePolicy',
+    summary: 'An optional, task-agnostic policy a compaction backend may consult.',
+    description: 'An optional, task-agnostic policy a compaction backend may consult.\n\nA backend that finds no registered policy behaves exactly as it did before this seam existed. A backend that finds one still owns selection, pricing, summarization, stability validation, and publication; the policy only advises and gates.',
+    methods: [
+      {
+        signature: 'readonly id: string',
+        description: 'Stable policy identity recorded in the audit.',
+        parameters: [],
+      },
+      {
+        signature: 'readonly version: string',
+        description: 'Policy contract version recorded in the audit.',
+        parameters: [],
+      },
+      {
+        signature: 'assess(input: CompactionAssessInput): CompactionPolicyAdmission | Promise<CompactionPolicyAdmission>',
+        description: 'Decide whether this operation may proceed, before anything destructive.\n\nRuns before any tool-result pruning or truncation, so a refusal never leaves the surface already narrowed for an operation that then declined.',
+        parameters: [{ name: 'input', description: 'the session, the entry, and already-priced read-only facts.' }],
+        returns: 'the admission decision.',
+      },
+      {
+        signature: 'begin(input: CompactionBeginInput): CompactionPolicyTransaction | Promise<CompactionPolicyTransaction>',
+        description: 'Open the policy transaction for an admitted operation.\n\nRuns after the backend\'s durable bracket exists and before the first summarization request, so the policy can capture exactly the authority it will later re-check at publication.',
+        parameters: [{ name: 'input', description: 'the admitted operation and its selected span.' }],
+        returns: 'the live transaction.',
+        throws: ['when the authority the policy would protect cannot be read, which fails the compaction closed before any model call.'],
+      },
+    ],
+  },
+  {
     key: 'computerUse',
     summary: 'Owns one optional provider registration in the shared computer-use service.',
     description: 'Owns one optional provider registration in the shared computer-use service.',
@@ -710,6 +765,43 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         description: 'Reserve the sole provider slot until the contribution is disposed. A second registration fails even when it repeats the current name. Providers must stop their tools and await owned work before releasing this registration.',
         parameters: [{ name: 'name', description: 'provider-owned name used in registration diagnostics.' }],
         returns: 'the effect disposer for this exact registration.',
+      },
+    ],
+  },
+  {
+    key: 'computerUseController',
+    summary: 'One profile\'s explicit Computer Use controls; the lease remains Host-wide.',
+    description: 'One profile\'s explicit Computer Use controls; the lease remains Host-wide.',
+    methods: [
+      {
+        signature: '@Remote status(): ComputerUseStatus',
+        description: 'Observe current owner and last explicit permission check; does not launch or prompt.',
+        parameters: [],
+        returns: 'Redacted lease, driver and permission state.',
+      },
+      {
+        signature: '@Remote async stop(): Promise<ComputerUseStatus>',
+        description: 'Reject new calls immediately, abort owned calls and await bounded quiescence.',
+        parameters: [],
+        returns: 'Redacted state after release or poison.',
+      },
+      {
+        signature: '@Remote resume(): ComputerUseStatus',
+        description: 'Resume a proven-idle stopped lease; poison and outstanding calls remain blocked.',
+        parameters: [],
+        returns: 'Current state; an uncertain lease remains blocked.',
+      },
+      {
+        signature: '@Remote checkPermissions(): Promise<ComputerUseStatus>',
+        description: 'Explicit read-only permission query; no system dialog or live capture probe.',
+        parameters: [],
+        returns: 'Verified grants and current lease state.',
+      },
+      {
+        signature: '@Remote requestPermissions(): Promise<ComputerUseStatus>',
+        description: 'Explicit user permission request; agents cannot mint its one-shot call identity.',
+        parameters: [],
+        returns: 'Driver-reported grants after the explicit request.',
       },
     ],
   },
@@ -907,6 +999,35 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         description: 'Remove one reference from a configuration surface.',
         parameters: [{ name: 'ref', description: 'reference name to remove.' }],
         throws: ['RemoteError when the request is invalid, no provider is mounted, or the provider refuses the write.'],
+      },
+    ],
+  },
+  {
+    key: 'customFoundation',
+    summary: 'Read-only foundation used by M2 Local and Desktop consumers.',
+    description: 'Read-only foundation used by M2 Local and Desktop consumers.',
+    methods: [
+      {
+        signature: 'async saveSelectedProfile(profile: string): Promise<void>',
+        description: 'Persist only an explicitly selected, healthy manager profile through the canonical editor.',
+        parameters: [{ name: 'profile', description: 'The exact inventory identity confirmed by the runtime.' }],
+        returns: 'Atomic profile publication and live reconciliation completion.',
+      },
+      {
+        signature: 'async addLocalProfile(profile: LocalProfile): Promise<void>',
+        description: 'Register one user-installed model with the active Custom profile.',
+        parameters: [{ name: 'profile', description: 'Exact local model identity and supported runtime.' }],
+      },
+      {
+        signature: 'async removeLocalProfile(id: string): Promise<void>',
+        description: 'Remove a user-installed model from the active Custom profile.',
+        parameters: [{ name: 'id', description: 'Exact local profile identity.' }],
+      },
+      {
+        signature: 'snapshot(): { profiles: readonly LocalProfile[]; selectedProfile: string; localModelRuntime: boolean; codexSubscription: boolean }',
+        description: 'Read persistent Local profile intent without inspecting user files or starting runtime work.',
+        parameters: [],
+        returns: 'Detached inventory and user preferences.',
       },
     ],
   },
@@ -1528,6 +1649,48 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
+    key: 'localModelRuntimeController',
+    summary: 'One controller and its one-child operation queue.',
+    description: 'One controller and its one-child operation queue. Start/restart always wait for the known LaunchAgent and port to be down before selecting another profile; an unmanaged listener is never stopped.',
+    methods: [
+      {
+        signature: '@Remote async status(): Promise<LocalModelRuntimeSnapshot>',
+        description: 'Return a fresh LaunchAgent and health observation; no in-memory green cache is trusted.',
+        parameters: [],
+        returns: 'the current manager, endpoint, and installed-profile state.',
+        throws: ['RemoteError when the local profile inventory or Host probe fails unexpectedly.'],
+      },
+      {
+        signature: '@Remote start(profile: LocalModelProfileId): Promise<LocalModelRuntimeSnapshot>',
+        description: 'Start one registered local profile after releasing the shared port.',
+        parameters: [{ name: 'profile', description: 'local-model manager profile to activate.' }],
+        returns: 'the profile state after its loopback health check succeeds.',
+        throws: ['RemoteError when disabled, unavailable, unsafe, or not healthy after start.'],
+      },
+      {
+        signature: '@Remote stop(): Promise<LocalModelRuntimeSnapshot>',
+        description: 'Stop only the verified manager LaunchAgent, and confirm port release.',
+        parameters: [],
+        returns: 'the stopped state after the manager and shared port are confirmed down.',
+        throws: ['RemoteError when the manager is unavailable, ownership is ambiguous, or shutdown fails.'],
+      },
+      {
+        signature: '@Remote restart(profile: LocalModelProfileId): Promise<LocalModelRuntimeSnapshot>',
+        description: 'Stop, verify release, then start the requested profile in the same queue.',
+        parameters: [{ name: 'profile', description: 'local-model manager profile to activate after shutdown.' }],
+        returns: 'the profile state after its loopback health check succeeds.',
+        throws: ['RemoteError when shutdown cannot be verified or the new profile is not healthy.'],
+      },
+      {
+        signature: '@Remote addProfile(draft: LocalModelProfileDraft): Promise<LocalModelRuntimeSnapshot>',
+        description: 'Register an installed model profile without starting it.',
+        parameters: [{ name: 'draft', description: 'User-entered id, name, modality, and exact local model path.' }],
+        returns: 'Fresh manager and health observation after the profile is saved.',
+        throws: ['RemoteError for invalid, duplicate, unavailable, or unsupported profiles.'],
+      },
+    ],
+  },
+  {
     key: 'lsp',
     summary: 'The LSP capability seam (`ctx.lsp`).',
     description: 'The LSP capability seam (`ctx.lsp`). Owns provider registration/selection and normalized query execution; exposes exactly the four operations and no protocol escape hatch.',
@@ -1964,6 +2127,26 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         description: 'Stream the calling Peer\'s access snapshot: one baseline, then `upsert` and `remove` frames after each `invalidate()` and each policy registration or removal that changes a grant. The owner receives only `{ owner: true }`. The generation ends when `signal` aborts or this service unloads, so a reloaded service starts every reader from a fresh baseline.',
         parameters: [{ name: 'signal', description: 'generation cancellation.' }],
         returns: 'the access frames of one generation.',
+      },
+    ],
+  },
+  {
+    key: 'runtimeDiagnostics',
+    summary: 'Host service backing the generated `ctx.remote.runtimeDiagnostics` namespace.',
+    description: 'Host service backing the generated `ctx.remote.runtimeDiagnostics` namespace.\n\nA deployment that mounts no provider registers the namespace but serves no topic, so a follow for any topic fails as provider-unavailable rather than opening a stream that can never carry anything.',
+    methods: [
+      {
+        signature: 'registerProvider(provider: RuntimeDiagnosticsProvider): () => void',
+        description: 'Register the one provider that serves a topic.\n\nA second provider for the same topic is a wiring error rather than a precedence question, so it fails fast instead of silently shadowing the first.',
+        parameters: [{ name: 'provider', description: 'the topic\'s read-only observation face.' }],
+        returns: 'an idempotent disposer that also ends the provider\'s live streams.',
+        throws: ['Error when the topic already has a provider.'],
+      },
+      {
+        signature: '@Remote({ mode: \'stream\' }) follow( request: RuntimeDiagnosticsFollowRequest, signal: AbortSignal, ): AsyncIterable<RuntimeDiagnosticsFrame>',
+        description: 'Open one generation of a topic\'s observations for one Session.',
+        parameters: [{ name: 'request', description: 'the topic and Session to follow.' }, { name: 'signal', description: 'generation cancellation, supplied by the Remote carrier.' }],
+        returns: 'the opening snapshot followed by ordered complete replacements.',
       },
     ],
   },
@@ -3210,6 +3393,68 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
+    key: 'taskCheckpoints',
+    summary: 'Cordis service for durable Task authority and guarded continuation.',
+    description: 'Cordis service for durable Task authority and guarded continuation.\n\nThe Custom composition mounts its two projections and the resume seam. Persisted state never arms the process-local admission; execution requires an explicit request and a subsequent committed turn.',
+    methods: [
+      {
+        signature: 'createCheckpoint(session: Session, input: CreateTaskCheckpointInput): TaskCheckpoint',
+        description: 'Commit the first durable revision of one Task.',
+        parameters: [{ name: 'session', description: 'the Session that owns the durable Task.' }, { name: 'input', description: 'explicit Task identity, origin turn, plan, and resume facts.' }],
+        returns: 'the committed checkpoint at revision 1.',
+        throws: ['TaskContinuityError when the Session has no readable durable authority or the candidate is not a legal first revision.'],
+      },
+      {
+        signature: 'advanceCheckpoint(session: Session, update: TaskCheckpointUpdate): TaskCheckpoint',
+        description: 'Commit the next durable revision of an existing Task.',
+        parameters: [{ name: 'session', description: 'the Session that owns the durable Task.' }, { name: 'update', description: 'superseded revision, committed latest turn, and successor value.' }],
+        returns: 'the committed successor revision.',
+        throws: ['TaskContinuityError when the declared revision is stale or the successor is not a legal next revision.'],
+      },
+      {
+        signature: 'publishResultManifest(session: Session, candidate: ResultManifest, runTurn: number): ResultManifest',
+        description: 'Commit one independently versioned result manifest.',
+        parameters: [{ name: 'session', description: 'the Session that owns the durable Task and result.' }, { name: 'candidate', description: 'the complete next manifest revision.' }, { name: 'runTurn', description: 'the committed turn whose Run produced this revision.' }],
+        returns: 'the committed manifest.',
+        throws: ['TaskContinuityError when the Task is unknown or the producing Run has not committed.'],
+      },
+      {
+        signature: 'recordAcceptedResume(session: Session, input: AcceptedResumeInput): TaskCheckpoint',
+        description: 'Record an admitted resume against a turn that has already committed.\n\nExposed so a caller that drives its own seam can record the same durable fact; the built-in seam calls exactly this method. `turn` must be committed, so the Run identity it derives is real rather than predicted.',
+        parameters: [{ name: 'session', description: 'the Session that owns the durable Task.' }, { name: 'input', description: 'committed turn, Task identity, pending-only plan, and budget.' }],
+        returns: 'the committed resume revision, or the existing one for a repeat call.',
+        throws: ['TaskContinuityError when the turn is not durable or the plan is invalid.'],
+      },
+      {
+        signature: 'authoritySnapshot( session: Session, options: TaskAuthoritySnapshotOptions = {}, ): TaskAuthoritySnapshot',
+        description: 'Read one consistent, detached cut of this Session\'s durable Task authority.\n\nEvery registered projection is materialized at the Session cursor in one synchronous pass, so the returned Task revision, result manifests, repair hazards, and successful tool results all describe the same log position. The value is a reader: it appends nothing, mutates nothing, and exposes no writer capability. Callers must re-read rather than retain it as authority across a later mutation.',
+        parameters: [{ name: 'session', description: 'the Session whose durable Task authority is read.' }, { name: 'options', description: 'the Task to address; defaults to the latest tracked Task.' }],
+        returns: 'the detached snapshot at the current commit cursor.',
+        throws: ['TaskContinuityError with `TASK_AUTHORITY_UNAVAILABLE` when a required projection is unregistered or holds a failed fold.'],
+      },
+      {
+        signature: 'diagnostics( session: Session, options: { readonly taskId?: TaskId readonly requestedExecution?: TaskExecutionMetadata readonly context?: TaskResumeContextBudget } = {}, ): TaskDiagnostics',
+        description: 'Read the durable Task continuity diagnostics for one Session.',
+        parameters: [{ name: 'session', description: 'the Session whose durable Task state is read.' }, { name: 'options', description: 'optional Task selection, proposed execution, and context budget.' }],
+        returns: 'the Task revision, its classified decision, and the evidence behind it.',
+        throws: ['TaskContinuityError when the Session has no readable durable authority.'],
+      },
+      {
+        signature: 'armResume(session: Session, request: TaskResumeRequest): TaskResumeAdmission',
+        description: 'Classify one resume request and, when it is allowed, adopt the next Run.\n\nAdmission is a process-local promise, not a durable write: a durable "resume requested" record would have to name the Run it is waiting for, which is exactly the prediction this design forbids. Nothing is written until the Run exists, so a crash between admission and the turn simply leaves the Task at its last durable revision.',
+        parameters: [{ name: 'session', description: 'the Session that owns the durable Task.' }, { name: 'request', description: 'Task identity, structured budget, and optional execution.' }],
+        returns: 'the decision and whether the seam now awaits the next committed turn.',
+        throws: ['TaskContinuityError when the caller supplies no budget for a decision that needs one.'],
+      },
+      {
+        signature: 'disarmResume(session: Session): boolean',
+        description: 'Drop an admitted resume that has not been adopted by a Run yet.\n\nA caller whose wake lost to other input disarms the admission rather than letting the seam attribute an unrelated turn to the Task.',
+        parameters: [{ name: 'session', description: 'the Session whose admission is withdrawn.' }],
+        returns: 'whether an admission was pending.',
+      },
+    ],
+  },
+  {
     key: 'terminalController',
     summary: 'Typed Remote control of transient Session-owned terminal processes.',
     description: 'Typed Remote control of transient Session-owned terminal processes.',
@@ -4046,6 +4291,14 @@ export const EVENT_API: readonly EventApiEntry[] = [
     parameters: [{ name: 'payload', description: '.error - the failure, verbatim. Scope-filtered dispatch (`@deepseek-ai/dsh-scope`): agent-scoped listeners receive only that agent.' }],
   },
   {
+    name: 'agent/external-turn-event',
+    mode: 'emit',
+    signature: '\'agent/external-turn-event\'(this: Scoped<Agent>, payload: { agent: Agent turn: number step: number event: ExternalTurnEvent }): void',
+    summary: 'Public external-runtime activity.',
+    description: 'Public external-runtime activity. This is not a local tool/call event.',
+    parameters: [{ name: 'payload', description: '.event - sanitized public activity. Scope-filtered dispatch (`@deepseek-ai/dsh-scope`): agent-scoped listeners receive only that agent.' }],
+  },
+  {
     name: 'agent/inbox/claimed',
     mode: 'emit',
     signature: '\'agent/inbox/claimed\'(this: Scoped<Agent>, payload: { agent: Agent; message: UserMessage; turn: number }): void',
@@ -4094,6 +4347,14 @@ export const EVENT_API: readonly EventApiEntry[] = [
     parameters: [{ name: 'payload', description: '.signal - the turn abort signal. Scope-filtered dispatch (`@deepseek-ai/dsh-scope`): agent-scoped listeners receive only that agent.' }],
   },
   {
+    name: 'agent/resolve-external-turn',
+    mode: 'waterfall',
+    signature: '\'agent/resolve-external-turn\'(this: Scoped<Agent>, payload: { agent: Agent selection: ExternalTurnSelection signal: AbortSignal }, next: () => Promise<ExternalTurnExecutor | undefined>): Promise<ExternalTurnExecutor | undefined>',
+    summary: 'Resolve an optional provider-owned turn executor before local prompt or tool assembly.',
+    description: 'Resolve an optional provider-owned turn executor before local prompt or tool assembly. The default is the existing local AgentLoop path.',
+    parameters: [{ name: 'payload', description: '.signal - cancellation signal for the admitted turn. Scope-filtered dispatch (`@deepseek-ai/dsh-scope`): agent-scoped listeners receive only that agent.' }],
+  },
+  {
     name: 'agent/status',
     mode: 'emit',
     signature: '\'agent/status\'(this: Scoped<Agent>, payload: { agent: Agent; status: AgentStatus }): void',
@@ -4104,10 +4365,10 @@ export const EVENT_API: readonly EventApiEntry[] = [
   {
     name: 'agent/turn-stopping',
     mode: 'serial',
-    signature: '\'agent/turn-stopping\'(this: Scoped<Agent>, payload: { agent: Agent; turn: number; signal: AbortSignal }): Promise<void> | void',
+    signature: '\'agent/turn-stopping\'(this: Scoped<Agent>, payload: { agent: Agent; turn: number; reason: TurnEndReason; signal: AbortSignal }): Promise<void> | void',
     summary: 'The turn is about to close: the model owes no response (no live tool calls, no fresh steering).',
     description: 'The turn is about to close: the model owes no response (no live tool calls, no fresh steering). Awaited before the boundary commits — a listener that objects steers (`agent.steer(...)`) and the machine re-reads its inbox: fresh steering runs another step, none closes the turn. Data decides, so listener order cannot change the outcome. The inverse control (stop a tool loop early) is data too: a tool result carrying `concludesTurn` ends the turn at its step. The conclusion never short-circuits already-submitted next-step work: same-step `additionalContexts` or racing steering still runs, and the turn closes only when that inbox drains.',
-    parameters: [{ name: 'payload', description: '.signal - the current turn\'s explicit abort signal. Scope-filtered dispatch (`@deepseek-ai/dsh-scope`): agent-scoped listeners receive only that agent.' }],
+    parameters: [{ name: 'payload', description: '.signal - the current turn\'s explicit abort signal; the payload also carries why the turn ended. Scope-filtered dispatch (`@deepseek-ai/dsh-scope`): agent-scoped listeners receive only that agent.' }],
   },
   {
     name: 'api-session/activity',
@@ -4658,6 +4919,10 @@ export const EVENT_API: readonly EventApiEntry[] = [
 /** Shapes of every exported type the Service and Event signatures reference (transitively), sorted by name. */
 export const TYPE_API: readonly TypeApiEntry[] = [
   {
+    name: 'AcceptedResumeInput',
+    declaration: 'export interface AcceptedResumeInput {\n    readonly turn: number;\n    readonly taskId: TaskId;\n    readonly requestedAt: number;\n    readonly executionPlan: readonly TaskStepId[];\n    readonly context: TaskResumeContextBudget;\n    readonly latestExecution?: TaskExecutionMetadata;\n    readonly modelRelation?: TaskModelRelation;\n}',
+  },
+  {
     name: 'AccountBonusBatch',
     declaration: 'export interface AccountBonusBatch {\n    readonly accountId: AccountUserId;\n    readonly bonuses: readonly AccountBonusNotification[];\n}',
   },
@@ -4902,6 +5167,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export type AttachmentId = Branded<\'AttachmentId\'>;',
   },
   {
+    name: 'AttemptId',
+    declaration: 'export type AttemptId = Branded<\'AttemptId\'>;',
+  },
+  {
     name: 'AuthorizationEntry',
     declaration: 'export interface AuthorizationEntry {\n    key: CredentialKey;\n    label: string;\n    methods: readonly AuthorizationMethod[];\n    inFlight: boolean;\n}',
   },
@@ -4948,6 +5217,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'AuthorizationStatus',
     declaration: 'export type AuthorizationStatus = \'authorized\' | \'cancelled\';',
+  },
+  {
+    name: 'AuthTransitionRecord',
+    declaration: 'export interface AuthTransitionRecord {\n    readonly id: string;\n    readonly kind: \'login\' | \'logout\' | \'invalidated\';\n}',
   },
   {
     name: 'BackendRegistry',
@@ -5066,8 +5339,56 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface CompactionAgentContext {\n    session: Session;\n    options: {\n        provider?: string;\n        model?: string;\n    };\n}',
   },
   {
+    name: 'CompactionAssessInput',
+    declaration: 'export interface CompactionAssessInput {\n    readonly session: Session;\n    readonly trigger: CompactionPolicyTrigger;\n    readonly beforeTokens: number;\n    readonly contextWindow?: number;\n    readonly maxTokens: number;\n    readonly signal?: AbortSignal;\n}',
+  },
+  {
+    name: 'CompactionBeginInput',
+    declaration: 'export interface CompactionBeginInput extends CompactionAssessInput {\n    readonly compactionId: CompactionId;\n    readonly start: SessionSeq;\n    readonly end: SessionSeq;\n    readonly shadowedSeqs: readonly SessionSeq[];\n    readonly shadowedTokenCount: number;\n    readonly summarizationTarget: {\n        readonly provider: string;\n        readonly model: string;\n    };\n}',
+  },
+  {
+    name: 'CompactionCandidateView',
+    declaration: 'export interface CompactionCandidateView {\n    readonly summary: readonly ContentBlock[];\n    readonly rawOutput: readonly ContentBlock[];\n    readonly truncated: boolean;\n    readonly checkpointContent: readonly ContentBlock[];\n    readonly framedTokenCount: number;\n    readonly shadowedRouteTokenCount: number;\n    readonly candidateAttempt: number;\n}',
+  },
+  {
     name: 'CompactionId',
     declaration: 'export type CompactionId = Branded<\'CompactionId\'>;',
+  },
+  {
+    name: 'CompactionOwnedRecoveryCause',
+    declaration: 'export type CompactionOwnedRecoveryCause = \'summary-error-recovery\';',
+  },
+  {
+    name: 'CompactionPolicyAdmission',
+    declaration: 'export type CompactionPolicyAdmission = {\n    readonly admitted: true;\n} | {\n    readonly admitted: false;\n    readonly block: CompactionPolicyBlock;\n};',
+  },
+  {
+    name: 'CompactionPolicyAudit',
+    declaration: 'export interface CompactionPolicyAudit {\n    readonly policyId: string;\n    readonly policyVersion: string;\n    readonly trigger: CompactionPolicyTrigger;\n    readonly candidateAttempts: number;\n    readonly authorityAsOfSeq?: number;\n    readonly protectionHash?: string;\n    readonly auxiliaryReasoning?: {\n        readonly requested?: string;\n        readonly resolved?: string;\n        readonly source?: string;\n    };\n    readonly supplementalMessages?: readonly RequestUserInput[];\n}',
+  },
+  {
+    name: 'CompactionPolicyBlock',
+    declaration: 'export interface CompactionPolicyBlock {\n    readonly code: string;\n    readonly reason?: string | undefined;\n    readonly detail: string;\n}',
+  },
+  {
+    name: 'CompactionPolicyTransaction',
+    declaration: 'export interface CompactionPolicyTransaction {\n    decorateRequest(draft: CompactionRequestDraft): CompactionRequestDecoration;\n    validateCandidate(candidate: CompactionCandidateView): CompactionPolicyVerdict;\n    rebaseAfterOwnedRecovery(cause: CompactionOwnedRecoveryCause): void;\n    assertPublishable(): void;\n    audit(): CompactionPolicyAudit;\n}',
+  },
+  {
+    name: 'CompactionPolicyTrigger',
+    declaration: 'export type CompactionPolicyTrigger = CompactionTrigger | \'manual\';',
+  },
+  {
+    name: 'CompactionPolicyVerdict',
+    declaration: 'export type CompactionPolicyVerdict = {\n    readonly kind: \'accept\';\n} | {\n    readonly kind: \'retry\';\n    readonly reason: string;\n} | {\n    readonly kind: \'reject\';\n    readonly block: CompactionPolicyBlock;\n};',
+  },
+  {
+    name: 'CompactionRequestDecoration',
+    declaration: 'export interface CompactionRequestDecoration {\n    readonly reasoningEffort?: ReasoningEffortId;\n    readonly supplementalMessages?: readonly RequestUserInput[];\n    readonly replacementContent?: readonly ContentBlock[];\n}',
+  },
+  {
+    name: 'CompactionRequestDraft',
+    declaration: 'export interface CompactionRequestDraft {\n    readonly provider: string;\n    readonly model: string;\n    readonly messages: readonly Message[];\n    readonly tools?: readonly ToolSchema[];\n    readonly maxTokens: number;\n    readonly sessionId: string;\n    readonly candidateAttempt: number;\n}',
   },
   {
     name: 'CompactionResult',
@@ -5076,6 +5397,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'CompactionTrigger',
     declaration: 'export type CompactionTrigger = \'pressure\' | \'context-overflow\';',
+  },
+  {
+    name: 'CompletedTaskStep',
+    declaration: 'export interface CompletedTaskStep extends TaskStep {\n    readonly completedAt: number;\n    readonly evidence: TaskStepCompletionEvidence;\n}',
   },
   {
     name: 'CompositionRowEnablement',
@@ -5268,6 +5593,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'CreateSessionOptions',
     declaration: 'export interface CreateSessionOptions {\n    readonly seed?: readonly SessionEvent[];\n    readonly inheritedEventCount?: SessionLogOffset;\n    readonly meta?: {\n        readonly cwd?: string;\n        readonly parentSession?: SessionId;\n        readonly createdAt?: number;\n        readonly isSeeded?: boolean;\n        readonly origin?: \'subagent\';\n        readonly delegationDepth?: number;\n        readonly agentPreset?: string;\n    };\n}',
+  },
+  {
+    name: 'CreateTaskCheckpointInput',
+    declaration: 'export interface CreateTaskCheckpointInput {\n    readonly taskId: TaskId;\n    readonly taskType: string;\n    readonly originTurn: number;\n    readonly execution: TaskExecutionMetadata;\n    readonly status?: TaskStatus;\n    readonly completedSteps?: readonly CompletedTaskStep[];\n    readonly currentStep?: TaskStep;\n    readonly pendingSteps: readonly TaskStep[];\n    readonly resumeContext: TaskResumeContext;\n    readonly outputs?: readonly TaskOutputId[];\n    readonly createdAt?: number;\n    readonly lastActivityAt?: number;\n}',
   },
   {
     name: 'CreateTeamTaskRequest',
@@ -5478,6 +5807,38 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface EveryScheduleRecord {\n    readonly id: ScheduleId;\n    readonly kind: \'every\';\n    readonly title: string;\n    readonly prompt: string;\n    readonly everySeconds: number;\n    readonly scheduledAt: string;\n}',
   },
   {
+    name: 'ExternalTurnActivityIdentity',
+    declaration: 'export interface ExternalTurnActivityIdentity {\n    readonly activityId: string;\n    readonly eventId: string;\n    readonly sessionId: SessionId;\n    readonly dshTurn: number;\n    readonly dshStep: number;\n    readonly provider: string;\n    readonly runtimeSource: string;\n    readonly runtimeVersion: string;\n    readonly threadId: string;\n    readonly turnId: string;\n    readonly itemId: string;\n    readonly requestId?: string | undefined;\n    readonly eventKind: string;\n    readonly terminalState: string;\n}',
+  },
+  {
+    name: 'ExternalTurnEvent',
+    declaration: 'export type ExternalTurnEvent = {\n    readonly kind: \'command\';\n    readonly id: string;\n    readonly command: string;\n    readonly status: \'started\' | \'completed\' | \'failed\' | \'interrupted\';\n    readonly identity: ExternalTurnActivityIdentity;\n} | {\n    readonly kind: \'file-change\';\n    readonly id: string;\n    readonly path: string;\n    readonly status: \'created\' | \'modified\' | \'deleted\';\n    readonly identity: ExternalTurnActivityIdentity;\n} | {\n    readonly kind: \'approval\';\n    readonly id: string;\n    readonly title: string;\n    readonly status: \'requested\' | \'allowed\' | \'rejected\';\n    readonly identity: ExternalTurnActivityIdentity;\n} | {\n    readonly kind: \'turn\';\n    readonly id: string;\n    readonly status: \'completed\' | \'interrupted\' | \'failed\';\n    readonly identity: ExternalTurnActivityIdentity;\n};',
+  },
+  {
+    name: 'ExternalTurnExecutor',
+    declaration: 'export interface ExternalTurnExecutor {\n    readonly providerId: string;\n    resolveWorkspace(session: Session, cwd: string, signal: AbortSignal): Promise<ExternalTurnWorkspace>;\n    executeTurn(request: ExternalTurnRequest): Promise<ExternalTurnResult>;\n}',
+  },
+  {
+    name: 'ExternalTurnPublisher',
+    declaration: 'export interface ExternalTurnPublisher {\n    textDelta(text: string): void;\n    event(event: ExternalTurnEvent): void;\n}',
+  },
+  {
+    name: 'ExternalTurnRequest',
+    declaration: 'export interface ExternalTurnRequest {\n    readonly agent: Agent;\n    readonly session: Session;\n    readonly turn: number;\n    readonly step: number;\n    readonly selection: ExternalTurnSelection;\n    readonly messages: readonly UserMessage[];\n    readonly workspaceIdentity: string;\n    readonly cwd: string;\n    readonly signal: AbortSignal;\n    readonly publish: ExternalTurnPublisher;\n}',
+  },
+  {
+    name: 'ExternalTurnResult',
+    declaration: 'export interface ExternalTurnResult {\n    readonly text: string;\n    readonly usage?: TokenUsage;\n    readonly reason?: \'completed\' | \'max-tokens\';\n}',
+  },
+  {
+    name: 'ExternalTurnSelection',
+    declaration: 'export interface ExternalTurnSelection {\n    readonly provider: string;\n    readonly model: string;\n    readonly reasoningEffort?: ReasoningEffortId;\n}',
+  },
+  {
+    name: 'ExternalTurnWorkspace',
+    declaration: 'export interface ExternalTurnWorkspace {\n    readonly identity: string;\n    readonly cwd: string;\n}',
+  },
+  {
     name: 'FeedbackCategory',
     declaration: 'export type FeedbackCategory = \'task-result\' | \'instruction-following\' | \'product-interaction\' | \'service-stability\' | \'resource-cost\' | \'security-privacy-permission\' | \'other\';',
   },
@@ -5626,6 +5987,18 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface GrantRecord {\n    readonly kind: \'grant\';\n    readonly payload: unknown;\n}',
   },
   {
+    name: 'GuardedResumeDecision',
+    declaration: 'export interface GuardedResumeDecision {\n    readonly decision: GuardedResumeDecisionClass;\n    readonly reason: GuardedResumeReason;\n    readonly detail: string;\n    readonly taskId?: TaskId;\n    readonly checkpointRevision?: number;\n    readonly latestRunId?: RunId;\n    readonly durableRunId?: RunId;\n    readonly currentStep?: TaskStep;\n    readonly pendingSteps: readonly TaskStep[];\n    readonly hazards: readonly TaskRepairHazard[];\n    readonly plan: readonly TaskStepId[];\n}',
+  },
+  {
+    name: 'GuardedResumeDecisionClass',
+    declaration: 'export type GuardedResumeDecisionClass = \'allowed\' | \'requires_confirmation\' | \'blocked\' | \'not_applicable\';',
+  },
+  {
+    name: 'GuardedResumeReason',
+    declaration: 'export type GuardedResumeReason = \'NO_CHECKPOINT\' | \'TASK_COMPLETED\' | \'TASK_CANCELLED\' | \'TASK_BLOCKED\' | \'TASK_FAILED_FATAL\' | \'TASK_FAILED_RECOVERABLE\' | \'TOOL_OUTCOME_UNKNOWN\' | \'NO_PENDING_WORK\' | \'RUN_STILL_OPEN\' | \'SESSION_DIVERGED\' | \'MODEL_CHANGED\' | \'MISSING_RESULT_MANIFEST\' | \'UNSETTLED_RESULT_MANIFEST\' | \'MISSING_COMPLETED_EVIDENCE\' | \'CONTEXT_OVER_BUDGET\' | \'PENDING_ONLY\';',
+  },
+  {
     name: 'HookBudget',
     declaration: 'export interface HookBudget {\n    readonly ms: number;\n    readonly remainingMs: number;\n}',
   },
@@ -5656,6 +6029,14 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'HostConnectionRpc',
     declaration: 'export interface HostConnectionRpc {\n    handle(channel: string, handler: ConnectionRpcHandler): () => Promise<void>;\n    intercept(channel: \'/api\', matches: ConnectionRpcEndpointMatcher, handler: ConnectionRpcHandler): () => Promise<void>;\n}',
+  },
+  {
+    name: 'IgnorableSessionEventMap',
+    declaration: 'export interface IgnorableSessionEventMap {\n}',
+  },
+  {
+    name: 'IgnorableSessionEventType',
+    declaration: 'export type IgnorableSessionEventType = Extract<SessionEventType, keyof IgnorableSessionEventMap>;',
   },
   {
     name: 'ImageAttachmentLimits',
@@ -5923,7 +6304,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'LlmConfigurableProvider',
-    declaration: 'export interface LlmConfigurableProvider {\n    provider: string;\n    displayName: string;\n    settingsNs: string;\n    settingsPath: readonly string[];\n    declared?: boolean;\n    defaultBaseURL?: string;\n    baseURLEnv?: readonly string[];\n    nativeAuth?: LlmNativeAuth;\n    error?: string;\n}',
+    declaration: 'export interface LlmConfigurableProvider {\n    provider: string;\n    displayName: string;\n    settingsNs: string;\n    settingsPath: readonly string[];\n    selectable?: boolean;\n    declared?: boolean;\n    defaultBaseURL?: string;\n    baseURLEnv?: readonly string[];\n    nativeAuth?: LlmNativeAuth;\n    error?: string;\n}',
   },
   {
     name: 'LlmDiscoveredModel',
@@ -5963,7 +6344,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'LlmProviderInfo',
-    declaration: 'export interface LlmProviderInfo {\n    id: string;\n    name: string;\n}',
+    declaration: 'export interface LlmProviderInfo {\n    id: string;\n    name: string;\n    selectable?: boolean;\n}',
   },
   {
     name: 'LlmReasoningEffortInfo',
@@ -5984,6 +6365,38 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'LocalizedText',
     declaration: 'export type LocalizedText = string | {\n    readonly en: string;\n    readonly [locale: string]: string;\n};',
+  },
+  {
+    name: 'LocalModelModality',
+    declaration: 'export type LocalModelModality = \'text\' | \'image\';',
+  },
+  {
+    name: 'LocalModelProfileDraft',
+    declaration: 'export interface LocalModelProfileDraft {\n    readonly id: string;\n    readonly name: string;\n    readonly modality: LocalModelModality;\n    readonly modelId: string;\n}',
+  },
+  {
+    name: 'LocalModelProfileId',
+    declaration: 'export type LocalModelProfileId = string;',
+  },
+  {
+    name: 'LocalModelRuntimeEngine',
+    declaration: 'export type LocalModelRuntimeEngine = \'llama.cpp\' | \'mflux-qwen21\';',
+  },
+  {
+    name: 'LocalModelRuntimeProfile',
+    declaration: 'export interface LocalModelRuntimeProfile {\n    readonly id: LocalModelProfileId;\n    readonly name: string;\n    readonly modality: LocalModelModality;\n    readonly engine?: LocalModelRuntimeEngine;\n    readonly manageable: boolean;\n    readonly available?: boolean;\n    readonly unavailableReason?: string;\n}',
+  },
+  {
+    name: 'LocalModelRuntimeSnapshot',
+    declaration: 'export interface LocalModelRuntimeSnapshot {\n    readonly enabled: boolean;\n    readonly available: boolean;\n    readonly state: LocalModelRuntimeState;\n    readonly canStop: boolean;\n    readonly profile: LocalModelProfileId | null;\n    readonly endpoint: string;\n    readonly profiles: readonly LocalModelRuntimeProfile[];\n    readonly error?: string;\n}',
+  },
+  {
+    name: 'LocalModelRuntimeState',
+    declaration: 'export type LocalModelRuntimeState = \'stopped\' | \'starting\' | \'running\' | \'stopping\' | \'error\';',
+  },
+  {
+    name: 'LocalProfile',
+    declaration: 'export interface LocalProfile {\n    id: string;\n    name: string;\n    modality: \'text\' | \'image\';\n    engine?: \'llama.cpp\' | \'mflux-qwen21\';\n    modelId: string;\n}',
   },
   {
     name: 'LogExporterOptions',
@@ -6247,7 +6660,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'ModelProviderGroup',
-    declaration: 'export interface ModelProviderGroup {\n    readonly id: string;\n    readonly name: string;\n    readonly models: readonly ModelCatalogModel[];\n}',
+    declaration: 'export interface ModelProviderGroup {\n    readonly id: string;\n    readonly name: string;\n    readonly selectable?: boolean;\n    readonly models: readonly ModelCatalogModel[];\n}',
   },
   {
     name: 'ModelReasoning',
@@ -6826,6 +7239,26 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface RestoredSessionOptions {\n    readonly seed: SessionEvent[];\n    readonly meta: SessionHeader;\n    readonly inheritedEventCount: SessionLogOffset;\n    readonly eventState: SessionSeedEventState;\n}',
   },
   {
+    name: 'ResultChecksum',
+    declaration: 'export interface ResultChecksum {\n    readonly algorithm: \'sha256\';\n    readonly value: string;\n}',
+  },
+  {
+    name: 'ResultManifest',
+    declaration: 'export interface ResultManifest {\n    readonly version: 1;\n    readonly outputId: TaskOutputId;\n    readonly revision: number;\n    readonly taskId: TaskId;\n    readonly runId: RunId;\n    readonly path: string;\n    readonly status: ResultManifestStatus;\n    readonly createdAt: number;\n    readonly updatedAt: number;\n    readonly completedAt?: number;\n    readonly size?: number;\n    readonly checksum?: ResultChecksum;\n    readonly execution: TaskExecutionMetadata;\n    readonly validation: ResultValidation;\n}',
+  },
+  {
+    name: 'ResultManifestStatus',
+    declaration: 'export type ResultManifestStatus = \'running\' | \'partial\' | \'completed\' | \'failed\' | \'cancelled\';',
+  },
+  {
+    name: 'ResultValidation',
+    declaration: 'export interface ResultValidation {\n    readonly status: \'pending\' | \'passed\' | \'failed\';\n    readonly checks: readonly ResultValidationCheck[];\n}',
+  },
+  {
+    name: 'ResultValidationCheck',
+    declaration: 'export interface ResultValidationCheck {\n    readonly id: string;\n    readonly status: \'passed\' | \'failed\';\n    readonly message?: string;\n}',
+  },
+  {
     name: 'ResumeAgentOptions',
     declaration: 'export interface ResumeAgentOptions {\n    readonly resumeSessionId: SessionId;\n    readonly parentAgent?: Agent;\n    readonly agentOptions?: AgentOptions;\n    readonly signal?: AbortSignal;\n    readonly setup?: AgentSetup;\n}',
   },
@@ -6836,6 +7269,34 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'RunnerFailureRule',
     declaration: 'export interface RunnerFailureRule {\n    allowedExitCodes?: readonly number[];\n    fatalSignatures: readonly string[];\n    informationalLines?: readonly string[];\n}',
+  },
+  {
+    name: 'RuntimeDiagnosticsFollowRequest',
+    declaration: 'export interface RuntimeDiagnosticsFollowRequest {\n    readonly topic: string;\n    readonly sessionId: string;\n}',
+  },
+  {
+    name: 'RuntimeDiagnosticsFrame',
+    declaration: 'export interface RuntimeDiagnosticsFrame {\n    readonly type: \'snapshot\' | \'change\';\n    readonly topic: string;\n    readonly sessionId: string;\n    readonly schemaId: string;\n    readonly schemaVersion: number;\n    readonly observation: RuntimeDiagnosticsObservation;\n}',
+  },
+  {
+    name: 'RuntimeDiagnosticsObservation',
+    declaration: 'export type RuntimeDiagnosticsObservation = {\n    readonly present: false;\n} | {\n    readonly present: true;\n    readonly value: RuntimeDiagnosticsValue;\n};',
+  },
+  {
+    name: 'RuntimeDiagnosticsProvider',
+    declaration: 'export interface RuntimeDiagnosticsProvider extends RuntimeDiagnosticsTopicDeclaration {\n    read(sessionId: string): RuntimeDiagnosticsProviderObservation | undefined;\n    subscribe(sessionId: string, listener: (observation: RuntimeDiagnosticsProviderObservation | undefined) => void): () => void;\n}',
+  },
+  {
+    name: 'RuntimeDiagnosticsProviderObservation',
+    declaration: 'export type RuntimeDiagnosticsProviderObservation = {\n    readonly present: false;\n} | {\n    readonly present: true;\n    readonly value: object;\n};',
+  },
+  {
+    name: 'RuntimeDiagnosticsTopicDeclaration',
+    declaration: 'export interface RuntimeDiagnosticsTopicDeclaration {\n    readonly topic: string;\n    readonly schemaId: string;\n    readonly schemaVersion: number;\n}',
+  },
+  {
+    name: 'RuntimeDiagnosticsValue',
+    declaration: 'export type RuntimeDiagnosticsValue = null | boolean | number | string | readonly RuntimeDiagnosticsValue[] | {\n    readonly [key: string]: RuntimeDiagnosticsValue;\n};',
   },
   {
     name: 'SandboxEnforcement',
@@ -6999,7 +7460,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'Session',
-    declaration: 'export class Session {\n    get surface(): SessionSurface;\n    readonly header: SessionHeader;\n    readonly inheritedEventCount: SessionLogOffset;\n    get id(): SessionId;\n    readonly firstLiveSeq: SessionLogOffset;\n    readonly firstLifecycleSeq: SessionLogOffset;\n    static create(id: SessionId, seed?: readonly SessionEvent[], header?: SessionHeader, inheritedEventCount?: SessionLogOffset, projections?: readonly SessionMessageProjection[]): Session;\n    static fromRestore(id: SessionId, seed: readonly SessionEvent[], header: SessionHeader, inheritedEventCount: SessionLogOffset, eventState: SessionSeedEventState, projections?: readonly SessionMessageProjection[]): Session;\n    eventAt(seq: SessionSeq): SessionEvent | undefined;\n    snapshotEvents(fromSeq: SessionLogOffset = SessionLogOffset(0), toSeqExclusive: SessionLogOffset = this.seq): readonly SessionEvent[];\n    ownEvents(): readonly SessionEvent[];\n    isOwnSeq(seq: SessionSeq): boolean;\n    get seq(): SessionLogOffset;\n    append<T extends SessionEventType>(type: T, data: SessionEventMap[T], ...opts: T extends SurfaceEventType ? [\n        opts: SurfaceIntent<T>\n    ] : [\n    ]): SessionEvent<T>;\n    requestHeader(): EpochHeader | undefined;\n    requestContext(): RequestContext | undefined;\n    toolHistory(): ToolHistory;\n    deriveMessages(): Message[];\n    deriveEventMessage(event: SessionEvent): Message | null;\n}',
+    declaration: 'export class Session {\n    get surface(): SessionSurface;\n    readonly header: SessionHeader;\n    readonly inheritedEventCount: SessionLogOffset;\n    get id(): SessionId;\n    readonly firstLiveSeq: SessionLogOffset;\n    readonly firstLifecycleSeq: SessionLogOffset;\n    static create(id: SessionId, seed?: readonly SessionEvent[], header?: SessionHeader, inheritedEventCount?: SessionLogOffset, projections?: readonly SessionMessageProjection[]): Session;\n    static fromRestore(id: SessionId, seed: readonly SessionEvent[], header: SessionHeader, inheritedEventCount: SessionLogOffset, eventState: SessionSeedEventState, projections?: readonly SessionMessageProjection[]): Session;\n    eventAt(seq: SessionSeq): SessionEvent | undefined;\n    snapshotEvents(fromSeq: SessionLogOffset = SessionLogOffset(0), toSeqExclusive: SessionLogOffset = this.seq): readonly SessionEvent[];\n    ownEvents(): readonly SessionEvent[];\n    isOwnSeq(seq: SessionSeq): boolean;\n    get seq(): SessionLogOffset;\n    append<T extends SessionEventType>(type: T, data: SessionEventMap[T], ...opts: T extends SurfaceEventType ? [\n        opts: SurfaceIntent<T>\n    ] : [\n    ]): SessionEvent<T>;\n    appendIgnorable<T extends IgnorableSessionEventType>(type: T, data: SessionEventMap[T]): SessionEvent<T>;\n    requestHeader(): EpochHeader | undefined;\n    requestContext(): RequestContext | undefined;\n    toolHistory(): ToolHistory;\n    deriveMessages(): Message[];\n    deriveEventMessage(event: SessionEvent): Message | n /* …truncated — full shape in source */',
   },
   {
     name: 'SessionAccess',
@@ -7154,6 +7615,18 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface SessionEventWindow {\n    session: SessionHeader;\n    inheritedEventCount: SessionLogOffset;\n    target: SessionEvent;\n    events: SessionEvent[];\n    startSeq: SessionSeq;\n    endSeq: SessionSeq;\n}',
   },
   {
+    name: 'SessionExternalActivity',
+    declaration: 'export interface SessionExternalActivity {\n    readonly id: string;\n    readonly sessionId: SessionId;\n    readonly dshTurn: number;\n    readonly dshStep: number;\n    readonly provider: string;\n    readonly runtimeSource: string;\n    readonly runtimeVersion: string;\n    readonly codexThreadId: string;\n    readonly codexTurnId: string;\n    readonly codexItemId: string;\n    readonly codexRequestId?: string;\n    readonly eventId: string;\n    readonly eventKind: string;\n    readonly terminalState: string;\n    readonly kind: \'command\' | \'file-change\' | \'approval\' | \'turn\';\n    readonly status: \'started\' | \'completed\' | \'failed\' | \'interrupted\' | \'created\' | \'modified\' | \'deleted\' | \'requested\' | \'allowed\' | \'rejected\';\n    readonly label?: string;\n    readonly path?: string;\n    readonly time: number;\n}',
+  },
+  {
+    name: 'SessionExternalActivityBaseline',
+    declaration: 'export interface SessionExternalActivityBaseline {\n    readonly revision: number;\n    readonly activities: readonly SessionExternalActivity[];\n}',
+  },
+  {
+    name: 'SessionExternalActivityFrame',
+    declaration: 'export interface SessionExternalActivityFrame {\n    readonly revision: number;\n    readonly activity: SessionExternalActivity;\n}',
+  },
+  {
     name: 'SessionFeedbackRecordRequest',
     declaration: 'export interface SessionFeedbackRecordRequest {\n    readonly sessionId: SessionId;\n    readonly text?: string;\n    readonly category?: FeedbackCategory;\n}',
   },
@@ -7171,11 +7644,11 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'SessionFollowFrame',
-    declaration: 'export type SessionFollowFrame = {\n    readonly type: \'snapshot\';\n    readonly header: SessionWireHeader;\n    readonly cursor: number;\n    readonly records: readonly SessionHistoryRecord[];\n    readonly hasMore: boolean;\n    readonly projections: SessionProjectionBaseline;\n    readonly assistantStream?: SessionAssistantStreamBaseline;\n} | SessionEventEntry | {\n    readonly type: \'assistant-stream\';\n    readonly frame: SessionAssistantStreamFrame;\n};',
+    declaration: 'export type SessionFollowFrame = {\n    readonly type: \'snapshot\';\n    readonly header: SessionWireHeader;\n    readonly cursor: number;\n    readonly records: readonly SessionHistoryRecord[];\n    readonly hasMore: boolean;\n    readonly projections: SessionProjectionBaseline;\n    readonly assistantStream?: SessionAssistantStreamBaseline;\n    readonly externalActivities?: SessionExternalActivityBaseline;\n} | SessionEventEntry | {\n    readonly type: \'assistant-stream\';\n    readonly frame: SessionAssistantStreamFrame;\n} | {\n    readonly type: \'external-activity\';\n    readonly frame: SessionExternalActivityFrame;\n};',
   },
   {
     name: 'SessionFollowRequest',
-    declaration: 'export interface SessionFollowRequest extends Pick<SessionPageRequest, \'maxMessages\' | \'turnWindow\'> {\n    readonly address: SessionAddress;\n    readonly assistantStream?: true;\n}',
+    declaration: 'export interface SessionFollowRequest extends Pick<SessionPageRequest, \'maxMessages\' | \'turnWindow\'> {\n    readonly externalActivities?: true;\n    readonly address: SessionAddress;\n    readonly assistantStream?: true;\n}',
   },
   {
     name: 'SessionForkRequest',
@@ -7982,6 +8455,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface SubprocessTerminalSpawnSpec {\n    argv: readonly string[];\n    cwd: string;\n    env?: Record<string, string> | undefined;\n    rows: number;\n    cols: number;\n    terminalType: string;\n    shellActivity?: boolean | undefined;\n    graceMs: number;\n    signal?: AbortSignal | undefined;\n}',
   },
   {
+    name: 'SuccessfulTaskToolResult',
+    declaration: 'export interface SuccessfulTaskToolResult {\n    readonly eventSeq: SessionSeq;\n    readonly callId: string;\n}',
+  },
+  {
     name: 'SurfaceEvent',
     declaration: 'export type SurfaceEvent = SessionEvent<SurfaceEventType>;',
   },
@@ -8024,6 +8501,90 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'TableValueOf',
     declaration: 'export type TableValueOf<S extends DomainSpec, N extends keyof S[\'tables\']> = S[\'tables\'][N] extends DomainTableSpec<string, infer V> ? V : never;',
+  },
+  {
+    name: 'TaskAuthoritySnapshot',
+    declaration: 'export interface TaskAuthoritySnapshot {\n    readonly task?: TaskCheckpoint;\n    readonly latestTaskId?: TaskId;\n    readonly results: readonly ResultManifest[];\n    readonly repairHazards: readonly TaskRepairHazard[];\n    readonly successfulToolResults: readonly SuccessfulTaskToolResult[];\n    readonly asOfSeq: SessionSeq;\n    readonly lastTurn: number;\n    readonly openRun: boolean;\n}',
+  },
+  {
+    name: 'TaskAuthoritySnapshotOptions',
+    declaration: 'export interface TaskAuthoritySnapshotOptions {\n    readonly taskId?: TaskId;\n}',
+  },
+  {
+    name: 'TaskCheckpoint',
+    declaration: 'export interface TaskCheckpoint extends TaskCheckpointRef {\n    readonly version: 1;\n    readonly taskType: string;\n    readonly sessionId: SessionId;\n    readonly originRunId: RunId;\n    readonly latestRunId: RunId;\n    readonly status: TaskStatus;\n    readonly originalExecution: TaskExecutionMetadata;\n    readonly latestExecution: TaskExecutionMetadata;\n    readonly modelRelation: TaskModelRelation;\n    readonly completedSteps: readonly CompletedTaskStep[];\n    readonly currentStep?: TaskStep;\n    readonly pendingSteps: readonly TaskStep[];\n    readonly createdAt: number;\n    readonly lastSuccessAt?: number;\n    readonly lastActivityAt: number;\n    readonly resumeContext: TaskResumeContext;\n    readonly outputs: readonly TaskOutputId[];\n    readonly failureContext?: TaskFailureContext;\n    readonly latestResume?: TaskResumeRecord;\n}',
+  },
+  {
+    name: 'TaskCheckpointRef',
+    declaration: 'export interface TaskCheckpointRef {\n    readonly taskId: TaskId;\n    readonly revision: number;\n}',
+  },
+  {
+    name: 'TaskCheckpointUpdate',
+    declaration: 'export interface TaskCheckpointUpdate {\n    readonly expectedRevision: number;\n    readonly checkpoint: TaskCheckpoint;\n    readonly latestTurn: number;\n}',
+  },
+  {
+    name: 'TaskDiagnostics',
+    declaration: 'export interface TaskDiagnostics {\n    readonly task?: TaskCheckpoint;\n    readonly decision: GuardedResumeDecision;\n    readonly results: readonly ResultManifest[];\n    readonly hazards: readonly TaskRepairHazard[];\n}',
+  },
+  {
+    name: 'TaskExecutionMetadata',
+    declaration: 'export interface TaskExecutionMetadata {\n    readonly provider: string;\n    readonly model: string;\n    readonly backend?: string;\n    readonly requestedReasoning?: string;\n    readonly resolvedReasoning?: string;\n}',
+  },
+  {
+    name: 'TaskFailureContext',
+    declaration: 'export interface TaskFailureContext {\n    readonly primaryError: ClassifiedRunError;\n    readonly failedAt: number;\n    readonly failedAttemptId?: AttemptId;\n    readonly currentStepId?: TaskStepId;\n}',
+  },
+  {
+    name: 'TaskId',
+    declaration: 'export type TaskId = Branded<\'TaskId\'>;',
+  },
+  {
+    name: 'TaskModelRelation',
+    declaration: 'export type TaskModelRelation = \'same-model\' | \'model-changed\';',
+  },
+  {
+    name: 'TaskOutputId',
+    declaration: 'export type TaskOutputId = Branded<\'TaskOutputId\'>;',
+  },
+  {
+    name: 'TaskRepairHazard',
+    declaration: 'export interface TaskRepairHazard {\n    readonly taskId: TaskId;\n    readonly callId: string;\n    readonly code: \'TOOL_NOT_STARTED\' | \'TOOL_OUTCOME_UNKNOWN\';\n    readonly eventSeq: SessionSeq;\n}',
+  },
+  {
+    name: 'TaskResumeAdmission',
+    declaration: 'export interface TaskResumeAdmission {\n    readonly decision: GuardedResumeDecision;\n    readonly armed: boolean;\n}',
+  },
+  {
+    name: 'TaskResumeContext',
+    declaration: 'export interface TaskResumeContext {\n    readonly objective: string;\n    readonly constraints: readonly string[];\n    readonly decisions: readonly string[];\n    readonly criticalContext: readonly string[];\n}',
+  },
+  {
+    name: 'TaskResumeContextBudget',
+    declaration: 'export interface TaskResumeContextBudget {\n    readonly estimatedTokens: number;\n    readonly maxTokens: number;\n    readonly includedSections: readonly string[];\n    readonly omittedSections: readonly string[];\n}',
+  },
+  {
+    name: 'TaskResumeRecord',
+    declaration: 'export interface TaskResumeRecord {\n    readonly requestedAt: number;\n    readonly runId: RunId;\n    readonly executionPlan: readonly TaskStepId[];\n    readonly context: TaskResumeContextBudget;\n}',
+  },
+  {
+    name: 'TaskResumeRequest',
+    declaration: 'export interface TaskResumeRequest {\n    readonly taskId: TaskId;\n    readonly requestedAt?: number;\n    readonly context: TaskResumeContextBudget;\n    readonly requestedExecution?: TaskExecutionMetadata;\n}',
+  },
+  {
+    name: 'TaskStatus',
+    declaration: 'export type TaskStatus = \'running\' | \'paused\' | \'blocked\' | \'completed\' | \'partial\' | \'failed\' | \'cancelled\';',
+  },
+  {
+    name: 'TaskStep',
+    declaration: 'export interface TaskStep {\n    readonly id: TaskStepId;\n    readonly title: string;\n}',
+  },
+  {
+    name: 'TaskStepCompletionEvidence',
+    declaration: 'export type TaskStepCompletionEvidence = {\n    readonly kind: \'tool-result\';\n    readonly eventSeq: SessionSeq;\n    readonly callId: string;\n} | {\n    readonly kind: \'result-validation\';\n    readonly outputId: TaskOutputId;\n    readonly manifestRevision: number;\n} | {\n    readonly kind: \'runtime-validation\';\n    readonly validator: string;\n    readonly reference: string;\n};',
+  },
+  {
+    name: 'TaskStepId',
+    declaration: 'export type TaskStepId = Branded<\'TaskStepId\'>;',
   },
   {
     name: 'TeamId',

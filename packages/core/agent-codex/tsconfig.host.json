@@ -1,0 +1,71 @@
+{
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "lib/types",
+    "tsBuildInfoFile": "lib/host.tsbuildinfo"
+  },
+  "include": [
+    "src/index.ts",
+    "src/config.ts",
+    "src/runtime.ts",
+    "src/app-server.ts",
+    "src/home.ts",
+    "src/compatibility.ts",
+    "src/controller.ts",
+    "src/state.ts"
+  ],
+  "references": [
+    {
+      "path": "../../../vendor/cordis"
+    },
+    {
+      "path": "../../../vendor/cosmokit"
+    },
+    {
+      "path": "../../../vendor/schemastery"
+    },
+    {
+      "path": "../../boot/config-editor"
+    },
+    {
+      "path": "../../llm/llm"
+    },
+    {
+      "path": "../../sdk/protocol"
+    },
+    {
+      "path": "../../session/session-projection"
+    },
+    {
+      "path": "../../subprocess/subprocess"
+    },
+    {
+      "path": "../../util/atomic-write"
+    },
+    {
+      "path": "../../util/home-paths"
+    },
+    {
+      "path": "../../util/native-command"
+    },
+    {
+      "path": "../../workspace/workspace"
+    },
+    {
+      "path": "../agent"
+    },
+    {
+      "path": "../session"
+    },
+    {
+      "path": "./tsconfig.state.json"
+    },
+    {
+      "path": "../../typert/protocol"
+    },
+    {
+      "path": "../../boot/custom-foundation"
+    }
+  ]
+}

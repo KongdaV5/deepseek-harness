@@ -1,3 +1,4 @@
+import type { SessionExternalActivity, SessionExternalActivityBaseline, SessionExternalActivityFrame } from '../../types.ts'
 /** Observable contiguous Session event window consumed by domain assemblers. */
 import { notifySubscribers, type ObservableSnapshot } from '@deepseek-ai/dsh-client-store'
 import type { LlmAttemptId, StreamChunk } from '@deepseek-ai/dsh-llm'
@@ -201,5 +202,41 @@ export class MutableSessionEventSource implements SessionEventSource {
   ): void {
     this.snapshot = windowSnapshot(this.window, hasMore, this.snapshot.revision + 1, change)
     notifySubscribers(this.listeners, '[session-controller] event feed')
+  }
+}
+
+/** Session-scoped view of bounded, process-local external-runtime activity. */
+export type SessionExternalActivitySource = ObservableSnapshot<readonly SessionExternalActivity[]>
+
+/** Session-owned live activity window; never contributes to the durable transcript. */
+export class MutableSessionExternalActivitySource implements SessionExternalActivitySource {
+  private readonly listeners = new Set<() => void>()
+  private snapshot: readonly SessionExternalActivity[] = []
+
+  /** @returns the current bounded activity window. */
+  getSnapshot(): readonly SessionExternalActivity[] { return this.snapshot }
+
+  /** @param listener - source invalidation callback. */
+  subscribe(listener: () => void): () => void {
+    this.listeners.add(listener)
+    return () => { this.listeners.delete(listener) }
+  }
+
+  /** Replace the transient activity window with the latest Host baseline.
+   * @param baseline - latest Host process-local window, absent for older peers.
+   */
+  replace(baseline: SessionExternalActivityBaseline | undefined): void {
+    this.snapshot = baseline?.activities.slice(-32) ?? []
+    notifySubscribers(this.listeners, '[session-controller] external activity')
+  }
+
+  /** Accept one revision-validated transient activity replacement.
+   * @param frame - the activity frame from the current Host follow stream.
+   */
+  accept(frame: SessionExternalActivityFrame): void {
+    const next = this.snapshot.filter(activity => activity.id !== frame.activity.id)
+    next.push(frame.activity)
+    this.snapshot = next.slice(-32)
+    notifySubscribers(this.listeners, '[session-controller] external activity')
   }
 }

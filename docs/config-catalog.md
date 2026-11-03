@@ -33,6 +33,39 @@ export interface AcpConfig {
 ```
 <!-- END GENERATED config-catalog:@deepseek-ai/dsh-acp -->
 
+<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-agent-codex -->
+<a id="deepseek-aidsh-agent-codex"></a>
+
+## `@deepseek-ai/dsh-agent-codex`
+
+- `inject`: `sessionProjections` · `configEditor` · `sessions` · `customFoundation`
+- `refs`: `Volatile` (`@deepseek-ai/cordis`)
+- `source`: [`packages/core/agent-codex/src/config.ts:32`](../packages/core/agent-codex/src/config.ts)
+
+```ts config-catalog
+/** Plugin-owned preference and non-secret lifecycle facts. */
+export interface Config {
+  /** Runtime selection preference; edits retain authentication authority. */
+  preference: Volatile<CodexRuntimePreference>
+  /** Non-secret account/thread binding; only the auth transaction owner may advance it. */
+  authGeneration: Volatile<string | undefined>
+  /** Pending auth transaction marker; Config migration never completes it. */
+  authTransition: Volatile<AuthTransitionRecord | null | undefined>
+}
+
+/** User preference for choosing one fixed App Server binary at connection start. */
+export type CodexRuntimePreference = 'auto' | 'system' | 'bundled'
+
+/** Persisted non-secret authentication transaction; configuration edits never advance it. */
+export interface AuthTransitionRecord {
+  /** Stable pending transaction identity. */
+  readonly id: string
+  /** Explicit lifecycle operation whose completion belongs to the runtime. */
+  readonly kind: 'login' | 'logout' | 'invalidated'
+}
+```
+<!-- END GENERATED config-catalog:@deepseek-ai/dsh-agent-codex -->
+
 <!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-agent-default-model -->
 <a id="deepseek-aidsh-agent-default-model"></a>
 
@@ -664,7 +697,7 @@ export interface Config {
 export interface Config {
   /** Browser palette preference. */
   preference: Volatile<ThemePreference>
-  /** Browser font size in pixels. */
+  /** Browser global interface font-size reference in pixels. */
   fontSize: Volatile<number>
   /** Code-block font size in pixels. */
   codeFontSize: Volatile<number>
@@ -793,6 +826,73 @@ export interface Config {
 }
 ```
 <!-- END GENERATED config-catalog:@deepseek-ai/dsh-credentials-local -->
+
+<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-custom-computer-use-safety -->
+<a id="deepseek-aidsh-custom-computer-use-safety"></a>
+
+## `@deepseek-ai/dsh-custom-computer-use-safety`
+
+- `inject`: `tools` · `systemPrompt` · `commands` · `agents`
+- `source`: [`packages/computer-use/custom-computer-use-safety/src/index.ts:55`](../packages/computer-use/custom-computer-use-safety/src/index.ts)
+
+```ts config-catalog
+/** Driver tool-name prefixes and the conservative classification overrides. */
+export interface Config {
+  /**
+   * Public tool-name prefixes owned by the configured Computer Use provider.
+   * Defaults to the official Cua Driver MCP provider's namespace.
+   */
+  toolPrefixes: string[]
+  /**
+   * Bounded window, in milliseconds, to prove that every accounted desktop call
+   * settled before the lease is released. Exceeding it poisons the lease.
+   */
+  drainTimeoutMs: number
+  /** Reviewed read-only names; cannot widen the built-in observation catalog. */
+  observeTools: string[]
+  /** Driver-owned names forced to desktop actions; wins over every read-only rule. */
+  actTools: string[]
+}
+```
+<!-- END GENERATED config-catalog:@deepseek-ai/dsh-custom-computer-use-safety -->
+
+<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-custom-foundation -->
+<a id="deepseek-aidsh-custom-foundation"></a>
+
+## `@deepseek-ai/dsh-custom-foundation`
+
+- `inject`: `configEditor`
+- `refs`: `Volatile` (`@deepseek-ai/cordis`)
+- `source`: [`packages/boot/custom-foundation/src/index.ts:20`](../packages/boot/custom-foundation/src/index.ts)
+
+```ts config-catalog
+/** Custom-owned configuration; model-provider credentials and routing remain owned by llm-pi-ai. */
+export interface Config {
+  /** Persisted manager inventory; live health is owned by the runtime. */
+  localProfiles: Volatile<LocalProfile[]>
+  /** Selected manager profile; model routing is separately owned by agent-default-model. */
+  selectedLocalProfile: Volatile<string>
+  /** User intent to expose Local controls; it does not start a process. */
+  localModelRuntime: Volatile<boolean>
+  /** User intent to expose Codex controls; it does not authenticate. */
+  codexSubscription: Volatile<boolean>
+  /** Completed import identity retained for interruption recovery. */
+  legacyImportDigest?: string
+}
+
+/** Local manager inventory persisted independently of live runtime observations. */
+export interface LocalProfile {
+  /** Stable manager profile identity. */
+  id: string
+  /** User-facing model name. */
+  name: string
+  /** Model modality, without runtime availability inference. */
+  modality: 'text' | 'image'
+  /** Exact provider model identity. */
+  modelId: string
+}
+```
+<!-- END GENERATED config-catalog:@deepseek-ai/dsh-custom-foundation -->
 
 <!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-deepseek-account-platform -->
 <a id="deepseek-aidsh-deepseek-account-platform"></a>
@@ -1018,6 +1118,10 @@ export interface CotTranslationPreferences {
 export interface Config {
   /** Executable path or PATH command; defaults to `cua-driver`. */
   command: string
+  /** Reject initial connection failure; optional products may opt out and reconnect instead. */
+  failOnStartupError: boolean
+  /** Explicit MCP child environment overrides; omission preserves upstream defaults. */
+  env: Record<string, string>
   /** Arguments passed without a shell; defaults to `['mcp']`. */
   args: string[]
   /** Per-call timeout in milliseconds; omission uses the MCP client's default. */
@@ -1767,7 +1871,7 @@ export interface Config extends ProtocolConfig, ModelListingConfig {
 
 - `inject`: `llm`
 - `refs`: `Api` (`@earendil-works/pi-ai`) · `CacheRetention` (`@earendil-works/pi-ai`) · `Model` (`@earendil-works/pi-ai`) · `ModelThinkingLevel` (`@earendil-works/pi-ai`) · `OpenAICompletionsCompat` (`@earendil-works/pi-ai`) · [`RetryPolicyConfig`](../packages/llm/llm/src/index.ts) · `ThinkingBudgets` (`@earendil-works/pi-ai`) · `Transport` (`@earendil-works/pi-ai`) · `Volatile` (`@deepseek-ai/cordis`)
-- `source`: [`packages/llm/llm-pi-ai/src/config.ts:222`](../packages/llm/llm-pi-ai/src/config.ts)
+- `source`: [`packages/llm/llm-pi-ai/src/config.ts:231`](../packages/llm/llm-pi-ai/src/config.ts)
 
 ```ts config-catalog
 /** Plugin configuration: the provider routes this instance owns. */
@@ -1782,10 +1886,19 @@ export interface Config {
 
 /** Configuration for one pi-ai provider route; the `providers` dict key IS the route. */
 export interface PiAiProviderProfile {
+  /** Exact text-request admission through this llama.cpp endpoint's template, tokenizer, and live context size. */
+  llamaCppContextAdmission?: {
+    /** Tokens reserved beyond the complete prompt and generated output. */
+    safetyMarginTokens: number
+    /** Refuse inference when the available generated-output budget is below this value. */
+    minimumOutputTokens: number
+  }
   /** Credential reference (environment-variable name) resolved per request through `ctx.credentials`. */
   apiKeyEnv?: string
   /** Name shown by configuration surfaces; defaults to the route key. */
   displayName?: string
+  /** Keep a route callable for stored selections without offering it to new selections. */
+  selectable?: boolean
   /**
    * Wire protocol every model on this route speaks. Omission keeps each
    * installed catalog model's own protocol, which is why a catalog route needs
@@ -4585,6 +4698,7 @@ These load from a `cordis.yml` entry with no `config:` block; they declare no co
 | `@deepseek-ai/dsh-api-account-controller` | `deepseekAccount` · `agents` | [`packages/api/account-controller/src/index.ts`](../packages/api/account-controller/src/index.ts) |
 | `@deepseek-ai/dsh-api-remote-access` | — | [`packages/api/remote-access/src/index.ts`](../packages/api/remote-access/src/index.ts) |
 | `@deepseek-ai/dsh-api-remotes` | `typertGateway` | [`packages/api/remotes/src/index.ts`](../packages/api/remotes/src/index.ts) |
+| `@deepseek-ai/dsh-api-runtime-diagnostics-controller` | `typert` | [`packages/api/runtime-diagnostics-controller/src/index.ts`](../packages/api/runtime-diagnostics-controller/src/index.ts) |
 | `@deepseek-ai/dsh-authorization` | `credentials` | [`packages/credentials/authorization/src/index.ts`](../packages/credentials/authorization/src/index.ts) |
 | `@deepseek-ai/dsh-browser-use` | — | [`packages/browser-use/browser-use/src/index.ts`](../packages/browser-use/browser-use/src/index.ts) |
 | `@deepseek-ai/dsh-client-file-upload` | `agents` · `attachments` · `commands` · `connection` | [`packages/client/file-upload/src/index.ts`](../packages/client/file-upload/src/index.ts) |
@@ -4616,6 +4730,7 @@ These load from a `cordis.yml` entry with no `config:` block; they declare no co
 | `@deepseek-ai/dsh-client-ui-plugin-market` | — | [`packages/client/ui-plugin-market/src/index.ts`](../packages/client/ui-plugin-market/src/index.ts) |
 | `@deepseek-ai/dsh-client-ui-reference` | — | [`packages/client/ui-reference/src/index.ts`](../packages/client/ui-reference/src/index.ts) |
 | `@deepseek-ai/dsh-client-ui-renderer` | — | [`packages/client/ui-renderer/src/index.ts`](../packages/client/ui-renderer/src/index.ts) |
+| `@deepseek-ai/dsh-client-ui-run-details` | — | [`packages/client/ui-run-details/src/index.ts`](../packages/client/ui-run-details/src/index.ts) |
 | `@deepseek-ai/dsh-client-ui-schedule` | — | [`packages/client/ui-schedule/src/index.ts`](../packages/client/ui-schedule/src/index.ts) |
 | `@deepseek-ai/dsh-client-ui-secret-mask` | — | [`packages/client/ui-secret-mask/src/index.ts`](../packages/client/ui-secret-mask/src/index.ts) |
 | `@deepseek-ai/dsh-client-ui-session` | — | [`packages/client/ui-session/src/index.ts`](../packages/client/ui-session/src/index.ts) |
@@ -4646,6 +4761,7 @@ These load from a `cordis.yml` entry with no `config:` block; they declare no co
 | `@deepseek-ai/dsh-command-goal` | `commands` · `goals` | [`packages/goal/command-goal/src/index.ts`](../packages/goal/command-goal/src/index.ts) |
 | `@deepseek-ai/dsh-commands` | — | [`packages/interaction/commands/src/index.ts`](../packages/interaction/commands/src/index.ts) |
 | `@deepseek-ai/dsh-compaction-image-offload` | `agents` · `sessions` | [`packages/compaction/compaction-image-offload/src/index.ts`](../packages/compaction/compaction-image-offload/src/index.ts) |
+| `@deepseek-ai/dsh-compaction-task-aware-policy` | `sessionProjections` · `taskCheckpoints` · `llm` · `tokenMeter` | [`packages/compaction/compaction-task-aware-policy/src/index.ts`](../packages/compaction/compaction-task-aware-policy/src/index.ts) |
 | `@deepseek-ai/dsh-computer-use` | — | [`packages/computer-use/computer-use/src/index.ts`](../packages/computer-use/computer-use/src/index.ts) |
 | `@deepseek-ai/dsh-config-editor` | `loader` · `profileContext` | [`packages/boot/config-editor/src/index.ts`](../packages/boot/config-editor/src/index.ts) |
 | `@deepseek-ai/dsh-cordis-client-runner` | — | [`packages/extensions/cordis-client-runner/src/index.ts`](../packages/extensions/cordis-client-runner/src/index.ts) |
@@ -4668,6 +4784,7 @@ These load from a `cordis.yml` entry with no `config:` block; they declare no co
 | `@deepseek-ai/dsh-lsp` | — | [`packages/lsp/lsp/src/index.ts`](../packages/lsp/lsp/src/index.ts) |
 | `@deepseek-ai/dsh-mcp-resources` | `tools` | [`packages/mcp/mcp-resources/src/index.ts`](../packages/mcp/mcp-resources/src/index.ts) |
 | `@deepseek-ai/dsh-otel` | — | [`packages/telemetry/otel/src/index.ts`](../packages/telemetry/otel/src/index.ts) |
+| `@deepseek-ai/dsh-run-details` | `sessionProjections` | [`packages/runtime-diagnostics/run-details/src/index.ts`](../packages/runtime-diagnostics/run-details/src/index.ts) |
 | `@deepseek-ai/dsh-sandbox-ssh` | `ssh` | [`packages/ssh/sandbox-ssh/src/index.ts`](../packages/ssh/sandbox-ssh/src/index.ts) |
 | `@deepseek-ai/dsh-session` | — | [`packages/core/session/src/index.ts`](../packages/core/session/src/index.ts) |
 | `@deepseek-ai/dsh-session-checkpoint-policy` | `llm` · `sessionPersistence` · `sessions` · `tools` | [`packages/session/session-checkpoint-policy/src/index.ts`](../packages/session/session-checkpoint-policy/src/index.ts) |
@@ -4722,7 +4839,9 @@ Imported as libraries by other packages; a `cordis.yml` cannot load them.
 <!-- BEGIN GENERATED config-catalog:library -->
 | `package` | `inject` | `source` |
 | --- | --- | --- |
+| `@deepseek-ai/dsh-agent-lifecycle-facts` | — | [`packages/runtime-diagnostics/agent-lifecycle-facts/src/index.ts`](../packages/runtime-diagnostics/agent-lifecycle-facts/src/index.ts) |
 | `@deepseek-ai/dsh-agent-loop-testkit` | — | [`packages/test-support/agent-loop-testkit/src/index.ts`](../packages/test-support/agent-loop-testkit/src/index.ts) |
+| `@deepseek-ai/dsh-agent-run-state` | — | [`packages/runtime-diagnostics/agent-run-state/src/index.ts`](../packages/runtime-diagnostics/agent-run-state/src/index.ts) |
 | `@deepseek-ai/dsh-anonymous-user-id` | — | [`packages/identity/anonymous-user-id/src/index.ts`](../packages/identity/anonymous-user-id/src/index.ts) |
 | `@deepseek-ai/dsh-app-boot` | — | [`packages/boot/app-boot/src/index.ts`](../packages/boot/app-boot/src/index.ts) |
 | `@deepseek-ai/dsh-atomic-write` | — | [`packages/util/atomic-write/src/index.ts`](../packages/util/atomic-write/src/index.ts) |
@@ -4738,6 +4857,7 @@ Imported as libraries by other packages; a `cordis.yml` cannot load them.
 | `@deepseek-ai/dsh-cmdline` | — | [`packages/boot/cmdline/src/index.ts`](../packages/boot/cmdline/src/index.ts) |
 | `@deepseek-ai/dsh-cua` | — | [`packages/experimental/cua/src/index.ts`](../packages/experimental/cua/src/index.ts) |
 | `@deepseek-ai/dsh-deque` | — | [`packages/util/deque/src/index.ts`](../packages/util/deque/src/index.ts) |
+| `@deepseek-ai/dsh-desktop-custom` | — | [`packages/bundle/desktop-custom/src/index.ts`](../packages/bundle/desktop-custom/src/index.ts) |
 | `@deepseek-ai/dsh-experimental-agent-team-profile` | — | [`packages/experimental/agent-team-profile/src/index.ts`](../packages/experimental/agent-team-profile/src/index.ts) |
 | `@deepseek-ai/dsh-experimental-badge-skill-bundle` | — | [`packages/experimental/badge-skill-bundle/src/index.ts`](../packages/experimental/badge-skill-bundle/src/index.ts) |
 | `@deepseek-ai/dsh-experimental-browser-use-runtime` | — | [`packages/experimental/browser-use-runtime/src/index.ts`](../packages/experimental/browser-use-runtime/src/index.ts) |

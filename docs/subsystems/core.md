@@ -759,6 +759,33 @@ roots(): Agent[]
 
 Source: [`packages/core/agent/src/index.ts`](../../packages/core/agent/src/index.ts)
 
+<a id="ctxcodexfoundation--codexfoundation"></a>
+
+### `ctx.codexFoundation` — `CodexFoundation`
+
+M1 owner of Codex Config and Session projection, without a process or dispatch capability.
+
+```ts cordis-catalog
+/** Read non-secret persisted facts without starting auth or creating a generation.
+ * @returns Detached configuration for the M2 runtime owner.
+ */
+snapshot(): { preference: CodexRuntimePreference; authGeneration?: string; authTransition?: AuthTransitionRecord | null }
+
+/** Persist auth transaction facts through the same canonical profile owner.
+ * @param patch Non-secret lifecycle values whose transaction is owned by the runtime.
+ * @returns Fulfillment after atomic profile publication and live reconciliation.
+ */
+async writeLifecycle(patch: { preference?: CodexRuntimePreference authGeneration?: string authTransition?: AuthTransitionRecord | null }): Promise<void>
+
+/** Save a runtime preference through the profile editor, preserving lifecycle facts.
+ * @param preference Explicit runtime selection.
+ * @returns Fulfillment after the profile patch is reconciled.
+ */
+async savePreference(preference: CodexRuntimePreference): Promise<void>
+```
+
+Source: [`packages/core/agent-codex/src/config.ts`](../../packages/core/agent-codex/src/config.ts)
+
 <a id="agent-events"></a>
 
 ### `agent/*` events
@@ -858,6 +885,28 @@ A step or turn errored. The machine reports a failure here even when the error h
 Types: [Scoped](scope.md)
 
 Source: [`packages/core/agent/src/runtime-types.ts`](../../packages/core/agent/src/runtime-types.ts)
+
+<a id="agentexternal-turn-event--emit"></a>
+
+#### `agent/external-turn-event` — emit
+
+Public external-runtime activity. This is not a local tool/call event.
+
+```ts cordis-catalog
+/**
+ * Public external-runtime activity. This is not a local tool/call event.
+* @param payload.turn - DSH turn that owns the activity.
+* @param payload.step - DSH external step that owns the activity.
+* @param payload.event - sanitized public activity.
+* Scope-filtered dispatch (`@deepseek-ai/dsh-scope`): agent-scoped listeners receive only that agent.
+* @mode emit
+ */
+'agent/external-turn-event'(this: Scoped<Agent>, payload: { agent: Agent turn: number step: number event: ExternalTurnEvent }): void
+```
+
+Types: [ExternalTurnEvent](../custom-foundation.md) · [Scoped](scope.md)
+
+Source: [`packages/core/agent/src/external-turn.ts`](../../packages/core/agent/src/external-turn.ts)
 
 <a id="agentinboxclaimed--emit"></a>
 
@@ -1009,6 +1058,28 @@ Types: [LlmFailure](llm-streaming.md) · [ResolvedRetryPolicy](llm-streaming.md)
 
 Source: [`packages/core/agent/src/runtime-types.ts`](../../packages/core/agent/src/runtime-types.ts)
 
+<a id="agentresolve-external-turn--waterfall"></a>
+
+#### `agent/resolve-external-turn` — waterfall
+
+Resolve an optional provider-owned turn executor before local prompt or tool assembly. The default is the existing local AgentLoop path.
+
+```ts cordis-catalog
+/**
+* Resolve an optional provider-owned turn executor before local prompt or
+* tool assembly. The default is the existing local AgentLoop path.
+* @param payload.selection - frozen Session route for this turn.
+* @param payload.signal - cancellation signal for the admitted turn.
+* Scope-filtered dispatch (`@deepseek-ai/dsh-scope`): agent-scoped listeners receive only that agent.
+* @mode waterfall
+ */
+'agent/resolve-external-turn'(this: Scoped<Agent>, payload: { agent: Agent selection: ExternalTurnSelection signal: AbortSignal }, next: () => Promise<ExternalTurnExecutor | undefined>): Promise<ExternalTurnExecutor | undefined>
+```
+
+Types: [ExternalTurnExecutor](../custom-foundation.md) · [ExternalTurnSelection](../custom-foundation.md) · [Scoped](scope.md)
+
+Source: [`packages/core/agent/src/external-turn.ts`](../../packages/core/agent/src/external-turn.ts)
+
 <a id="agentstatus--emit"></a>
 
 #### `agent/status` — emit
@@ -1052,14 +1123,15 @@ The turn is about to close: the model owes no response (no live tool calls, no f
  * closes only when that inbox drains.
  * @param payload.agent - the agent whose turn is at its stop boundary.
  * @param payload.turn - the turn about to close.
- * @param payload.signal - the current turn's explicit abort signal.
+ * @param payload.reason - the durable reason that ended the turn.
+ * @param payload.signal - the current turn's explicit abort signal; the payload also carries why the turn ended.
  * Scope-filtered dispatch (`@deepseek-ai/dsh-scope`): agent-scoped listeners receive only that agent.
  * @mode serial
  */
-'agent/turn-stopping'(this: Scoped<Agent>, payload: { agent: Agent; turn: number; signal: AbortSignal }): Promise<void> | void
+'agent/turn-stopping'(this: Scoped<Agent>, payload: { agent: Agent; turn: number; reason: TurnEndReason; signal: AbortSignal }): Promise<void> | void
 ```
 
-Types: [Scoped](scope.md)
+Types: [Scoped](scope.md) · [TurnEndReason](session.md)
 
 Source: [`packages/core/agent/src/runtime-types.ts`](../../packages/core/agent/src/runtime-types.ts)
 

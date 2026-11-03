@@ -12,6 +12,13 @@ describe('builtDeclarationPath', () => {
       .toBe('./packages/experimental/claude-code-mods/examples/*')
   })
 
+  it('preserves the generated Remote and Host declarations already selected by workspace aliases', () => {
+    for (const face of ['remote-client', 'host']) {
+      const path = `./packages/core/agent-codex/lib/typert.${face}.d.ts`
+      expect(builtDeclarationPath(path)).toBe(path)
+    }
+  })
+
   it('rejects aliases without a supported source target', () => {
     expect(() => builtDeclarationPath('./packages/core/session/source/index.ts'))
       .toThrow('cannot map workspace source path')

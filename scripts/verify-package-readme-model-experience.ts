@@ -45,6 +45,10 @@ const NO_MODEL_EXPERIENCE_SECTION: Readonly<Record<string, string>> = {
  * blocks. A package moves on or off this list with its context behavior.
  */
 const SENTENCE_MODEL_EXPERIENCE: Readonly<Record<string, SentenceContract>> = {
+  'packages/api/runtime-diagnostics-controller': { kind: 'none', reason: 'Observation-only transport; registers no model context or execution operation.' },
+  'packages/client/ui-run-details': { kind: 'none', reason: 'Read-only browser diagnostics and disclosure controls; no model-facing contribution.' },
+  'packages/runtime-diagnostics/run-details': { kind: 'none', reason: 'Pure read projection; creates neither conversation content nor execution.' },
+  'packages/runtime-diagnostics/reasoning-policy': { kind: 'indirect', reason: 'Pure capability admission; request owners apply the selected reasoning effort.' },
   'packages/client/ui-entry-customization': { kind: 'none', reason: 'Controls browser launchers and prepares a reviewable Creator draft without submitting model input.' },
   'packages/experimental/client-ui-cot-translation': { kind: 'indirect', reason: 'The translator owns optional paid queries; normal Session activation delegates startup context to the preset.' },
   'packages/experimental/cot-translation-bundle': { kind: 'indirect', reason: 'The GUI consumer delegates paid query prompts to the translator and normal activation context to the Session preset.' },

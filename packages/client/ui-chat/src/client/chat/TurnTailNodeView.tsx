@@ -26,7 +26,7 @@ function lastContent(snapshot: ChatSnapshot, turn: number, skipWarning: boolean)
 
 /** Turn-local actions and feature tail over the Location index, independent of Assistant placement. */
 export const TurnTailNodeView = memo(function TurnTailNodeView({
-  node, openFile, forkAt, renderSlot, t, useAccess, useChat, usePerformanceUsage,
+  node, openFile, forkAt, renderSlot, hiddenMessageSeqs, setMessageHidden, t, useAccess, useChat, usePerformanceUsage,
 }: TurnTailNodeViewProps) {
   const detailed = usePerformanceUsage(mode => mode) === 'detailed'
   const forkAllowed = useAccess('session/fork')
@@ -51,6 +51,8 @@ export const TurnTailNodeView = memo(function TurnTailNodeView({
   // Interruption-frozen partials carry no messageId, so they address no
   // durable message and contribute no per-message actions.
   const messageId = closing.finalNode.messageId
+  const messageSeq = closing.finalNode.seq
+  const hidden = hiddenMessageSeqs?.includes(messageSeq) ?? false
   const assistantActions = messageId === undefined
     ? null
     : renderSlot('conversation.chat.assistant-actions', { messageId })
@@ -70,6 +72,10 @@ export const TurnTailNodeView = memo(function TurnTailNodeView({
         onBranch={forkAllowed ? () => { forkAt(data.seq) } : undefined}
         branchUnavailable={data.branchUnavailable || hasLaterChatNode}
         className={css.actions}
+        hidden={hidden}
+        onToggleHidden={setMessageHidden === undefined
+          ? undefined
+          : () => { setMessageHidden(messageSeq, !hidden) }}
         extraActions={assistantActions}
         usageAction={detailed && data.tokenUsage !== undefined
           ? <TurnUsagePanel usage={data.tokenUsage} t={t} />

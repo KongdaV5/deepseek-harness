@@ -1,5 +1,7 @@
-/** Map one workspace source alias target to its declaration-build target. */
+/** Map a workspace source or generated-face alias to its declaration-build target. */
 export function builtDeclarationPath(candidate: string): string {
+  // Generated Typert faces are already declarations; they have no source alias to remap.
+  if (/^\.\/packages\/[^/]+\/[^/]+\/lib\/typert\.(?:remote-client|host)\.d\.ts$/u.test(candidate)) return candidate
   // Two workspace path forms exist: whole-package entries end in /src, subpath
   // wildcards (browser-safe /types and /client channels) in /src/*.
   if (candidate.endsWith('/src')) {

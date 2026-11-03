@@ -248,6 +248,13 @@
   color: var(--dsw-alias-label-caption);
 }
 
+.sessionRow.hidden .title,
+.searchResultRow.hidden .searchResultTitle,
+.searchResultRow.hidden .searchResultWorkspace,
+.searchResultRow.hidden .searchResultSnippet {
+  color: var(--dsw-alias-label-caption);
+}
+
 .dot {
   flex: none;
 }

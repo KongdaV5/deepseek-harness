@@ -1,3 +1,7 @@
+import codexRemote from '@deepseek-ai/dsh-agent-codex/remote'
+import localRemote from '@deepseek-ai/dsh-custom-foundation/remote'
+export type {} from '@deepseek-ai/dsh-agent-codex/remote'
+export type {} from '@deepseek-ai/dsh-custom-foundation/remote'
 /** Platform-neutral assembly of generated Host Remote contributions. */
 
 import type { Context } from '@deepseek-ai/cordis'
@@ -186,7 +190,7 @@ export async function apply(ctx: Context): Promise<() => Promise<void>> {
   const disposers: Array<() => Promise<void>> = []
   try {
     for (const contribution of [
-      productAnalyticsRemote, agentPresetsRemote, commandsRemote, settingsControllerRemote, accountRemote,
+      codexRemote, localRemote, productAnalyticsRemote, agentPresetsRemote, commandsRemote, settingsControllerRemote, accountRemote,
       goalsRemote, llmRemote, dynamicRemote, scheduleRemote,
       pluginInventoryRemote, pluginManagerRemote, pluginMarketRemote, pluginRegistryProbeRemote,
       messageFeedbackRemote, sessionFeedbackRemote,

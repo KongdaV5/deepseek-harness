@@ -71,6 +71,7 @@ describe('desktop macOS release signature', () => {
     expect(config.asarUnpack).toEqual(expect.arrayContaining([
       '**/*.{node,dylib,dll,so,exe}',
       '**/@vscode/ripgrep-*/bin/rg',
+      '**/@openai/codex-*/vendor/**/*',
     ]))
     expect(config).toMatchObject({
       appId: RELEASE_ENVIRONMENT.DSH_DESKTOP_APP_ID,
@@ -207,6 +208,14 @@ describe('desktop macOS release signature', () => {
     expect(() => {
       assertMacOSRuntimeSignatureDetails(details.replace('flags=0x10000(runtime)', 'flags=0x0(none)'), expected)
     }).toThrow(/hardened runtime/u)
+  })
+
+  it('accepts compound ad-hoc runtime flags only in explicit candidate mode', () => {
+    const details = 'Signature=adhoc\nCodeDirectory v=20500 size=605 flags=0x10002(adhoc,runtime) hashes=13+2 location=embedded'
+    expect(() => { assertMacOSRuntimeSignatureDetails(details, 'ad-hoc') }).not.toThrow()
+    expect(() => { assertMacOSRuntimeSignatureDetails(details.replace('Signature=adhoc', 'Signature=none'), 'ad-hoc') }).toThrow('ad-hoc signature')
+    expect(() => { assertMacOSRuntimeSignatureDetails(details.replace('(adhoc,runtime)', '(adhoc)'), 'ad-hoc') }).not.toThrow()
+    expect(() => { assertMacOSRuntimeSignatureDetails(details, resolveMacOSSigningEnvironment(RELEASE_ENVIRONMENT)) }).toThrow('release identity')
   })
 
   it('rejects another developer identity', () => {

@@ -1,0 +1,49 @@
+{
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "lib/types"
+  },
+  "include": [
+    "src"
+  ],
+  "references": [
+    { "path": "../../attachment/attachment" },
+    {
+      "path": "../../../vendor/cordis"
+    },
+    {
+      "path": "../../../vendor/cosmokit"
+    },
+    {
+      "path": "../../../vendor/include"
+    },
+    {
+      "path": "../../../vendor/schemastery"
+    },
+    {
+      "path": "../../core/agent"
+    },
+    {
+      "path": "../../llm/llm-pi-ai"
+    },
+    {
+      "path": "../../subprocess/subprocess"
+    },
+    {
+      "path": "../../typert/protocol"
+    },
+    {
+      "path": "../../util/atomic-write"
+    },
+    {
+      "path": "../app-boot"
+    },
+    {
+      "path": "../config-editor"
+    },
+    {
+      "path": "../../llm/llm"
+    }
+  ]
+}

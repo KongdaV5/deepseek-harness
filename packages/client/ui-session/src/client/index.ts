@@ -1,3 +1,5 @@
+import type { SessionExternalActivitySource } from '@deepseek-ai/dsh-api-session-controller/client'
+import type { SessionExternalActivity } from '@deepseek-ai/dsh-api-session-controller/types'
 /** Session Controller adapter for React selector hooks and Slot scope data. */
 import { Service, type Context } from '@deepseek-ai/cordis'
 import type {
@@ -30,6 +32,8 @@ import type {
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import { renderSessionArea } from './session-provider.tsx'
 
+/** Selector hook over one Session external-activity window. */
+export type UseExternalActivities = SnapshotSelectorHook<readonly SessionExternalActivity[]>
 /** Selector hook over the Session Controller list and current selection. */
 export type UseSessions = SnapshotSelectorHook<SessionListState>
 /** Selector hook over one Session's lifecycle and control state. */
@@ -169,6 +173,8 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
     /** Current Session identity. */
     sessionId: SessionId
     /** Host-computed projection values addressed by projection key. */
+    /** Sanitized public external runtime actions. */
+    useExternalActivities: UseExternalActivities
     useProjection: UseProjection
     /** Whether the current Peer may call `action` on this Session resource. */
     useAccess: (action: RemoteEndpoint) => boolean
@@ -180,6 +186,8 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
     /** Current Session identity, absent while no Session is selected. */
     sessionId: SessionId | undefined
     /** Host-computed projection values; every key is absent without a Session. */
+    /** Sanitized public external runtime actions. */
+    useExternalActivities: UseExternalActivities
     useProjection: UseProjection
     /** The bound Session's access answer; `undefined` without a Session, which callers treat as not allowed. */
     useAccess: (action: RemoteEndpoint) => boolean | undefined
@@ -264,19 +272,22 @@ interface BindingSource extends HostObservable<StandardSourceBinding> {
 }
 
 const BUILTIN_SOURCE = {
-  hooks: ['session'],
+  hooks: ['session', 'externalActivities'],
   keyedHooks: ['projection'],
   props: ['sessionId'],
   resolve: binding => ({
-    hooks: { session: binding.session },
+    hooks: { session: binding.session, externalActivities: binding.externalActivities ?? EMPTY_EXTERNAL_ACTIVITIES },
     keyedHooks: { projection: key => binding.session.projections.faceOf(key) },
     props: { sessionId: binding.sessionId },
   }),
 } satisfies SessionSourceDescriptor<
-  readonly ['session'],
+  readonly ['session', 'externalActivities'],
   readonly ['projection'],
   readonly ['sessionId']
 >
+
+const EMPTY_ACTIVITIES: readonly SessionExternalActivity[] = []
+const EMPTY_EXTERNAL_ACTIVITIES: SessionExternalActivitySource = { getSnapshot: () => EMPTY_ACTIVITIES, subscribe: () => () => {} }
 
 /** Session-scoped source roster and renderer adapter. */
 export class UiSession extends Service {

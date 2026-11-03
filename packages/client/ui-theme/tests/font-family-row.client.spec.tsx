@@ -45,7 +45,7 @@ const useSessionStatus: FontFamilyRowComponentProps['useSessionStatus'] = select
 
 function mount(kind: FontRole = 'code', code = '') {
   const store = createFontRowStore().create()
-  store.actions.sync({ text: 14, code: 11, terminal: 13 }, { text: '', code, terminal: '' }, 0)
+  store.actions.sync(14, { text: 14, code: 11, terminal: 13 }, { text: '', code, terminal: '' }, 0)
   const setFontFamily = vi.fn()
   const props: FontFamilyRowComponentProps = {
     useSessions: emptySessions(),
@@ -109,9 +109,9 @@ describe('FontFamilyRow', () => {
     expect(b.setFontFamily).toHaveBeenCalledWith('')
     fireEvent.keyDown(screen.getByRole('textbox', { name: 'Code font' }), { key: 'a' })
     expect(b.setFontFamily).toHaveBeenCalledOnce()
-    act(() => { b.store.actions.sync({ text: 14, code: 11, terminal: 13 }, { text: '', code: '"Hack"', terminal: '' }, 1) })
+    act(() => { b.store.actions.sync(14, { text: 14, code: 11, terminal: 13 }, { text: '', code: '"Hack"', terminal: '' }, 1) })
     expect(screen.getByRole<HTMLInputElement>('textbox', { name: 'Code font' }).value).toBe('"Hack"')
-    act(() => { b.store.actions.sync({ text: 14, code: 11, terminal: 13 }, { text: '', code: '"Stale"', terminal: '' }, 1) })
+    act(() => { b.store.actions.sync(14, { text: 14, code: 11, terminal: 13 }, { text: '', code: '"Stale"', terminal: '' }, 1) })
     expect(screen.getByRole<HTMLInputElement>('textbox', { name: 'Code font' }).value).toBe('"Hack"')
   })
 })

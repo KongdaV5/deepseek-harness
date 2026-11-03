@@ -245,7 +245,11 @@ describe('web e2e: input card position across view tabs', () => {
     scaffold = await launchWebScaffold({})
     await seedSession(scaffold, FIXTURE.log, SEED_ID)
     // Scrollbars must take layout space here or the comparison is vacuous.
-    browser = await chromium.launch({ ignoreDefaultArgs: ['--hide-scrollbars'] })
+    const executablePath = process.env.DSH_PLAYWRIGHT_EXECUTABLE_PATH
+    browser = await chromium.launch({
+      ignoreDefaultArgs: ['--hide-scrollbars'],
+      ...(executablePath === undefined ? {} : { executablePath }),
+    })
     page = await newEnglishPage(browser, WIDE_VIEWPORT.height)
     tripwire = watchConsole(page)
     await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })

@@ -1,5 +1,5 @@
 ---
-description: "Official DeepSeek Harness brand occupants for the sidebar, active only in official builds; for users and maintainers choosing or replacing brand presentation."
+description: "Registers the DeepSeek Harness sidebar wordmark alongside its motion-synced assistant mascot."
 kind: "package-reference"
 ---
 
@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-This package gives an `official` client build the DeepSeek Harness mark and name in the sidebar. Other build profiles keep the shell's fish mark and local-build label, while the conversation hero always uses the animated fish. Choose it for deployments branded as DeepSeek Harness; deployments with another identity should provide a replacement brand package. It has no runtime state and does not affect model requests.
+An `official` client build shows the existing DeepSeek Harness wordmark beside the shared assistant mascot; the wordmark keeps its original artwork and lightly echoes the mascot's motion. The mascot breathes and blinks at rest, makes varied short idle gestures, follows the pointer over its mark, and reacts to composer and navigation actions. It respects reduced-motion preferences and does not affect model requests. Other build profiles keep the shell's mascot fallback and local-build label. Choose it for deployments branded as DeepSeek Harness; deployments with another identity should provide a replacement brand package.
 
 ## Table of Contents
 
@@ -25,15 +25,15 @@ This package gives an `official` client build the DeepSeek Harness mark and name
 <a id="use-this-package"></a>
 ## Use this package
 
-Mount this plugin in the browser roster of a deployment whose identity is DeepSeek's own, then build the client with the `official` profile so the occupants register.
+Mount this plugin in the browser roster of a deployment whose identity is DeepSeek's own, then build the client with the `official` profile so the sidebar occupants register.
 
 ### Choosing the profile
 
-`DSH_CLIENT_BUILD_PROFILE` selects which brand renders. An `official` build shows the official mark and name in the sidebar; any other value leaves the shell fallbacks — the fish mark and the local-build label — in place. The conversation hero shows the animated hero fish from `dsh-client-ui-conversation` regardless of profile, because that fallback is already the official mark. The plugin still loads and validates in both cases; only the registration is profile-gated.
+`DSH_CLIENT_BUILD_PROFILE=official` registers the DeepSeek wordmark and the shared animated assistant mascot in the sidebar. The wordmark artwork is unchanged while its wrapper follows the mascot's idle breathing and short action gestures. The conversation hero shows that same shared mark from its own declaring package regardless of profile, because that fallback is already the official mark. Any other value leaves the shell fallback — the mascot and the local-build label — in place. The plugin still loads and validates in both cases; only the sidebar registration is profile-gated.
 
 ### Replacing the brand
 
-A deployment with its own identity leaves this package out and composes another package that occupies the sidebar slots — and the hero slot, which this package leaves on its fallback. Occupying a slot is the only composition route; there is no brand configuration surface here.
+An additional product identity should compose its own package that occupies the sidebar slots. Slot registration is the only composition route; there is no user-configurable brand setting here.
 
 -----
 

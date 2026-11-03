@@ -42,6 +42,7 @@ flowchart TD
   end
   subgraph group_core["packages/core"]
     pkg_agent["agent"]
+    pkg_agent_codex["agent-codex"]
     pkg_agent_default_model["agent-default-model"]
     pkg_agent_loop["agent-loop"]
     pkg_agent_tool_presentation["agent-tool-presentation"]
@@ -117,6 +118,7 @@ flowchart TD
     pkg_api_job_controller["api-job-controller"]
     pkg_api_remote_access["api-remote-access"]
     pkg_api_remotes["api-remotes"]
+    pkg_api_runtime_diagnostics_controller["api-runtime-diagnostics-controller"]
     pkg_api_session_controller["api-session-controller"]
     pkg_api_settings_controller["api-settings-controller"]
     pkg_api_terminal_controller["api-terminal-controller"]
@@ -131,6 +133,7 @@ flowchart TD
     pkg_app_boot["app-boot"]
     pkg_cmdline["cmdline"]
     pkg_config_editor["config-editor"]
+    pkg_custom_foundation["custom-foundation"]
     pkg_hmr["hmr"]
     pkg_plugin_manager["plugin-manager"]
     pkg_plugin_market["plugin-market"]
@@ -141,6 +144,7 @@ flowchart TD
   subgraph group_bundle["packages/bundle"]
     pkg_acp_app["acp-app"]
     pkg_base["base"]
+    pkg_desktop_custom["desktop-custom"]
     pkg_headless["headless"]
     pkg_sdk_app["sdk-app"]
     pkg_sdk_minimal["sdk-minimal"]
@@ -183,6 +187,7 @@ flowchart TD
     pkg_client_ui_primitives["client-ui-primitives"]
     pkg_client_ui_reference["client-ui-reference"]
     pkg_client_ui_renderer["client-ui-renderer"]
+    pkg_client_ui_run_details["client-ui-run-details"]
     pkg_client_ui_schedule["client-ui-schedule"]
     pkg_client_ui_secret_mask["client-ui-secret-mask"]
     pkg_client_ui_session["client-ui-session"]
@@ -220,10 +225,13 @@ flowchart TD
     pkg_compaction["compaction"]
     pkg_compaction_basic["compaction-basic"]
     pkg_compaction_image_offload["compaction-image-offload"]
+    pkg_compaction_task_aware_policy["compaction-task-aware-policy"]
     pkg_compaction_tool_result_pruner["compaction-tool-result-pruner"]
   end
   subgraph group_computer_use["packages/computer-use"]
     pkg_computer_use["computer-use"]
+    pkg_computer_use_bundle["computer-use-bundle"]
+    pkg_custom_computer_use_safety["custom-computer-use-safety"]
   end
   subgraph group_context["packages/context"]
     pkg_agent_instructions["agent-instructions"]
@@ -515,6 +523,8 @@ flowchart TD
   pkg_host_frontend_static --> pkg_client_connection
   pkg_host_frontend_static --> pkg_host_webserver
   pkg_persona --> pkg_system_prompt
+  pkg_reasoning_policy --> pkg_llm
+  pkg_reasoning_policy --> pkg_session
   pkg_sandbox --> pkg_llm
   pkg_sandbox --> pkg_session
   pkg_sandbox_windows_acl --> pkg_skill
@@ -792,6 +802,8 @@ flowchart TD
   pkg_ptc_runtime_node --> pkg_session
   pkg_ptc_runtime_node --> pkg_subprocess
   pkg_ptc_runtime_node --> pkg_timeout
+  pkg_agent_lifecycle_facts --> pkg_llm_retry
+  pkg_agent_lifecycle_facts --> pkg_session
   pkg_session_title_llm --> pkg_llm
   pkg_session_title_llm --> pkg_session
   pkg_session_title_llm --> pkg_session_title
@@ -880,6 +892,12 @@ flowchart TD
   pkg_compaction_image_offload --> pkg_compaction
   pkg_compaction_image_offload --> pkg_llm
   pkg_compaction_image_offload --> pkg_session
+  pkg_custom_computer_use_safety --> pkg_agent
+  pkg_custom_computer_use_safety --> pkg_commands
+  pkg_custom_computer_use_safety --> pkg_computer_use
+  pkg_custom_computer_use_safety --> pkg_llm
+  pkg_custom_computer_use_safety --> pkg_system_prompt
+  pkg_custom_computer_use_safety --> pkg_tools
   pkg_agent_instructions --> pkg_agent
   pkg_agent_instructions --> pkg_fs
   pkg_agent_instructions --> pkg_home_paths
@@ -1002,6 +1020,10 @@ flowchart TD
   pkg_agent_preset_registry --> pkg_system_prompt
   pkg_agent_preset_registry --> pkg_tools
   pkg_agent_preset_registry --> pkg_typert_protocol
+  pkg_agent_run_state --> pkg_agent_lifecycle_facts
+  pkg_agent_run_state --> pkg_brand
+  pkg_agent_run_state --> pkg_llm
+  pkg_agent_run_state --> pkg_session
   pkg_session_checkpoint_policy --> pkg_agent
   pkg_session_checkpoint_policy --> pkg_llm
   pkg_session_checkpoint_policy --> pkg_session
@@ -1114,6 +1136,12 @@ flowchart TD
   pkg_session_telemetry_otel --> pkg_otel
   pkg_session_telemetry_otel --> pkg_session
   pkg_session_telemetry_otel --> pkg_session_telemetry
+  pkg_task_checkpoint --> pkg_agent
+  pkg_task_checkpoint --> pkg_agent_run_state
+  pkg_task_checkpoint --> pkg_brand
+  pkg_task_checkpoint --> pkg_llm
+  pkg_task_checkpoint --> pkg_session
+  pkg_task_checkpoint --> pkg_session_projection
   pkg_tool_bash --> pkg_agent
   pkg_tool_bash --> pkg_jobs
   pkg_tool_bash --> pkg_llm
@@ -1459,8 +1487,10 @@ flowchart TD
 | [`api-remote-access`](../packages/api/remote-access) | `api` | — |
 | [`api-workspace-files`](../packages/api/workspace-files) | `api` | — |
 | [`cmdline`](../packages/boot/cmdline) | `boot` | — |
+| [`custom-foundation`](../packages/boot/custom-foundation) | `boot` | — |
 | [`acp-app`](../packages/bundle/acp-app) | `bundle` | — |
 | [`base`](../packages/bundle/base) | `bundle` | — |
+| [`desktop-custom`](../packages/bundle/desktop-custom) | `bundle` | — |
 | [`sdk-app`](../packages/bundle/sdk-app) | `bundle` | — |
 | [`sdk-minimal`](../packages/bundle/sdk-minimal) | `bundle` | — |
 | [`client-file-upload`](../packages/client/file-upload) | `client` | — |
@@ -1498,6 +1528,7 @@ flowchart TD
 | [`client-ui-primitives`](../packages/client/ui-primitives) | `client` | — |
 | [`client-ui-reference`](../packages/client/ui-reference) | `client` | — |
 | [`client-ui-renderer`](../packages/client/ui-renderer) | `client` | — |
+| [`client-ui-run-details`](../packages/client/ui-run-details) | `client` | — |
 | [`client-ui-schedule`](../packages/client/ui-schedule) | `client` | — |
 | [`client-ui-secret-mask`](../packages/client/ui-secret-mask) | `client` | — |
 | [`client-ui-session`](../packages/client/ui-session) | `client` | — |
@@ -1600,6 +1631,7 @@ flowchart TD
 | [`host-directory-picker-auto`](../packages/host/directory-picker-auto) | `host` | [`client-connection`](../packages/client/connection), [`client-ui-directory-picker-browse`](../packages/client/ui-directory-picker-browse), [`client-ui-directory-picker-native`](../packages/client/ui-directory-picker-native), [`host-directory-picker-browse`](../packages/host/directory-picker-browse), [`host-directory-picker-native`](../packages/host/directory-picker-native), [`host-webserver`](../packages/host/webserver) |
 | [`host-frontend-static`](../packages/host/frontend-static) | `host` | [`client-connection`](../packages/client/connection), [`host-webserver`](../packages/host/webserver) |
 | [`persona`](../packages/preset/persona) | `preset` | [`system-prompt`](../packages/core/system-prompt) |
+| [`reasoning-policy`](../packages/runtime-diagnostics/reasoning-policy) | `runtime-diagnostics` | [`llm`](../packages/llm/llm), [`session`](../packages/core/session) |
 | [`sandbox`](../packages/sandbox/sandbox) | `sandbox` | [`llm`](../packages/llm/llm), [`session`](../packages/core/session) |
 | [`sandbox-windows-acl`](../packages/sandbox/sandbox-windows-acl) | `sandbox` | [`skill`](../packages/skill/skill), [`subprocess`](../packages/subprocess/subprocess) |
 | [`session-format-catalog`](../packages/session/session-format-catalog) | `session` | [`session`](../packages/core/session) |
@@ -1674,6 +1706,7 @@ flowchart TD
 | [`permission-presets`](../packages/interaction/permission-presets) | `interaction` | [`commands`](../packages/interaction/commands), [`sandbox`](../packages/sandbox/sandbox), [`sandbox-policy`](../packages/sandbox/sandbox-policy), [`session`](../packages/core/session), [`session-projection`](../packages/session/session-projection), [`shell`](../packages/shell/shell), [`typert-protocol`](../packages/typert/protocol), [`user-approval`](../packages/interaction/user-approval) |
 | [`jobs-local`](../packages/jobs/jobs-local) | `jobs` | [`agent`](../packages/core/agent), [`jobs`](../packages/jobs/jobs), [`scope`](../packages/core/scope), [`timeout`](../packages/util/timeout) |
 | [`ptc-runtime-node`](../packages/ptc-runtime/ptc-runtime-node) | `ptc-runtime` | [`fs`](../packages/fs/fs), [`ptc-runtime`](../packages/ptc-runtime/ptc-runtime), [`sandbox`](../packages/sandbox/sandbox), [`sandbox-policy`](../packages/sandbox/sandbox-policy), [`session`](../packages/core/session), [`subprocess`](../packages/subprocess/subprocess), [`timeout`](../packages/util/timeout) |
+| [`agent-lifecycle-facts`](../packages/runtime-diagnostics/agent-lifecycle-facts) | `runtime-diagnostics` | [`llm-retry`](../packages/llm/llm-retry), [`session`](../packages/core/session) |
 | [`session-title-llm`](../packages/session/session-title-llm) | `session` | [`llm`](../packages/llm/llm), [`session`](../packages/core/session), [`session-title`](../packages/session/session-title), [`timeout`](../packages/util/timeout) |
 | [`bash-sandbox`](../packages/shell/bash-sandbox) | `shell` | [`bash-local`](../packages/shell/bash-local), [`sandbox`](../packages/sandbox/sandbox), [`sandbox-policy`](../packages/sandbox/sandbox-policy), [`shell`](../packages/shell/shell) |
 | [`pwsh-sandbox`](../packages/shell/pwsh-sandbox) | `shell` | [`pwsh-local`](../packages/shell/pwsh-local), [`sandbox`](../packages/sandbox/sandbox), [`sandbox-policy`](../packages/sandbox/sandbox-policy), [`shell`](../packages/shell/shell) |

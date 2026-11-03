@@ -38,6 +38,7 @@ exports[`sidebar shell snapshots > renders Windows caption controls in expanded 
     <button
       aria-label="New session"
       class="newSession"
+      data-dsh-mascot-action="new-session"
       type="button"
     >
       <span
@@ -107,6 +108,7 @@ exports[`sidebar shell snapshots > renders Windows caption controls in expanded 
       <button
         aria-label="New session"
         class="brand wide"
+        data-dsh-mascot-action="new-session"
         type="button"
       >
         <span
@@ -122,10 +124,12 @@ exports[`sidebar shell snapshots > renders Windows caption controls in expanded 
             >
               <svg
                 aria-hidden="true"
-                data-content="965fe321"
-                fill="none"
-                height="17.6580310880829"
-                viewBox="0 0 23.16 17.04"
+                class="mark"
+                data-content="38af4e22"
+                data-dsh-mascot="true"
+                data-dsh-mascot-mood="idle"
+                height="24"
+                viewBox="0 0 64 64"
                 width="24"
               />
             </div>
@@ -176,6 +180,7 @@ exports[`sidebar shell snapshots > renders Windows caption controls in expanded 
     <button
       aria-label="New session"
       class="newSession"
+      data-dsh-mascot-action="new-session"
       type="button"
     >
       <span
@@ -262,10 +267,12 @@ exports[`sidebar shell snapshots > renders the collapsed rail after the crossfad
           >
             <svg
               aria-hidden="true"
-              data-content="965fe321"
-              fill="none"
-              height="17.6580310880829"
-              viewBox="0 0 23.16 17.04"
+              class="mark"
+              data-content="38af4e22"
+              data-dsh-mascot="true"
+              data-dsh-mascot-mood="idle"
+              height="24"
+              viewBox="0 0 64 64"
               width="24"
             />
           </div>
@@ -290,6 +297,7 @@ exports[`sidebar shell snapshots > renders the collapsed rail after the crossfad
     <button
       aria-label="New session"
       class="newSession"
+      data-dsh-mascot-action="new-session"
       type="button"
     >
       <span
@@ -359,6 +367,7 @@ exports[`sidebar shell snapshots > renders the expanded column (wordmark, capsul
       <button
         aria-label="New session"
         class="brand wide"
+        data-dsh-mascot-action="new-session"
         type="button"
       >
         <span
@@ -374,10 +383,12 @@ exports[`sidebar shell snapshots > renders the expanded column (wordmark, capsul
             >
               <svg
                 aria-hidden="true"
-                data-content="965fe321"
-                fill="none"
-                height="17.6580310880829"
-                viewBox="0 0 23.16 17.04"
+                class="mark"
+                data-content="38af4e22"
+                data-dsh-mascot="true"
+                data-dsh-mascot-mood="idle"
+                height="24"
+                viewBox="0 0 64 64"
                 width="24"
               />
             </div>
@@ -428,6 +439,7 @@ exports[`sidebar shell snapshots > renders the expanded column (wordmark, capsul
     <button
       aria-label="New session"
       class="newSession"
+      data-dsh-mascot-action="new-session"
       type="button"
     >
       <span
@@ -502,6 +514,7 @@ exports[`sidebar shell snapshots > renders the expanded column in the default lo
       <button
         aria-label="新建会话"
         class="brand wide"
+        data-dsh-mascot-action="new-session"
         type="button"
       >
         <span
@@ -517,10 +530,12 @@ exports[`sidebar shell snapshots > renders the expanded column in the default lo
             >
               <svg
                 aria-hidden="true"
-                data-content="965fe321"
-                fill="none"
-                height="17.6580310880829"
-                viewBox="0 0 23.16 17.04"
+                class="mark"
+                data-content="38af4e22"
+                data-dsh-mascot="true"
+                data-dsh-mascot-mood="idle"
+                height="24"
+                viewBox="0 0 64 64"
                 width="24"
               />
             </div>
@@ -571,6 +586,7 @@ exports[`sidebar shell snapshots > renders the expanded column in the default lo
     <button
       aria-label="新建会话"
       class="newSession"
+      data-dsh-mascot-action="new-session"
       type="button"
     >
       <span

@@ -33,15 +33,15 @@ describe('ThemeRuntime', () => {
     expect(snapshot.themes.map(t => t.id)).toEqual(['light', 'dark'])
   })
 
-  it('seeds the initial font size from the boot-script body variable, ignoring junk', () => {
-    // The Host boot script writes the durable size on body before any plugin
-    // runs; the first snapshot must match it so activation never flashes 14.
-    document.body.style.setProperty('--dsh-content-font-size', '22px')
+  it('seeds global interface scale and content size from their separate boot variables', () => {
+    document.body.style.setProperty('--dsh-ui-font-size', '22px')
     try {
-      expect(make().theme.getTheme().fontSizes.text).toBe(22)
+      expect(make().theme.getTheme().fontSize).toBe(22)
+      expect(make().theme.getTheme().fontSizes.text).toBe(14)
       document.body.style.setProperty('--dsh-content-font-size', '23px')
       expect(make().theme.getTheme().fontSizes.text).toBe(14)
     } finally {
+      document.body.style.removeProperty('--dsh-ui-font-size')
       document.body.style.removeProperty('--dsh-content-font-size')
     }
   })
@@ -50,20 +50,28 @@ describe('ThemeRuntime', () => {
     const { theme, events, host } = make()
     theme.setFontSize('text', fontSize)
     expect(theme.getTheme().fontSizes.text).toBe(fontSize)
-    expect(host.set).toHaveBeenCalledWith('fontSize', fontSize)
+    expect(host.set).toHaveBeenCalledWith('contentFontSize', fontSize)
     expect(events).toHaveLength(1)
     theme.setFontSize('text', fontSize)
     expect(events).toHaveLength(1)
     expect(host.set).toHaveBeenCalledOnce()
   })
 
-  it('rejects out-of-range and fractional font sizes', () => {
+  it('keeps global interface scale positive and finite while role sizes obey their own range', () => {
     const { theme, events, host } = make()
     for (const px of [9, 23, 14.5, Number.NaN]) {
       expect(() => { theme.setFontSize('text', px) }).toThrow('outside 10..22')
     }
+    for (const px of [0, -1, Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(() => { theme.setFontSize(px) }).toThrow('positive finite number')
+    }
     expect(events).toHaveLength(0)
     expect(host.set).not.toHaveBeenCalled()
+    // The existing global zoom setting continues to accept a fractional value.
+    theme.setFontSize(14.5)
+    expect(theme.getTheme().fontSize).toBe(14.5)
+    expect(theme.getTheme().fontScale).toBeCloseTo(14.5 / 14, 10)
+    expect(host.set).toHaveBeenCalledWith('fontSize', 14.5)
   })
 
   it('sets code and terminal sizes independently within their own ranges', () => {
@@ -90,8 +98,9 @@ describe('ThemeRuntime', () => {
 
   it('adopts a published Host font size without writing it back', () => {
     const { theme, events, host } = make()
-    host.publish({ status: 'ready', value: { preference: 'system', fontSize: 12, codeFontSize: 15, terminalFontSize: 18, textFontFamily: '', codeFontFamily: '', terminalFontFamily: '' }, revision: 1, writable: true })
+    host.publish({ status: 'ready', value: { preference: 'system', fontSize: 16, contentFontSize: 12, codeFontSize: 15, terminalFontSize: 18, textFontFamily: '', codeFontFamily: '', terminalFontFamily: '' }, revision: 1, writable: true })
     expect(theme.getTheme().fontSizes).toEqual({ text: 12, code: 15, terminal: 18 })
+    expect(theme.getTheme().fontSize).toBe(16)
     expect(events).toHaveLength(1)
     expect(host.set).not.toHaveBeenCalled()
   })
@@ -120,10 +129,10 @@ describe('ThemeRuntime', () => {
 
   it('adopts published Host font lists, normalizing hand-edited values, without writing them back', () => {
     const { theme, events, host } = make()
-    host.publish({ status: 'ready', value: { preference: 'system', fontSize: 14, codeFontSize: 11, terminalFontSize: 13, textFontFamily: 'Inter', codeFontFamily: '"Fira Code"', terminalFontFamily: '' }, revision: 1, writable: true })
+    host.publish({ status: 'ready', value: { preference: 'system', fontSize: 14, contentFontSize: 14, codeFontSize: 11, terminalFontSize: 13, textFontFamily: 'Inter', codeFontFamily: '"Fira Code"', terminalFontFamily: '' }, revision: 1, writable: true })
     expect(theme.getTheme().fontFamilies).toEqual({ text: '"Inter"', code: '"Fira Code"', terminal: '' })
     expect(events).toHaveLength(1)
-    host.publish({ value: { preference: 'system', fontSize: 14, codeFontSize: 11, terminalFontSize: 13, textFontFamily: '"Inter"', codeFontFamily: 'Fira Code', terminalFontFamily: '' }, revision: 2 })
+    host.publish({ value: { preference: 'system', fontSize: 14, contentFontSize: 14, codeFontSize: 11, terminalFontSize: 13, textFontFamily: '"Inter"', codeFontFamily: 'Fira Code', terminalFontFamily: '' }, revision: 2 })
     expect(events).toHaveLength(1)
     expect(host.set).not.toHaveBeenCalled()
   })
@@ -146,17 +155,17 @@ describe('ThemeRuntime', () => {
 
   it('adopts a published Host section without writing it back', () => {
     const { theme, events, host } = make()
-    host.publish({ status: 'ready', value: { preference: 'dark', fontSize: 14, codeFontSize: 11, terminalFontSize: 13, textFontFamily: '', codeFontFamily: '', terminalFontFamily: '' }, revision: 1, writable: true })
+    host.publish({ status: 'ready', value: { preference: 'dark', fontSize: 14, contentFontSize: 14, codeFontSize: 11, terminalFontSize: 13, textFontFamily: '', codeFontFamily: '', terminalFontFamily: '' }, revision: 1, writable: true })
     expect(theme.getTheme().preference).toBe('dark')
     expect(events).toHaveLength(1)
     expect(host.set).not.toHaveBeenCalled()
-    host.publish({ value: { preference: 'dark', fontSize: 14, codeFontSize: 11, terminalFontSize: 13, textFontFamily: '', codeFontFamily: '', terminalFontFamily: '' }, revision: 2 })
+    host.publish({ value: { preference: 'dark', fontSize: 14, contentFontSize: 14, codeFontSize: 11, terminalFontSize: 13, textFontFamily: '', codeFontFamily: '', terminalFontFamily: '' }, revision: 2 })
     expect(events).toHaveLength(1)
   })
 
   it('holds its own changes while writes are pending, then converges on the durable section', async () => {
     const { theme, host } = make()
-    const section = { preference: 'system' as const, fontSize: 14, codeFontSize: 11, terminalFontSize: 13, textFontFamily: '', codeFontFamily: '', terminalFontFamily: '' }
+    const section = { preference: 'system' as const, fontSize: 14, contentFontSize: 14, codeFontSize: 11, terminalFontSize: 13, textFontFamily: '', codeFontFamily: '', terminalFontFamily: '' }
     host.publish({ status: 'ready', value: section, revision: 1, writable: true })
     const write = Promise.withResolvers<boolean>()
     host.set.mockReturnValue(write.promise)
@@ -171,7 +180,7 @@ describe('ThemeRuntime', () => {
 
   it('adopts a section already standing at construction', () => {
     const host = stubConfigForm<ThemeSettings>()
-    host.publish({ status: 'ready', value: { preference: 'dark', fontSize: 14, codeFontSize: 11, terminalFontSize: 13, textFontFamily: '', codeFontFamily: '', terminalFontFamily: '' }, revision: 1, writable: true })
+    host.publish({ status: 'ready', value: { preference: 'dark', fontSize: 14, contentFontSize: 14, codeFontSize: 11, terminalFontSize: 13, textFontFamily: '', codeFontFamily: '', terminalFontFamily: '' }, revision: 1, writable: true })
     const { theme } = make(host)
     expect(theme.getTheme().preference).toBe('dark')
   })

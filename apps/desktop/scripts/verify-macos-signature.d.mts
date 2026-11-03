@@ -12,10 +12,10 @@ export function assertMacOSSignatureDetails(details: string, expected: MacOSSign
  * @param details - Output from `codesign --display --verbose=4`.
  * @param expected - Public release identity.
  */
-export function assertMacOSRuntimeSignatureDetails(details: string, expected: MacOSSigningEnvironment): void
+export function assertMacOSRuntimeSignatureDetails(details: string, expected: MacOSSigningEnvironment | 'ad-hoc'): void
 
 /**
- * Sign one Mach-O file using the packaging-owned CSC_KEYCHAIN; missing setup rejects before signing.
+ * Sign one Mach-O file with the release keychain or explicit local ad-hoc mode.
  * @param path - Writable standalone Mach-O file.
  * @param identifier - Stable code-signing identifier derived from the release app ID and CAS digest.
  * @param expected - Public release identity.
@@ -25,7 +25,7 @@ export function assertMacOSRuntimeSignatureDetails(details: string, expected: Ma
 export function signMacOSRuntimeCode(
   path: string,
   identifier: string,
-  expected: MacOSSigningEnvironment,
+  expected: MacOSSigningEnvironment | 'ad-hoc',
   entitlements?: string,
 ): Promise<void>
 
@@ -34,7 +34,7 @@ export function signMacOSRuntimeCode(
  * @param path - Mach-O file to inspect.
  * @param expected - Public release identity.
  */
-export function verifyMacOSRuntimeCode(path: string, expected: MacOSSigningEnvironment): void
+export function verifyMacOSRuntimeCode(path: string, expected: MacOSSigningEnvironment | 'ad-hoc'): void
 
 /**
  * Verify the full application signature and its release owner.

@@ -16,6 +16,7 @@ import { useAnchoredPosition } from '../src/useAnchoredPosition.ts'
 
 afterEach(() => {
   cleanup()
+  document.body.style.zoom = ''
   vi.unstubAllGlobals()
 })
 
@@ -97,6 +98,28 @@ describe('useAnchoredPosition', () => {
       expect(getByTestId('panel').style.top).toBe('34px')
       rerender(<Host open />)
       expect(getByTestId('panel').style.left).toBe('100px')
+    } finally {
+      anchorRect.mockRestore()
+      width.mockRestore()
+    }
+  })
+
+  it('converts viewport placement into the zoomed body portal coordinate space', () => {
+    // The global interface scale is a `zoom` on `body`, so a fixed panel's
+    // offsets are interpreted inside that scaled space while anchor rects and
+    // viewport bounds stay visual pixels. The placement must be divided back
+    // out or the panel drifts off its anchor as soon as the scale is not 1.
+    const rect = { left: 100, right: 300, top: 10, bottom: 30, width: 200, height: 20, x: 100, y: 10, toJSON: () => ({}) } as DOMRect
+    document.body.style.zoom = '0.5'
+    const anchorRect = vi.spyOn(HTMLButtonElement.prototype, 'getBoundingClientRect').mockReturnValue(rect)
+    const width = vi.spyOn(HTMLDivElement.prototype, 'offsetWidth', 'get').mockReturnValue(120)
+    vi.stubGlobal('innerWidth', 1000)
+    vi.stubGlobal('innerHeight', 800)
+    try {
+      const { getByTestId } = render(<Host open align="end" />)
+      // 180px / 34px in visual space, written back as 360px / 68px.
+      expect(getByTestId('panel').style.left).toBe('360px')
+      expect(getByTestId('panel').style.top).toBe('68px')
     } finally {
       anchorRect.mockRestore()
       width.mockRestore()

@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import { zh as commonZh } from '@deepseek-ai/dsh-client-locale/src/locales/zh.ts'
 import { RunningStatus } from '../src/client/chat/RunningStatus.tsx'
+import type { ExecutionFeedback } from '../src/client/conversation-nodes/execution-feedback.ts'
 import { zh } from '../src/client/locale.ts'
 
 const t = makeTranslate(zh, commonZh)
@@ -12,12 +13,14 @@ const t = makeTranslate(zh, commonZh)
 beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(5_000) })
 afterEach(() => { cleanup(); vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals() })
 
-function statusHarness(startTime?: number) {
-  const view = render(<RunningStatus startTime={startTime} t={t} />)
+function statusHarness(startTime?: number, feedback?: ExecutionFeedback) {
+  const view = render(<RunningStatus startTime={startTime} feedback={feedback} t={t} />)
   return {
     ...view,
     content: () => view.container.querySelector('[data-chat-running] > :last-child'),
-    set: (nextStartTime?: number) => { view.rerender(<RunningStatus startTime={nextStartTime} t={t} />) },
+    set: (nextStartTime?: number, nextFeedback?: ExecutionFeedback) => {
+      view.rerender(<RunningStatus startTime={nextStartTime} feedback={nextFeedback} t={t} />)
+    },
   }
 }
 
@@ -64,6 +67,20 @@ describe('RunningStatus', () => {
     act(() => { vi.advanceTimersByTime(3_000) })
     expect(view.content()?.textContent).toMatch(/^深度求索中，用时 \d+秒 ···$/)
     expect(view.content()?.textContent).not.toContain('-')
+  })
+
+  it('announces real execution-stage changes without announcing clock ticks', () => {
+    const view = statusHarness(1_000, { kind: 'waiting-local' })
+    const status = view.getByRole('status')
+    const content = view.content()
+    expect(status.textContent).toBe('等待本地模型响应')
+    expect(content?.textContent).toMatch(/^等待本地模型响应，用时 \d+秒 ···$/)
+    view.set(1_000, { kind: 'tool', activity: 'read' })
+    expect(status.textContent).toBe('正在读取文件')
+    expect(view.content()).toBe(content)
+    act(() => { vi.advanceTimersByTime(2_000) })
+    expect(status.textContent).toBe('正在读取文件')
+    expect(content?.textContent).toMatch(/^正在读取文件，用时 \d+秒 ···$/)
   })
 
 })

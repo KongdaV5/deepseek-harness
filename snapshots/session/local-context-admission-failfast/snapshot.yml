@@ -1,0 +1,12 @@
+version: 1
+scenario: local-context-admission-failfast
+profile: headless
+composition: local-context-admission-failfast
+recording: authored
+header:
+  class: local-context-admission-failfast
+  pin: true
+  systemPromptSource: text-turn
+  toolSchemasSource: text-turn
+replay:
+  override: true

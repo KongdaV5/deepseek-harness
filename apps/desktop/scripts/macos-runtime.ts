@@ -43,7 +43,7 @@ async function primaryRuntimeFiles(root: string): Promise<string[]> {
  * @returns Number of signed native files.
  */
 export async function signMacOSRuntime(
-  root: string, appId: string, expected: MacOSSigningEnvironment, arch: 'arm64' | 'x64', cacheDirectory?: string,
+  root: string, appId: string, expected: MacOSSigningEnvironment | 'ad-hoc', arch: 'arm64' | 'x64', cacheDirectory?: string,
   kind: 'desktop' | 'primary' = 'desktop',
 ): Promise<number> {
   const inventory = kind === 'primary' ? await primaryRuntimeFiles(root) : inventoryDesktopRuntime(root).map(file => file.path)
@@ -65,7 +65,7 @@ export async function signMacOSRuntime(
       const entitlements = needsJit ? join(import.meta.dirname, entitlementsFile) : undefined
       const file = join(root, path)
       const thin = ['cefaedfe', 'cffaedfe', 'feedface', 'feedfacf'].includes(magic(file))
-      if (cacheDirectory !== undefined && policy !== undefined && thin) {
+      if (expected !== 'ad-hoc' && cacheDirectory !== undefined && policy !== undefined && thin) {
         if (await cachedMacOSSignature(file, cacheDirectory, policy(identifier, expected, entitlements))) hits++
         else misses++
       } else {

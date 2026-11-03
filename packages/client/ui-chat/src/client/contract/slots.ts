@@ -29,6 +29,7 @@ import type {
 } from './snapshot.ts'
 import type { TurnProcessSpec } from './turn-process.ts'
 import type { PerformanceUsageMode } from '../../chat-settings.ts'
+import type { ExecutionFeedback } from '../conversation-nodes/execution-feedback.ts'
 
 /** Selector hook over the current Conversation binding's Chat target. */
 export type UseChat = SnapshotSelectorHook<ChatSnapshot>
@@ -224,6 +225,12 @@ export interface ChatNodeOwnerProps {
   /** Session-authorized image loader supplied by the Chat view. */
   loadImage: MessageImageLoader
   fileMentions: (owner: TurnTailOwnerProps) => MarkdownFileMentions | undefined
+  /** Session-local event sequences hidden from Conversation views. */
+  hiddenMessageSeqs?: readonly number[] | undefined
+  /** Whether hidden message events are temporarily shown. */
+  showHiddenMessages?: boolean | undefined
+  /** Hide or restore one event by its immutable session sequence. */
+  setMessageHidden?: ((seq: number, hidden: boolean) => void) | undefined
   /** Turn-process state when this Node belongs to a projected Turn. */
   turnProcess?: TurnProcessOwnerProps | undefined
 }
@@ -336,11 +343,13 @@ export type ChatFlowDataInjected = Pick<ChatViewInjected, 'hooks' | 'keyedHooks'
 
 /** Ordered rows and reconciled local echoes rendered inside one Chat viewport. */
 export interface ChatFlowOwnerProps extends Pick<ChatNodeOwnerProps,
-  'cwd' | 'openFile' | 'inspectCall' | 'forkAt' | 'loadImage' | 'fileMentions'> {
+  'cwd' | 'openFile' | 'inspectCall' | 'forkAt' | 'loadImage' | 'fileMentions'
+  | 'hiddenMessageSeqs' | 'showHiddenMessages' | 'setMessageHidden'> {
   readonly entries: readonly RenderEntry[]
   readonly pendingInputs: readonly (PendingSubmission | InboxState['next-step'][number])[]
   readonly lastInputTurn: number | undefined
   readonly deferCollapse: boolean
+  readonly runningFeedback?: ExecutionFeedback | undefined
 }
 
 /** Full props of the Chat-owned flow renderer. */

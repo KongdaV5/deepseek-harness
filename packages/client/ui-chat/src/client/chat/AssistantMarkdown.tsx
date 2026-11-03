@@ -32,7 +32,7 @@ export interface AssistantMarkdownProps extends
   Pick<ChatNodeOwnerProps, 'loadImage'> {
   /** Render only the requested business portion, preserving original block indexes. */
   groupPart?: string | undefined
-  /** Stable Hook forwarded to each independently expandable reasoning block. */
+  /** Compatibility input retained for current chat-view callers; reasoning is not expandable. */
   useDisclosure: UseDisclosure
   blocks: readonly AssistantBlock[]
   streaming: boolean
@@ -52,10 +52,10 @@ export interface AssistantMarkdownProps extends
   t: ChatViewSlotProps['t']
 }
 
-/** Renders non-blank reasoning blocks as independent disclosures alongside the response. */
+/** Renders non-blank reasoning blocks as neutral progress indicators beside the response. */
 export const AssistantMarkdown = memo(function AssistantMarkdown({
-  blocks, streaming, interrupted, loadImage, groupPart, useDisclosure,
-  reasoningHidden = false, usePresentation, revealProcess, mentions, renderSlot, useGroupAction, t,
+  blocks, streaming, interrupted, loadImage, groupPart,
+  reasoningHidden = false, revealProcess, mentions, renderSlot, useGroupAction, t,
 }: AssistantMarkdownProps) {
   // Stable per locale revision (t identity changes on switch): a fresh object
   // per render would rebuild MarkdownText's component table every chunk.
@@ -100,8 +100,7 @@ export const AssistantMarkdown = memo(function AssistantMarkdown({
             reveal={revealProcess}
             useGroupAction={useGroupAction}
           >
-            <ReasoningRow text={block.text} running={streaming && i === last} usePresentation={usePresentation}
-              useDisclosure={useDisclosure} renderSlot={renderSlot} t={t} />
+            <ReasoningRow running={streaming && i === last} t={t} />
           </ProcessReasoning>,
         )
         break

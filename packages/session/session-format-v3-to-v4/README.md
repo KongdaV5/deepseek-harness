@@ -300,6 +300,8 @@ The target restorer validates native fields and mandatory cross-event relationsh
 
 -----
 
+`createSessionFormatV3ToV4()` accepts a pure incoming extension converter with the official insertion map. The Custom catalog validates plugin payloads and remaps checkpoint event references. Historical task-compaction audit captures remain qualified to their retained V3 generation; they do not authorize V4 continuation.
+
 <a id="further-exploration"></a>
 ## Further Exploration
 

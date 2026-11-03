@@ -6,6 +6,8 @@ The in-memory, event-sourced model of [dsh-session](../../packages/core/session)
 
 Source: [`packages/core/session/src/types.ts`](../../packages/core/session/src/types.ts)
 
+`IgnorableSessionEventMap` registers metadata-only plugin events. `appendIgnorable()` preserves the canonical writer lifecycle and sets `ignorable: true`; these events cannot modify the conversation surface. Custom task authority uses the [task-checkpoint package](../../packages/session/task-checkpoint/README.md), whose native V4 identities differ from incoming legacy V3 identities.
+
 ## `SessionEventMap` — the event vocabulary
 
 The append-only event types. Merge-extensible: a plugin declares extra event types via declaration merging — e.g. the [compaction seam](compaction.md) adds `compaction/start` / `compaction/summary` / `compaction/end`, and `@deepseek-ai/dsh-hook-protocol` adds log-only `hook/invoked` / `hook/result` records for a hook bridge. Like `compaction/*`, these are NOT `SurfaceEventType`s (no `surfaceOp`). The generated [persistence log event catalog](../persistence-catalog.md) enumerates every member — core and merged — with its payload, surface badge, and declaration site.
@@ -613,6 +615,13 @@ declare class Session {
     data: SessionEventMap[T],
     ...opts: T extends SurfaceEventType ? [opts: SurfaceIntent<T>] : []
     ): SessionEvent<T>;
+  /** Append optional Custom metadata through the same validated Session writer.
+   * @param type Registered optional event identity.
+   * @param data JSON payload admitted by the owning domain.
+   * @returns Frozen committed event with its optional-reader marker.
+   */
+  appendIgnorable<T extends IgnorableSessionEventType>(type: T, data: SessionEventMap[T]): SessionEvent<T>;
+
   /**
    * The {@link EpochHeader} in force after the log's last header event — the
    * header the NEXT request will be compared against — or undefined before
@@ -816,6 +825,40 @@ The optional `application` selects a registered file handler without changing th
 ## Cordis API
 
 Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnpm run verify-cordis-catalog` in doc-sync; regenerate with `pnpm run gen-cordis-catalog`) — the language sides differ only in locale-specific paired document paths. Signature blocks use a `ts cordis-catalog` fence and keep the original source JSDoc; dispatch modes are defined in the [primer](../cordis-primer.md#dispatch-modes), and the framework-inherited `ctx` API lives in [cordis-api/inherited.md](../cordis-api/inherited.md).
+
+<a id="ctxruntimediagnostics--runtimediagnosticscontroller"></a>
+
+### `ctx.runtimeDiagnostics` — `RuntimeDiagnosticsController`
+
+Host service backing the generated `ctx.remote.runtimeDiagnostics` namespace.
+
+A deployment that mounts no provider registers the namespace but serves no topic, so a follow for any topic fails as provider-unavailable rather than opening a stream that can never carry anything.
+
+```ts cordis-catalog
+/**
+ * Register the one provider that serves a topic.
+ *
+ * A second provider for the same topic is a wiring error rather than a
+ * precedence question, so it fails fast instead of silently shadowing the
+ * first.
+ * @param provider - the topic's read-only observation face.
+ * @returns an idempotent disposer that also ends the provider's live streams.
+ * @throws Error when the topic already has a provider.
+ */
+registerProvider(provider: RuntimeDiagnosticsProvider): () => void
+
+/**
+ * Open one generation of a topic's observations for one Session.
+ * @param request - the topic and Session to follow.
+ * @param signal - generation cancellation, supplied by the Remote carrier.
+ * @returns the opening snapshot followed by ordered complete replacements.
+ */
+@Remote({ mode: 'stream' }) follow( request: RuntimeDiagnosticsFollowRequest, signal: AbortSignal, ): AsyncIterable<RuntimeDiagnosticsFrame>
+```
+
+Types: [RuntimeDiagnosticsFollowRequest](../custom-foundation.md) · [RuntimeDiagnosticsFrame](../custom-foundation.md) · [RuntimeDiagnosticsProvider](../custom-foundation.md)
+
+Source: [`packages/api/runtime-diagnostics-controller/src/index.ts`](../../packages/api/runtime-diagnostics-controller/src/index.ts)
 
 <a id="ctxsessioncontroller--sessioncontroller"></a>
 
@@ -1140,6 +1183,115 @@ fork(source: SessionForkSource, boundary?: SessionSeq, childSessionId?: SessionI
 Types: [CreateSessionOptions](persistence.md) · [PrepareSessionOptions](persistence.md) · [SessionId](core.md)
 
 Source: [`packages/core/session/src/index.ts`](../../packages/core/session/src/index.ts)
+
+<a id="ctxtaskcheckpoints--taskcheckpointservice"></a>
+
+### `ctx.taskCheckpoints` — `TaskCheckpointService`
+
+Cordis service for durable Task authority and guarded continuation.
+
+The Custom composition mounts its two projections and the resume seam. Persisted state never arms the process-local admission; execution requires an explicit request and a subsequent committed turn.
+
+```ts cordis-catalog
+/**
+ * Commit the first durable revision of one Task.
+ * @param session - the Session that owns the durable Task.
+ * @param input - explicit Task identity, origin turn, plan, and resume facts.
+ * @returns the committed checkpoint at revision 1.
+ * @throws TaskContinuityError when the Session has no readable durable authority
+ *   or the candidate is not a legal first revision.
+ */
+createCheckpoint(session: Session, input: CreateTaskCheckpointInput): TaskCheckpoint
+
+/**
+ * Commit the next durable revision of an existing Task.
+ * @param session - the Session that owns the durable Task.
+ * @param update - superseded revision, committed latest turn, and successor value.
+ * @returns the committed successor revision.
+ * @throws TaskContinuityError when the declared revision is stale or the
+ *   successor is not a legal next revision.
+ */
+advanceCheckpoint(session: Session, update: TaskCheckpointUpdate): TaskCheckpoint
+
+/**
+ * Commit one independently versioned result manifest.
+ * @param session - the Session that owns the durable Task and result.
+ * @param candidate - the complete next manifest revision.
+ * @param runTurn - the committed turn whose Run produced this revision.
+ * @returns the committed manifest.
+ * @throws TaskContinuityError when the Task is unknown or the producing Run
+ *   has not committed.
+ */
+publishResultManifest(session: Session, candidate: ResultManifest, runTurn: number): ResultManifest
+
+/**
+ * Record an admitted resume against a turn that has already committed.
+ *
+ * Exposed so a caller that drives its own seam can record the same durable
+ * fact; the built-in seam calls exactly this method. `turn` must be committed,
+ * so the Run identity it derives is real rather than predicted.
+ * @param session - the Session that owns the durable Task.
+ * @param input - committed turn, Task identity, pending-only plan, and budget.
+ * @returns the committed resume revision, or the existing one for a repeat call.
+ * @throws TaskContinuityError when the turn is not durable or the plan is invalid.
+ */
+recordAcceptedResume(session: Session, input: AcceptedResumeInput): TaskCheckpoint
+
+/**
+ * Read one consistent, detached cut of this Session's durable Task authority.
+ *
+ * Every registered projection is materialized at the Session cursor in one
+ * synchronous pass, so the returned Task revision, result manifests, repair
+ * hazards, and successful tool results all describe the same log position.
+ * The value is a reader: it appends nothing, mutates nothing, and exposes no
+ * writer capability. Callers must re-read rather than retain it as authority
+ * across a later mutation.
+ *
+ * @param session - the Session whose durable Task authority is read.
+ * @param options - the Task to address; defaults to the latest tracked Task.
+ * @returns the detached snapshot at the current commit cursor.
+ * @throws TaskContinuityError with `TASK_AUTHORITY_UNAVAILABLE` when a required
+ *   projection is unregistered or holds a failed fold.
+ */
+authoritySnapshot( session: Session, options: TaskAuthoritySnapshotOptions = {}, ): TaskAuthoritySnapshot
+
+/**
+ * Read the durable Task continuity diagnostics for one Session.
+ * @param session - the Session whose durable Task state is read.
+ * @param options - optional Task selection, proposed execution, and context budget.
+ * @returns the Task revision, its classified decision, and the evidence behind it.
+ * @throws TaskContinuityError when the Session has no readable durable authority.
+ */
+diagnostics( session: Session, options: { readonly taskId?: TaskId readonly requestedExecution?: TaskExecutionMetadata readonly context?: TaskResumeContextBudget } = {}, ): TaskDiagnostics
+
+/**
+ * Classify one resume request and, when it is allowed, adopt the next Run.
+ *
+ * Admission is a process-local promise, not a durable write: a durable
+ * "resume requested" record would have to name the Run it is waiting for,
+ * which is exactly the prediction this design forbids. Nothing is written
+ * until the Run exists, so a crash between admission and the turn simply
+ * leaves the Task at its last durable revision.
+ *
+ * @param session - the Session that owns the durable Task.
+ * @param request - Task identity, structured budget, and optional execution.
+ * @returns the decision and whether the seam now awaits the next committed turn.
+ * @throws TaskContinuityError when the caller supplies no budget for a decision that needs one.
+ */
+armResume(session: Session, request: TaskResumeRequest): TaskResumeAdmission
+
+/**
+ * Drop an admitted resume that has not been adopted by a Run yet.
+ *
+ * A caller whose wake lost to other input disarms the admission rather than
+ * letting the seam attribute an unrelated turn to the Task.
+ * @param session - the Session whose admission is withdrawn.
+ * @returns whether an admission was pending.
+ */
+disarmResume(session: Session): boolean
+```
+
+Source: [`packages/session/task-checkpoint/src/service.ts`](../../packages/session/task-checkpoint/src/service.ts)
 
 <a id="api-session-events"></a>
 

@@ -1,0 +1,49 @@
+# Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write packages/api/runtime-diagnostics-controller/README.md
+/:
+  en: 604cbc99b04e0f26
+  zh: 1e3b65910fa36bba
+/deepseek-ai-dsh-api-runtime-diagnostics-controller:
+  en: 9bab0c4e50e38091
+  zh: 581bef4edb876a46
+/deepseek-ai-dsh-api-runtime-diagnostics-controller/summary:
+  en: d26583be74709c3c
+  zh: 1b52778bd97092d2
+/deepseek-ai-dsh-api-runtime-diagnostics-controller/table-of-contents:
+  en: d152484eb41ac6b4
+  zh: 82bbd1ae631975a1
+/deepseek-ai-dsh-api-runtime-diagnostics-controller/use-this-package:
+  en: bbff250eba0f1b89
+  zh: 0a618f05cc88ee2b
+/deepseek-ai-dsh-api-runtime-diagnostics-controller/use-this-package/publish-an-observation-from-the-host:
+  en: d6c20cdde2748668
+  zh: 32e402e705ff5c05
+/deepseek-ai-dsh-api-runtime-diagnostics-controller/use-this-package/read-an-observation-from-the-client:
+  en: 2499c18258617df0
+  zh: 6655529acce44ee4
+/deepseek-ai-dsh-api-runtime-diagnostics-controller/use-this-package/wire-vocabulary:
+  en: 07376c570ee09e11
+  zh: d240426d768e6648
+/deepseek-ai-dsh-api-runtime-diagnostics-controller/understand-the-implementation:
+  en: fad43067fd55b0b9
+  zh: d45174cbaf484c2f
+/deepseek-ai-dsh-api-runtime-diagnostics-controller/understand-the-implementation/source-map:
+  en: 462272e5a2883059
+  zh: a6a6761207a86c48
+/deepseek-ai-dsh-api-runtime-diagnostics-controller/further-exploration:
+  en: fea5976e249c2e60
+  zh: fd6b6d039ad74694
+/deepseek-ai-dsh-api-runtime-diagnostics-controller/model-experience:
+  en: 125c3f258045aa5c
+  zh: f277f5d54e31a449
+/deepseek-ai-dsh-api-runtime-diagnostics-controller/model-experience/kv-cache-effect:
+  en: b5c4130f798d6f33
+  zh: fa0b77c083b1d514
+/deepseek-ai-dsh-api-runtime-diagnostics-controller/known-limitations-and-deferred-work:
+  en: 6c65eef47fa08be2
+  zh: 90baab3a3dd00560
+/deepseek-ai-dsh-api-runtime-diagnostics-controller/known-limitations-and-deferred-work/dev-note:
+  en: aae3fb46d626ec01
+  zh: 72f7e36da7681c5a

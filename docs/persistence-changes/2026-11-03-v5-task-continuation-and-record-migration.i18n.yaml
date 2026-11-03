@@ -1,0 +1,28 @@
+# Bilingual-pair consistency record for 2026-11-03-v5-task-continuation-and-record-migration.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write docs/persistence-changes/2026-11-03-v5-task-continuation-and-record-migration.md
+/:
+  en: 3d5a424ae7d7e46b
+  zh: c22a8e4a62d8cc1a
+/2026-11-03-v5-task-continuation-and-record-migration:
+  en: c4c718bf68893c31
+  zh: eff5c3df7288a204
+/2026-11-03-v5-task-continuation-and-record-migration/summary:
+  en: 2c7c6abdf9631e0c
+  zh: b93b7cc07c88345d
+/2026-11-03-v5-task-continuation-and-record-migration/table-of-contents:
+  en: 6cf314a069ceb451
+  zh: 9adff678e9ecab3b
+/2026-11-03-v5-task-continuation-and-record-migration/declaration:
+  en: 6907136f28e48c90
+  zh: 02f8298485f3d8e7
+/2026-11-03-v5-task-continuation-and-record-migration/compatibility:
+  en: 6a43f74b14deba3e
+  zh: 934c0fd9929a492d
+/2026-11-03-v5-task-continuation-and-record-migration/verification:
+  en: 0814a1439a0e2489
+  zh: 7cf2f81117ac8ba0
+/2026-11-03-v5-task-continuation-and-record-migration/dev-note:
+  en: b75c8458928b72b9
+  zh: 003ba4e17b4b5269

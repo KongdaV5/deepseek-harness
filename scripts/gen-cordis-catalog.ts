@@ -50,6 +50,9 @@ export { REGION_BEGIN, REGION_END }
  * errors, so the partition can never silently drift from the service API.
  */
 export const SERVICE_PAGE: Record<string, string> = {
+  compactionCandidatePolicy: 'compaction.md',
+  localModelRuntimeController: 'llm-streaming.md',
+  runtimeDiagnostics: 'session.md',
   translator: 'translation.md',
   cotTranslation: 'translation.md',
   speechToText: 'voice-input.md',
@@ -62,6 +65,9 @@ export const SERVICE_PAGE: Record<string, string> = {
   pluginMarket: 'boot.md',
   pluginRegistryProbe: 'boot.md',
   configEditor: 'boot.md',
+  customFoundation: 'boot.md',
+  codexFoundation: 'core.md',
+  taskCheckpoints: 'session.md',
   profileContext: 'boot.md',
   hmr: 'boot.md',
   mcpResources: 'mcp.md',
@@ -78,6 +84,7 @@ export const SERVICE_PAGE: Record<string, string> = {
   ptcRuntime: 'ptc-runtime.md',
   browserUse: 'browser-use.md',
   computerUse: 'computer-use.md',
+  computerUseController: 'computer-use.md',
   commands: 'commands.md',
   compaction: 'compaction.md',
   cordisInspect: 'extensions.md',
@@ -170,6 +177,9 @@ export const SERVICE_PAGE: Record<string, string> = {
  * to a model as `cordis_runtime_inspect what:"client"`).
  */
 export const SERVICE_WALK_EXEMPTIONS: Record<string, string> = {
+  runtimeDiagnosticsTopics: 'Client-only topic registry — packages/api/runtime-diagnostics-controller/README.md owns the observation contract',
+  externalModelProviders: 'Optional route capability directory — packages/core/agent/README.md owns the selection contract',
+  agentModelSelection: 'Session-scoped live selection ref — packages/core/agent/README.md owns the turn-boundary contract',
   invocation: 'not a service: per-call accessor (RemoteInvocation | undefined) the Gateway derives for each Remote call — packages/api/gateway/README.md owns the contract',
   webTerminals: 'client-side terminal view models — packages/api/terminal-controller/README.md owns the API',
   appReady: 'not a service: launcher-provided successful-startup signal — packages/boot/cmdline/README.md owns the launcher contract',
@@ -180,6 +190,7 @@ export const SERVICE_WALK_EXEMPTIONS: Record<string, string> = {
   dshHomePath: 'not a service: boot-provided root accessor function (typeof dshHomePath | undefined) for Loader !!js config expressions — packages/boot/app-boot/README.md owns the boot contract',
   launchEnvironment: 'not a service: launcher-provided root accessor value (LaunchEnvironmentSnapshot | undefined) — packages/util/launch-environment/README.md owns this launcher contract',
   pluginPackages: 'profile-boot-owned package resolver service used by optional consumers — packages/boot/app-boot/README.md owns this internal API',
+  desktopLease: 'Custom-only desktop ownership and Stop service, deliberately not exported from its package root so it never joins the public host service tier — packages/computer-use/custom-computer-use-safety/README.md owns this contract',
   fileUpload: 'client-side browser upload service — packages/client/file-upload/README.md owns the API',
   uiRenderer: 'client-side interface-typed browser service — packages/client/ui-renderer/README.md owns the API',
   uiSession: 'client-side Session source adapter — packages/client/ui-session/README.md owns the API',
@@ -284,6 +295,17 @@ export const EVENT_WALK_EXEMPTIONS: Record<string, string> = {
  * appear on more than one page.
  */
 export const LINK_MAP: Readonly<Record<string, string>> = {
+  RuntimeDiagnosticsProvider: '../custom-foundation.md',
+  RuntimeDiagnosticsFollowRequest: '../custom-foundation.md',
+  RuntimeDiagnosticsFrame: '../custom-foundation.md',
+  CompactionAssessInput: '../custom-foundation.md',
+  CompactionPolicyAdmission: '../custom-foundation.md',
+  CompactionBeginInput: '../custom-foundation.md',
+  CompactionPolicyTransaction: '../custom-foundation.md',
+  ComputerUseStatus: '../custom-foundation.md',
+  LocalModelProfileDraft: '../custom-foundation.md',
+  LocalModelRuntimeSnapshot: '../custom-foundation.md',
+  LocalModelProfileId: '../custom-foundation.md',
   Principal: 'typert.md',
   PrincipalMap: 'typert.md',
   RemoteAccessResource: 'typert.md',
@@ -329,6 +351,9 @@ export const LINK_MAP: Readonly<Record<string, string>> = {
   OfficeToPdfPriority: 'office-to-pdf.md',
   OfficeToPdfGeneration: 'office-to-pdf.md',
   Agent: 'core.md',
+  ExternalTurnEvent: '../custom-foundation.md',
+  ExternalTurnExecutor: '../custom-foundation.md',
+  ExternalTurnSelection: '../custom-foundation.md',
   AgentCancelCause: 'core.md',
   AgentFactory: 'core.md',
   AgentHandle: 'core.md',
@@ -870,6 +895,22 @@ export const FOUNDATION_TYPE_NAMES: ReadonlySet<string> = new Set([
 
 /** Project types deliberately documented outside the subsystems catalog. */
 export const TYPE_LINK_EXEMPTIONS: Readonly<Record<string, string>> = {
+  AuthTransitionRecord: 'Custom persistence contract is owned by packages/core/agent-codex/README.md; source JSDoc defines its complete fields.',
+  CodexRuntimePreference: 'Custom persistence contract is owned by packages/core/agent-codex/README.md; source JSDoc defines its complete fields.',
+  LocalProfile: 'Custom persistence contract is owned by packages/boot/custom-foundation/README.md; source JSDoc defines its complete fields.',
+  CreateTaskCheckpointInput: 'Custom persistence contract is owned by packages/session/task-checkpoint/README.md; source JSDoc defines its complete fields.',
+  TaskCheckpoint: 'Custom persistence contract is owned by packages/session/task-checkpoint/README.md; source JSDoc defines its complete fields.',
+  TaskCheckpointUpdate: 'Custom persistence contract is owned by packages/session/task-checkpoint/README.md; source JSDoc defines its complete fields.',
+  ResultManifest: 'Custom persistence contract is owned by packages/session/task-checkpoint/README.md; source JSDoc defines its complete fields.',
+  AcceptedResumeInput: 'Custom persistence contract is owned by packages/session/task-checkpoint/README.md; source JSDoc defines its complete fields.',
+  TaskAuthoritySnapshot: 'Custom persistence contract is owned by packages/session/task-checkpoint/README.md; source JSDoc defines its complete fields.',
+  TaskAuthoritySnapshotOptions: 'Custom persistence contract is owned by packages/session/task-checkpoint/README.md; source JSDoc defines its complete fields.',
+  TaskDiagnostics: 'Custom persistence contract is owned by packages/session/task-checkpoint/README.md; source JSDoc defines its complete fields.',
+  TaskExecutionMetadata: 'Custom persistence contract is owned by packages/session/task-checkpoint/README.md; source JSDoc defines its complete fields.',
+  TaskId: 'Custom persistence contract is owned by packages/session/task-checkpoint/README.md; source JSDoc defines its complete fields.',
+  TaskResumeContextBudget: 'Custom persistence contract is owned by packages/session/task-checkpoint/README.md; source JSDoc defines its complete fields.',
+  TaskResumeAdmission: 'Custom persistence contract is owned by packages/session/task-checkpoint/README.md; source JSDoc defines its complete fields.',
+  TaskResumeRequest: 'Custom persistence contract is owned by packages/session/task-checkpoint/README.md; source JSDoc defines its complete fields.',
   ProductEvent: 'Desktop event fields are owned by packages/client/product-analytics/README.md and src/events.ts',
   ConnectionFetchHandler: 'shared Fetch dispatch is owned by packages/client/connection/src/rpc.ts',
   ConnectionRequestRejection: 'transport rejection status is owned by packages/client/connection/src/rpc.ts',

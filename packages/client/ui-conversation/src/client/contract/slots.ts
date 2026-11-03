@@ -278,7 +278,7 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
     'conversation.input.left': { kind: 'list'; scope: 'session' }
     /** Compact controls before the composer submit action. */
     'conversation.input.right': { kind: 'list'; scope: 'session' }
-    /** Compact action after the model selector; it can expand across the toolbar while retaining the editor and submit action. */
+    /** Compact action before the model selector; it can expand across the toolbar while retaining the editor and submit action. */
     'conversation.input.activity': { kind: 'single'; scope: 'session'; owner: InputActivityOwnerProps }
     /** Resident composer body, including the no-Session inert state. */
     'conversation.composer.bar': { kind: 'single'; scope: 'session-maybe'; owner: ComposerBarOwnerProps }
@@ -398,6 +398,14 @@ export interface ConvViewOwnerProps {
   openView: (view: string, focus: string) => void
   /** Acknowledge the current one-shot focus request. */
   completeViewRequest: () => void
+  /** Session-local message sequences hidden from the current view. */
+  hiddenMessageSeqs?: readonly number[] | undefined
+  /** Whether hidden messages should be temporarily included in the current view. */
+  showHiddenMessages?: boolean | undefined
+  /** Hide or restore one message by its immutable session sequence. */
+  setMessageHidden?: ((seq: number, hidden: boolean) => void) | undefined
+  /** Temporarily include or omit all hidden messages in Conversation views. */
+  setHiddenMessagesVisible?: ((visible: boolean) => void) | undefined
 }
 
 /** Base props of one target-owned Conversation View entry. */

@@ -1,0 +1,42 @@
+{
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "lib/types"
+  },
+  "include": [
+    "src"
+  ],
+  "references": [
+    {
+      "path": "../../../vendor/cordis"
+    },
+    {
+      "path": "../../llm/llm"
+    },
+    {
+      "path": "../../llm/llm-retry"
+    },
+    {
+      "path": "../../core/session"
+    },
+    {
+      "path": "../agent-lifecycle-facts"
+    },
+    {
+      "path": "../agent-run-state"
+    },
+    {
+      "path": "../reasoning-policy"
+    },
+    {
+      "path": "../../compaction/compaction"
+    },
+    {
+      "path": "../../session/session-projection"
+    },
+    {
+      "path": "../../session/task-checkpoint"
+    }
+  ]
+}

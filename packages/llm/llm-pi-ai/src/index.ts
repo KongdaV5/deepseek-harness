@@ -109,6 +109,7 @@ function registrationFacts(profiles: ReadonlyMap<string, ResolvedPiAiProviderPro
     .map(([provider, profile]) => ({
       provider,
       displayName: profile.displayName,
+      selectable: profile.selectable,
       retryPolicy: profile.retryPolicy,
     }))
     .sort((left, right) => left.provider.localeCompare(right.provider))
@@ -130,13 +131,14 @@ function directoryEntries(
   settingsNs: string,
 ): LlmConfigurableProvider[] {
   const entries = new Map<string, LlmConfigurableProvider>()
-  const declare = (provider: string, displayName: string, error?: string): void => {
+  const declare = (provider: string, displayName: string, error?: string, selectable?: boolean): void => {
     const installed = catalogProvider(provider)
     entries.set(provider, {
       provider,
       displayName,
       settingsNs,
       settingsPath: ['providers', provider],
+      ...selectable === false ? { selectable: false } : {},
       // Membership of the installed catalog, not of the settings document:
       // narrowing a shipped provider's models stores a profile too, and that
       // route is still one pi-ai knows.
@@ -146,7 +148,7 @@ function directoryEntries(
     })
   }
   for (const provider of catalogProviderIds()) declare(provider, provider)
-  for (const [provider, profile] of profiles) declare(provider, profile.displayName, profile.catalogError)
+  for (const [provider, profile] of profiles) declare(provider, profile.displayName, profile.catalogError, profile.selectable)
   return [...entries.values()]
 }
 

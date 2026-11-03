@@ -87,7 +87,7 @@ class OverflowRecoveryAdapter extends LlmAdapter {
       provider,
       id: model,
       name: model,
-      context: { contextWindow: 128 },
+      context: { contextWindow: model === 'mock-summary' ? 65536 : 128 },
     })
   }
 
@@ -390,6 +390,8 @@ describe('context-overflow recovery across the real loop and compaction-basic', 
         maxTokens: 64,
         compactionRetries: 0,
         maxOverflowRetries: 1,
+        summarizationProvider: 'mock',
+        summarizationModel: 'mock-summary',
       })
 
       try {
@@ -466,6 +468,8 @@ describe('context-overflow recovery across the real loop and compaction-basic', 
       maxTokens: 64,
       compactionRetries: 0,
       maxOverflowRetries: 1,
+      summarizationProvider: 'mock',
+      summarizationModel: 'mock-summary',
     })
 
     try {

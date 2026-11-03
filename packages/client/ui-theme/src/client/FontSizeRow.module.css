@@ -52,12 +52,25 @@
 }
 
 .value {
-  min-width: 18px;
+  width: 46px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
   text-align: center;
   font-size: 14px;
   line-height: 22px;
   font-variant-numeric: tabular-nums;
   color: var(--dsw-alias-label-primary);
+}
+
+/* The value field suppresses the UA ring, so it restores the shared one by
+   name: the same color and width the global `:focus-visible` rule uses. */
+.value:focus-visible {
+  border-radius: 4px;
+  outline: var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
+  outline-offset: 1px;
 }
 
 .unit {

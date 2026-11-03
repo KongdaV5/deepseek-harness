@@ -3,7 +3,11 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { FontFamilies, ThemePreference, ThemeSnapshot } from '@deepseek-ai/dsh-client-ui-theme/client'
 import { fontFamilyVariable } from '@deepseek-ai/dsh-client-ui-theme/src/theme-settings.ts'
-import { DARK_ATTRIBUTE, THEME_SOURCE_ATTRIBUTE, ThemePresenter } from '@deepseek-ai/dsh-client-ui-layout/src/client/theme-presenter.ts'
+import {
+  DARK_ATTRIBUTE,
+  THEME_SOURCE_ATTRIBUTE,
+  ThemePresenter,
+} from '@deepseek-ai/dsh-client-ui-layout/src/client/theme-presenter.ts'
 
 const LIGHT_THEME_COLOR = 'rgb(255, 255, 255)'
 const DARK_THEME_COLOR = 'rgb(21, 21, 23)'
@@ -17,7 +21,16 @@ function snapshot(
 ): ThemeSnapshot {
   // The presenter must key off colorScheme, not the id — keep them distinct.
   const active = { id: `${colorScheme}-test`, colorScheme, tokens }
-  return { preference, fontSizes: { text: fontSize, code: 11, terminal: 13 }, fontFamilies, active, themes: [active], revision: 1 }
+  return {
+    preference,
+    fontSize,
+    fontScale: fontSize / 14,
+    fontSizes: { text: fontSize, code: 11, terminal: 13 },
+    fontFamilies,
+    active,
+    themes: [active],
+    revision: 1,
+  }
 }
 
 function clearThemePresentation(): void {
@@ -80,14 +93,15 @@ describe('ThemePresenter', () => {
     expect(document.body.style.getPropertyValue('--dsw-alias-fg')).toBe('')
   })
 
-  it('publishes the content font size and follows changes', () => {
+  it('publishes the global interface size and its body scale, and follows changes', () => {
     const presenter = new ThemePresenter()
     presenter.apply(snapshot('light'))
     expect(document.body.style.getPropertyValue('--dsh-content-font-size')).toBe('14px')
     expect(document.body.style.getPropertyValue('--dsh-code-font-size')).toBe('11px')
     expect(document.body.style.getPropertyValue('--dsh-terminal-font-size')).toBe('13px')
     presenter.apply(snapshot('light', {}, 17))
-    expect(document.body.style.getPropertyValue('--dsh-content-font-size')).toBe('17px')
+    expect(document.body.style.getPropertyValue('--dsh-ui-font-size')).toBe('17px')
+    expect(document.body.style.getPropertyValue('--dsh-ui-font-scale')).toBe(String(17 / 14))
   })
 
   it('publishes non-empty font lists and removes a list once it returns to the built-in stack', () => {
@@ -119,7 +133,7 @@ describe('ThemePresenter', () => {
     expect(document.documentElement.hasAttribute(THEME_SOURCE_ATTRIBUTE)).toBe(false)
   })
 
-  it('dispose removes color-scheme, the attribute, the font-size axis, and every applied variable, sparing foreign inline styles', () => {
+  it('dispose removes color-scheme, the attribute, the interface scale, and every applied variable, sparing foreign inline styles', () => {
     document.body.style.setProperty('--foreign', 'kept')
     const presenter = new ThemePresenter()
     presenter.apply(snapshot('dark', { '--dsw-alias-bg': '#111' }))

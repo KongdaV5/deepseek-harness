@@ -88,7 +88,7 @@ dsh --profile web --no-open --host "$(hostname -i | awk '{print $1}')" --public-
 
 ### 按会话的 agent 设置
 
-每个浏览器会话选择一个随发行版交付的 preset（默认 `standard`）。Agent 预设设置页可更改默认项并编辑预设的子插件；保存结果持久化到 `$DSH_HOME/profiles/web/cordis.patch.yml`。只有 Host 提供可编辑的 profile 时，Creator 的插件管理工具才会启用。
+每个浏览器会话选择一个随发行版交付的 Agent 组合（默认 `standard`）。空白 Session 可在首轮开始前选择通用、AMZ、开发/脚本或 GitHub/Cloudflare；首轮开始后沿用现有组合锁定规则。Agent 预设设置页可更改默认项并编辑预设的子插件；保存结果持久化到 `$DSH_HOME/profiles/web/cordis.patch.yml`。只有 Host 提供可编辑的 profile 时，Creator 的插件管理工具才会启用。
 
 -----
 

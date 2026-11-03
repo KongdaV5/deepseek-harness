@@ -1,12 +1,16 @@
 /** Tool-category and live-detail interpretation owned by Chat grouping. */
-import { reasoningText } from '../reasoning-text.ts'
 import type { ToolArgs } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { ProcessActivity, ProcessActivitySummary } from '../contract/process-groups.ts'
 import type { ChatNode } from '../contract/chat-nodes.ts'
 import { isRunningTool } from '../contract/chat-nodes.ts'
 import type { ToolCallBlock } from '../contract/snapshot.ts'
 
-function activity(name: string): ProcessActivity {
+/**
+ * Classify one canonical Tool name for the live process summary.
+ * @param name - model-visible Tool name.
+ * @returns the owning Chat activity category.
+ */
+export function processActivityForTool(name: string): ProcessActivity {
   if (name === 'read') return 'read'
   if (name === 'read_image') return 'readImage'
   if (name === 'grep' || name === 'glob' || name.endsWith('_inspect')) return 'search'
@@ -93,23 +97,6 @@ function questionDetail(value: unknown): string {
   return ''
 }
 
-function liveReasoningDetail(nodes: readonly ChatNode[]): string {
-  for (let nodeIndex = nodes.length - 1; nodeIndex >= 0; nodeIndex--) {
-    const node = nodes[nodeIndex]
-    if (node?.kind !== 'assistant-step' || node.data.status !== 'running') continue
-    for (let blockIndex = node.data.blocks.length - 1; blockIndex >= 0; blockIndex--) {
-      const block = node.data.blocks[blockIndex]
-      if (block?.kind !== 'reasoning') continue
-      const paragraphs = reasoningText(block.text).split(/\r?\n[\t ]*\r?\n/)
-      for (let paragraphIndex = paragraphs.length - 1; paragraphIndex >= 0; paragraphIndex--) {
-        const detail = normalizeLiveToolDetail(paragraphs[paragraphIndex]?.replaceAll('**', ''))
-        if (detail !== '') return detail
-      }
-    }
-  }
-  return ''
-}
-
 /**
  * One-line task detail from the argument view, read the same way while the
  * arguments stream and after dispatch: the first detail key present with text
@@ -144,7 +131,7 @@ export function processActivity(nodes: readonly ChatNode[]): ProcessActivitySumm
     seen.add(tool.callId)
     const call = isRunningTool(tool) ? tool : tool.call
     if (call !== null) {
-      const kind = activity(call.name)
+      const kind = processActivityForTool(call.name)
       if (isRunningTool(tool) && tool.time >= runningTime) {
         running = kind
         preparing = tool.phase === 'preparing'
@@ -158,7 +145,6 @@ export function processActivity(nodes: readonly ChatNode[]): ProcessActivitySumm
   for (const node of nodes) {
     if (node.kind === 'tool-call') visit(node.data.root)
   }
-  if (running === undefined) runningDetail = liveReasoningDetail(nodes)
   return {
     counts: [...counts].map(([kind, count]) => ({ kind, count })).sort((a, b) => b.count - a.count),
     running,

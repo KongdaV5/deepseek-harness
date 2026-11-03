@@ -4,7 +4,7 @@
  * row components read via props.useStore.
  */
 import { defineStore, type EngineStoreHandle } from '@deepseek-ai/dsh-client-store'
-import { DEFAULT_FONT_SIZES, type FontFamilies, type FontSizes, type ThemePreference } from '../theme-settings.ts'
+import { DEFAULT_FONT_SIZE, DEFAULT_FONT_SIZES, type FontFamilies, type FontSizes, type ThemePreference } from '../theme-settings.ts'
 
 /** Store state mirrored from the theme snapshot. */
 export interface AppearanceRowState {
@@ -38,6 +38,8 @@ export function createAppearanceRowStore(): EngineStoreHandle<AppearanceRowState
 
 /** Store state mirrored from the theme snapshot's fonts (shared by the font-size row and the font settings group). */
 export interface FontRowState {
+  /** Persisted global interface-size reference in px. */
+  interfaceFontSize: number
   /** Persisted font sizes in px by role. */
   fontSizes: FontSizes
   /** Persisted normalized font lists by role. */
@@ -48,7 +50,7 @@ export interface FontRowState {
 
 /** Declared action shape giving the exported factory a stable return type. */
 type FontRowActions = {
-  sync: (draft: FontRowState, fontSizes: FontSizes, fontFamilies: FontFamilies, revision: number) => void
+  sync: (draft: FontRowState, interfaceFontSize: number, fontSizes: FontSizes, fontFamilies: FontFamilies, revision: number) => void
 }
 
 /**
@@ -57,10 +59,11 @@ type FontRowActions = {
  */
 export function createFontRowStore(): EngineStoreHandle<FontRowState, FontRowActions> {
   return defineStore({
-    init: (): FontRowState => ({ fontSizes: DEFAULT_FONT_SIZES, fontFamilies: { text: '', code: '', terminal: '' }, revision: -1 }),
+    init: (): FontRowState => ({ interfaceFontSize: DEFAULT_FONT_SIZE, fontSizes: DEFAULT_FONT_SIZES, fontFamilies: { text: '', code: '', terminal: '' }, revision: -1 }),
     actions: {
-      sync: (d, fontSizes: FontSizes, fontFamilies: FontFamilies, revision: number) => {
+      sync: (d, interfaceFontSize: number, fontSizes: FontSizes, fontFamilies: FontFamilies, revision: number) => {
         if (revision <= d.revision) return
+        d.interfaceFontSize = interfaceFontSize
         d.fontSizes = fontSizes
         d.fontFamilies = fontFamilies
         d.revision = revision

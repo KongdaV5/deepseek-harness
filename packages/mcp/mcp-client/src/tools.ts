@@ -246,7 +246,7 @@ export function createMcpToolDefinition(
   }
 }
 
-/** Build the canonical result schema and existing Native text projection. */
+/** Build the canonical result schema and model-visible MCP text/structured projection. */
 function createOutput(rawName: string, structuredSchema: JsonSchemaNode | undefined): ToolDefinition['output'] {
   return {
     schema: {
@@ -260,7 +260,7 @@ function createOutput(rawName: string, structuredSchema: JsonSchemaNode | undefi
     },
     render(_args: unknown, value: JsonValue) {
       const result = value as McpResult
-      return [{ type: 'text', text: extractText(result.content, rawName) }]
+      return [{ type: 'text', text: extractText(result.content, rawName) }, ...structuredProjection(result)]
     },
   }
 }
@@ -305,12 +305,31 @@ function createExecutor(
         : {},
     }
     if (containsImage(content)) {
-      const fallback: ContentBlock[] = [{ type: 'text', text: extractText(content, rawName) }]
-      const projected = await prepareImageProjection(ctx, exec, content, rawName)
+      const structured = structuredProjection(value)
+      const fallback: ContentBlock[] = [{ type: 'text', text: extractText(content, rawName) }, ...structured]
+      const projected = [...await prepareImageProjection(ctx, exec, content, rawName), ...structured]
       projections.set(exec, { value, fallback, content: projected })
     }
     return value
   }
+}
+
+/** Expose structured facts to native model calls without duplicating an existing JSON text block.
+ * Programmatic results retain the original MCP value; images still use canonical admission.
+ * @param result - Validated MCP result.
+ * @returns A JSON text block only when the server has not already serialized the same facts.
+ */
+function structuredProjection(result: McpResult): ContentBlock[] {
+  if (result.structuredContent === undefined) return []
+  for (const block of result.content) {
+    if (!isRecord(block) || block.type !== 'text' || typeof block.text !== 'string') continue
+    try {
+      if (isDeepStrictEqual(JSON.parse(block.text), result.structuredContent)) return []
+    } catch {
+      // Human-readable summaries do not replace model-visible structured identities.
+    }
+  }
+  return [{ type: 'text', text: `Structured result:\n${JSON.stringify(result.structuredContent)}` }]
 }
 
 /** Whether an untrusted MCP content array contains a declared image block. */

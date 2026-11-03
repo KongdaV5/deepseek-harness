@@ -1,0 +1,14 @@
+[
+  {
+    "kind": "throw",
+    "chunks": [],
+    "message": "Local context admission rejected before inference: input=34157, declared=32768, server=65536, margin=4096, requestedOutput=8192, availableOutput=-5485, minimumOutput=1024",
+    "code": "CONTEXT_WINDOW_EXCEEDED"
+  },
+  {
+    "kind": "throw",
+    "chunks": [],
+    "message": "Local context admission rejected before inference: fixed tool and system input exceeds available compaction capacity",
+    "code": "CONTEXT_WINDOW_EXCEEDED"
+  }
+]

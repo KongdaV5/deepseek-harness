@@ -178,6 +178,8 @@ export function readWorkspaceManifests(repositoryRoot: string): WorkspaceManifes
 }
 
 const packageFileExtras: Readonly<Record<string, readonly string[]>> = {
+  // Scoped event admission exposes its package-owned runtime invariant companion.
+  '@deepseek-ai/dsh-scope': ['lib/invariant.js'],
   // CUA publishes its client API and attributed native source for local macOS builds.
   '@deepseek-ai/dsh-cua': ['lib/api.js', 'lib/bridge.js', 'lib/native-client.js', 'lib/protocol.js'],
   '@deepseek-ai/dsh-experimental-cua-macos': ['native/bin', 'native/Package.swift', 'native/Sources', 'native/tests/swift', 'native/tests/test_swift.py', 'native/LICENSE.cua-driver', 'native/upstream.json', 'native/README.md', 'native/README.zh.md', 'native/protocol.schema.json'],
@@ -241,7 +243,7 @@ const packageFileExtras: Readonly<Record<string, readonly string[]>> = {
   // resolve at install time, before the build produces lib/bin.js.
   '@deepseek-ai/dsh-experimental-webworker-packer': ['bin.js', 'lib/repository-*.js'],
   // Startup and runtime share the advertised URL parser.
-  '@deepseek-ai/dsh-web-app': ['lib/public-url-*.js'],
+  '@deepseek-ai/dsh-web-app': ['lib/public-url-*.js', 'presets/compositions/standard.yml'],
   // The headless entry and its startup row share the JSON projection code
   // through a hashed tsdown chunk; both import it by relative path.
   '@deepseek-ai/dsh-headless': ['lib/json-stream-*.js'],
@@ -584,7 +586,8 @@ const runtimeDependencySections = ['dependencies', 'optionalDependencies', 'peer
 
 /**
  * Prevent an official runtime from requiring an experimental package. The dsh installation's `dependencies`
- * may hold the bundles the launcher's `OPTIONAL_BUNDLES` names: shipped switched off, they are not a requirement
+ * may hold the bundles the launcher's `OPTIONAL_BUNDLES` names; those bundles may in turn depend on an
+ * experimental package. Both edges stay dormant until the user activates the optional bundle
  * ([rationale](../.agents/notes/implemented/process/2026-09-15-shipped-optional-bundles.md)).
  * @param manifests - release, private experimental, and deployment-root manifests.
  * @param optionalBundles - the bundles the installation ships switched off; the launcher's list by default.
@@ -601,12 +604,13 @@ export function checkExperimentalDependencyIsolation(
   for (const { dir, manifest } of manifests) {
     if (!standardReleaseMemberDirectory.test(dir) && dir !== 'python/sdk-runtime') continue
     const offered = manifest.name === '@deepseek-ai/dsh' ? new Set(optionalBundles) : new Set<string>()
+    const optionalBundle = manifest.name !== undefined && optionalBundles.includes(manifest.name)
     for (const section of runtimeDependencySections) {
       for (const [name, range] of Object.entries(manifest[section] ?? {})) {
         const experimental = experimentalNames.has(name) || isExperimentalPackageName(name)
           || /^(?:npm:|workspace:)/.test(range) && hasExperimentalPackageReference(range)
         if (!experimental) continue
-        if (section === 'dependencies' && offered.has(name)) continue
+        if (section === 'dependencies' && (offered.has(name) || optionalBundle)) continue
         errors.push(`${manifest.name ?? dir}: ${section}.${name} must not reference an experimental package`)
       }
     }

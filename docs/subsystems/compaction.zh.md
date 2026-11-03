@@ -209,6 +209,43 @@ Types: [CommandId](commands.zh.md) · [SessionSeq](session.zh.md)
 
 Source: [`packages/compaction/compaction/src/index.ts`](../../packages/compaction/compaction/src/index.ts)
 
+<a id="ctxcompactioncandidatepolicy--compactioncandidatepolicy"></a>
+
+### `ctx.compactionCandidatePolicy` — `CompactionCandidatePolicy`
+
+An optional, task-agnostic policy a compaction backend may consult.
+
+A backend that finds no registered policy behaves exactly as it did before this seam existed. A backend that finds one still owns selection, pricing, summarization, stability validation, and publication; the policy only advises and gates.
+
+```ts cordis-catalog
+/**
+ * Decide whether this operation may proceed, before anything destructive.
+ *
+ * Runs before any tool-result pruning or truncation, so a refusal never
+ * leaves the surface already narrowed for an operation that then declined.
+ * @param input - the session, the entry, and already-priced read-only facts.
+ * @returns the admission decision.
+ */
+assess(input: CompactionAssessInput): CompactionPolicyAdmission | Promise<CompactionPolicyAdmission>
+
+/**
+ * Open the policy transaction for an admitted operation.
+ *
+ * Runs after the backend's durable bracket exists and before the first
+ * summarization request, so the policy can capture exactly the authority it
+ * will later re-check at publication.
+ * @param input - the admitted operation and its selected span.
+ * @returns the live transaction.
+ * @throws when the authority the policy would protect cannot be read, which
+ *   fails the compaction closed before any model call.
+ */
+begin(input: CompactionBeginInput): CompactionPolicyTransaction | Promise<CompactionPolicyTransaction>
+```
+
+Types: [CompactionAssessInput](../custom-foundation.zh.md) · [CompactionBeginInput](../custom-foundation.zh.md) · [CompactionPolicyAdmission](../custom-foundation.zh.md) · [CompactionPolicyTransaction](../custom-foundation.zh.md)
+
+Source: [`packages/compaction/compaction/src/candidate-policy.ts`](../../packages/compaction/compaction/src/candidate-policy.ts)
+
 <a id="ctxtoolresultpruner--toolresultpruner"></a>
 
 ### `ctx.toolResultPruner` — `ToolResultPruner`

@@ -225,6 +225,12 @@ export interface LlmProviderInfo {
   id: string
   /** Human-readable provider name for selectors and diagnostics. */
   name: string
+  /**
+   * Whether new user-facing model selections may choose this route. Omission
+   * means yes; false keeps it available to stored selections while hiding it
+   * from new model choices.
+   */
+  selectable?: boolean
 }
 
 /** Merge-extensible provider model modality vocabulary. */
@@ -254,6 +260,8 @@ export interface LlmConfigurableProvider {
    * object; empty when the whole section is the profile.
    */
   settingsPath: readonly string[]
+  /** Whether configuration surfaces should offer this route for new selections. */
+  selectable?: boolean
   /**
    * Whether the owning adapter knows this route only because configuration
    * declared it — a gateway or self-hosted server it ships nothing about.

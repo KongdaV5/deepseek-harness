@@ -113,7 +113,8 @@ describe.skipIf(webSnapshotMode() === 'record').each([
         models: provider.models,
       }])),
     })
-    browser = await engine.launch()
+    const executablePath = process.env.DSH_PLAYWRIGHT_EXECUTABLE_PATH
+    browser = await engine.launch(engine === chromium && executablePath !== undefined ? { executablePath } : {})
     page = await browser.newPage({ viewport: { width: 1680, height: 1000 }, locale: ZH_BROWSER_LOCALE })
     await page.addInitScript(() => {
       window.__modelMenuRectReads = 0
@@ -148,7 +149,7 @@ describe.skipIf(webSnapshotMode() === 'record').each([
     for (const entry of ['button', 'command'] as const) {
       const composer = page.locator('[data-composer-input]').first()
       const surface = entry === 'button'
-        ? page.getByRole('group', { name: '模型与推理等级', exact: true })
+        ? page.getByRole('group', { name: '模型、推理等级与执行预设', exact: true })
         : page.locator('[aria-label="/model 选项"]')
       const viewport = entry === 'button'
         ? surface.getByRole('menu', { name: '模型', exact: true })
@@ -159,7 +160,6 @@ describe.skipIf(webSnapshotMode() === 'record').each([
       const open = async (): Promise<void> => {
         if (entry === 'button') {
           await page.getByRole('button', { name: /^选择模型/ }).click()
-          await page.getByRole('menuitem', { name: /^模型/ }).click()
         } else {
           await page.getByRole('button', { name: '添加文件或调用指令', exact: true }).click()
           await page.getByRole('option', { name: /^模型/ }).click()
@@ -174,7 +174,6 @@ describe.skipIf(webSnapshotMode() === 'record').each([
       const close = async (): Promise<void> => {
         if (crashed || page.isClosed() || await surface.count() === 0) return
         await search.press('Escape')
-        if (entry === 'button') await page.keyboard.press('Escape')
         await surface.waitFor({ state: 'detached' })
         await composer.fill('')
       }
