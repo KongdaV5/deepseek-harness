@@ -14,7 +14,6 @@
               patches:
                 - id: persona
                   config:
-                    suffix: Your working directory is {{cwd}}.
                     prefix: You are a helpful general-task assistant powered by the {{model}} model.
                 - id: skill-filesystem
                   config:
@@ -34,7 +33,6 @@
               patches:
                 - id: persona
                   config:
-                    suffix: Your working directory is {{cwd}}.
                     prefix: You are an Amazon operations assistant powered by the {{model}} model. Use the available Amazon Skills for ads, listings, product research, and images.
                 - id: skill-filesystem
                   config:
@@ -63,7 +61,6 @@
                     mode: ptc
                 - id: persona
                   config:
-                    suffix: Your working directory is {{cwd}}.
                     prefix: You are a software and script development agent powered by the {{model}} model. Use shell, filesystem, search, editing, and project tools as needed.
                 - id: skill-filesystem
                   config:
@@ -91,7 +88,6 @@
                     mode: ptc
                 - id: persona
                   config:
-                    suffix: Your working directory is {{cwd}}.
                     prefix: >-
                       You handle GitHub repository and Cloudflare/Workers work, powered by the {{model}} model.
                       Use available Shell tools for Git and GitHub CLI operations, and use the loaded Cloudflare Skills as guidance.
