@@ -3,28 +3,33 @@ import type { ConversationWidthControlsProps } from '../contract/slots.ts'
 import css from './ConversationRoot.module.css'
 
 /** localStorage key for the dragged transcript width preference (px). */
-const WIDTH_PREF_KEY = 'dsh.conversation.contentWidth'
+const WIDTH_PREF_KEY = 'dsh.conversation.contentWidth.manual'
+const LEGACY_WIDTH_PREF_KEY = 'dsh.conversation.contentWidth'
 /** Floor for a dragged content width; matches the layout center-column minimum. */
 const CONTENT_MIN = 640
 /** Horizontal room reserved for both handles and their safe edge zones. */
-const CONTENT_EDGE_BUDGET = 176
+const CONTENT_EDGE_BUDGET = 116
 const WHEEL_DELTA_LINE = 1
 const WHEEL_DELTA_PAGE = 2
 const FALLBACK_WHEEL_LINE_PX = 16
 
 /** Read a valid persisted width preference, or null when absent or corrupt. */
-function readWidthPreference(): number | null {
-  const raw = localStorage.getItem(WIDTH_PREF_KEY)
+function readWidthPreference(key: string): number | null {
+  const raw = localStorage.getItem(key)
   if (raw === null) return null
   const value = Number(raw)
   return Number.isFinite(value) && value > 0 ? value : null
 }
 
 /** Resolve the width displayed for one measured Conversation column. */
-function resolveContentWidth(columnWidth: number, preference: number | null): number {
-  const max = Math.max(CONTENT_MIN, columnWidth - CONTENT_EDGE_BUDGET)
+function resolveContentWidth(columnWidth: number, preference = readWidthPreference(WIDTH_PREF_KEY)): number {
+  const max = Math.min(Math.max(0, columnWidth - 32), Math.max(680, columnWidth - CONTENT_EDGE_BUDGET))
   if (preference !== null) return Math.min(Math.max(preference, CONTENT_MIN), max)
-  return Math.max(680, Math.min(columnWidth * 0.64, 920))
+  const legacy = readWidthPreference(LEGACY_WIDTH_PREF_KEY)
+  const baseline = legacy === null
+    ? Math.max(680, Math.min(columnWidth * 0.64, 920))
+    : Math.min(Math.max(legacy, CONTENT_MIN), Math.max(CONTENT_MIN, columnWidth - 176))
+  return Math.min(Math.round(baseline + Math.max(0, columnWidth - baseline) / 3), max)
 }
 
 /** Convert a wheel event's vertical delta to scrollport pixels. */
@@ -137,10 +142,7 @@ export function ConversationWidthControls({ container, phase }: ConversationWidt
   const publishWidths = useCallback((container: HTMLDivElement): void => {
     const target = container.parentElement ?? container
     const column = container.offsetWidth
-    target.style.setProperty('--dsh-conversation-column-width', `${column}px`)
-    const preference = readWidthPreference()
-    if (preference === null) target.style.removeProperty('--dsh-chat-user-width')
-    else target.style.setProperty('--dsh-chat-user-width', `${resolveContentWidth(column, preference)}px`)
+    if (column > 0) target.style.setProperty('--dsh-chat-user-width', `${resolveContentWidth(column)}px`)
   }, [])
 
   useLayoutEffect(() => {
@@ -153,7 +155,7 @@ export function ConversationWidthControls({ container, phase }: ConversationWidt
 
   const onStart = useCallback((): number => {
     if (container === null) return 680
-    return resolveContentWidth(container.offsetWidth, readWidthPreference())
+    return resolveContentWidth(container.offsetWidth)
   }, [container])
   const onDrag = useCallback((width: number): void => {
     if (container === null) return
