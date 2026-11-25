@@ -3,12 +3,45 @@ import { useSyncExternalStore } from 'react'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, expect, it, vi } from 'vitest'
 import type { ComputerUseStatus } from '@deepseek-ai/dsh-custom-computer-use-safety/types'
-import { ComputerUseSettings } from '../src/client/controls.tsx'
+import { ComputerUseActivity, ComputerUseSettings } from '../src/client/controls.tsx'
 import { ComputerUseModel, type Snapshot } from '../src/client/model.ts'
 import { en } from '../src/client/locales.ts'
 afterEach(cleanup)
 const idle: ComputerUseStatus = { driver: 'ready', accessibility: 'not-requested', screenRecording: 'not-requested',
   permissionOwner: 'CuaDriver (com.trycua.driver)', lease: { state: 'released', stop: 'running', inFlight: 0, actApproved: false } }
+
+it('keeps the composer clear at idle and offers Stop during desktop work even when the composer is locked', () => {
+  const stop = vi.fn(async () => idle)
+  const model = new ComputerUseModel({ status: stop, stop, requestPermissions: stop, checkPermissions: stop, resume: stop })
+  function activity(state: Snapshot) {
+    return <ComputerUseActivity locked onActiveChange={() => {}} useComputerUse={select => select(state)}
+      model={model} t={key => en[key]} />
+  }
+  const composer = render(activity({}))
+  expect(composer.container.textContent).toBe('')
+  composer.rerender(activity({ status: idle }))
+  expect(composer.container.textContent).toBe('')
+
+  composer.rerender(activity({ status: { ...idle, lease: { ...idle.lease, state: 'active', inFlight: 1 } } }))
+  expect(screen.getByRole('status').textContent).toBe('Computer use active')
+  fireEvent.click(screen.getByRole('button', { name: 'Stop all computer use' }))
+  expect(stop).toHaveBeenCalledOnce()
+
+  composer.rerender(activity({ status: { ...idle, lease: { ...idle.lease, state: 'draining', stop: 'stopping', inFlight: 1 } } }))
+  expect(screen.getByRole('status').textContent).toBe('Stopping computer use')
+  expect(screen.getByRole('button', { name: 'Stop all computer use' })).toBeTruthy()
+
+  composer.rerender(activity({ status: { ...idle, lease: { ...idle.lease, stop: 'stopped' } } }))
+  expect(screen.getByRole('status').textContent).toBe('Computer use stopped')
+  expect(screen.queryByRole('button')).toBeNull()
+  composer.rerender(activity({ error: 'host-unavailable' }))
+  expect(screen.getByRole('status').textContent).toBe('Computer use status unavailable')
+  expect(screen.getByRole('button', { name: 'Stop all computer use' })).toBeTruthy()
+  composer.rerender(activity({ status: idle }))
+  expect(composer.container.textContent).toBe('')
+  model.dispose()
+})
+
 it('never prompts on mount; permission and Stop remain separate explicit user operations', async () => {
   const status = vi.fn(async () => idle)
   const checked = Promise.withResolvers<ComputerUseStatus>()

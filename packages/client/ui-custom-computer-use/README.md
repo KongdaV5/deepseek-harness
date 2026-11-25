@@ -9,9 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-The optional bundle mounts a Computer Use tab in Plugins settings and places its status and compact Global Stop control in every visible Session composer before the model selector and Send. These controls use canonical Remote operations. Enablement stays with the standard Plugins bundle list. No renderer lease or runtime manager exists.
-
-The composer control labels itself Computer Use and reports the lease separately from Global Stop: an idle lease is not a Local runtime status, and Global Stop is shown as not engaged, stopping or engaged from the Host snapshot.
+Computer Use controls appear in Plugins settings. The Session composer stays clear while the desktop is idle and ready for work. During desktop activity, the composer shows a short status and a one-click global stop.
 
 ## Table of Contents
 
@@ -27,7 +25,7 @@ The composer control labels itself Computer Use and reports the lease separately
 <a id="use-this-package"></a>
 ## Use this package
 
-The optional bundle mounts a Computer Use tab in Plugins settings and places its status and compact Global Stop control in every visible Session composer before the model selector and Send. These controls use canonical Remote operations. Enablement stays with the standard Plugins bundle list. No renderer lease or runtime manager exists.
+Open Plugins → Computer Use for permission checks, lease details, Global Stop and Resume. The composer also provides Stop while work is stopping, blocked or its status is unavailable. When Stop has engaged and the desktop has been released, the composer shows only the stopped status. Enablement stays with the standard Plugins bundle list.
 
 -----
 

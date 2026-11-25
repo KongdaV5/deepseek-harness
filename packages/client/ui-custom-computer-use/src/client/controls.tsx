@@ -11,23 +11,34 @@ export interface ControlsInjected { hooks: { computerUse: ComputerUseModel }; mo
  * @param props - Observable Host facts and explicit user operations.
  * @returns The labeled status and explicit Stop action.
  */
-export function ComputerUseStop({ useComputerUse, model, t, presentation = 'settings' }: InjectFace<ControlsInjected> & {
-  presentation?: 'settings' | 'toolbar'
-}) {
+export function ComputerUseStop({ useComputerUse, model, t }: InjectFace<ControlsInjected>) {
   const state = useComputerUse(value => value)
-  const toolbar = presentation === 'toolbar'
-  return <div className={toolbar ? css.toolbar : css.settingsStop} role="group" aria-label={t('title')}>
-    <span className={toolbar ? css.toolbarStatus : css.settingsStatus} role="status">{state.error !== undefined ? t('failed') : state.status === undefined ? t('loading') :
+  return <div className={css.settingsStop} role="group" aria-label={t('title')}>
+    <span className={css.settingsStatus} role="status">{state.error !== undefined ? t('failed') : state.status === undefined ? t('loading') :
       `${t('status.computerUse')} · ${t('status.lease')}: ${t(state.status.lease.state)} · ${t('status.globalStop')}: ${t(state.status.lease.stop)}${state.status.lease.owner === undefined ? '' : ` · ${state.status.lease.owner.sessionId}`}`}</span>
-    <Button size={toolbar ? 'sm' : 'md'} className={toolbar ? css.toolbarStop : undefined}
-      onClick={() => { void model.run(() => model.operations.stop()) }}>{t('stop')}</Button>
+    <Button onClick={() => { void model.run(() => model.operations.stop()) }}>{t('stop')}</Button>
   </div>
 }
 
-/** Keep Host stop status in the persistent composer action row. */
-export function ComputerUseActivity(props: PropsRuntime<'conversation.input.activity'> & InjectFace<ControlsInjected>) {
-  const { useComputerUse, model, t } = props
-  return <ComputerUseStop useComputerUse={useComputerUse} model={model} t={t} presentation="toolbar" />
+/** Keep Stop within reach while desktop work or its outcome needs attention. */
+export function ComputerUseActivity({ useComputerUse, model, t }: PropsRuntime<'conversation.input.activity'> & InjectFace<ControlsInjected>) {
+  const { status, error } = useComputerUse(value => value)
+  const lease = status?.lease
+  const released = lease?.state === 'released' && lease.inFlight === 0
+  if (error === undefined && (lease === undefined || (released && lease.stop === 'running'))) return null
+
+  const stopped = released && lease.stop === 'stopped'
+  const label = error !== undefined || lease === undefined ? 'activityUnavailable'
+    : stopped ? 'activityStopped'
+      : lease.stop === 'stopping' ? 'activityStopping'
+        : lease.state === 'poisoned' ? 'activityBlocked'
+          : lease.state === 'draining' ? 'activityFinishing'
+            : 'activityActive'
+  return <div className={css.toolbar} role="group" aria-label={t('title')}>
+    <span className={css.toolbarStatus} role="status">{t(label)}</span>
+    {stopped ? null : <Button size="sm" className={css.toolbarStop} aria-label={t('stopComputerUse')}
+      onClick={() => { void model.run(() => model.operations.stop()) }}>{t('stopShort')}</Button>}
+  </div>
 }
 /** Settings read permission grants only on an explicit button press.
  * @param props - Redacted facts and user control closures.
