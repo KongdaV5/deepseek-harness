@@ -16,6 +16,10 @@ import { writeCrashReport } from '../src/crash-report.ts'
 type InvokeEvent = { sender?: unknown; senderFrame: { url: string } }
 type InvokeHandler = (event: InvokeEvent, ...args: unknown[]) => unknown
 
+vi.mock('node:os', async importOriginal => ({
+  ...await importOriginal<typeof import('node:os')>(),
+  userInfo: () => ({ homedir: '/desktop-test-machine-home' }),
+}))
 vi.mock('../src/web-document.ts', () => ({ authenticateWebHost: async () => 'test-cookie', serveWebDocument: vi.fn(), forwardWebRequest: vi.fn() }))
 // Report persistence has its own unit tests; here it resolves within microtasks so the fatal
 // dialog never outlives the test that triggered it.
@@ -2436,7 +2440,7 @@ it('opens the Custom Local-first workspace without DeepSeek account onboarding o
   await harness.navigated.promise
   expect(watchAccount).not.toHaveBeenCalled()
   expect(harness.hosts[0]?.fetch).not.toHaveBeenCalled()
-  expect(harness.app.setName).toHaveBeenCalledWith('DS Harness')
+  expect(harness.app.setName).toHaveBeenCalledWith('DeepSeek Harness')
   expect(await invoke(DESKTOP_IPC.onboardingApiKey, 'app')).toBe(false)
   expect(harness.updateEnabled?.()).toBe(false)
 })

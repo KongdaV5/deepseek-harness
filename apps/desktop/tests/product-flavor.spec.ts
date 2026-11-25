@@ -58,7 +58,7 @@ describe('desktop product flavor', () => {
   })
   it('packages the shared Custom identity without official updater or release credentials for a candidate', () => {
     const config = createElectronBuilderConfig({ DSH_DESKTOP_PRODUCT_FLAVOR: 'ds-harness', DSH_DESKTOP_CANDIDATE: '1' }, 'darwin', 'arm64')
-    expect(config).toMatchObject({ appId: 'dev.dsh.desktop.custom', productName: 'DS Harness',
+    expect(config).toMatchObject({ appId: 'dev.dsh.desktop.custom', productName: 'DeepSeek Harness',
       extraMetadata: { dshDesktopProductFlavor: 'ds-harness', dshDesktopCandidate: true }, publish: null,
       mac: { identity: '-', notarize: false } })
     expect(config.directories.output).toContain('candidate-artifacts')
@@ -84,7 +84,7 @@ describe('desktop product flavor', () => {
       .toBe(join(root, '.dsh', 'profiles', 'desktop'))
   })
 
-  it('selects the complete isolated DS Harness identity from packaged metadata', () => {
+  it('selects the isolated Custom identity when the product name matches the official flavor', () => {
     const root = temporaryRoot()
     const flavor = resolveDesktopRuntimeProductFlavor(true, {
       dshDesktopProductFlavor: 'ds-harness',
@@ -93,12 +93,12 @@ describe('desktop product flavor', () => {
     const { app, paths } = fakeApp(root)
     applyDesktopProductIdentity(app, flavor)
     expect(flavor).toMatchObject({
-      id: 'ds-harness', productName: 'DS Harness', appId: 'dev.dsh.desktop.custom',
+      id: 'ds-harness', productName: 'DeepSeek Harness', appId: 'dev.dsh.desktop.custom',
       profileName: 'desktop-custom', updateBehavior: 'disabled',
     })
     expect(paths.get('userData')).toBe(join(root, '@deepseek-ai', 'dsh-harness-custom', 'electron'))
     expect(paths.get('sessionData')).toBe(join(root, '@deepseek-ai', 'dsh-harness-custom', 'electron'))
-    expect(app.setName).toHaveBeenCalledWith('DS Harness')
+    expect(app.setName).toHaveBeenCalledWith('DeepSeek Harness')
     expect(resolveDesktopPaths(join(root, '.dsh'), flavor.profileName).profile)
       .toBe(join(root, '.dsh', 'profiles', 'desktop-custom'))
   })

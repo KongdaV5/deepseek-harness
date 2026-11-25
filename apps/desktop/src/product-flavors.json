@@ -8,7 +8,7 @@
     "artifactPrefix": "deepseek-harness"
   },
   "ds-harness": {
-    "productName": "DS Harness",
+    "productName": "DeepSeek Harness",
     "appId": { "mode": "fixed", "value": "dev.dsh.desktop.custom" },
     "profileName": "desktop-custom",
     "userData": {
