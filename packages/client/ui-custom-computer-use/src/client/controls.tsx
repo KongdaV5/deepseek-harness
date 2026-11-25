@@ -21,7 +21,7 @@ export function ComputerUseStop({ useComputerUse, model, t }: InjectFace<Control
 }
 
 /** Keep Stop within reach while desktop work or its outcome needs attention. */
-export function ComputerUseActivity({ useComputerUse, model, t }: PropsRuntime<'conversation.input.activity'> & InjectFace<ControlsInjected>) {
+export function ComputerUseActivity({ useComputerUse, model, t }: Pick<PropsRuntime<'conversation.input.activity'>, 'locked'> & InjectFace<ControlsInjected>) {
   const { status, error } = useComputerUse(value => value)
   const lease = status?.lease
   const released = lease?.state === 'released' && lease.inFlight === 0

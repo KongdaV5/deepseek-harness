@@ -14,7 +14,7 @@ it('keeps the composer clear at idle and offers Stop during desktop work even wh
   const stop = vi.fn(async () => idle)
   const model = new ComputerUseModel({ status: stop, stop, requestPermissions: stop, checkPermissions: stop, resume: stop })
   function activity(state: Snapshot) {
-    return <ComputerUseActivity locked onActiveChange={() => {}} useComputerUse={select => select(state)}
+    return <ComputerUseActivity locked useComputerUse={select => select(state)}
       model={model} t={key => en[key]} />
   }
   const composer = render(activity({}))
